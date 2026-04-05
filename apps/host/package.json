@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:browser": "start-server-and-test \"pnpm dev\" http://127.0.0.1:3000 \"vitest run --config vitest.browser.config.ts\"",
+    "test": "pnpm test:browser"
   },
   "dependencies": {
     "@mantine/core": "^7.17.8",
@@ -25,6 +27,9 @@
     "@types/react-dom": "^18.3.5",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.33",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "playwright": "^1.54.2",
+    "start-server-and-test": "^2.0.10",
+    "vitest": "^2.1.8"
   }
 }
