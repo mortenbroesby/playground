@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "servers": {
+    "filesystem": {
+      "description": "Read/write workspace files",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ]
+    },
+    "git": {
+      "description": "Inspect branches, commits, and diffs",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@modelcontextprotocol/server-git",
+        "--repository",
+        "."
+      ]
+    },
+    "github": {
+      "description": "GitHub API access (requires GITHUB_TOKEN)",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "fetch": {
+      "description": "Fetch and summarize web pages",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@modelcontextprotocol/server-fetch"
+      ]
+    },
+    "memory": {
+      "description": "Persistent memory store",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "postgres": {
+      "description": "PostgreSQL access (requires DATABASE_URL)",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@modelcontextprotocol/server-postgres"
+      ],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    },
+    "puppeteer": {
+      "description": "Browser automation for screenshots and scraping",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@modelcontextprotocol/server-puppeteer"
+      ]
+    }
+  }
+}
