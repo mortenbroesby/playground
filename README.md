@@ -1,55 +1,71 @@
-# playground
+<![CDATA[# playground
 
-A monorepo playground for experimenting with **multi-agent Claude Code workflows**.
+<p align="center">
+  <img src="https://img.shields.io/badge/turborepo-2.x-EF4444?style=flat-square&logo=turborepo&logoColor=white" alt="Turborepo" />
+  <img src="https://img.shields.io/badge/pnpm-9.x-F69220?style=flat-square&logo=pnpm&logoColor=white" alt="pnpm" />
+  <img src="https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Node-24_LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="MIT License" />
+  <img src="https://img.shields.io/github/last-commit/mortenbroesby/playground?style=flat-square&logo=github" alt="Last Commit" />
+</p>
 
-Built with [pnpm](https://pnpm.io) workspaces + [Turborepo](https://turbo.build) — and scaffolded by parallel Claude agents working simultaneously in VS Code.
+<p align="center">
+  A monorepo playground for experimenting with <strong>multi-agent Claude Code workflows</strong>.<br/>
+  Built with pnpm workspaces + Turborepo — scaffolded by parallel AI agents working simultaneously in VS Code.
+</p>
+
+---
+
+## What's inside
+
+| Workspace | Package | Description |
+|:---|:---|:---|
+| [`apps/claude-agents`](apps/claude-agents/README.md) | `@playground/claude-agents` | Claude Code plugin marketplace — 75 plugins, 182 agents, 147 skills |
+| [`packages/ui`](packages/ui) | `@playground/ui` | Shared React component library |
+| [`packages/config`](packages/config) | `@playground/config` | Shared ESLint + TSConfig packages |
+
+## Quick start
+
+```bash
+# 1. Install pnpm (if needed)
+npm install -g pnpm@9
+
+# 2. Install all workspace dependencies
+pnpm install
+
+# 3. Build everything (Turborepo resolves dependency order automatically)
+pnpm turbo build
+```
+
+Other commands:
+
+```bash
+pnpm turbo type-check   # TypeScript across all packages
+pnpm turbo lint         # ESLint across all packages
+pnpm turbo dev          # Start all dev servers in parallel
+```
 
 ## How this was built
 
-This repo was assembled using Claude Code's parallel sub-agent dispatch. Rather than one agent working sequentially, the orchestrator spawned multiple agents simultaneously — each owning an isolated workspace with zero file overlap:
+Rather than working sequentially, this repo was assembled by a Claude Code **orchestrator** that dispatched parallel sub-agents — each owning a strict file boundary with zero overlap:
 
 ```
 Orchestrator
-├── Wave 1 (parallel)
-│   ├── root-scaffolder     → turbo.json, pnpm-workspace.yaml, root package.json
-│   ├── config-builder      → packages/config (tsconfig + eslint)
-│   └── claude-agents-mover → apps/claude-agents (existing plugin content)
-├── Wave 2 (after Wave 1)
-│   └── ui-builder          → packages/ui (React component library)
-└── Wave 3 (final)
-    └── readme-writer       → this file
+├── Wave 1 ─ parallel ──────────────────────────────────────────────┐
+│   ├── root-scaffolder     turbo.json · pnpm-workspace.yaml        │
+│   ├── config-builder      packages/config (tsconfig + eslint)     │
+│   └── claude-agents-mover apps/claude-agents (plugin content)     │
+│                                                                    │
+├── Wave 2 ─ after Wave 1 ──────────────────────────────────────────┤
+│   └── ui-builder          packages/ui (React component library)   │
+│                                                                    │
+└── Wave 3 ─ final ─────────────────────────────────────────────────┘
+    └── readme-writer       README.md
 ```
 
-Each agent ran as an independent sub-process in VS Code — visible, parallel, coordinated.
+Each agent ran as an independent sub-process in VS Code — visible, parallel, coordinated. No agent touched another's files.
 
-## Workspaces
-
-| Workspace | Package | Description |
-|---|---|---|
-| [`apps/claude-agents`](apps/claude-agents/README.md) | `@playground/claude-agents` | Claude Code plugin marketplace — 75 plugins, 182 agents, 147 skills |
-| [`packages/config`](packages/config) | `@playground/config` | Shared ESLint + TSConfig packages |
-| [`packages/ui`](packages/ui) | `@playground/ui` | Shared React component library |
-
-## Getting Started
-
-```bash
-# Install pnpm (if not already installed)
-npm install -g pnpm@9
-
-# Install dependencies across all workspaces
-pnpm install
-
-# Build all packages (respects dependency order via Turborepo)
-pnpm turbo build
-
-# Type-check everything
-pnpm turbo type-check
-
-# Lint everything
-pnpm turbo lint
-```
-
-## Adding a New Workspace
+## Adding a workspace
 
 ```bash
 # New app
@@ -59,7 +75,7 @@ mkdir apps/my-app && cd apps/my-app && pnpm init
 mkdir packages/my-package && cd packages/my-package && pnpm init
 ```
 
-Reference shared configs in the new workspace's `package.json`:
+Extend shared configs in the new `package.json`:
 
 ```json
 {
@@ -70,17 +86,32 @@ Reference shared configs in the new workspace's `package.json`:
 }
 ```
 
+## Plugin marketplace
+
+The `apps/claude-agents` workspace ships a full Claude Code plugin marketplace:
+
+- **75 focused plugins** — single-purpose, minimal token footprint
+- **182 specialized agents** — domain experts across architecture, languages, infra, security
+- **147 agent skills** — progressive disclosure knowledge packages
+- **95 commands** — scaffolding, security scanning, test automation
+
+```bash
+/plugin marketplace add wshobson/agents
+/plugin install python-development
+```
+
+→ [Full marketplace docs](apps/claude-agents/README.md)
+
 ## Stack
 
-- **Package manager:** pnpm 9
-- **Build system:** Turborepo 2
-- **Language:** TypeScript 5.7
-- **Node:** 24 LTS
-
-## Plugin Marketplace
-
-The `apps/claude-agents` workspace is a full Claude Code plugin marketplace with 75 focused plugins, 182 specialized agents, and 147 skills. See [apps/claude-agents/README.md](apps/claude-agents/README.md) for installation and usage.
+| Tool | Version | Purpose |
+|:---|:---|:---|
+| [Turborepo](https://turbo.build) | 2.x | Build orchestration + caching |
+| [pnpm](https://pnpm.io) | 9.x | Fast, disk-efficient package management |
+| [TypeScript](https://www.typescriptlang.org) | 5.7 | Type safety across all workspaces |
+| [Node.js](https://nodejs.org) | 24 LTS | Runtime |
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE)
+]]>
