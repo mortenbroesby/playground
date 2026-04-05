@@ -1,0 +1,6 @@
+node_modules/
+apps/claude-agents/docs/
+apps/claude-agents/plugins/
+plugins/
+docs/superpowers/
+CLAUDE.md
