@@ -1,4 +1,4 @@
-<![CDATA[# playground
+# playground
 
 <p align="center">
   <img src="https://img.shields.io/badge/turborepo-2.x-EF4444?style=flat-square&logo=turborepo&logoColor=white" alt="Turborepo" />
@@ -49,7 +49,7 @@ pnpm turbo dev          # Start all dev servers in parallel
 
 Rather than working sequentially, this repo was assembled by a Claude Code **orchestrator** that dispatched parallel sub-agents — each owning a strict file boundary with zero overlap:
 
-```
+```text
 Orchestrator
 ├── Wave 1 ─ parallel ──────────────────────────────────────────────┐
 │   ├── root-scaffolder     turbo.json · pnpm-workspace.yaml        │
@@ -75,7 +75,7 @@ mkdir apps/my-app && cd apps/my-app && pnpm init
 mkdir packages/my-package && cd packages/my-package && pnpm init
 ```
 
-Extend shared configs in the new `package.json`:
+Reference shared configs in the new `package.json`:
 
 ```json
 {
@@ -100,7 +100,7 @@ The `apps/claude-agents` workspace ships a full Claude Code plugin marketplace:
 /plugin install python-development
 ```
 
-→ [Full marketplace docs](apps/claude-agents/README.md)
+See [apps/claude-agents/README.md](apps/claude-agents/README.md) for full docs.
 
 ## Stack
 
@@ -114,4 +114,3 @@ The `apps/claude-agents` workspace ships a full Claude Code plugin marketplace:
 ## License
 
 MIT — see [LICENSE](LICENSE)
-]]>
