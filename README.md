@@ -11,13 +11,19 @@
   <img src="https://img.shields.io/github/last-commit/mortenbroesby/playground?style=flat-square&logo=github" alt="Last Commit" />
 </p>
 
-A monorepo playground for experimenting with **multi-agent Claude Code workflows**.
+A monorepo playground for experimenting with **multi-agent workflows** and a production-minded **micro frontend architecture demo**.
 
 Apps and packages in this repo:
 
-- [claude-agents](./apps/claude-agents) — Claude Code plugin marketplace (75 plugins, 182 agents, 147 skills)
-- [ui](./packages/ui) — Shared React component library
-- [config](./packages/config) — Shared ESLint + TypeScript configs
+- [host](./apps/host) — Next.js orchestration shell for runtime micro frontend composition
+- [todo-input](./apps/todo-input) — independently buildable todo-creation micro frontend
+- [todo-list](./apps/todo-list) — independently buildable list interaction micro frontend
+- [todo-stats](./apps/todo-stats) — independently buildable stats micro frontend
+- [compendium](./apps/compendium) — workspace launchpad shell
+- [claude-agents](./apps/claude-agents) — Claude Code plugin marketplace
+- [types](./packages/types) — shared typed contracts/events used by host + remotes
+- [ui](./packages/ui) — shared React component library
+- [config](./packages/config) — shared ESLint + TypeScript configs
 
 ## Monorepo
 
@@ -29,14 +35,37 @@ This repo uses:
 ## Getting Started
 
 ```bash
-# Install pnpm if needed
-npm install -g pnpm@9
+# Enable pnpm via Corepack if needed
+corepack enable
 
 # Install all workspace dependencies
 pnpm install
 
 # Build all packages
 pnpm turbo build
+```
+
+## Micro frontend demo
+
+The todo demo uses **Next.js as the host orchestrator** and runtime-loaded remote modules from independently owned apps:
+
+- `apps/host` composes remote micro frontends and owns layout, routing, resilience, and shell UX.
+- `apps/todo-input`, `apps/todo-list`, and `apps/todo-stats` each expose a minimal `mount` entrypoint consumed at runtime.
+- `packages/types` defines the durable typed contract (`Todo`, bridge API, and domain events).
+
+Run all dev servers:
+
+```bash
+pnpm dev
+```
+
+Or run only the micro frontend demo stack:
+
+```bash
+pnpm --filter @playground/host dev
+pnpm --filter @playground/todo-input dev
+pnpm --filter @playground/todo-list dev
+pnpm --filter @playground/todo-stats dev
 ```
 
 ## Table of Contents

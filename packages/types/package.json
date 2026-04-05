@@ -1,0 +1,17 @@
+{
+  "name": "@playground/types",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "type-check": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playground/tsconfig": "workspace:*",
+    "typescript": "^5.7.0"
+  }
+}
