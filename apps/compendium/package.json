@@ -1,0 +1,27 @@
+{
+  "name": "@playground/compendium",
+  "version": "0.0.1",
+  "private": true,
+  "description": "React-based micro frontend orchestration shell for workspace applications",
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "14.2.33",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playground/tsconfig": "workspace:*",
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.33",
+    "typescript": "^5.7.0"
+  }
+}
