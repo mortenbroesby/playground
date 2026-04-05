@@ -22,3 +22,9 @@ venv
 node_modules
 .sass-cache
 .claude
+.mcp.json
+
+# Monorepo
+.turbo/
+dist/
+*.tsbuildinfo
