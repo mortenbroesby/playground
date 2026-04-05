@@ -1,0 +1,10 @@
+{
+  "name": "@playground/tsconfig",
+  "version": "0.0.1",
+  "private": true,
+  "files": ["*.json"],
+  "exports": {
+    "./base.json": "./base.json",
+    "./nextjs.json": "./nextjs.json"
+  }
+}
