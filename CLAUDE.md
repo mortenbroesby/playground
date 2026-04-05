@@ -1,27 +1,112 @@
-# Project: claude-agents
+# Project: playground
 
-Claude Code plugin marketplace — 75 focused plugins, 182 agents, 147 skills, 95 commands.
+A pnpm + Turborepo monorepo playground for experimenting with multi-agent Claude Code workflows.
+Houses the claude-agents plugin marketplace alongside shared packages and apps.
 
 ## Repository Structure
 
 ```
-claude-agents/
+playground/
 ├── .claude-plugin/marketplace.json   # Registry of all plugins
-├── plugins/                          # All 72 plugins
-│   ├── <plugin-name>/
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── agents/*.md
-│   │   ├── commands/*.md
-│   │   └── skills/<skill-name>/SKILL.md
-│   └── ...
-├── docs/                             # Documentation
-│   ├── plugins.md                    # Plugin catalog
-│   ├── agents.md                     # Agent reference
-│   ├── agent-skills.md               # Skills reference
-│   ├── usage.md                      # Usage guide
-│   ├── architecture.md               # Design principles
-│   └── plugin-eval.md                # Evaluation framework
-└── tools/                            # Development utilities
+├── apps/
+│   └── claude-agents/                # Plugin marketplace (75 plugins, 182 agents, 147 skills)
+│       ├── plugins/
+│       ├── docs/
+│       └── tools/
+├── packages/
+│   ├── ui/                           # @playground/ui — shared React component library
+│   └── config/                       # @playground/config — shared ESLint + TSConfig
+│       ├── tsconfig/                 # @playground/tsconfig
+│       └── eslint/                   # @playground/eslint-config
+├── plugins/                          # Claude Code plugins (root-level for marketplace)
+│   └── playground/                   # Skills specific to this repo
+├── docs/superpowers/                 # Specs and implementation plans
+├── turbo.json                        # Turborepo pipeline
+└── pnpm-workspace.yaml               # Workspace globs: apps/*, packages/*, packages/config/*
+```
+
+## Skills
+
+### When to use which skill
+
+| Task | Skill |
+|:---|:---|
+| Adding a new plugin, agent, skill, or command | `plugin-authoring` |
+| Scaffolding multiple workspaces in parallel | `wave-orchestration` + `turborepo-workspace-setup` |
+| Adding a single new workspace to the monorepo | `turborepo-workspace-setup` |
+| Parallel feature development across workspaces | `parallel-feature-development` |
+| Complex task decomposition with agent teams | `task-coordination-strategies` |
+| Debugging across workspace boundaries | `parallel-debugging` |
+| Turborepo caching and pipeline optimization | `turborepo-caching` |
+| Monorepo dependency management and scaling | `monorepo-management` |
+
+### Playground skills (this repo)
+
+Install: `/plugin install playground@claude-code-workflows`
+
+- **`plugin-authoring`** — Create new plugins/agents/skills/commands. Covers frontmatter, model tiers, progressive disclosure, PluginEval, and anti-patterns.
+- **`wave-orchestration`** — Dispatch parallel sub-agents in waves with strict file ownership. The pattern used to build this monorepo itself.
+- **`turborepo-workspace-setup`** — Add new apps/packages, wire shared configs, fix pnpm resolution errors, integrate into Turbo pipeline.
+
+### Relevant skills from other plugins
+
+- **`turborepo-caching`** (`developer-essentials`) — Optimize Turborepo local/remote caching, configure outputs, and tune hit rates.
+- **`monorepo-management`** (`developer-essentials`) — Broader monorepo patterns: dependency graph, versioning, workspace boundaries.
+- **`parallel-feature-development`** (`agent-teams`) — Coordinate parallel agents building different layers of the same feature.
+- **`task-coordination-strategies`** (`agent-teams`) — Decompose complex tasks with dependency graphs for multi-agent execution.
+- **`parallel-debugging`** (`agent-teams`) — Investigate issues across workspaces simultaneously with competing hypotheses.
+
+## Monorepo Conventions
+
+### pnpm workspace globs
+
+```yaml
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'packages/config/*'   # required for nested sub-packages
+```
+
+### Turbo pipeline
+
+```json
+{
+  "tasks": {
+    "build":      { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "lint":       {},
+    "type-check": { "dependsOn": ["^build"] },
+    "dev":        { "persistent": true, "cache": false }
+  }
+}
+```
+
+New workspaces auto-join the pipeline when their `package.json` scripts match task names. No edits to `turbo.json` needed.
+
+### Shared configs
+
+```json
+{
+  "devDependencies": {
+    "@playground/tsconfig": "workspace:*",
+    "@playground/eslint-config": "workspace:*"
+  }
+}
+```
+
+Extend in `tsconfig.json`:
+
+```json
+{ "extends": "@playground/tsconfig/base.json" }
+```
+
+### Common commands
+
+```bash
+pnpm install              # install all workspace deps
+pnpm turbo build          # build in dependency order
+pnpm turbo type-check     # TypeScript across all workspaces
+pnpm turbo lint           # ESLint across all workspaces
+pnpm lint:md              # markdownlint on workspace READMEs
 ```
 
 ## Plugin Authoring Conventions
@@ -44,7 +129,6 @@ tools: Read, Grep, Glob # optional — restricts available tools
 skills/<skill-name>/
 ├── SKILL.md              # Required — frontmatter + content
 ├── references/           # Optional — supporting material
-│   └── *.md
 └── assets/               # Optional — templates, configs
 ```
 
@@ -68,7 +152,7 @@ argument-hint: <path> [--flag]
 
 ### plugin.json
 
-Only `name` is required. Agents, commands, and skills are auto-discovered from directory structure.
+Only `name` is required. Agents, commands, and skills are auto-discovered.
 
 ```json
 { "name": "plugin-name" }
@@ -76,78 +160,51 @@ Only `name` is required. Agents, commands, and skills are auto-discovered from d
 
 ### marketplace.json
 
-Lists all plugin component paths for the registry. Agents as `./agents/name.md`, skills as `./skills/skill-name` (directory, not SKILL.md).
+Agents as `./agents/name.md`, skills as `./skills/skill-name` (directory, not SKILL.md).
 
 ## Model Tiers
 
-| Tier   | Model   | Use Case                                               |
-| ------ | ------- | ------------------------------------------------------ |
-| Tier 1 | Opus    | Architecture, security, code review, production coding |
-| Tier 2 | Inherit | Complex tasks — user chooses model                     |
-| Tier 3 | Sonnet  | Docs, testing, debugging, support                      |
-| Tier 4 | Haiku   | Fast ops, SEO, deployment, simple tasks                |
+| Tier | Model | Use Case |
+|:---|:---|:---|
+| Tier 1 | Opus | Architecture, security, code review, production coding |
+| Tier 2 | Inherit | Complex tasks — user chooses model |
+| Tier 3 | Sonnet | Docs, testing, debugging, support |
+| Tier 4 | Haiku | Fast ops, deployment, simple tasks |
 
-## PluginEval — Quality Evaluation Framework
+## PluginEval
 
-Three-layer evaluation system in `plugins/plugin-eval/`. Full docs: [docs/plugin-eval.md](docs/plugin-eval.md).
-
-### Quick Reference
+Three-layer evaluation in `apps/claude-agents/plugins/plugin-eval/`.
 
 ```bash
-cd plugins/plugin-eval
+cd apps/claude-agents/plugins/plugin-eval
 
-# Run tests
-uv run pytest
-
-# Evaluate a skill (static only)
-uv run plugin-eval score path/to/skill --depth quick --output json
-
-# Evaluate with LLM judge
-uv run plugin-eval score path/to/skill --depth standard
-
-# Full certification (all 3 layers)
-uv run plugin-eval certify path/to/skill
-
-# Compare two skills
-uv run plugin-eval compare path/to/skill-a path/to/skill-b
-
-# Build corpus for Elo ranking
-uv run plugin-eval init plugins/
+uv run plugin-eval score path/to/skill --depth quick     # static only, instant
+uv run plugin-eval score path/to/skill --depth standard  # + LLM judge
+uv run plugin-eval certify path/to/skill                 # full certification
 ```
 
-### Evaluation Layers
+Badges: Platinum ≥90, Gold ≥80, Silver ≥70, Bronze ≥60
 
-1. **Static** (Layer 1) — Deterministic structural analysis. < 2 seconds, free, always runs.
-2. **LLM Judge** (Layer 2) — Semantic evaluation via Claude (Haiku + Sonnet). ~30s, 4 LLM calls.
-3. **Monte Carlo** (Layer 3) — Statistical reliability via N simulated runs. ~2–5 min, 50–100 calls.
-
-### 10 Dimensions (weights)
-
-triggering_accuracy (25%), orchestration_fitness (20%), output_quality (15%), scope_calibration (12%), progressive_disclosure (10%), token_efficiency (6%), robustness (5%), structural_completeness (3%), code_template_quality (2%), ecosystem_coherence (2%)
-
-### Badges
-
-Platinum ≥90, Gold ≥80, Silver ≥70, Bronze ≥60
-
-### Anti-Patterns
-
-OVER_CONSTRAINED (>15 MUST/ALWAYS/NEVER), EMPTY_DESCRIPTION (<20 chars), MISSING_TRIGGER (no "Use when…"), BLOATED_SKILL (>800 lines no refs), ORPHAN_REFERENCE (dead link), DEAD_CROSS_REF (missing skill)
-
-### Tech Stack
-
-- Python ≥ 3.12, uv, ruff, ty, pytest
-- Dependencies: pydantic, typer, rich, pyyaml
-- Optional: claude-agent-sdk (LLM layers), anthropic (API alternative)
+Anti-patterns: `OVER_CONSTRAINED` `EMPTY_DESCRIPTION` `MISSING_TRIGGER` `BLOATED_SKILL` `ORPHAN_REFERENCE` `DEAD_CROSS_REF`
 
 ## Development
 
-### Python Tooling
+### JS/TS Tooling
 
-Use the Astral Rust toolchain: `uv` (package manager), `ruff` (linter/formatter), `ty` (type checker). Do not use pip, mypy, or black.
+- Package manager: `pnpm` (never `npm install` in a workspace)
+- Build: `turbo`
+- Lint: `eslint` via `@playground/eslint-config`
+- Types: `tsc` via `@playground/tsconfig`
+- Markdown: `markdownlint-cli2` (pre-push hook via husky)
+
+### Python Tooling (plugin-eval)
+
+Use the Astral Rust toolchain: `uv`, `ruff`, `ty`. Do not use `pip`, `mypy`, or `black`.
 
 ### Adding a Plugin
 
 1. Create `plugins/<name>/` with `.claude-plugin/plugin.json`
 2. Add agents in `agents/`, commands in `commands/`, skills in `skills/`
-3. Update `.claude-plugin/marketplace.json`
-4. Follow naming conventions: lowercase, hyphen-separated
+3. Register in `.claude-plugin/marketplace.json`
+4. Naming: lowercase, hyphen-separated
+5. Validate: `uv run plugin-eval score plugins/<name>/skills/<skill> --depth quick`
