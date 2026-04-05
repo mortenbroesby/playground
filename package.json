@@ -9,7 +9,11 @@
     "lint:md": "markdownlint-cli2 \"README.md\" \"apps/*/README.md\" \"packages/*/README.md\"",
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
-    "prepare": "husky"
+    "prepare": "husky",
+    "mcp:validate": "node scripts/validate-mcp-config.mjs",
+    "mcp:export:claude": "node scripts/export-mcp-config.mjs claude",
+    "mcp:export:cursor": "node scripts/export-mcp-config.mjs cursor",
+    "mcp:export:vscode": "node scripts/export-mcp-config.mjs vscode"
   },
   "devDependencies": {
     "husky": "^9.1.7",
