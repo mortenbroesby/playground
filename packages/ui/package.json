@@ -1,0 +1,21 @@
+{
+  "name": "@playground/ui",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared React component library for the playground monorepo",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@playground/eslint-config": "workspace:*",
+    "@playground/tsconfig": "workspace:*",
+    "@types/react": "^18.3.0",
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  }
+}
