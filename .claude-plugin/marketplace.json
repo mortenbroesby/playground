@@ -986,6 +986,18 @@
       "homepage": "https://github.com/major7apps/pensyve",
       "license": "Apache-2.0",
       "category": "ai-ml"
+    },
+    {
+      "name": "mcp-servers",
+      "source": "./plugins/mcp-servers",
+      "description": "Core MCP servers: filesystem, GitHub, Context7 docs, and memory graph",
+      "version": "1.0.0",
+      "author": {
+        "name": "Seth Hobson",
+        "email": "seth@major7apps.com"
+      },
+      "license": "MIT",
+      "category": "tooling"
     }
   ]
 }
