@@ -1,5 +1,5 @@
 import '@mantine/core/styles.css';
-import { Button, Group, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Group, MantineProvider, Stack, Text, TextInput, createTheme } from '@mantine/core';
 import { createRoot, type Root } from 'react-dom/client';
 import { useState, type FormEvent } from 'react';
 import type { TodoBridge } from '@playground/types';
@@ -9,6 +9,12 @@ import { createTodoId, normalizeTitle } from './utils';
 type InputAppProps = {
   bridge: TodoBridge;
 };
+
+const theme = createTheme({
+  primaryColor: 'indigo',
+  defaultRadius: 'md',
+  fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
+});
 
 const InputApp = ({ bridge }: InputAppProps) => {
   const [value, setValue] = useState('');
@@ -35,6 +41,18 @@ const InputApp = ({ bridge }: InputAppProps) => {
     setError(null);
   };
 
+  const addExampleTodo = () => {
+    const title = `Example task ${new Date().toLocaleTimeString()}`;
+
+    bridge.publish({
+      type: 'todo:created',
+      payload: {
+        id: createTodoId(),
+        title
+      }
+    });
+  };
+
   return (
     <form onSubmit={onSubmit}>
       <Stack gap="sm">
@@ -53,6 +71,12 @@ const InputApp = ({ bridge }: InputAppProps) => {
           />
           <Button type="submit">Add</Button>
         </Group>
+
+        <Group>
+          <Button variant="light" onClick={addExampleTodo}>
+            Add example todo
+          </Button>
+        </Group>
       </Stack>
     </form>
   );
@@ -60,7 +84,11 @@ const InputApp = ({ bridge }: InputAppProps) => {
 
 export const mount = (target: HTMLElement, options: { bridge: TodoBridge }) => {
   let root: Root | null = createRoot(target);
-  root.render(<InputApp bridge={options.bridge} />);
+  root.render(
+    <MantineProvider theme={theme} defaultColorScheme="auto">
+      <InputApp bridge={options.bridge} />
+    </MantineProvider>
+  );
 
   return () => {
     root?.unmount();
