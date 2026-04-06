@@ -75,9 +75,21 @@ describe('host routes', () => {
     });
 
     expect(getByText('Morten Broesby-Olsen')).toBeTruthy();
-    expect(getByTestId('about-highlights')).toBeTruthy();
+    expect(getByTestId('about-playground-card')).toBeTruthy();
+    expect(getByTestId('about-playground-link')).toBeTruthy();
+    expect(getByTestId('about-hobbies')).toBeTruthy();
     expect(getByTestId('about-values')).toBeTruthy();
     expect(getByTestId('about-inspirations')).toBeTruthy();
+    expect(getByText('Hobbies')).toBeTruthy();
+  });
+
+  it('renders the playground route with the signal mesh app', async () => {
+    await renderRoute('/playground');
+
+    expect(getByTestId('playground-page')).toBeTruthy();
+    expect(getByText('Signal mesh')).toBeTruthy();
+    expect(getByText('Visual playground')).toBeTruthy();
+    expect(getByText('experiment live')).toBeTruthy();
   });
 
   it('redirects /uses to /uses/gear and renders the gear page', async () => {

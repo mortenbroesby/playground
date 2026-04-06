@@ -1,12 +1,5 @@
-import { lazy, Suspense } from 'react';
+import { Link } from 'react-router-dom';
 import { aboutPage } from '../content/uses';
-
-const HackerSignalCanvas = lazy(() =>
-  import('@/components/hacker-signal-canvas').then((module) => ({
-    default: module.HackerSignalCanvas,
-  })),
-);
-const isTestMode = import.meta.env.MODE === 'test';
 
 const ABOUT_NAME = 'Morten Broesby-Olsen';
 
@@ -43,8 +36,8 @@ export function AboutPage() {
                 <p className="terminal-heading mt-3 text-base text-foreground">Frontend</p>
               </div>
               <div className="metric-panel rounded-md">
-                <p className="chrome-label">Highlights</p>
-                <p className="metric-value mt-3 text-foreground">{aboutPage.highlights.length}</p>
+                <p className="chrome-label">Hobbies</p>
+                <p className="metric-value mt-3 text-foreground">{aboutPage.hobbies.length}</p>
               </div>
               <div className="metric-panel rounded-md">
                 <p className="chrome-label">Values</p>
@@ -54,41 +47,65 @@ export function AboutPage() {
           </div>
         </div>
 
-        {isTestMode ? (
-          <div className="terminal-panel terminal-panel--glow relative min-h-[20rem] overflow-hidden rounded-md border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.14),transparent_38%),linear-gradient(180deg,rgba(3,11,13,0.98),rgba(5,12,14,0.94))] sm:min-h-[24rem]" />
-        ) : (
-          <Suspense
-            fallback={
-              <div className="terminal-panel terminal-panel--glow relative min-h-[20rem] overflow-hidden rounded-md border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.14),transparent_38%),linear-gradient(180deg,rgba(3,11,13,0.98),rgba(5,12,14,0.94))] sm:min-h-[24rem]" />
-            }
-          >
-            <HackerSignalCanvas />
-          </Suspense>
-        )}
+        <aside
+          data-testid="about-playground-card"
+          className="terminal-panel terminal-panel--glow terminal-grid relative overflow-hidden p-6 sm:p-8"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.16),transparent_36%),radial-gradient(circle_at_82%_28%,rgba(83,209,255,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_24%,transparent_80%,rgba(255,255,255,0.02))]" />
+          <div className="relative flex h-full flex-col justify-between gap-6">
+            <div>
+              <div className="flex flex-wrap gap-2">
+                <span className="signal-badge signal-badge--accent">playground route</span>
+                <span className="signal-badge signal-badge--muted">signal mesh moved</span>
+              </div>
+
+              <p className="chrome-label mt-6 text-primary">Interactive experiments</p>
+              <h2 className="terminal-heading mt-3 text-2xl text-foreground sm:text-3xl">
+                Visual work has its own app now
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
+                The signal mesh now lives in Playground so the about page can stay focused on
+                profile, values, and hobbies while visual experiments get room to grow.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                to="/playground"
+                className="terminal-button rounded-md"
+                data-testid="about-playground-link"
+              >
+                Open playground
+              </Link>
+              <div className="rounded-md border border-border/70 bg-background/75 px-3 py-2">
+                <p className="chrome-label">Route</p>
+                <p className="mt-2 text-sm text-foreground">/playground</p>
+              </div>
+            </div>
+          </div>
+        </aside>
       </section>
 
       <section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.15fr),minmax(0,0.85fr)]">
-        <article data-testid="about-highlights" className="terminal-panel overflow-hidden p-5 sm:p-6">
+        <article data-testid="about-hobbies" className="terminal-panel overflow-hidden p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="chrome-label">Career Highlights</p>
-              <h2 className="terminal-heading mt-2 text-xl text-foreground">Selected work</h2>
+              <p className="chrome-label">Outside work</p>
+              <h2 className="terminal-heading mt-2 text-xl text-foreground">Hobbies</h2>
             </div>
             <span className="signal-badge signal-badge--muted hidden sm:inline-flex">
-              {aboutPage.highlights.length} entries
+              {aboutPage.hobbies.length} entries
             </span>
           </div>
 
           <ul className="mt-5 space-y-3">
-            {aboutPage.highlights.map((highlight, index) => (
-              <li key={highlight} className="terminal-item rounded-md px-4 py-3">
+            {aboutPage.hobbies.map((hobby, index) => (
+              <li key={hobby} className="terminal-item rounded-md px-4 py-3">
                 <div className="flex items-start gap-3">
                   <span className="status-led status-led--live mt-1.5 shrink-0" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="chrome-label text-primary">
-                      Track {String(index + 1).padStart(2, '0')}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-foreground">{highlight}</p>
+                    <p className="chrome-label text-primary">Hobby {String(index + 1).padStart(2, '0')}</p>
+                    <p className="mt-2 text-sm leading-6 text-foreground">{hobby}</p>
                   </div>
                 </div>
               </li>

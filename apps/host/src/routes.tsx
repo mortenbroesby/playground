@@ -7,6 +7,7 @@ import {
 import { App } from './App';
 import { AboutPage } from './pages/about-page';
 import { GamePage } from './pages/game-page';
+import { PlaygroundPage } from './pages/playground-page';
 import { SystemPage } from './pages/system-page';
 import { TodoPage } from './pages/todo-page';
 import { UsesGearPage } from './pages/uses-gear-page';
@@ -18,6 +19,7 @@ export const APP_ROUTES: RouteObject[] = [
     children: [
       { index: true, element: <Navigate to="/about" replace /> },
       { path: 'about', element: <AboutPage /> },
+      { path: 'playground', element: <PlaygroundPage /> },
       { path: 'system', element: <SystemPage /> },
       { path: 'game', element: <GamePage /> },
       { path: 'todo', element: <TodoPage /> },

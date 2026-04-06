@@ -13,12 +13,12 @@ export const aboutPage = {
   headline: 'About',
   tagline: 'Frontend architect. Platform engineer. Long-term thinker.',
   bio: 'I build reliable frontend platforms that scale across web, mobile, and Smart TV — with a focus on developer experience, shared ownership, and long-term maintainability. Ten-plus years in the industry working on products like HBO Max, Disney Life, Videoland, TV 2 PLAY, and Pleo WebCore.',
-  highlights: [
-    'Senior Frontend Engineer at Pleo — WebCore platform: CI/CD, DX, reliability',
-    'HBO Max (Lightning/Smart TV platform)',
-    'Disney Life',
-    'Videoland',
-    'TV 2 PLAY',
+  hobbies: [
+    'Building side projects and design-system playgrounds',
+    'Exploring AI-native developer workflows and tooling',
+    'Streaming, recording, and experimenting with creator setups',
+    'Following games, interfaces, and interactive systems',
+    'Collecting better ways to work, plan, and stay organized',
   ],
   values: [
     'Clarity over cleverness',
