@@ -23,6 +23,7 @@ node_modules
 .sass-cache
 .claude
 .mcp.json
+.vercel
 
 # Monorepo
 .turbo/
