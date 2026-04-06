@@ -5,9 +5,9 @@ import readme from '../../../../README.md?raw';
 
 export function ReadmePage() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
+    <div data-testid="readme-page" className="max-w-4xl mx-auto px-6 py-8">
       <h1 className="text-slate-400 text-xs uppercase tracking-wider mb-4">README</h1>
-      <article className="prose prose-invert prose-slate max-w-none">
+      <article data-testid="readme-article" className="prose prose-invert prose-slate max-w-none">
         <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{readme}</ReactMarkdown>
       </article>
     </div>

@@ -38,18 +38,28 @@ export function TodoWorkspace() {
       return;
     }
 
-    const handle = mount(containerRef.current, {
-      onEvent: (event) => {
-        setTodos(event.snapshot.todos);
-        setLastEvent(formatEvent(event));
-      },
+    let cancelled = false;
+    let handle: TodoAppHandle | null = null;
+
+    queueMicrotask(() => {
+      if (cancelled || !containerRef.current) {
+        return;
+      }
+
+      handle = mount(containerRef.current, {
+        onEvent: (event) => {
+          setTodos(event.snapshot.todos);
+          setLastEvent(formatEvent(event));
+        },
+      });
+
+      handleRef.current = handle;
+      setTodos(handle.getSnapshot().todos);
     });
 
-    handleRef.current = handle;
-    setTodos(handle.getSnapshot().todos);
-
     return () => {
-      handle.unmount();
+      cancelled = true;
+      handle?.unmount();
       handleRef.current = null;
     };
   }, []);
@@ -66,7 +76,10 @@ export function TodoWorkspace() {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[20rem,minmax(0,1fr)]">
-      <aside className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+      <aside
+        data-testid="host-controls"
+        className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"
+      >
         <div className="space-y-1">
           <p className="text-[11px] uppercase tracking-[0.24em] text-indigo-400">Host Controls</p>
           <h2 className="text-lg font-semibold text-slate-100">Injected composition</h2>
@@ -78,15 +91,21 @@ export function TodoWorkspace() {
 
         <div className="mt-5 grid grid-cols-3 gap-3 text-center text-xs">
           <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-            <div className="text-lg font-semibold text-slate-100">{todos.length}</div>
+            <div data-testid="host-total-count" className="text-lg font-semibold text-slate-100">
+              {todos.length}
+            </div>
             <div className="mt-1 text-slate-500">total</div>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-            <div className="text-lg font-semibold text-slate-100">{completed}</div>
+            <div data-testid="host-done-count" className="text-lg font-semibold text-slate-100">
+              {completed}
+            </div>
             <div className="mt-1 text-slate-500">done</div>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-            <div className="text-lg font-semibold text-slate-100">{todos.length - completed}</div>
+            <div data-testid="host-open-count" className="text-lg font-semibold text-slate-100">
+              {todos.length - completed}
+            </div>
             <div className="mt-1 text-slate-500">open</div>
           </div>
         </div>
@@ -95,6 +114,7 @@ export function TodoWorkspace() {
           <button
             type="button"
             onClick={seedTodosFromHost}
+            data-testid="seed-todos"
             className="w-full rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-400"
           >
             Seed Example Todos
@@ -103,6 +123,7 @@ export function TodoWorkspace() {
             type="button"
             onClick={clearTodosFromHost}
             disabled={todos.length === 0}
+            data-testid="clear-todos"
             className="w-full rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Clear From Host
@@ -111,7 +132,9 @@ export function TodoWorkspace() {
 
         <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
           <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Last Event</p>
-          <p className="mt-2 text-sm text-slate-300">{lastEvent}</p>
+          <p data-testid="last-event" className="mt-2 text-sm text-slate-300">
+            {lastEvent}
+          </p>
         </div>
       </aside>
 
@@ -126,7 +149,7 @@ export function TodoWorkspace() {
           </div>
         </div>
 
-        <div ref={containerRef} className="min-h-[24rem]" />
+        <div ref={containerRef} data-testid="todo-app-container" className="min-h-[24rem]" />
       </section>
     </div>
   );

@@ -28,6 +28,9 @@ node_modules
 .turbo/
 dist/
 *.tsbuildinfo
+playwright-report/
+test-results/
+blob-report/
 # Next.js
 .next/
 

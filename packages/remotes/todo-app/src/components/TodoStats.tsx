@@ -10,13 +10,22 @@ export function TodoStats({ store }: { store: TodoStore }) {
   return (
     <div className='flex gap-6 text-xs text-slate-500 border-t border-slate-800 pt-3'>
       <span>
-        <span className='text-slate-300 font-medium'>{total}</span> total
+        <span data-testid='todo-total-count' className='text-slate-300 font-medium'>
+          {total}
+        </span>{' '}
+        total
       </span>
       <span>
-        <span className='text-slate-300 font-medium'>{done}</span> done
+        <span data-testid='todo-done-count' className='text-slate-300 font-medium'>
+          {done}
+        </span>{' '}
+        done
       </span>
       <span>
-        <span className='text-slate-300 font-medium'>{remaining}</span> remaining
+        <span data-testid='todo-remaining-count' className='text-slate-300 font-medium'>
+          {remaining}
+        </span>{' '}
+        remaining
       </span>
     </div>
   );
