@@ -4,6 +4,7 @@ import { Badge, Divider, Grid, Group, Paper, Stack, Text, Title } from '@mantine
 import { useMemo } from 'react';
 
 import { RemoteSlot } from '@/components/remote-slot';
+import { TodoDebugPanel } from '@/components/todo-debug-panel';
 import { compositionMode, todoRemotes } from '@/lib/remotes';
 import { createTodoBridge } from '@/lib/todo-bridge';
 
@@ -26,6 +27,8 @@ export function TodoOrchestrator() {
         </Group>
 
         <Divider />
+
+        <TodoDebugPanel bridge={bridge} />
 
         <Grid>
           {todoRemotes.map((remote) => (
