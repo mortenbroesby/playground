@@ -6,6 +6,7 @@ import {
 } from 'react-router-dom';
 import { App } from './App';
 import { AboutPage } from './pages/about-page';
+import { GamePage } from './pages/game-page';
 import { SystemPage } from './pages/system-page';
 import { TodoPage } from './pages/todo-page';
 import { UsesGearPage } from './pages/uses-gear-page';
@@ -18,6 +19,7 @@ export const APP_ROUTES: RouteObject[] = [
       { index: true, element: <Navigate to="/about" replace /> },
       { path: 'about', element: <AboutPage /> },
       { path: 'system', element: <SystemPage /> },
+      { path: 'game', element: <GamePage /> },
       { path: 'todo', element: <TodoPage /> },
       { path: 'uses', element: <Navigate to="/uses/gear" replace /> },
       { path: 'uses/gear', element: <UsesGearPage /> },
