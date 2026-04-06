@@ -13,8 +13,6 @@ By default, the host **injects** child apps directly from workspace packages (no
 
 ## Runtime remotes (runtime mode only)
 
-When `NEXT_PUBLIC_TODO_COMPOSITION_MODE=runtime`, the shell loads micro frontends from URL-based ES modules:
+When `NEXT_PUBLIC_TODO_COMPOSITION_MODE=runtime`, the shell loads the todo micro frontend from:
 
-- `NEXT_PUBLIC_TODO_INPUT_REMOTE_URL` (default `http://localhost:3101/remoteEntry.js`)
-- `NEXT_PUBLIC_TODO_LIST_REMOTE_URL` (default `http://localhost:3102/remoteEntry.js`)
-- `NEXT_PUBLIC_TODO_STATS_REMOTE_URL` (default `http://localhost:3103/remoteEntry.js`)
+- `NEXT_PUBLIC_TODO_MFE_URL` (default `http://localhost:3101/remoteEntry.js`)

@@ -5,12 +5,13 @@
   "description": "Todo micro frontend — input, list, and stats in one self-contained Vite app",
   "type": "module",
   "scripts": {
-    "dev": "vite build --mode development && concurrently -k -n build,preview \"vite build --watch --mode development\" \"vite preview --port 3101 --strictPort\"",
+    "dev": "vite build --mode development && concurrently -k -n build,preview \"vite build --watch --mode development\" \"vite preview --host 127.0.0.1 --port 3101 --strictPort\"",
     "build": "vite build",
-    "preview": "vite preview --port 3101 --strictPort",
+    "preview": "vite preview --host 127.0.0.1 --port 3101 --strictPort",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "node --test tests/integration/mfe-reachable.test.mjs"
   },
   "dependencies": {
     "@playground/types": "workspace:*",
