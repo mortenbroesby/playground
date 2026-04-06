@@ -4,7 +4,7 @@ import { Badge, Divider, Grid, Group, Paper, Stack, Text, Title } from '@mantine
 import { useMemo } from 'react';
 
 import { RemoteSlot } from '@/components/remote-slot';
-import { todoRemotes } from '@/lib/remotes';
+import { compositionMode, todoRemotes } from '@/lib/remotes';
 import { createTodoBridge } from '@/lib/todo-bridge';
 
 export function TodoOrchestrator() {
@@ -32,7 +32,9 @@ export function TodoOrchestrator() {
             <Grid.Col key={remote.id} span={{ base: 12, md: remote.id === 'todo-list' ? 12 : 6 }}>
               <RemoteSlot
                 bridge={bridge}
-                remoteEntryUrl={remote.remoteEntryUrl}
+                id={remote.id}
+                compositionMode={compositionMode}
+                runtimeUrl={remote.runtimeUrl}
                 name={remote.name}
                 description={remote.description}
               />

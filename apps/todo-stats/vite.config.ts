@@ -9,6 +9,12 @@ export default defineConfig({
       'Access-Control-Allow-Origin': '*'
     }
   },
+  preview: {
+    cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*'
+    }
+  },
   build: {
     lib: {
       entry: 'src/remote-entry.tsx',
