@@ -1,119 +1,60 @@
 'use client';
 
-import { Alert, Badge, Button, Card, Code, Group, Stack, Text, TextInput } from '@mantine/core';
-import { useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Card, Code, Group, Stack, Text } from '@mantine/core';
+import { useEffect, useState } from 'react';
 
 import type { TodoBridge, TodoBridgeSnapshot } from '@playground/types';
 
 type TodoDebugPanelProps = {
   bridge: TodoBridge;
+  onReloadChildApps: () => void;
 };
 
-export function TodoDebugPanel({ bridge }: TodoDebugPanelProps) {
-  const [title, setTitle] = useState('');
+export function TodoDebugPanel({ bridge, onReloadChildApps }: TodoDebugPanelProps) {
   const [snapshot, setSnapshot] = useState<TodoBridgeSnapshot>(() => bridge.getSnapshot());
 
   useEffect(() => bridge.subscribe(setSnapshot), [bridge]);
 
-  const firstTodo = snapshot.todos[0];
-  const topTitles = useMemo(() => snapshot.todos.slice(0, 3).map((todo) => todo.title), [snapshot.todos]);
+  const clearTodos = () => {
+    const todos = bridge.getSnapshot().todos;
 
-  const createTodo = () => {
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      return;
-    }
+    todos.forEach((todo) => {
+      const event = {
+        type: 'todo:deleted' as const,
+        payload: {
+          id: todo.id
+        }
+      };
 
-    const event = {
-      type: 'todo:created' as const,
-      payload: {
-        id: crypto.randomUUID(),
-        title: trimmedTitle
-      }
-    };
-
-    console.log('[host-debug] publish', event);
-    bridge.publish(event);
-    setTitle('');
+      console.log('[host-debug] publish', event);
+      bridge.publish(event);
+    });
   };
 
-  const toggleFirstTodo = () => {
-    if (!firstTodo) {
-      return;
-    }
-
-    const event = {
-      type: 'todo:toggled' as const,
-      payload: {
-        id: firstTodo.id
-      }
-    };
-
-    console.log('[host-debug] publish', event);
-    bridge.publish(event);
-  };
-
-  const deleteFirstTodo = () => {
-    if (!firstTodo) {
-      return;
-    }
-
-    const event = {
-      type: 'todo:deleted' as const,
-      payload: {
-        id: firstTodo.id
-      }
-    };
-
-    console.log('[host-debug] publish', event);
-    bridge.publish(event);
+  const reloadChildApps = () => {
+    console.log('[host-debug] reload-child-apps');
+    onReloadChildApps();
   };
 
   return (
-    <Card withBorder radius="md" p="md" bg="gray.0">
-      <Stack gap="md">
+    <Card withBorder radius="md" p="md">
+      <Stack gap="sm">
         <Alert color="yellow" variant="light" title="Diagnostics only">
-          <Text size="sm">Host debug controls for bridge events and live snapshot inspection.</Text>
+          <Text size="sm">Barebones host controls for bridge cleanup and remote remounts.</Text>
         </Alert>
 
-        <Group justify="space-between" align="center">
-          <Text fw={600}>Todo bridge debug panel</Text>
-          <Badge variant="light" color="gray">
-            host tool
-          </Badge>
-        </Group>
-
-        <Group align="end" wrap="nowrap">
-          <TextInput
-            label="Emit todo:created"
-            placeholder="Add a debug todo title"
-            value={title}
-            onChange={(event) => setTitle(event.currentTarget.value)}
-            style={{ flex: 1 }}
-          />
-          <Button onClick={createTodo}>Publish created</Button>
-        </Group>
-
         <Group>
-          <Button onClick={toggleFirstTodo} variant="light" disabled={!firstTodo}>
-            Toggle first todo
+          <Button variant="light" color="red" onClick={clearTodos} disabled={snapshot.todos.length === 0}>
+            Remove all todos
           </Button>
-          <Button onClick={deleteFirstTodo} color="red" variant="light" disabled={!firstTodo}>
-            Delete first todo
+          <Button variant="light" onClick={reloadChildApps}>
+            Reload child apps
           </Button>
         </Group>
 
-        <Stack gap={4}>
-          <Text size="sm">
-            version: <Code>{snapshot.version}</Code>
-          </Text>
-          <Text size="sm">
-            total todos: <Code>{snapshot.todos.length}</Code>
-          </Text>
-          <Text size="sm">
-            titles: <Code>{topTitles.length > 0 ? topTitles.join(' | ') : 'none'}</Code>
-          </Text>
-        </Stack>
+        <Text size="sm" c="dimmed">
+          version <Code>{snapshot.version}</Code> · todos <Code>{snapshot.todos.length}</Code>
+        </Text>
       </Stack>
     </Card>
   );
