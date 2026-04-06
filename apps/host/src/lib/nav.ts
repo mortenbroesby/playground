@@ -1,6 +1,7 @@
 export const NAV_APPS = [
+  { href: '/about', label: 'About' },
+  { href: '/system', label: 'System' },
   { href: '/todo', label: 'Todo' },
-  { href: '/uses', label: '@mortenbroesby' },
 ] as const;
 
 export type NavApp = (typeof NAV_APPS)[number];

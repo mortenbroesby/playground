@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@playground/ui": "workspace:*",
     "@playground/todo-app": "workspace:*",
     "@playground/types": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",

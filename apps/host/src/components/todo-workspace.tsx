@@ -1,6 +1,7 @@
 import { mount, type TodoAppEvent, type TodoAppHandle } from '@playground/todo-app';
 import type { Todo } from '@playground/types';
 import { useEffect, useRef, useState } from 'react';
+import { Badge, Button, MetricCard, Panel } from '@playground/ui';
 
 const EXAMPLE_TODOS: Todo[] = [
   { id: 'host-seeded-1', title: 'Refactor microfrontend contract', completed: true },
@@ -82,16 +83,13 @@ export function TodoWorkspace() {
 
   return (
     <div className="grid gap-5 xl:grid-cols-[21rem,minmax(0,1fr)]">
-      <aside
-        data-testid="host-controls"
-        className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden p-5"
-      >
+      <Panel data-testid="host-controls" glow grid as="aside" className="p-5">
         <div className="relative z-10 flex flex-col gap-4">
           <div className="space-y-2">
             <p className="chrome-label text-primary">Host Console</p>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="terminal-heading text-xl text-foreground">Injected composition</h2>
-              <span className="signal-badge signal-badge--accent">bridge live</span>
+              <Badge tone="accent">bridge live</Badge>
             </div>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
               The host mounts the todo app from the workspace and stays in sync through an explicit
@@ -102,44 +100,25 @@ export function TodoWorkspace() {
           <div className="terminal-rule" />
 
           <div className="grid grid-cols-3 gap-3 text-left text-xs">
-            <div className="metric-panel rounded-md">
-              <div className="chrome-label">total</div>
-              <div data-testid="host-total-count" className="metric-value mt-3 text-foreground">
-                {todos.length}
-              </div>
-            </div>
-            <div className="metric-panel rounded-md">
-              <div className="chrome-label">done</div>
-              <div data-testid="host-done-count" className="metric-value mt-3 text-foreground">
-                {completed}
-              </div>
-            </div>
-            <div className="metric-panel rounded-md">
-              <div className="chrome-label">open</div>
-              <div data-testid="host-open-count" className="metric-value mt-3 text-foreground">
-                {todos.length - completed}
-              </div>
-            </div>
+            <MetricCard label="total" value={todos.length} valueClassName="text-foreground" data-testid="host-total-count" />
+            <MetricCard label="done" value={completed} valueClassName="text-foreground" data-testid="host-done-count" />
+            <MetricCard label="open" value={todos.length - completed} valueClassName="text-foreground" data-testid="host-open-count" />
           </div>
 
           <div className="grid gap-3">
-            <button
-              type="button"
-              onClick={seedTodosFromHost}
-              data-testid="seed-todos"
-              className="terminal-button w-full"
-            >
+            <Button type="button" onClick={seedTodosFromHost} data-testid="seed-todos" className="w-full">
               Seed Example Todos
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={clearTodosFromHost}
               disabled={todos.length === 0}
               data-testid="clear-todos"
-              className="terminal-button terminal-button--ghost w-full"
+              variant="secondary"
+              className="w-full"
             >
               Clear From Host
-            </button>
+            </Button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -166,9 +145,9 @@ export function TodoWorkspace() {
             </p>
           </div>
         </div>
-      </aside>
+      </Panel>
 
-      <section className="terminal-panel overflow-hidden">
+      <Panel as="section">
         <div className="terminal-grid relative z-10 flex flex-col gap-4 border-b border-border/70 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="chrome-label text-primary">Todo App</p>
@@ -178,8 +157,8 @@ export function TodoWorkspace() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="signal-badge signal-badge--primary">injected</span>
-            <span className="signal-badge signal-badge--accent">shared theme</span>
+            <Badge tone="primary">injected</Badge>
+            <Badge tone="accent">shared theme</Badge>
           </div>
         </div>
 
@@ -201,7 +180,7 @@ export function TodoWorkspace() {
           data-testid="todo-app-container"
           className="min-h-[28rem] bg-[rgba(3,8,9,0.45)] p-3 sm:p-4 lg:p-5"
         />
-      </section>
+      </Panel>
     </div>
   );
 }

@@ -9,87 +9,118 @@ export type UsesSection = {
   items: UsesItem[];
 };
 
+export const aboutPage = {
+  headline: 'About',
+  tagline: 'Frontend architect. Platform engineer. Long-term thinker.',
+  bio: 'I build reliable frontend platforms that scale across web, mobile, and Smart TV — with a focus on developer experience, shared ownership, and long-term maintainability. Ten-plus years in the industry working on products like HBO Max, Disney Life, Videoland, TV 2 PLAY, and Pleo WebCore.',
+  highlights: [
+    'Senior Frontend Engineer at Pleo — WebCore platform: CI/CD, DX, reliability',
+    'HBO Max (Lightning/Smart TV platform)',
+    'Disney Life',
+    'Videoland',
+    'TV 2 PLAY',
+  ],
+  values: [
+    'Clarity over cleverness',
+    'Long-term maintainability',
+    'Shared ownership',
+    'Developer experience first',
+  ],
+  inspirations: [
+    {
+      label: 'Addy Osmani',
+      href: 'https://addyosmani.com',
+      note: 'Google Chrome DX, performance, engineering leadership',
+    },
+    {
+      label: 'Lee Robinson',
+      href: 'https://leerob.io',
+      note: 'Vercel DX lead, Next.js, developer experience',
+    },
+    {
+      label: 'Josh W Comeau',
+      href: 'https://joshwcomeau.com',
+      note: 'CSS, React, deep-dive teaching',
+    },
+    {
+      label: 'Kent C. Dodds',
+      href: 'https://kentcdodds.com',
+      note: 'Testing, React, epic web',
+    },
+    {
+      label: 'Sindre Sorhus',
+      href: 'https://sindresorhus.com',
+      note: 'OSS, Unix philosophy, craft',
+    },
+    {
+      label: 'Theo (t3.gg)',
+      href: 'https://t3.gg',
+      note: 'TypeScript, full-stack, opinionated defaults',
+    },
+  ],
+};
+
 const sections: UsesSection[] = [
   {
-    title: 'Coding',
+    title: 'Editor & Shell',
     items: [
-      { label: 'Editor: VSCode' },
-      { label: 'Theme: Dark+' },
+      { label: 'Cursor', href: 'https://cursor.com', note: 'AI-first editor' },
+      { label: 'VS Code', href: 'https://code.visualstudio.com', note: 'fallback editor' },
+      {
+        label: 'Claude Code',
+        href: 'https://www.anthropic.com/claude-code',
+        note: 'agentic coding CLI',
+      },
+      { label: 'Warp', href: 'https://www.warp.dev', note: 'modern terminal with AI' },
       { label: 'Oh My ZSH', href: 'https://ohmyz.sh', note: 'zsh shell setup' },
-      { label: 'iTerm2', href: 'https://iterm2.com', note: 'terminal emulator' },
+      { label: 'iTerm2', href: 'https://iterm2.com', note: 'fallback terminal emulator' },
     ],
   },
   {
-    title: 'VSCode extensions',
+    title: 'VS Code / Cursor Extensions',
     items: [
       {
-        label: 'Git Lens',
+        label: 'GitLens',
         href: 'https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens',
       },
       {
-        label: 'Eslint',
+        label: 'ESLint',
         href: 'https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint',
+      },
+      {
+        label: 'Prettier',
+        href: 'https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode',
       },
       {
         label: 'Peacock',
         href: 'https://marketplace.visualstudio.com/items?itemName=johnpapa.vscode-peacock',
       },
       {
-        label: 'Paste JSON as Code',
-        href: 'https://marketplace.visualstudio.com/items?itemName=quicktype.quicktype',
-      },
-      {
         label: 'Code Spell Checker',
         href: 'https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker',
-      },
-      {
-        label: 'Auto Rename Tag',
-        href: 'https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag',
       },
       {
         label: 'Path Intellisense',
         href: 'https://marketplace.visualstudio.com/items?itemName=christian-kohler.path-intellisense',
       },
       {
-        label: 'MDX',
-        href: 'https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx',
-      },
-      {
-        label: 'Partial Diff',
-        href: 'https://marketplace.visualstudio.com/items?itemName=ryu1kn.partial-diff',
-      },
-      {
-        label: 'Live Share',
-        href: 'https://marketplace.visualstudio.com/items?itemName=ms-vsliveshare.vsliveshare',
-      },
-      {
-        label: 'Require To Import Syntax',
-        href: 'https://marketplace.visualstudio.com/items?itemName=burkeholland.simple-react-snippets',
+        label: 'Error Lens',
+        href: 'https://marketplace.visualstudio.com/items?itemName=usernamehw.errorlens',
       },
       {
         label: 'TODO Highlight',
         href: 'https://marketplace.visualstudio.com/items?itemName=wayou.vscode-todo-highlight',
-      },
-      {
-        label: 'TODO Tree',
-        href: 'https://marketplace.visualstudio.com/items?itemName=Gruntfuggly.todo-tree',
       },
     ],
   },
   {
     title: 'Software',
     items: [
-      { label: 'Chrome', note: 'daily driver browser' },
-      { label: 'Flycut', href: 'https://github.com/TermiT/Flycut', note: 'clipboard manager' },
+      { label: 'Arc', href: 'https://arc.net', note: 'browser, daily driver' },
       {
-        label: 'Kaleidoscope',
-        href: 'https://kaleidoscope.app',
-        note: 'merge conflict resolutions',
-      },
-      {
-        label: 'SourceTree',
-        href: 'https://www.sourcetreeapp.com',
-        note: 'Git GUI',
+        label: 'Raycast',
+        href: 'https://www.raycast.com',
+        note: 'launcher + AI, replaces Alfred',
       },
       {
         label: '1Password',
@@ -106,42 +137,16 @@ const sections: UsesSection[] = [
         href: 'https://obsproject.com',
         note: 'streaming and recordings',
       },
-      {
-        label: 'ImageOptim',
-        href: 'https://imageoptim.com',
-        note: 'image optimization',
-      },
-      {
-        label: 'BeardedSpice',
-        href: 'https://beardedspice.github.io',
-        note: 'controls Spotify, VLC, and more from media keys',
-      },
-      {
-        label: 'Spedal Webcam',
-        href: 'https://apps.apple.com/us/app/spedal-webcam-settings/id6449919671',
-        note: 'adjust webcam settings',
-      },
-      {
-        label: 'Alfred',
-        href: 'https://www.alfredapp.com',
-        note: 'Spotlight alternative',
-      },
-      {
-        label: 'Spotify',
-        href: 'https://www.spotify.com',
-        note: 'music streaming',
-      },
-      {
-        label: 'Notion',
-        href: 'https://notion.so',
-        note: 'notes and to-do lists',
-      },
-      { label: 'QuickTime', note: 'simple recordings or GIFs' },
+      { label: 'Notion', href: 'https://www.notion.so', note: 'notes and planning' },
+      { label: 'Spotify', href: 'https://www.spotify.com', note: 'music streaming' },
+      { label: 'Figma', href: 'https://www.figma.com', note: 'design and collaboration' },
+      { label: 'Linear', href: 'https://linear.app', note: 'issue tracking' },
     ],
   },
   {
-    title: 'Tech',
+    title: 'Hardware',
     items: [
+      { label: 'MacBook Pro M-series', note: 'primary machine' },
       { label: 'Synology DS220+ NAS' },
       { label: 'Razer Kiyo Pro' },
       {
@@ -152,7 +157,7 @@ const sections: UsesSection[] = [
     ],
   },
   {
-    title: 'Cloud services',
+    title: 'Cloud',
     items: [
       {
         label: 'Google Drive',
@@ -160,39 +165,36 @@ const sections: UsesSection[] = [
         note: 'day-to-day storage',
       },
       {
-        label: 'BackBlaze B2',
-        href: 'https://www.backblaze.com',
+        label: 'Backblaze B2',
+        href: 'https://www.backblaze.com/cloud-storage',
         note: 'off-site backups',
       },
+      { label: 'Vercel', href: 'https://vercel.com', note: 'frontend cloud platform' },
+      { label: 'GitHub', href: 'https://github.com', note: 'source control and review' },
     ],
   },
   {
     title: 'Philosophies',
     items: [
       {
-        label: 'Getting Things Done (GTD)',
-        href: 'https://www.tameday.com',
+        label: 'Shape Up',
+        href: 'https://basecamp.com/shapeup',
+        note: 'Basecamp product shaping and appetite-based planning',
       },
-    ],
-  },
-  {
-    title: 'Inspiration',
-    items: [
-      { label: 'Victor Nascimento', href: 'https://vnasc.dev' },
-      { label: 'Raul Melo', href: 'https://www.raulmelo.dev' },
-      { label: 'Jesper Rasmussen', href: 'https://jesperrasmussen.com' },
-      { label: 'Erik Lubbers' },
-      { label: 'Lee Robinson', href: 'https://leerob.io' },
-      { label: 'Josh W Comeau', href: 'https://joshwcomeau.com' },
+      {
+        label: 'Getting Things Done (GTD)',
+        href: 'https://gettingthingsdone.com/what-is-gtd/',
+        note: 'trusted system for capture, clarify, and review',
+      },
     ],
   },
 ];
 
-export const usesPage = {
+export const usesGearPage = {
   title: 'Uses',
   handle: '@mortenbroesby',
   name: 'Morten Broesby-Olsen',
   profileHref: 'https://github.com/mortenbroesby',
-  updatedOn: 'May 30, 2023',
+  updatedOn: 'April 6, 2026',
   sections,
 };

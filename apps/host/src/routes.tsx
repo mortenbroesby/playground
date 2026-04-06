@@ -5,18 +5,23 @@ import {
   type RouteObject,
 } from 'react-router-dom';
 import { App } from './App';
+import { AboutPage } from './pages/about-page';
+import { SystemPage } from './pages/system-page';
 import { TodoPage } from './pages/todo-page';
-import { UsesPage } from './pages/uses-page';
+import { UsesGearPage } from './pages/uses-gear-page';
 
 export const APP_ROUTES: RouteObject[] = [
   {
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: <Navigate to="/todo" replace /> },
+      { index: true, element: <Navigate to="/about" replace /> },
+      { path: 'about', element: <AboutPage /> },
+      { path: 'system', element: <SystemPage /> },
       { path: 'todo', element: <TodoPage /> },
-      { path: 'uses', element: <UsesPage /> },
-      { path: 'readme', element: <Navigate to="/uses" replace /> },
+      { path: 'uses', element: <Navigate to="/uses/gear" replace /> },
+      { path: 'uses/gear', element: <UsesGearPage /> },
+      { path: 'readme', element: <Navigate to="/about" replace /> },
     ],
   },
 ];

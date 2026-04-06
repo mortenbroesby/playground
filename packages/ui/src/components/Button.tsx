@@ -1,7 +1,8 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes } from 'react';
+import { cn } from '../lib/cn.js';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary'
+  variant?: 'primary' | 'secondary' | 'danger';
 }
 
 export function Button({
@@ -10,13 +11,20 @@ export function Button({
   className,
   ...props
 }: ButtonProps) {
+  const variantClassName =
+    variant === 'primary'
+      ? undefined
+      : variant === 'secondary'
+        ? 'terminal-button--ghost'
+        : 'terminal-button--danger';
+
   return (
     <button
       data-variant={variant}
-      className={className}
+      className={cn('terminal-button rounded-md', variantClassName, className)}
       {...props}
     >
       {children}
     </button>
-  )
+  );
 }

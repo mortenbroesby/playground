@@ -1,9 +1,10 @@
+import { Badge, Panel } from '@playground/ui';
 import { TodoWorkspace } from '@/components/todo-workspace';
 
 export function TodoPage() {
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
-      <section className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden px-5 py-5 sm:px-6 sm:py-6">
+      <Panel glow grid className="px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <p className="chrome-label text-primary">Task Orchestration</p>
@@ -17,11 +18,11 @@ export function TodoPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="signal-badge signal-badge--primary">bridge active</span>
-            <span className="signal-badge signal-badge--accent">host + remote</span>
+            <Badge tone="primary">bridge active</Badge>
+            <Badge tone="accent">host + remote</Badge>
           </div>
         </div>
-      </section>
+      </Panel>
 
       <TodoWorkspace />
     </div>

@@ -1,4 +1,4 @@
-@import '../../../packages/ui/src/theme.css';
+@import '@playground/ui/theme.css';
 
 @tailwind base;
 @tailwind components;
