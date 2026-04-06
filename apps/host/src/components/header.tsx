@@ -1,5 +1,3 @@
-'use client';
-
 export function Header() {
   return (
     <header className="h-12 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0">
