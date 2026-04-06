@@ -30,3 +30,6 @@ dist/
 *.tsbuildinfo
 # Next.js
 .next/
+
+# Visual companion
+.superpowers/
