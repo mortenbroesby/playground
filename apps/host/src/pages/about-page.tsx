@@ -56,16 +56,13 @@ export function AboutPage() {
             <div>
               <div className="flex flex-wrap gap-2">
                 <span className="signal-badge signal-badge--accent">playground route</span>
-                <span className="signal-badge signal-badge--muted">signal mesh moved</span>
+                <span className="signal-badge signal-badge--muted">visual experiments</span>
               </div>
 
               <p className="chrome-label mt-6 text-primary">Interactive experiments</p>
-              <h2 className="terminal-heading mt-3 text-2xl text-foreground sm:text-3xl">
-                Visual work has its own app now
-              </h2>
-              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                The signal mesh now lives in Playground so the about page can stay focused on
-                profile, values, and hobbies while visual experiments get room to grow.
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
+                Playground is where I keep visual experiments, motion studies, and other small
+                interactive ideas that sit alongside the rest of this workspace.
               </p>
             </div>
 
