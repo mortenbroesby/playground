@@ -1,6 +1,6 @@
-<h1 align="center">
-  playground
-</h1>
+<p align="center">
+  <img src="docs/logo.png" alt="playground" width="600" />
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/turborepo-2.x-EF4444?style=flat-square&logo=turborepo&logoColor=white" alt="Turborepo" />
