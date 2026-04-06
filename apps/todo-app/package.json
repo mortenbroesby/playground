@@ -1,0 +1,35 @@
+{
+  "name": "@playground/todo-app",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Todo micro frontend — input, list, and stats in one self-contained Vite app",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --mode development && concurrently -k -n build,preview \"vite build --watch --mode development\" \"vite preview --port 3101 --strictPort\"",
+    "build": "vite build",
+    "preview": "vite preview --port 3101 --strictPort",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@playground/types": "workspace:*",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playground/tsconfig": "workspace:*",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.2.1",
+    "eslint": "^8.57.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.11",
+    "vite-plugin-css-injected-by-js": "^3.5.2",
+    "vitest": "^2.1.8"
+  }
+}
