@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const REMOTE_ENTRY_URL = 'http://localhost:3101/remoteEntry.js';
+const REMOTE_ENTRY_URL = 'http://127.0.0.1:3101/remoteEntry.js';
 const DEV_SERVER_START_TIMEOUT_MS = 30000;
 const POLL_INTERVAL_MS = 500;
 
