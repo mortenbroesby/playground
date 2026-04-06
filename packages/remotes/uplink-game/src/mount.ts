@@ -15,7 +15,6 @@ export function mount(el: HTMLElement): () => void {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    resolution: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
   });
   return () => game.destroy(true);
 }
