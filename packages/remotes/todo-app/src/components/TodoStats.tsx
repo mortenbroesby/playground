@@ -8,25 +8,25 @@ export function TodoStats({ store }: { store: TodoStore }) {
   const remaining = total - done;
 
   return (
-    <div className='flex gap-6 text-xs text-slate-500 border-t border-slate-800 pt-3'>
-      <span>
-        <span data-testid='todo-total-count' className='text-slate-300 font-medium'>
+    <div className='mt-3 grid gap-3 sm:grid-cols-3'>
+      <div className='metric-panel rounded-md'>
+        <p className='chrome-label'>total</p>
+        <p data-testid='todo-total-count' className='metric-value mt-3 text-foreground'>
           {total}
-        </span>{' '}
-        total
-      </span>
-      <span>
-        <span data-testid='todo-done-count' className='text-slate-300 font-medium'>
+        </p>
+      </div>
+      <div className='metric-panel rounded-md'>
+        <p className='chrome-label'>done</p>
+        <p data-testid='todo-done-count' className='metric-value mt-3 text-foreground'>
           {done}
-        </span>{' '}
-        done
-      </span>
-      <span>
-        <span data-testid='todo-remaining-count' className='text-slate-300 font-medium'>
+        </p>
+      </div>
+      <div className='metric-panel rounded-md'>
+        <p className='chrome-label'>remaining</p>
+        <p data-testid='todo-remaining-count' className='metric-value mt-3 text-foreground'>
           {remaining}
-        </span>{' '}
-        remaining
-      </span>
+        </p>
+      </div>
     </div>
   );
 }

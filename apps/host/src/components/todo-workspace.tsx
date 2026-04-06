@@ -81,81 +81,126 @@ export function TodoWorkspace() {
   const completed = todos.filter((todo) => todo.completed).length;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[20rem,minmax(0,1fr)]">
+    <div className="grid gap-5 xl:grid-cols-[21rem,minmax(0,1fr)]">
       <aside
         data-testid="host-controls"
-        className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"
+        className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden p-5"
       >
-        <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-indigo-400">Host Controls</p>
-          <h2 className="text-lg font-semibold text-slate-100">Injected composition</h2>
-          <p className="text-sm text-slate-400">
-            The host mounts the todo app from the workspace and stays in sync through an explicit
-            bridge.
-          </p>
-        </div>
-
-        <div className="mt-5 grid grid-cols-3 gap-3 text-center text-xs">
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-            <div data-testid="host-total-count" className="text-lg font-semibold text-slate-100">
-              {todos.length}
+        <div className="flex flex-col gap-4">
+          <div className="space-y-2">
+            <p className="chrome-label text-primary">Host Console</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="terminal-heading text-xl text-foreground">Injected composition</h2>
+              <span className="signal-badge signal-badge--accent">bridge live</span>
             </div>
-            <div className="mt-1 text-slate-500">total</div>
+            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+              The host mounts the todo app from the workspace and stays in sync through an explicit
+              bridge.
+            </p>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-            <div data-testid="host-done-count" className="text-lg font-semibold text-slate-100">
-              {completed}
-            </div>
-            <div className="mt-1 text-slate-500">done</div>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-            <div data-testid="host-open-count" className="text-lg font-semibold text-slate-100">
-              {todos.length - completed}
-            </div>
-            <div className="mt-1 text-slate-500">open</div>
-          </div>
-        </div>
 
-        <div className="mt-5 space-y-3">
-          <button
-            type="button"
-            onClick={seedTodosFromHost}
-            data-testid="seed-todos"
-            className="w-full rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-400"
-          >
-            Seed Example Todos
-          </button>
-          <button
-            type="button"
-            onClick={clearTodosFromHost}
-            disabled={todos.length === 0}
-            data-testid="clear-todos"
-            className="w-full rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Clear From Host
-          </button>
-        </div>
+          <div className="terminal-rule" />
 
-        <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Last Event</p>
-          <p data-testid="last-event" className="mt-2 text-sm text-slate-300">
-            {lastEvent}
-          </p>
+          <div className="grid grid-cols-3 gap-3 text-left text-xs">
+            <div className="metric-panel rounded-md">
+              <div className="chrome-label">total</div>
+              <div data-testid="host-total-count" className="metric-value mt-3 text-foreground">
+                {todos.length}
+              </div>
+            </div>
+            <div className="metric-panel rounded-md">
+              <div className="chrome-label">done</div>
+              <div data-testid="host-done-count" className="metric-value mt-3 text-foreground">
+                {completed}
+              </div>
+            </div>
+            <div className="metric-panel rounded-md">
+              <div className="chrome-label">open</div>
+              <div data-testid="host-open-count" className="metric-value mt-3 text-foreground">
+                {todos.length - completed}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={seedTodosFromHost}
+              data-testid="seed-todos"
+              className="terminal-button w-full"
+            >
+              Seed Example Todos
+            </button>
+            <button
+              type="button"
+              onClick={clearTodosFromHost}
+              disabled={todos.length === 0}
+              data-testid="clear-todos"
+              className="terminal-button terminal-button--ghost w-full"
+            >
+              Clear From Host
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="terminal-item rounded-md px-4 py-3">
+              <p className="chrome-label">Transport</p>
+              <div className="mt-3 flex items-center gap-2 text-sm text-foreground">
+                <span className="status-led status-led--live" aria-hidden="true" />
+                Event stream linked
+              </div>
+            </div>
+            <div className="terminal-item rounded-md px-4 py-3">
+              <p className="chrome-label">Handshake</p>
+              <div className="mt-3 flex items-center gap-2 text-sm text-foreground">
+                <span className="status-led status-led--accent" aria-hidden="true" />
+                Host issued commands
+              </div>
+            </div>
+          </div>
+
+          <div className="log-panel rounded-md">
+            <p className="chrome-label">Last Event</p>
+            <p data-testid="last-event" className="log-line mt-3 text-sm leading-6">
+              {lastEvent}
+            </p>
+          </div>
         </div>
       </aside>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70">
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+      <section className="terminal-panel overflow-hidden">
+        <div className="terminal-grid flex flex-col gap-4 border-b border-border/70 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-400">Todo App</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-100">Workspace-mounted mFE</h2>
+            <p className="chrome-label text-primary">Todo App</p>
+            <h2 className="terminal-heading mt-2 text-xl text-foreground">
+              Workspace-mounted mFE
+            </h2>
           </div>
-          <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
-            injected
+
+          <div className="flex flex-wrap gap-2">
+            <span className="signal-badge signal-badge--primary">injected</span>
+            <span className="signal-badge signal-badge--accent">shared theme</span>
           </div>
         </div>
 
-        <div ref={containerRef} data-testid="todo-app-container" className="min-h-[24rem]" />
+        <div className="border-b border-border/60 bg-background/40 px-5 py-3">
+          <div className="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+            <span className="inline-flex items-center gap-2">
+              <span className="status-led status-led--live" aria-hidden="true" />
+              state synchronized
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="status-led status-led--accent" aria-hidden="true" />
+              local storage backing
+            </span>
+          </div>
+        </div>
+
+        <div
+          ref={containerRef}
+          data-testid="todo-app-container"
+          className="min-h-[26rem] bg-[rgba(3,8,9,0.45)]"
+        />
       </section>
     </div>
   );
