@@ -1,12 +1,17 @@
-import { Link } from 'react-router-dom';
+import { Github, Instagram, Linkedin } from 'lucide-react';
 import { aboutPage } from '../content/uses';
 
 const ABOUT_NAME = 'Morten Broesby-Olsen';
+const SOCIAL_ICONS = {
+  GitHub: Github,
+  LinkedIn: Linkedin,
+  Instagram: Instagram,
+} as const;
 
 export function AboutPage() {
   return (
     <div data-testid="about-page" className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr),minmax(22rem,0.95fr)]">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr),minmax(18rem,0.72fr)]">
         <div className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden p-6 sm:p-8">
           <div className="flex h-full flex-col gap-6">
             <div className="flex flex-wrap items-center gap-3">
@@ -48,36 +53,50 @@ export function AboutPage() {
         </div>
 
         <aside
-          data-testid="about-playground-card"
+          data-testid="about-socials"
           className="terminal-panel terminal-panel--glow terminal-grid relative overflow-hidden p-6 sm:p-8"
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.16),transparent_36%),radial-gradient(circle_at_82%_28%,rgba(83,209,255,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_24%,transparent_80%,rgba(255,255,255,0.02))]" />
-          <div className="relative flex h-full flex-col justify-between gap-6">
+          <div className="relative flex h-full flex-col gap-6">
             <div>
               <div className="flex flex-wrap gap-2">
-                <span className="signal-badge signal-badge--accent">playground route</span>
-                <span className="signal-badge signal-badge--muted">visual experiments</span>
+                <span className="signal-badge signal-badge--accent">socials</span>
+                <span className="signal-badge signal-badge--muted">external links</span>
               </div>
 
-              <p className="chrome-label mt-6 text-primary">Interactive experiments</p>
+              <p className="chrome-label mt-6 text-primary">Find me</p>
               <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Playground is where I keep visual experiments, motion studies, and other small
-                interactive ideas that sit alongside the rest of this workspace.
+                A few good places to keep up with what I am building and sharing online.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                to="/playground"
-                className="terminal-button rounded-md"
-                data-testid="about-playground-link"
-              >
-                Open playground
-              </Link>
-              <div className="rounded-md border border-border/70 bg-background/75 px-3 py-2">
-                <p className="chrome-label">Route</p>
-                <p className="mt-2 text-sm text-foreground">/playground</p>
-              </div>
+            <div className="space-y-3">
+              {aboutPage.socials.map((social) => {
+                const Icon = SOCIAL_ICONS[social.label];
+
+                return (
+                  <a
+                    key={social.label}
+                    data-testid={`about-social-${social.label.toLowerCase()}`}
+                    href={social.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="terminal-item flex items-center gap-3 rounded-md px-4 py-3 transition-colors hover:border-primary/40 hover:text-foreground"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-md border border-border/70 bg-background/70 text-primary">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="terminal-heading block text-sm text-foreground">
+                        {social.label}
+                      </span>
+                      <span className="mt-1 block truncate text-sm text-muted-foreground">
+                        {social.handle}
+                      </span>
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           </div>
         </aside>

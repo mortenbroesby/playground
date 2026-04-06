@@ -75,12 +75,28 @@ describe('host routes', () => {
     });
 
     expect(getByText('Morten Broesby-Olsen')).toBeTruthy();
-    expect(getByTestId('about-playground-card')).toBeTruthy();
-    expect(getByTestId('about-playground-link')).toBeTruthy();
+    expect(getByTestId('about-socials')).toBeTruthy();
+    expect(getByTestId('about-social-github')).toBeTruthy();
+    expect(getByTestId('about-social-linkedin')).toBeTruthy();
+    expect(getByTestId('about-social-instagram')).toBeTruthy();
     expect(getByTestId('about-hobbies')).toBeTruthy();
     expect(getByTestId('about-values')).toBeTruthy();
     expect(getByTestId('about-inspirations')).toBeTruthy();
     expect(getByText('Hobbies')).toBeTruthy();
+
+    const githubLink = document.querySelector<HTMLAnchorElement>(
+      '[data-testid="about-social-github"]',
+    );
+    const linkedInLink = document.querySelector<HTMLAnchorElement>(
+      '[data-testid="about-social-linkedin"]',
+    );
+    const instagramLink = document.querySelector<HTMLAnchorElement>(
+      '[data-testid="about-social-instagram"]',
+    );
+
+    expect(githubLink?.href).toBe('https://github.com/mortenbroesby');
+    expect(linkedInLink?.href).toBe('https://www.linkedin.com/in/morten-broesby-olsen/');
+    expect(instagramLink?.href).toBe('https://www.instagram.com/mortenbroesby/');
   });
 
   it('renders the playground route with the signal mesh app', async () => {

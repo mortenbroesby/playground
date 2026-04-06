@@ -9,10 +9,33 @@ export type UsesSection = {
   items: UsesItem[];
 };
 
+export type SocialLink = {
+  label: string;
+  href: string;
+  handle: string;
+};
+
 export const aboutPage = {
   headline: 'About',
   tagline: 'Frontend architect. Platform engineer. Long-term thinker.',
-  bio: 'I build reliable frontend platforms that scale across web, mobile, and Smart TV — with a focus on developer experience, shared ownership, and long-term maintainability. Ten-plus years in the industry working on products like HBO Max, Disney Life, Videoland, TV 2 PLAY, and Pleo WebCore.',
+  bio: 'I build reliable frontend platforms that scale across web, mobile, and Smart TV — with a focus on developer experience, shared ownership, and long-term maintainability. Ten-plus years in the industry working on products like HBO Max, Disney Life, Videoland, TV 2 PLAY, Pleo, Danske Bank.',
+  socials: [
+    {
+      label: 'GitHub',
+      href: 'https://github.com/mortenbroesby',
+      handle: '@mortenbroesby',
+    },
+    {
+      label: 'LinkedIn',
+      href: 'https://www.linkedin.com/in/morten-broesby-olsen/',
+      handle: 'morten-broesby-olsen',
+    },
+    {
+      label: 'Instagram',
+      href: 'https://www.instagram.com/mortenbroesby/',
+      handle: '@mortenbroesby',
+    },
+  ] satisfies SocialLink[],
   hobbies: [
     'Building side projects and design-system playgrounds',
     'Exploring AI-native developer workflows and tooling',

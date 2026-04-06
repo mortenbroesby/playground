@@ -1,4 +1,4 @@
-import { Badge, Button } from '@playground/ui';
+import { Badge } from '@playground/ui';
 import { useLocation } from 'react-router-dom';
 import { appStatusMeta } from '@/lib/theme';
 
@@ -11,7 +11,7 @@ export function Header() {
 
   return (
     <header className="border-b border-border/80 bg-card/80 px-4 py-3 backdrop-blur-sm sm:px-5">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex items-center gap-3">
             <span className="status-led status-led--live" aria-hidden="true" />
@@ -27,16 +27,6 @@ export function Header() {
             <span className="chrome-label text-muted-foreground">{activeRoute.status}</span>
           </div>
         </div>
-
-        <Button
-          variant="secondary"
-          className="px-3 py-2 text-[0.7rem]"
-          onClick={() => {
-            window.open('https://github.com/mortenbroesby/playground', '_blank', 'noopener,noreferrer');
-          }}
-        >
-          GitHub ↗
-        </Button>
       </div>
     </header>
   );
