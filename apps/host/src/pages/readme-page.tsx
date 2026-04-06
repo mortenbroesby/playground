@@ -1,10 +1,15 @@
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github-dark.css';
+import readme from '../../../../README.md?raw';
+
 export function ReadmePage() {
   return (
-    <div className="p-6">
+    <div className="max-w-4xl mx-auto px-6 py-8">
       <h1 className="text-slate-400 text-xs uppercase tracking-wider mb-4">README</h1>
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-slate-400">
-        README page placeholder
-      </div>
+      <article className="prose prose-invert prose-slate max-w-none">
+        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{readme}</ReactMarkdown>
+      </article>
     </div>
   );
 }

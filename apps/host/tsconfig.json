@@ -8,9 +8,11 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@playground/todo-app": ["../../packages/remotes/todo-app/src/index.ts"],
+      "@playground/types": ["../../packages/types/src/index.ts"]
     },
-    "types": ["node"],
+    "types": ["node", "vite/client"],
     "noEmit": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,

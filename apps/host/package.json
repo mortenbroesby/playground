@@ -11,6 +11,8 @@
     "type-check": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
+    "@playground/todo-app": "workspace:*",
+    "@playground/types": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
