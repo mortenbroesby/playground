@@ -74,6 +74,15 @@ importers:
       '@mantine/hooks':
         specifier: ^7.17.8
         version: 7.17.8(react@18.3.1)
+      '@playground/todo-input':
+        specifier: workspace:*
+        version: link:../todo-input
+      '@playground/todo-list':
+        specifier: workspace:*
+        version: link:../todo-list
+      '@playground/todo-stats':
+        specifier: workspace:*
+        version: link:../todo-stats
       '@playground/types':
         specifier: workspace:*
         version: link:../../packages/types

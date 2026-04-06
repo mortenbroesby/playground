@@ -4,28 +4,33 @@ import { Alert, Card, Loader, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
 import type { TodoBridge } from '@playground/types';
 
+import { loadInjectedRemote, type InjectedRemoteId } from '@/lib/injected-remotes';
+import type { CompositionMode } from '@/lib/remotes';
+
 type RemoteModule = {
   mount: (target: HTMLElement, options: { bridge: TodoBridge }) => (() => void) | void;
 };
 
 type RemoteSlotProps = {
-  remoteEntryUrl: string;
+  id: InjectedRemoteId;
+  compositionMode: CompositionMode;
+  runtimeUrl: string;
   name: string;
   description: string;
   bridge: TodoBridge;
 };
 
-const loadRemoteModule = async (remoteEntryUrl: string): Promise<RemoteModule> => {
-  const remote = (await import(/* webpackIgnore: true */ remoteEntryUrl)) as Partial<RemoteModule>;
+const loadRuntimeRemote = async (runtimeUrl: string): Promise<RemoteModule> => {
+  const remote = (await import(/* webpackIgnore: true */ runtimeUrl)) as Partial<RemoteModule>;
 
   if (!remote.mount) {
-    throw new Error(`Remote ${remoteEntryUrl} does not expose a mount() function.`);
+    throw new Error(`Remote ${runtimeUrl} does not expose a mount() function.`);
   }
 
   return remote as RemoteModule;
 };
 
-export function RemoteSlot({ remoteEntryUrl, name, description, bridge }: RemoteSlotProps) {
+export function RemoteSlot({ id, compositionMode, runtimeUrl, name, description, bridge }: RemoteSlotProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const teardownRef = useRef<(() => void) | void>();
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +44,8 @@ export function RemoteSlot({ remoteEntryUrl, name, description, bridge }: Remote
         setIsLoading(true);
         setError(null);
 
-        const remoteModule = await loadRemoteModule(remoteEntryUrl);
+        const remoteModule =
+          compositionMode === 'injected' ? await loadInjectedRemote(id) : await loadRuntimeRemote(runtimeUrl);
 
         if (!isMounted || !containerRef.current) {
           return;
@@ -61,7 +67,7 @@ export function RemoteSlot({ remoteEntryUrl, name, description, bridge }: Remote
         teardownRef.current();
       }
     };
-  }, [bridge, remoteEntryUrl]);
+  }, [bridge, compositionMode, id, runtimeUrl]);
 
   return (
     <Card withBorder radius="md" p="lg">
@@ -72,7 +78,7 @@ export function RemoteSlot({ remoteEntryUrl, name, description, bridge }: Remote
             {description}
           </Text>
           <Text size="xs" ff="monospace" c="dimmed">
-            {remoteEntryUrl}
+            {compositionMode === 'injected' ? `injected:${id}` : runtimeUrl}
           </Text>
         </Stack>
 
