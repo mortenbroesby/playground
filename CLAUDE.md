@@ -1,19 +1,16 @@
 # Project: playground
 
-A pnpm + Turborepo monorepo playground for experimenting with multi-agent Claude Code workflows.
-Houses the claude-agents plugin marketplace alongside shared packages and apps.
+A pnpm + Turborepo monorepo playground for experimenting with multi-agent Claude Code workflows and microfrontend delivery.
 
 ## Repository Structure
 
 ```
 playground/
-├── .claude-plugin/marketplace.json   # Registry of all plugins
 ├── apps/
-│   └── claude-agents/                # Plugin marketplace (75 plugins, 182 agents, 147 skills)
-│       ├── plugins/
-│       ├── docs/
-│       └── tools/
+│   └── host/                         # Next.js shell app
 ├── packages/
+│   ├── remotes/
+│   │   └── todo-app/                 # Vite microfrontend remote
 │   ├── ui/                           # @playground/ui — shared React component library
 │   └── config/                       # @playground/config — shared ESLint + TSConfig
 │       ├── tsconfig/                 # @playground/tsconfig
@@ -22,7 +19,7 @@ playground/
 │   └── playground/                   # Skills specific to this repo
 ├── docs/superpowers/                 # Specs and implementation plans
 ├── turbo.json                        # Turborepo pipeline
-└── pnpm-workspace.yaml               # Workspace globs: apps/*, packages/*, packages/config/*
+└── pnpm-workspace.yaml               # Workspace globs: apps/*, packages/*, packages/remotes/*, packages/config/*
 ```
 
 ## Skills
@@ -64,6 +61,7 @@ Install: `/plugin install playground@claude-code-workflows`
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'packages/remotes/*'
   - 'packages/config/*'   # required for nested sub-packages
 ```
 
@@ -198,21 +196,12 @@ There is no need to disable context-mode when Codex is active. They are orthogon
 | Tier 3 | Sonnet | Docs, testing, debugging, support |
 | Tier 4 | Haiku | Fast ops, deployment, simple tasks |
 
-## PluginEval
+## Microfrontend Setup
 
-Three-layer evaluation in `apps/claude-agents/plugins/plugin-eval/`.
+The browser always loads the todo remote from `/remotes/todo-app/remoteEntry.js`.
 
-```bash
-cd apps/claude-agents/plugins/plugin-eval
-
-uv run plugin-eval score path/to/skill --depth quick     # static only, instant
-uv run plugin-eval score path/to/skill --depth standard  # + LLM judge
-uv run plugin-eval certify path/to/skill                 # full certification
-```
-
-Badges: Platinum ≥90, Gold ≥80, Silver ≥70, Bronze ≥60
-
-Anti-patterns: `OVER_CONSTRAINED` `EMPTY_DESCRIPTION` `MISSING_TRIGGER` `BLOATED_SKILL` `ORPHAN_REFERENCE` `DEAD_CROSS_REF`
+- In local development, `apps/host` rewrites that path to `http://127.0.0.1:3101/remoteEntry.js`
+- In production, the host build copies the bundle from `packages/remotes/todo-app/dist/` into `apps/host/public/remotes/todo-app/`
 
 ## Development
 

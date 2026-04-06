@@ -20,10 +20,15 @@ export function MfeFrame({ remoteUrl }: { remoteUrl: string }) {
           cleanup = module.mount(container);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.error('Failed to load todo remote', error);
+
+        const message =
+          error instanceof Error ? error.message : 'Unknown error while loading remote';
+
         if (container) {
           container.innerHTML =
-            '<p class="text-slate-500 text-sm p-4">MFE unavailable — start todo-app dev server on port 3101.</p>';
+            `<div class="p-4 space-y-1"><p class="text-slate-500 text-sm">MFE unavailable — ensure the todo remote is running on port 3101.</p><p class="text-slate-600 text-xs">${message}</p></div>`;
         }
       });
 

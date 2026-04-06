@@ -30,5 +30,6 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
+    exclude: ['tests/integration/**'],
   },
 });

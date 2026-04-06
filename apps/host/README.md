@@ -1,20 +1,33 @@
 # @playground/host
 
-Next.js orchestrator shell for the todo micro frontends.
+Next.js shell for the playground microfrontend setup.
 
-## Composition modes
+## Runtime model
 
-By default, the host **injects** child apps directly from workspace packages (no remote URL servers required).
+The host always loads the todo remote from the same browser URL:
 
-- `NEXT_PUBLIC_TODO_COMPOSITION_MODE=injected` (default)
-  - Loads children from local package modules (`@playground/todo-*`).
-- `NEXT_PUBLIC_TODO_COMPOSITION_MODE=runtime`
-  - Loads children from runtime URL-based ES modules.
+- `/remotes/todo-app/remoteEntry.js`
 
-## Runtime remotes (runtime mode only)
+That path behaves consistently across environments:
 
-When `NEXT_PUBLIC_TODO_COMPOSITION_MODE=runtime`, the shell loads the todo micro frontend from:
+- In development, Next.js rewrites it to `http://127.0.0.1:3101/remoteEntry.js`
+- In production, the host build copies the remote bundle into `public/remotes/todo-app/`
 
-- `NEXT_PUBLIC_TODO_MFE_URL`
-  Defaults to `http://127.0.0.1:3101/remoteEntry.js` in local development.
-  Defaults to `/remotes/todo-app/remoteEntry.js` in production deployments.
+## Local development
+
+Run both workspaces together from the repo root:
+
+```bash
+pnpm dev:web
+```
+
+That starts the web stack and opens `http://127.0.0.1:3000/todo` automatically.
+
+It runs:
+
+- `@playground/host` on port `3000`
+- `@playground/todo-app` on port `3101`
+
+## Override
+
+If needed, you can still override the remote URL with `NEXT_PUBLIC_TODO_MFE_URL`.

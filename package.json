@@ -5,8 +5,9 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "dev:web": "node scripts/dev-web.mjs",
     "lint": "turbo lint && pnpm lint:md",
-    "lint:md": "markdownlint-cli2 \"README.md\" \"apps/*/README.md\" \"packages/*/README.md\"",
+    "lint:md": "markdownlint-cli2 \"README.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\"",
     "test:integration": "pnpm --filter @playground/todo-app test:integration",
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",

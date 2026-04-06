@@ -2,7 +2,7 @@
   "name": "@playground/todo-app",
   "version": "0.0.1",
   "private": true,
-  "description": "Todo micro frontend — input, list, and stats in one self-contained Vite app",
+  "description": "Todo microfrontend remote bundle served by the host in production",
   "type": "module",
   "scripts": {
     "dev": "vite build --mode development && concurrently -k -n build,preview \"vite build --watch --mode development\" \"vite preview --host 127.0.0.1 --port 3101 --strictPort\"",

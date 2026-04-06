@@ -11,11 +11,12 @@
   <img src="https://img.shields.io/github/last-commit/mortenbroesby/playground?style=flat-square&logo=github" alt="Last Commit" />
 </p>
 
-A monorepo playground for experimenting with **multi-agent Claude Code workflows**.
+A monorepo playground for experimenting with **multi-agent Claude Code workflows** and microfrontend delivery.
 
 Apps and packages in this repo:
 
-- [claude-agents](./apps/claude-agents) — Claude Code plugin marketplace (75 plugins, 182 agents, 147 skills)
+- [host](./apps/host) — Next.js shell that serves and composes the todo microfrontend
+- [todo-app remote](./packages/remotes/todo-app) — Vite-built ES module remote consumed by the host
 - [ui](./packages/ui) — Shared React component library
 - [config](./packages/config) — Shared ESLint + TypeScript configs
 
@@ -29,13 +30,13 @@ This repo uses:
 ## Getting Started
 
 ```bash
-# Install pnpm if needed
-npm install -g pnpm@9
+# Enable pnpm if needed
+corepack enable
 
 # Install all workspace dependencies
 pnpm install
 
-# Build all packages
+# Build all workspaces
 pnpm turbo build
 ```
 
@@ -46,9 +47,9 @@ pnpm turbo build
 - [Adding a workspace](#adding-a-workspace)
   - **TLDR**: Create a directory under `apps/` or `packages/`, run `pnpm init`, and reference `@playground/tsconfig` and `@playground/eslint-config` as dev dependencies.
 - [How this was built](#how-this-was-built)
-  - **TLDR**: An orchestrator dispatched 5 parallel Claude sub-agents in 3 waves — each agent owned an isolated set of files with zero overlap. The entire monorepo was scaffolded without sequential bottlenecks.
-- [Plugin marketplace](./apps/claude-agents/README.md)
-  - **TLDR**: Install any of 75 focused Claude Code plugins via `/plugin install`. Each plugin loads only its own agents, skills, and commands — no unnecessary context overhead.
+  - **TLDR**: Keep `apps/` for deployable surfaces, put shared code in `packages/`, and put browser-loaded remotes under `packages/remotes/`.
+- [Microfrontend setup](./apps/host/README.md)
+  - **TLDR**: The host always loads the todo remote from `/remotes/todo-app/remoteEntry.js`; in local dev Next.js proxies that path to the Vite remote on port `3101`.
 
 ### Commands
 
@@ -58,7 +59,20 @@ pnpm turbo build
 | `pnpm turbo type-check` | TypeScript check across all workspaces |
 | `pnpm turbo lint` | ESLint across all workspaces |
 | `pnpm turbo dev` | Start all dev servers in parallel |
+| `pnpm dev:web` | Start the host and todo microfrontend, then open `/todo` |
 | `pnpm lint:md` | Lint workspace READMEs with markdownlint |
+
+## Microfrontends
+
+The repo ships a single deployable web app, [`apps/host`](./apps/host), plus a separately built remote bundle in [`packages/remotes/todo-app`](./packages/remotes/todo-app).
+
+- Local development: `pnpm turbo dev`
+- Web-only local development: `pnpm dev:web` (opens the browser automatically)
+- Host route: `/todo`
+- Remote URL used by the browser: `/remotes/todo-app/remoteEntry.js`
+- Dev proxy target: `http://127.0.0.1:3101/remoteEntry.js`
+
+This keeps the microfrontend runtime boundary while avoiding environment-specific URLs in the browser.
 
 ## Adding a workspace
 
@@ -83,23 +97,18 @@ Add shared configs to `package.json`:
 
 ## How this was built
 
-An orchestrator dispatched parallel sub-agents — each owning a strict file boundary with zero overlap:
+The repo is organized around a single deployable host app and separately built supporting workspaces:
 
 ```text
-Orchestrator
-├── Wave 1 ─ parallel ──────────────────────────────────────────────┐
-│   ├── root-scaffolder     turbo.json · pnpm-workspace.yaml        │
-│   ├── config-builder      packages/config (tsconfig + eslint)     │
-│   └── claude-agents-mover apps/claude-agents (plugin content)     │
-│                                                                    │
-├── Wave 2 ─ after Wave 1 ──────────────────────────────────────────┤
-│   └── ui-builder          packages/ui (React component library)   │
-│                                                                    │
-└── Wave 3 ─ final ─────────────────────────────────────────────────┘
-    └── readme-writer       README.md
+apps/host                  Next.js shell
+packages/remotes/todo-app  Vite microfrontend remote
+packages/ui                Shared React components
+packages/config            Shared TypeScript and ESLint config
+packages/types             Shared TypeScript types
+plugins/                   Claude Code plugin content for repo workflows
 ```
 
-Each agent ran as an independent sub-process in VS Code — visible, parallel, coordinated.
+That split keeps deployment concerns simple while preserving a real runtime microfrontend boundary.
 
 ## License
 
