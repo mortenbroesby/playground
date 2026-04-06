@@ -4,11 +4,11 @@ import { Sidebar } from '@/components/sidebar';
 
 export function App() {
   return (
-    <div className="bg-slate-950 text-slate-100 antialiased flex flex-col h-screen overflow-hidden">
+    <div className="terminal-app flex h-screen flex-col overflow-hidden text-foreground antialiased">
       <Header />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="terminal-grid terminal-scrollbars flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>

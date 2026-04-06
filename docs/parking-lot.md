@@ -71,3 +71,7 @@ Maintain:
 - existing product logic
 
 **Parked:** 2026-04-06
+
+---
+
+## Switch to / enrich with WebSockets?

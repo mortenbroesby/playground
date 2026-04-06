@@ -6,38 +6,50 @@ export function TodoList({ store }: { store: TodoStore }) {
 
   if (todos.length === 0) {
     return (
-      <p data-testid='todo-empty-state' className='text-slate-500 text-sm'>
+      <div
+        data-testid='todo-empty-state'
+        className='rounded-md border border-dashed border-border/80 bg-background/60 px-4 py-7 text-sm leading-6 text-muted-foreground'
+      >
         No tasks yet. Add one above.
-      </p>
+      </div>
     );
   }
 
   return (
-    <ul data-testid='todo-list' className='space-y-1.5'>
+    <ul data-testid='todo-list' className='space-y-3'>
       {todos.map(todo => (
-        <li key={todo.id} data-testid='todo-list-item' className='flex items-center gap-3 group'>
+        <li
+          key={todo.id}
+          data-testid='todo-list-item'
+          className='group terminal-item flex items-center gap-3 rounded-md px-4 py-4'
+        >
           <input
             type='checkbox'
             checked={todo.completed}
             onChange={() => store.toggleTodo(todo.id)}
             data-testid='todo-toggle'
-            className='h-4 w-4 rounded border-slate-600 bg-slate-800 accent-indigo-500'
+            className='h-4 w-4 rounded border-border bg-background accent-primary'
             aria-label={`Toggle ${todo.title}`}
           />
-          <span
-            className={`flex-1 text-sm ${
-              todo.completed ? 'line-through text-slate-500' : 'text-slate-100'
-            }`}
-          >
-            {todo.title}
-          </span>
+          <div className='min-w-0 flex-1'>
+            <span
+              className={`block text-sm ${
+                todo.completed ? 'text-muted-foreground line-through' : 'text-foreground'
+              }`}
+            >
+              {todo.title}
+            </span>
+            <span className='chrome-label mt-2 inline-block'>
+              {todo.completed ? 'done' : 'open'}
+            </span>
+          </div>
           <button
             onClick={() => store.deleteTodo(todo.id)}
             data-testid='todo-delete'
-            className='text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs'
+            className='chrome-label rounded-md border border-transparent px-3 py-2 text-muted-foreground opacity-70 transition hover:border-destructive/40 hover:text-destructive group-hover:opacity-100'
             aria-label={`Delete ${todo.title}`}
           >
-            ✕
+            purge
           </button>
         </li>
       ))}

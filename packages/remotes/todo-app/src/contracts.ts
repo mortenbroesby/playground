@@ -12,14 +12,16 @@ export type TodoAppEvent =
   | { type: 'todos:replaced'; snapshot: TodoAppSnapshot }
   | { type: 'todos:cleared'; snapshot: TodoAppSnapshot };
 
+/* eslint-disable no-unused-vars */
 export type TodoAppMountOptions = {
   initialTodos?: Todo[];
-  onEvent?: (event: TodoAppEvent) => void;
+  onEvent?(event: TodoAppEvent): void;
 };
 
 export type TodoAppHandle = {
   unmount(): void;
   getSnapshot(): TodoAppSnapshot;
-  replaceTodos(todos: Todo[]): void;
+  replaceTodos(items: Todo[]): void;
   clearTodos(): void;
 };
+/* eslint-enable no-unused-vars */
