@@ -6,8 +6,8 @@ import './index.css';
 
 export function App({ store }: { store: TodoStore }) {
   return (
-    <div className='terminal-scrollbars h-full space-y-4 p-4 sm:p-5'>
-      <section className='terminal-item rounded-md p-4'>
+    <div className='terminal-scrollbars h-full space-y-5 p-0'>
+      <section className='terminal-item rounded-md p-4 sm:p-5'>
         <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between'>
           <div>
             <p className='chrome-label text-primary'>Signal Intake</p>
@@ -18,7 +18,7 @@ export function App({ store }: { store: TodoStore }) {
         <TodoInput store={store} />
       </section>
 
-      <section className='terminal-item rounded-md p-4'>
+      <section className='terminal-item rounded-md p-4 sm:p-5'>
         <div className='mb-4 flex items-center justify-between gap-3'>
           <div>
             <p className='chrome-label'>Task Feed</p>
@@ -29,7 +29,7 @@ export function App({ store }: { store: TodoStore }) {
         <TodoList store={store} />
       </section>
 
-      <section className='terminal-item rounded-md p-4'>
+      <section className='terminal-item rounded-md p-4 sm:p-5'>
         <p className='chrome-label'>Inspector</p>
         <TodoStats store={store} />
       </section>

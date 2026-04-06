@@ -8,7 +8,7 @@ export function TodoStats({ store }: { store: TodoStore }) {
   const remaining = total - done;
 
   return (
-    <div className='mt-3 grid gap-3 sm:grid-cols-3'>
+    <div className='mt-4 grid gap-3 sm:grid-cols-3'>
       <div className='metric-panel rounded-md'>
         <p className='chrome-label'>total</p>
         <p data-testid='todo-total-count' className='metric-value mt-3 text-foreground'>

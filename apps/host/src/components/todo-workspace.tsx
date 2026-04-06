@@ -86,7 +86,7 @@ export function TodoWorkspace() {
         data-testid="host-controls"
         className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden p-5"
       >
-        <div className="flex flex-col gap-4">
+        <div className="relative z-10 flex flex-col gap-4">
           <div className="space-y-2">
             <p className="chrome-label text-primary">Host Console</p>
             <div className="flex flex-wrap items-center gap-2">
@@ -169,7 +169,7 @@ export function TodoWorkspace() {
       </aside>
 
       <section className="terminal-panel overflow-hidden">
-        <div className="terminal-grid flex flex-col gap-4 border-b border-border/70 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="terminal-grid relative z-10 flex flex-col gap-4 border-b border-border/70 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="chrome-label text-primary">Todo App</p>
             <h2 className="terminal-heading mt-2 text-xl text-foreground">
@@ -183,7 +183,7 @@ export function TodoWorkspace() {
           </div>
         </div>
 
-        <div className="border-b border-border/60 bg-background/40 px-5 py-3">
+        <div className="relative z-10 border-b border-border/60 bg-background/40 px-5 py-3">
           <div className="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <span className="status-led status-led--live" aria-hidden="true" />
@@ -199,7 +199,7 @@ export function TodoWorkspace() {
         <div
           ref={containerRef}
           data-testid="todo-app-container"
-          className="min-h-[26rem] bg-[rgba(3,8,9,0.45)]"
+          className="min-h-[28rem] bg-[rgba(3,8,9,0.45)] p-3 sm:p-4 lg:p-5"
         />
       </section>
     </div>

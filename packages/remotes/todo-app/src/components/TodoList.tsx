@@ -8,7 +8,7 @@ export function TodoList({ store }: { store: TodoStore }) {
     return (
       <div
         data-testid='todo-empty-state'
-        className='rounded-md border border-dashed border-border/80 bg-background/60 px-4 py-6 text-sm text-muted-foreground'
+        className='rounded-md border border-dashed border-border/80 bg-background/60 px-4 py-7 text-sm leading-6 text-muted-foreground'
       >
         No tasks yet. Add one above.
       </div>
@@ -16,12 +16,12 @@ export function TodoList({ store }: { store: TodoStore }) {
   }
 
   return (
-    <ul data-testid='todo-list' className='space-y-2'>
+    <ul data-testid='todo-list' className='space-y-3'>
       {todos.map(todo => (
         <li
           key={todo.id}
           data-testid='todo-list-item'
-          className='group terminal-item flex items-center gap-3 rounded-md px-3 py-3'
+          className='group terminal-item flex items-center gap-3 rounded-md px-4 py-4'
         >
           <input
             type='checkbox'
@@ -46,7 +46,7 @@ export function TodoList({ store }: { store: TodoStore }) {
           <button
             onClick={() => store.deleteTodo(todo.id)}
             data-testid='todo-delete'
-            className='chrome-label rounded-md border border-transparent px-2 py-2 text-muted-foreground opacity-70 transition hover:border-destructive/40 hover:text-destructive group-hover:opacity-100'
+            className='chrome-label rounded-md border border-transparent px-3 py-2 text-muted-foreground opacity-70 transition hover:border-destructive/40 hover:text-destructive group-hover:opacity-100'
             aria-label={`Delete ${todo.title}`}
           >
             purge

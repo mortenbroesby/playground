@@ -17,11 +17,11 @@ export function TodoInput({ store }: { store: TodoStore }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className='space-y-2'>
+    <form onSubmit={onSubmit} className='space-y-3'>
       <div className='flex flex-col gap-2 sm:flex-row'>
         <input
           data-testid='todo-input'
-          className='terminal-input flex-1 rounded-md'
+          className='terminal-input flex-1 rounded-md px-4 py-3'
           placeholder='Add a task...'
           value={value}
           onChange={e => setValue(e.target.value)}
@@ -30,7 +30,7 @@ export function TodoInput({ store }: { store: TodoStore }) {
         <button
           type='submit'
           data-testid='add-todo'
-          className='terminal-button rounded-md px-4'
+          className='terminal-button rounded-md px-5'
         >
           Add
         </button>

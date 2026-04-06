@@ -353,6 +353,26 @@ a {
   }
 }
 
+@keyframes signal-rain {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -18%, 0);
+  }
+
+  8% {
+    opacity: 0.75;
+  }
+
+  72% {
+    opacity: 0.38;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 132%, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
