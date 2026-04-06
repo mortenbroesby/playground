@@ -1,6 +1,6 @@
 # @playground/host
 
-Next.js shell for the playground microfrontend setup.
+Vite shell for the playground microfrontend setup and the first `@mortenbroesby` site pivot.
 
 ## Composition model
 
@@ -15,6 +15,8 @@ The host and todo app communicate through the mount contract:
 - The host receives structured events from the microfrontend
 - The host can seed or clear todos through the returned handle
 - The todo app renders inside `/todo` but manages its own UI
+- The personal content route now lives at `/uses`
+- `/readme` redirects to `/uses`
 
 ## Local development
 
@@ -32,6 +34,7 @@ It runs:
 
 ## Verification
 
+- `pnpm --filter @playground/host test`
 - `pnpm --filter @playground/todo-app test`
 - `pnpm --filter @playground/todo-app test:integration`
 - `pnpm --filter @playground/host type-check`

@@ -31,6 +31,7 @@ dist/
 playwright-report/
 test-results/
 blob-report/
+__screenshots__/
 # Next.js
 .next/
 

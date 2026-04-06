@@ -5,7 +5,10 @@
   "description": "Todo microfrontend mounted directly by the host workspace",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   },
   "scripts": {
     "build": "vite build",

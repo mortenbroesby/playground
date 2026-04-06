@@ -11,11 +11,11 @@
   <img src="https://img.shields.io/github/last-commit/mortenbroesby/playground?style=flat-square&logo=github" alt="Last Commit" />
 </p>
 
-A monorepo playground for experimenting with **multi-agent Claude Code workflows** and microfrontend delivery.
+A monorepo playground for experimenting with **multi-agent Claude Code workflows**, injected microfrontends, and a personal-site pivot for `@mortenbroesby`.
 
 Apps and packages in this repo:
 
-- [host](./apps/host) — Next.js shell that serves and composes the todo microfrontend
+- [host](./apps/host) — Vite shell that serves the todo microfrontend and the `@mortenbroesby` uses page
 - [todo-app](./packages/remotes/todo-app) — injected todo microfrontend mounted by the host at runtime
 - [ui](./packages/ui) — Shared React component library
 - [config](./packages/config) — Shared ESLint + TypeScript configs
@@ -59,6 +59,7 @@ pnpm turbo build
 | `pnpm turbo type-check` | TypeScript check across all workspaces |
 | `pnpm turbo lint` | ESLint across all workspaces |
 | `pnpm turbo dev` | Start all dev servers in parallel |
+| `pnpm test` | Run workspace tests through Turborepo |
 | `pnpm dev:web` | Start the host app and open `/todo` |
 | `pnpm lint:md` | Lint workspace READMEs with markdownlint |
 
@@ -69,9 +70,11 @@ The repo ships a single deployable web app, [`apps/host`](./apps/host), plus an 
 - Local development: `pnpm turbo dev`
 - Web-only local development: `pnpm dev:web` (opens the browser automatically)
 - Host route: `/todo`
+- Personal route: `/uses`
 - Composition mode: injected workspace module loaded client-side
 - Communication model: host gets mFE events and can push state back into the mounted app
-- Integration coverage: `pnpm test:integration`
+- Workspace tests: `pnpm test`
+- Todo integration coverage: `pnpm test:integration`
 
 This keeps a real microfrontend boundary without relying on a separate `remoteEntry.js` dev server.
 
@@ -101,7 +104,7 @@ Add shared configs to `package.json`:
 The repo is organized around a single deployable host app and separately built supporting workspaces:
 
 ```text
-apps/host                  Next.js shell
+apps/host                  Vite shell with `/todo` and `/uses`
 packages/remotes/todo-app  Injected todo microfrontend package
 packages/ui                Shared React components
 packages/config            Shared TypeScript and ESLint config

@@ -59,8 +59,14 @@ export function TodoWorkspace() {
 
     return () => {
       cancelled = true;
-      handle?.unmount();
+      const mountedHandle = handle;
       handleRef.current = null;
+
+      if (mountedHandle) {
+        queueMicrotask(() => {
+          mountedHandle.unmount();
+        });
+      }
     };
   }, []);
 

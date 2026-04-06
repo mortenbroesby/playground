@@ -8,9 +8,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@playground/todo-app": ["../../packages/remotes/todo-app/src/index.ts"],
-      "@playground/types": ["../../packages/types/src/index.ts"]
+      "@/*": ["./src/*"]
     },
     "types": ["node", "vite/client"],
     "noEmit": true,
@@ -18,6 +16,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src", "tests", "vite.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

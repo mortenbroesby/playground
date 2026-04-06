@@ -1,6 +1,6 @@
 import path from 'node:path';
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
@@ -21,5 +21,15 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 3000,
     strictPort: true,
+  },
+  test: {
+    include: ['tests/**/*.browser.tsx'],
+    testTimeout: 30_000,
+    browser: {
+      enabled: true,
+      provider: 'playwright',
+      name: 'chromium',
+      headless: true,
+    },
   },
 });
