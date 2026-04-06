@@ -21,7 +21,7 @@ export default defineConfig({
     target: 'es2022',
   },
   test: {
-    environment: 'jsdom',
+    environment: 'happy-dom',
     globals: true,
   },
 });
