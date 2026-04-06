@@ -2,16 +2,17 @@
   "name": "@playground/todo-app",
   "version": "0.0.1",
   "private": true,
-  "description": "Todo microfrontend remote bundle served by the host in production",
+  "description": "Todo microfrontend mounted directly by the host workspace",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
-    "dev": "vite build --mode development && concurrently -k -n build,preview \"vite build --watch --mode development\" \"vite preview --host 127.0.0.1 --port 3101 --strictPort\"",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 3101 --strictPort",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
     "test": "vitest run",
-    "test:integration": "node --test tests/integration/mfe-reachable.test.mjs"
+    "test:integration": "vitest run tests/integration/render.integration.test.tsx"
   },
   "dependencies": {
     "@playground/types": "workspace:*",
@@ -24,7 +25,6 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^9.2.1",
     "eslint": "^8.57.1",
     "happy-dom": "^20.8.9",
     "postcss": "^8.4.47",

@@ -5,12 +5,13 @@
   "description": "Playground shell — app launcher with header, sidebar, and micro frontend routing",
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "pnpm --filter @playground/todo-app build && node ./scripts/sync-todo-remote.mjs && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
+    "@playground/todo-app": "workspace:*",
     "@playground/types": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-separator": "^1.1.7",

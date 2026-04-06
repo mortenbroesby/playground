@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { addTodo } from '../store';
+import type { TodoStore } from '../store';
 
-export function TodoInput() {
+export function TodoInput({ store }: { store: TodoStore }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
 
@@ -11,7 +11,7 @@ export function TodoInput() {
       setError('Please enter a task.');
       return;
     }
-    addTodo(value);
+    store.addTodo(value);
     setValue('');
     setError('');
   };

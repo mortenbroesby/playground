@@ -1,10 +1,24 @@
 import type { Todo } from '@playground/types';
+import type { TodoAppEvent, TodoAppMountOptions, TodoAppSnapshot } from './contracts';
 
 const STORAGE_KEY = 'playground.todos.v1';
 
-function load(): Todo[] {
+function sanitizeTodos(items: Todo[]): Todo[] {
+  return items
+    .map((item) => ({
+      ...item,
+      title: item.title.trim(),
+    }))
+    .filter((item) => item.title.length > 0);
+}
+
+function load(initialTodos?: Todo[]): Todo[] {
+  if (initialTodos) {
+    return sanitizeTodos(initialTodos);
+  }
+
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as Todo[];
+    return sanitizeTodos(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as Todo[]);
   } catch {
     return [];
   }
@@ -14,49 +28,96 @@ function save(items: Todo[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
-type Listener = (todos: Todo[]) => void;
+type Listener = () => void;
 
-const listeners = new Set<Listener>();
-let todos: Todo[] = load();
+export type TodoStore = {
+  getSnapshot: () => TodoAppSnapshot;
+  getTodos: () => Todo[];
+  subscribe: (listener: Listener) => () => void;
+  addTodo: (title: string) => void;
+  toggleTodo: (id: string) => void;
+  deleteTodo: (id: string) => void;
+  replaceTodos: (items: Todo[]) => void;
+  clearTodos: () => void;
+  emitReady: () => void;
+  destroy: () => void;
+};
 
-export function getTodos(): Todo[] {
-  return todos;
-}
+export function createTodoStore(options: TodoAppMountOptions = {}): TodoStore {
+  const listeners = new Set<Listener>();
+  let todos: Todo[] = load(options.initialTodos);
 
-export function subscribe(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+  const getSnapshot = (): TodoAppSnapshot => ({ todos });
 
-function notify(): void {
-  listeners.forEach(l => l(todos));
-}
-
-export function addTodo(title: string): void {
-  const todo: Todo = {
-    id: crypto.randomUUID(),
-    title: title.trim(),
-    completed: false,
+  const notify = (): void => {
+    listeners.forEach((listener) => listener());
   };
-  todos = [...todos, todo];
-  save(todos);
-  notify();
-}
 
-export function toggleTodo(id: string): void {
-  todos = todos.map(t => (t.id === id ? { ...t, completed: !t.completed } : t));
-  save(todos);
-  notify();
-}
+  const publish = (event: TodoAppEvent): void => {
+    save(todos);
+    notify();
+    options.onEvent?.(event);
+  };
 
-export function deleteTodo(id: string): void {
-  todos = todos.filter(t => t.id !== id);
-  save(todos);
-  notify();
-}
+  return {
+    getSnapshot,
+    getTodos: () => todos,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    addTodo(title) {
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) {
+        return;
+      }
 
-/** Resets in-memory state without touching localStorage. For tests only. */
-export function _resetForTest(): void {
-  todos = [];
-  listeners.clear();
+      const todo: Todo = {
+        id: crypto.randomUUID(),
+        title: trimmedTitle,
+        completed: false,
+      };
+
+      todos = [...todos, todo];
+      publish({ type: 'todo:added', todo, snapshot: getSnapshot() });
+    },
+    toggleTodo(id) {
+      let toggledTodo: Todo | undefined;
+      todos = todos.map((todo) => {
+        if (todo.id !== id) {
+          return todo;
+        }
+
+        toggledTodo = { ...todo, completed: !todo.completed };
+        return toggledTodo;
+      });
+
+      if (toggledTodo) {
+        publish({ type: 'todo:toggled', todo: toggledTodo, snapshot: getSnapshot() });
+      }
+    },
+    deleteTodo(id) {
+      const nextTodos = todos.filter((todo) => todo.id !== id);
+      if (nextTodos.length === todos.length) {
+        return;
+      }
+
+      todos = nextTodos;
+      publish({ type: 'todo:deleted', id, snapshot: getSnapshot() });
+    },
+    replaceTodos(items) {
+      todos = sanitizeTodos(items);
+      publish({ type: 'todos:replaced', snapshot: getSnapshot() });
+    },
+    clearTodos() {
+      todos = [];
+      publish({ type: 'todos:cleared', snapshot: getSnapshot() });
+    },
+    emitReady() {
+      options.onEvent?.({ type: 'ready', snapshot: getSnapshot() });
+    },
+    destroy() {
+      listeners.clear();
+    },
+  };
 }

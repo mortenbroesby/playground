@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 
 const HOST_URL = 'http://127.0.0.1:3000/todo';
-const REMOTE_URL = 'http://127.0.0.1:3000/remotes/todo-app/remoteEntry.js';
 const STARTUP_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 1_000;
 
@@ -30,12 +29,7 @@ async function isReachable(url) {
 }
 
 async function stackIsReady() {
-  const [hostReady, remoteReady] = await Promise.all([
-    isReachable(HOST_URL),
-    isReachable(REMOTE_URL),
-  ]);
-
-  return hostReady && remoteReady;
+  return isReachable(HOST_URL);
 }
 
 function openBrowser(url) {
@@ -74,7 +68,7 @@ if (await stackIsReady()) {
 
 const devProcess = spawn(
   'pnpm',
-  ['turbo', 'dev', '--filter=@playground/host', '--filter=@playground/todo-app'],
+  ['turbo', 'dev', '--filter=@playground/host'],
   {
     stdio: 'inherit',
     shell: process.platform === 'win32',

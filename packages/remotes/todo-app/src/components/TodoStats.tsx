@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { getTodos, subscribe } from '../store';
+import type { TodoStore } from '../store';
 
-export function TodoStats() {
-  const todos = useSyncExternalStore(subscribe, getTodos, getTodos);
+export function TodoStats({ store }: { store: TodoStore }) {
+  const todos = useSyncExternalStore(store.subscribe, store.getTodos, store.getTodos);
   const total = todos.length;
   const done = todos.filter(t => t.completed).length;
   const remaining = total - done;

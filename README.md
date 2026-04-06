@@ -16,7 +16,7 @@ A monorepo playground for experimenting with **multi-agent Claude Code workflows
 Apps and packages in this repo:
 
 - [host](./apps/host) — Next.js shell that serves and composes the todo microfrontend
-- [todo-app remote](./packages/remotes/todo-app) — Vite-built ES module remote consumed by the host
+- [todo-app](./packages/remotes/todo-app) — injected todo microfrontend mounted by the host at runtime
 - [ui](./packages/ui) — Shared React component library
 - [config](./packages/config) — Shared ESLint + TypeScript configs
 
@@ -47,9 +47,9 @@ pnpm turbo build
 - [Adding a workspace](#adding-a-workspace)
   - **TLDR**: Create a directory under `apps/` or `packages/`, run `pnpm init`, and reference `@playground/tsconfig` and `@playground/eslint-config` as dev dependencies.
 - [How this was built](#how-this-was-built)
-  - **TLDR**: Keep `apps/` for deployable surfaces, put shared code in `packages/`, and put browser-loaded remotes under `packages/remotes/`.
+  - **TLDR**: Keep `apps/` for deployable surfaces, put shared code in `packages/`, and keep injected microfrontends in workspace packages that the host can load directly.
 - [Microfrontend setup](./apps/host/README.md)
-  - **TLDR**: The host always loads the todo remote from `/remotes/todo-app/remoteEntry.js`; in local dev Next.js proxies that path to the Vite remote on port `3101`.
+  - **TLDR**: The host mounts the todo app from the workspace with a client-side dynamic import and an explicit host↔mFE contract.
 
 ### Commands
 
@@ -59,20 +59,21 @@ pnpm turbo build
 | `pnpm turbo type-check` | TypeScript check across all workspaces |
 | `pnpm turbo lint` | ESLint across all workspaces |
 | `pnpm turbo dev` | Start all dev servers in parallel |
-| `pnpm dev:web` | Start the host and todo microfrontend, then open `/todo` |
+| `pnpm dev:web` | Start the host app and open `/todo` |
 | `pnpm lint:md` | Lint workspace READMEs with markdownlint |
 
 ## Microfrontends
 
-The repo ships a single deployable web app, [`apps/host`](./apps/host), plus a separately built remote bundle in [`packages/remotes/todo-app`](./packages/remotes/todo-app).
+The repo ships a single deployable web app, [`apps/host`](./apps/host), plus an injected microfrontend package in [`packages/remotes/todo-app`](./packages/remotes/todo-app).
 
 - Local development: `pnpm turbo dev`
 - Web-only local development: `pnpm dev:web` (opens the browser automatically)
 - Host route: `/todo`
-- Remote URL used by the browser: `/remotes/todo-app/remoteEntry.js`
-- Dev proxy target: `http://127.0.0.1:3101/remoteEntry.js`
+- Composition mode: injected workspace module loaded client-side
+- Communication model: host gets mFE events and can push state back into the mounted app
+- Integration coverage: `pnpm test:integration`
 
-This keeps the microfrontend runtime boundary while avoiding environment-specific URLs in the browser.
+This keeps a real microfrontend boundary without relying on a separate `remoteEntry.js` dev server.
 
 ## Adding a workspace
 
@@ -101,7 +102,7 @@ The repo is organized around a single deployable host app and separately built s
 
 ```text
 apps/host                  Next.js shell
-packages/remotes/todo-app  Vite microfrontend remote
+packages/remotes/todo-app  Injected todo microfrontend package
 packages/ui                Shared React components
 packages/config            Shared TypeScript and ESLint config
 packages/types             Shared TypeScript types

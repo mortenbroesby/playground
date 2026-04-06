@@ -3,14 +3,28 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@todo-app/*": [
+        "../../packages/remotes/todo-app/src/*"
+      ]
     },
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "noEmit": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

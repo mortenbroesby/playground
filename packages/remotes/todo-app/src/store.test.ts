@@ -1,27 +1,29 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getTodos, addTodo, toggleTodo, deleteTodo, subscribe, _resetForTest } from './store';
+import { createTodoStore } from './store';
 
 beforeEach(() => {
   localStorage.clear();
-  _resetForTest();
 });
 
 describe('addTodo', () => {
   it('adds a todo with the given title', () => {
-    addTodo('Buy milk');
-    expect(getTodos()).toHaveLength(1);
-    expect(getTodos()[0].title).toBe('Buy milk');
-    expect(getTodos()[0].completed).toBe(false);
-    expect(typeof getTodos()[0].id).toBe('string');
+    const store = createTodoStore();
+    store.addTodo('Buy milk');
+    expect(store.getTodos()).toHaveLength(1);
+    expect(store.getTodos()[0].title).toBe('Buy milk');
+    expect(store.getTodos()[0].completed).toBe(false);
+    expect(typeof store.getTodos()[0].id).toBe('string');
   });
 
   it('trims whitespace from title', () => {
-    addTodo('  Buy milk  ');
-    expect(getTodos()[0].title).toBe('Buy milk');
+    const store = createTodoStore();
+    store.addTodo('  Buy milk  ');
+    expect(store.getTodos()[0].title).toBe('Buy milk');
   });
 
   it('persists to localStorage', () => {
-    addTodo('Buy milk');
+    const store = createTodoStore();
+    store.addTodo('Buy milk');
     const stored = JSON.parse(localStorage.getItem('playground.todos.v1') ?? '[]') as { title: string }[];
     expect(stored[0].title).toBe('Buy milk');
   });
@@ -29,52 +31,81 @@ describe('addTodo', () => {
 
 describe('toggleTodo', () => {
   it('marks an incomplete todo as completed', () => {
-    addTodo('Buy milk');
-    const id = getTodos()[0].id;
-    toggleTodo(id);
-    expect(getTodos()[0].completed).toBe(true);
+    const store = createTodoStore();
+    store.addTodo('Buy milk');
+    const id = store.getTodos()[0].id;
+    store.toggleTodo(id);
+    expect(store.getTodos()[0].completed).toBe(true);
   });
 
   it('marks a completed todo back to incomplete', () => {
-    addTodo('Buy milk');
-    const id = getTodos()[0].id;
-    toggleTodo(id);
-    toggleTodo(id);
-    expect(getTodos()[0].completed).toBe(false);
+    const store = createTodoStore();
+    store.addTodo('Buy milk');
+    const id = store.getTodos()[0].id;
+    store.toggleTodo(id);
+    store.toggleTodo(id);
+    expect(store.getTodos()[0].completed).toBe(false);
   });
 });
 
 describe('deleteTodo', () => {
   it('removes the todo with the given id', () => {
-    addTodo('Buy milk');
-    const id = getTodos()[0].id;
-    deleteTodo(id);
-    expect(getTodos()).toHaveLength(0);
+    const store = createTodoStore();
+    store.addTodo('Buy milk');
+    const id = store.getTodos()[0].id;
+    store.deleteTodo(id);
+    expect(store.getTodos()).toHaveLength(0);
   });
 
   it('leaves other todos intact', () => {
-    addTodo('A');
-    addTodo('B');
-    const idA = getTodos()[0].id;
-    deleteTodo(idA);
-    expect(getTodos()).toHaveLength(1);
-    expect(getTodos()[0].title).toBe('B');
+    const store = createTodoStore();
+    store.addTodo('A');
+    store.addTodo('B');
+    const idA = store.getTodos()[0].id;
+    store.deleteTodo(idA);
+    expect(store.getTodos()).toHaveLength(1);
+    expect(store.getTodos()[0].title).toBe('B');
   });
 });
 
 describe('subscribe', () => {
   it('calls listener with current todos when they change', () => {
+    const store = createTodoStore();
     const listener = vi.fn();
-    subscribe(listener);
-    addTodo('Buy milk');
-    expect(listener).toHaveBeenCalledWith(getTodos());
+    store.subscribe(listener);
+    store.addTodo('Buy milk');
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it('stops calling listener after unsubscribe', () => {
+    const store = createTodoStore();
     const listener = vi.fn();
-    const unsub = subscribe(listener);
+    const unsub = store.subscribe(listener);
     unsub();
-    addTodo('Buy milk');
+    store.addTodo('Buy milk');
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe('host controls', () => {
+  it('replaces todos from the host side', () => {
+    const store = createTodoStore();
+    store.replaceTodos([{ id: 'host-1', title: 'Seeded', completed: true }]);
+    expect(store.getTodos()).toEqual([{ id: 'host-1', title: 'Seeded', completed: true }]);
+  });
+
+  it('emits structured events back to the host', () => {
+    const onEvent = vi.fn();
+    const store = createTodoStore({ onEvent });
+    store.addTodo('Buy milk');
+
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'todo:added',
+        snapshot: expect.objectContaining({
+          todos: expect.arrayContaining([expect.objectContaining({ title: 'Buy milk' })]),
+        }),
+      }),
+    );
   });
 });
