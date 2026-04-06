@@ -5,7 +5,7 @@
   "description": "Playground shell — app launcher with header, sidebar, and micro frontend routing",
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "next build",
+    "build": "pnpm --filter @playground/todo-app build && node ./scripts/sync-todo-remote.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
