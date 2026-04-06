@@ -11,49 +11,102 @@
   <img src="https://img.shields.io/github/last-commit/mortenbroesby/playground?style=flat-square&logo=github" alt="Last Commit" />
 </p>
 
-A monorepo playground for experimenting with **multi-agent Claude Code workflows**, injected microfrontends, and a personal-site pivot for `@mortenbroesby`.
+# playground
 
-Apps and packages in this repo:
+A monorepo for experimenting with multi-agent workflows, injected microfrontends, and the ongoing
+personal-site direction for `@mortenbroesby`.
 
-- [host](./apps/host) — Vite shell that serves the todo microfrontend and the `@mortenbroesby` uses page
-- [todo-app](./packages/remotes/todo-app) — injected todo microfrontend mounted by the host at runtime
-- [ui](./packages/ui) — Shared React component library
-- [config](./packages/config) — Shared ESLint + TypeScript configs
+Current repo surfaces:
+
+- [Host app](./apps/host) for the shell, routes, and personal-site pages
+- [Todo remote](./packages/remotes/todo-app) for the injected microfrontend example
+- [Shared UI](./packages/ui) for reusable React components
+- [Shared types](./packages/types) for host and remote contracts
+- [Shared config](./packages/config) for TypeScript and ESLint setup
+- [`plugins/`](./plugins) for local plugin experiments and tooling content
+
+## Contributing guidelines
+
+- Use `pnpm` only for package management and scripts.
+- Prefer small, workspace-scoped changes over broad repo edits.
+- Treat the root README as the overview and keep evolving direction in `docs/`.
+- Leave `docs/superpowers` alone unless the work is explicitly about that track.
 
 ## Monorepo
 
 This repo uses:
 
-- [pnpm workspaces](https://pnpm.io/workspaces) — splits the codebase into focused packages
-- [Turborepo](https://turbo.build/repo) — runs and caches tasks (build, lint, type-check) across packages in dependency order
+- [pnpm workspaces](https://pnpm.io/workspaces) to split the codebase into focused packages
+- [Turborepo](https://turbo.build/repo) to run and cache build, lint, test, and type-check tasks
 
-## Getting Started
+## Getting started
 
 ```bash
-# Enable pnpm if needed
 corepack enable
-
-# Install all workspace dependencies
 pnpm install
-
-# Build all workspaces
-pnpm turbo build
+pnpm turbo lint && pnpm lint:md
+pnpm turbo type-check
 ```
 
-## Table of Contents
+Useful local commands:
+
+```bash
+pnpm turbo dev
+pnpm dev:web
+pnpm test
+pnpm test:integration
+```
+
+## Documentation
+
+The root README is the front door. The more detailed and more fluid thinking lives in `docs/`.
+
+### Start here
+
+- [Docs index](./docs/README.md) for the docs map
+- [Roadmap](./docs/ideas/roadmap.md) for where the repo is now and the most believable next steps
+- [Parking lot](./docs/ideas/parking-lot.md) for good ideas that are intentionally not active
+- [Host README](./apps/host/README.md) for the current shell and microfrontend setup
+
+### Planning tracks
+
+- [`docs/ideas/`](./docs/ideas/) is the lightweight planning layer for current direction
+- [`docs/superpowers/`](./docs/superpowers/) is a separate deeper planning and spec workstream
+
+## Table of contents
 
 ### Development
 
+- [Getting started](#getting-started)
+- [Documentation](#documentation)
+- [Commands](#commands)
+- [Repository structure](#repository-structure)
 - [Adding a workspace](#adding-a-workspace)
-  - **TLDR**: Create a directory under `apps/` or `packages/`, run `pnpm init`, and reference `@playground/tsconfig` and `@playground/eslint-config` as dev dependencies.
-- [How this was built](#how-this-was-built)
-  - **TLDR**: Keep `apps/` for deployable surfaces, put shared code in `packages/`, and keep injected microfrontends in workspace packages that the host can load directly.
-- [Microfrontend setup](./apps/host/README.md)
-  - **TLDR**: The host mounts the todo app from the workspace with a client-side dynamic import and an explicit host↔mFE contract.
-- [Docs index](./docs/README.md)
-  - **TLDR**: Use `docs/ideas` for lightweight direction and `docs/superpowers` for the deeper planning track.
+- [How this is structured](#how-this-is-structured)
 
-### Commands
+### Planning
+
+- [Roadmap](./docs/ideas/roadmap.md)
+  - **TLDR**: The repo is currently strongest as a host app plus one injected remote, with the
+    next likely steps being stronger personal-site structure, another remote, and better shared UI
+    primitives.
+- [Parking lot](./docs/ideas/parking-lot.md)
+  - **TLDR**: Personal website refinements, a hacker-inspired UI pass, and possible realtime ideas
+    are worth keeping around without treating them as immediate priorities.
+- [Superpowers docs](./docs/superpowers/)
+  - **TLDR**: This is a separate planning track and should be left alone unless the work is
+    explicitly about Superpowers.
+
+### Workspaces
+
+- [Host app](./apps/host)
+- [Host setup notes](./apps/host/README.md)
+- [Todo remote](./packages/remotes/todo-app)
+- [Shared UI](./packages/ui)
+- [Shared types](./packages/types)
+- [Shared config](./packages/config)
+
+## Commands
 
 | Command                 | Description                                                                   |
 | :---------------------- | :---------------------------------------------------------------------------- |
@@ -61,36 +114,35 @@ pnpm turbo build
 | `pnpm turbo type-check` | TypeScript check across all workspaces                                        |
 | `pnpm turbo lint`       | ESLint across all workspaces                                                  |
 | `pnpm turbo dev`        | Start all dev servers in parallel                                             |
-| `pnpm test`             | Run workspace tests through Turborepo                                         |
 | `pnpm dev:web`          | Start the host app and open `/todo`                                           |
+| `pnpm test`             | Run workspace tests through Turborepo                                         |
+| `pnpm test:integration` | Run the todo remote integration test suite                                    |
 | `pnpm lint:md`          | Lint root docs, workspace READMEs, and active planning docs with markdownlint |
 
-## Microfrontends
+## Repository structure
 
-The repo ships a single deployable web app, [`apps/host`](./apps/host), plus an injected microfrontend package in [`packages/remotes/todo-app`](./packages/remotes/todo-app).
-
-- Local development: `pnpm turbo dev`
-- Web-only local development: `pnpm dev:web` (opens the browser automatically)
-- Host route: `/todo`
-- Personal route: `/uses`
-- Composition mode: injected workspace module loaded client-side
-- Communication model: host gets mFE events and can push state back into the mounted app
-- Workspace tests: `pnpm test`
-- Todo integration coverage: `pnpm test:integration`
-
-This keeps a real microfrontend boundary without relying on a separate `remoteEntry.js` dev server.
+```text
+apps/
+  host/                   Vite shell with `/todo` and personal-site routes
+packages/
+  remotes/todo-app/       Injected todo microfrontend package
+  ui/                     Shared React components
+  types/                  Shared host and remote contracts
+  config/                 Shared TypeScript and ESLint configuration
+docs/
+  ideas/                  Lightweight roadmap and parking-lot notes
+  superpowers/            Separate planning and spec workstream
+plugins/                  Local plugin experiments and tooling content
+```
 
 ## Adding a workspace
 
 ```bash
-# New app
 mkdir apps/my-app && cd apps/my-app && pnpm init
-
-# New package
 mkdir packages/my-package && cd packages/my-package && pnpm init
 ```
 
-Add shared configs to `package.json`:
+Add shared configs to the new workspace `package.json`:
 
 ```json
 {
@@ -101,21 +153,17 @@ Add shared configs to `package.json`:
 }
 ```
 
-## How this was built
+## How this is structured
 
-The repo is organized around a single deployable host app and separately built supporting workspaces:
+The repo is intentionally small right now:
 
-```text
-apps/host                  Vite shell with `/todo` and `/uses`
-packages/remotes/todo-app  Injected todo microfrontend package
-packages/ui                Shared React components
-packages/config            Shared TypeScript and ESLint config
-packages/types             Shared TypeScript types
-plugins/                   Claude Code plugin content for repo workflows
-```
+- one deployable host app
+- one injected remote that proves the microfrontend boundary
+- shared UI, type, and config packages that keep experiments reusable
+- docs that separate active direction from parked ideas and deeper planning tracks
 
-That split keeps deployment concerns simple while preserving a real runtime microfrontend boundary.
+That keeps the repo flexible enough to explore without collapsing into a pile of disconnected demos.
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT — see [LICENSE](./LICENSE)
