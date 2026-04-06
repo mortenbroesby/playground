@@ -21,8 +21,10 @@ export function GameWorkspace() {
   }, []);
 
   return (
-    <div className="terminal-panel terminal-panel--glow overflow-hidden">
-      <div ref={containerRef} data-testid="game-container" className="min-h-[560px] bg-[#030b0d]" />
+    <div className="terminal-panel terminal-panel--glow overflow-hidden p-3 sm:p-5">
+      <div className="mx-auto max-w-[840px]">
+        <div ref={containerRef} data-testid="game-container" className="aspect-[900/560] w-full bg-[#030b0d]" />
+      </div>
     </div>
   );
 }

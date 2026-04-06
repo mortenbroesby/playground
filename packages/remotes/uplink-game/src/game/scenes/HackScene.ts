@@ -47,6 +47,7 @@ export class HackScene extends Phaser.Scene {
   private toolProgressGfx: Phaser.GameObjects.Graphics[] = [];
   private toolLabels: Phaser.GameObjects.Text[] = [];
   private toolZones: Phaser.GameObjects.Zone[] = [];
+  private shuffledLogLines: string[] = [];
 
   constructor() {
     super({ key: 'HackScene' });
@@ -57,6 +58,7 @@ export class HackScene extends Phaser.Scene {
     this.trace = 0;
     this.logTexts = [];
     this.logLineIndex = 0;
+    this.shuffledLogLines = [...LOG_LINES].sort(() => Math.random() - 0.5);
     this.toolStates = TOOLS.map((_, i) => ({ done: false, running: false, enabled: i === 0 }));
     this.toolBorderGfx = [];
     this.toolProgressGfx = [];
@@ -168,7 +170,7 @@ export class HackScene extends Phaser.Scene {
   }
 
   private addLogLine(): void {
-    const line = LOG_LINES[this.logLineIndex % LOG_LINES.length];
+    const line = this.shuffledLogLines[this.logLineIndex % this.shuffledLogLines.length];
     this.logLineIndex++;
 
     if (this.logTexts.length >= 12) {
