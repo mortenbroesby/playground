@@ -21,6 +21,12 @@ describe('addTodo', () => {
     expect(store.getTodos()[0].title).toBe('Buy milk');
   });
 
+  it('ignores empty titles after trimming', () => {
+    const store = createTodoStore();
+    store.addTodo('   ');
+    expect(store.getTodos()).toHaveLength(0);
+  });
+
   it('persists to localStorage', () => {
     const store = createTodoStore();
     store.addTodo('Buy milk');
@@ -107,5 +113,40 @@ describe('host controls', () => {
         }),
       }),
     );
+  });
+
+  it('sanitizes host-replaced todos', () => {
+    const store = createTodoStore();
+    store.replaceTodos([
+      { id: 'host-1', title: '  Keep me  ', completed: true },
+      { id: 'host-2', title: '   ', completed: false },
+    ]);
+
+    expect(store.getTodos()).toEqual([{ id: 'host-1', title: 'Keep me', completed: true }]);
+  });
+});
+
+describe('load', () => {
+  it('falls back to an empty list when localStorage contains invalid JSON', () => {
+    localStorage.setItem('playground.todos.v1', '{not-json');
+    const store = createTodoStore();
+
+    expect(store.getTodos()).toEqual([]);
+  });
+
+  it('sanitizes todos loaded from localStorage', () => {
+    localStorage.setItem(
+      'playground.todos.v1',
+      JSON.stringify([
+        { id: 'loaded-1', title: '  Loaded todo  ', completed: false },
+        { id: 'loaded-2', title: '   ', completed: true },
+      ]),
+    );
+
+    const store = createTodoStore();
+
+    expect(store.getTodos()).toEqual([
+      { id: 'loaded-1', title: 'Loaded todo', completed: false },
+    ]);
   });
 });

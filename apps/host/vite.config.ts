@@ -23,13 +23,10 @@ export default defineConfig({
     strictPort: true,
   },
   test: {
-    include: ['tests/**/*.browser.tsx'],
+    environment: 'happy-dom',
+    globals: true,
+    include: ['tests/**/*.test.tsx'],
+    setupFiles: ['./tests/setup.ts'],
     testTimeout: 30_000,
-    browser: {
-      enabled: true,
-      provider: 'playwright',
-      name: 'chromium',
-      headless: true,
-    },
   },
 });
