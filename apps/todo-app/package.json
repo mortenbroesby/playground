@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview --port 3101 --strictPort",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src/",
+    "lint": "eslint src/ --ext .ts,.tsx",
     "test": "vitest run"
   },
   "dependencies": {

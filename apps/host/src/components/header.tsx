@@ -10,11 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-
-const apps = [
-  { href: '/todo', label: 'Todo' },
-  { href: '/readme', label: 'README' },
-] as const;
+import { NAV_APPS } from '@/lib/nav';
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -59,7 +55,7 @@ export function Header() {
         <CommandList>
           <CommandEmpty>No apps found.</CommandEmpty>
           <CommandGroup heading="Apps">
-            {apps.map(app => (
+            {NAV_APPS.map(app => (
               <CommandItem
                 key={app.href}
                 onSelect={() => {
