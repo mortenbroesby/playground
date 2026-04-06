@@ -4,6 +4,16 @@ type BridgeOptions = {
   seed?: Todo[];
 };
 
+const DEBUG_TODO_BRIDGE = process.env.NEXT_PUBLIC_TODO_BRIDGE_DEBUG === 'true';
+
+const logTodoBridgeDebug = (prefix: string, payload: Record<string, unknown>) => {
+  if (!DEBUG_TODO_BRIDGE) {
+    return;
+  }
+
+  console.debug(prefix, payload);
+};
+
 const parseStoredTodos = (): Todo[] => {
   if (typeof window === 'undefined') {
     return [];
@@ -43,10 +53,20 @@ export const createTodoBridge = (options: BridgeOptions = {}): TodoBridge => {
 
   const emit = () => {
     const nextSnapshot = snapshot();
+    logTodoBridgeDebug('[todo-bridge][emit]', {
+      version: nextSnapshot.version,
+      todoCount: nextSnapshot.todos.length,
+      listenerCount: listeners.size
+    });
     listeners.forEach((listener) => listener(nextSnapshot));
   };
 
   const applyEvent = (event: TodoDomainEvent): void => {
+    logTodoBridgeDebug('[todo-bridge][publish]', {
+      eventType: event.type,
+      payload: event.payload
+    });
+
     if (event.type === 'todo:created') {
       const trimmedTitle = event.payload.title.trim();
       if (!trimmedTitle) {
@@ -73,10 +93,19 @@ export const createTodoBridge = (options: BridgeOptions = {}): TodoBridge => {
     publish: applyEvent,
     subscribe: (listener) => {
       listeners.add(listener);
-      listener(snapshot());
+      const currentSnapshot = snapshot();
+      logTodoBridgeDebug('[todo-bridge][subscribe]', {
+        version: currentSnapshot.version,
+        todoCount: currentSnapshot.todos.length,
+        listenerCount: listeners.size
+      });
+      listener(currentSnapshot);
 
       return () => {
         listeners.delete(listener);
+        logTodoBridgeDebug('[todo-bridge][unsubscribe]', {
+          listenerCount: listeners.size
+        });
       };
     },
     getSnapshot: snapshot
