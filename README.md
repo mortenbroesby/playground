@@ -50,18 +50,20 @@ pnpm turbo build
   - **TLDR**: Keep `apps/` for deployable surfaces, put shared code in `packages/`, and keep injected microfrontends in workspace packages that the host can load directly.
 - [Microfrontend setup](./apps/host/README.md)
   - **TLDR**: The host mounts the todo app from the workspace with a client-side dynamic import and an explicit host↔mFE contract.
+- [Docs index](./docs/README.md)
+  - **TLDR**: Use `docs/ideas` for lightweight direction and `docs/superpowers` for the deeper planning track.
 
 ### Commands
 
-| Command | Description |
-|:---|:---|
-| `pnpm turbo build` | Build all packages in dependency order |
-| `pnpm turbo type-check` | TypeScript check across all workspaces |
-| `pnpm turbo lint` | ESLint across all workspaces |
-| `pnpm turbo dev` | Start all dev servers in parallel |
-| `pnpm test` | Run workspace tests through Turborepo |
-| `pnpm dev:web` | Start the host app and open `/todo` |
-| `pnpm lint:md` | Lint workspace READMEs with markdownlint |
+| Command                 | Description                                                                   |
+| :---------------------- | :---------------------------------------------------------------------------- |
+| `pnpm turbo build`      | Build all packages in dependency order                                        |
+| `pnpm turbo type-check` | TypeScript check across all workspaces                                        |
+| `pnpm turbo lint`       | ESLint across all workspaces                                                  |
+| `pnpm turbo dev`        | Start all dev servers in parallel                                             |
+| `pnpm test`             | Run workspace tests through Turborepo                                         |
+| `pnpm dev:web`          | Start the host app and open `/todo`                                           |
+| `pnpm lint:md`          | Lint root docs, workspace READMEs, and active planning docs with markdownlint |
 
 ## Microfrontends
 

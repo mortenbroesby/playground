@@ -8,17 +8,13 @@
     "dev:web": "node scripts/dev-web.mjs",
     "lint": "turbo lint && pnpm lint:md",
     "lint:md": "pnpm markdown:check",
-    "markdown:fix": "markdownlint-cli2 \"README.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\" --fix",
-    "markdown:check": "markdownlint-cli2 \"README.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\"",
+    "markdown:fix": "markdownlint-cli2 \"README.md\" \"AGENTS.md\" \".github/copilot-instructions.md\" \"docs/*.md\" \"docs/ideas/**/*.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\" --fix",
+    "markdown:check": "markdownlint-cli2 \"README.md\" \"AGENTS.md\" \".github/copilot-instructions.md\" \"docs/*.md\" \"docs/ideas/**/*.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\"",
     "test": "turbo test",
     "test:integration": "pnpm --filter @playground/todo-app test:integration",
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
-    "prepare": "husky",
-    "mcp:validate": "node scripts/validate-mcp-config.mjs",
-    "mcp:export:claude": "node scripts/export-mcp-config.mjs claude",
-    "mcp:export:cursor": "node scripts/export-mcp-config.mjs cursor",
-    "mcp:export:vscode": "node scripts/export-mcp-config.mjs vscode"
+    "prepare": "husky"
   },
   "devDependencies": {
     "husky": "^9.1.7",
