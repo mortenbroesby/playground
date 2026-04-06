@@ -30,18 +30,20 @@ function save(items: Todo[]): void {
 
 type Listener = () => void;
 
+/* eslint-disable no-unused-vars */
 export type TodoStore = {
-  getSnapshot: () => TodoAppSnapshot;
-  getTodos: () => Todo[];
-  subscribe: (listener: Listener) => () => void;
-  addTodo: (title: string) => void;
-  toggleTodo: (id: string) => void;
-  deleteTodo: (id: string) => void;
-  replaceTodos: (items: Todo[]) => void;
-  clearTodos: () => void;
-  emitReady: () => void;
-  destroy: () => void;
+  getSnapshot(): TodoAppSnapshot;
+  getTodos(): Todo[];
+  subscribe(listener: Listener): () => void;
+  addTodo(title: string): void;
+  toggleTodo(id: string): void;
+  deleteTodo(id: string): void;
+  replaceTodos(items: Todo[]): void;
+  clearTodos(): void;
+  emitReady(): void;
+  destroy(): void;
 };
+/* eslint-enable no-unused-vars */
 
 export function createTodoStore(options: TodoAppMountOptions = {}): TodoStore {
   const listeners = new Set<Listener>();
