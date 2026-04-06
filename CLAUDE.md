@@ -162,7 +162,34 @@ Only `name` is required. Agents, commands, and skills are auto-discovered.
 
 Agents as `./agents/name.md`, skills as `./skills/skill-name` (directory, not SKILL.md).
 
-## Model Tiers
+## AI Strategy
+
+### Codex-first rule
+
+**For all implementation tasks (writing or modifying code files), use Codex via `codex:codex-rescue` first.**
+
+Only fall back to direct Claude implementation when:
+- Codex daily rate limit is confirmed hit (HTTP 429 / quota error from `codex-companion.mjs`)
+- Task requires interactive multi-turn reasoning that batch CLI cannot handle (e.g. ambiguous spec that needs back-and-forth before any file is touched)
+
+```
+Task involves writing/modifying code files?
+├── Yes → codex:codex-rescue  (saves Claude tokens, Codex handles file I/O)
+│          └── Codex quota hit? → fall back to Claude directly
+└── No  → Claude directly     (planning, review, orchestration, git, installs)
+```
+
+### context-mode alongside Codex
+
+context-mode MCP tools (`ctx_execute`, `ctx_execute_file`) are **always active** — they are for Claude's own orchestration work, not for Codex runs.
+
+- Claude uses `ctx_execute` for builds, test output, git log, dependency audits
+- Codex runs in its own subprocess sandbox; it cannot and does not use context-mode tools
+- When Codex daily limit is hit and falling back to Claude: context-mode becomes *more* important to prevent context flooding from large build output
+
+There is no need to disable context-mode when Codex is active. They are orthogonal.
+
+### Model Tiers (Claude fallback)
 
 | Tier | Model | Use Case |
 |:---|:---|:---|
