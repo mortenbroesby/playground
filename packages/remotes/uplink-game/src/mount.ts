@@ -10,6 +10,9 @@ export function mount(el: HTMLElement): () => void {
     width: 900,
     height: 560,
     backgroundColor: '#030b0d',
+    pixelArt: true,
+    antialias: false,
+    roundPixels: true,
     scene: [NetworkMapScene, HackScene, MissionEndScene],
     input: {
       activePointers: 2,
@@ -19,5 +22,8 @@ export function mount(el: HTMLElement): () => void {
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
   });
+
+  game.canvas.style.display = 'block';
+
   return () => game.destroy(true);
 }

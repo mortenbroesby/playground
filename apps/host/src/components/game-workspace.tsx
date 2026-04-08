@@ -23,7 +23,11 @@ export function GameWorkspace() {
   return (
     <div className="terminal-panel terminal-panel--glow overflow-hidden p-3 sm:p-5">
       <div className="mx-auto max-w-[840px]">
-        <div ref={containerRef} data-testid="game-container" className="aspect-[900/560] w-full bg-[#030b0d] [touch-action:none]" />
+        <div
+          ref={containerRef}
+          data-testid="game-container"
+          className="aspect-[900/560] w-full bg-[#030b0d] [touch-action:none] [&_canvas]:block [&_canvas]:max-w-full [&_canvas]:[image-rendering:pixelated] [&_canvas]:[image-rendering:crisp-edges]"
+        />
       </div>
     </div>
   );

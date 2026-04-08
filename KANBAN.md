@@ -13,11 +13,6 @@ Priority scale:
 
 ## Now
 
-- [ ] `P1` Fix Uplink rendering sharpness on the playground route
-  Why: the current Uplink surface still looks grainy and undermines the stronger UI direction.
-  Outcome: Uplink renders crisply enough to feel intentional on standard displays.
-  Source: `BRAINDUMP.md`.
-
 - [ ] `P1` Pull remaining ideas from `morten.broesby.dk` into the backlog
   Why: there are still useful content and structure cues on the current site that have not been translated into this repo.
   Outcome: a clearer list of pages, copy ideas, and content gaps for the personal-site side.
@@ -154,6 +149,10 @@ Priority scale:
 
 ## Done
 
+- [x] `P1` Fix Uplink rendering sharpness on the playground route
+  Why: the current Uplink surface still looked grainy and undermined the stronger UI direction.
+  Outcome: Uplink now renders with an explicit retro-crisp policy, and the implementation is documented in `.specs`.
+  Source: `BRAINDUMP.md`.
 - [x] `P0` Add an MDX-based content system
   Why: the site now has real public writing, and the previous TypeScript-backed content model was intentionally temporary.
   Outcome: writing posts now live as MDX files with frontmatter and render through a shared content loader in the host.
