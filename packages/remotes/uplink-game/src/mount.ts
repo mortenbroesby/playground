@@ -11,6 +11,9 @@ export function mount(el: HTMLElement): () => void {
     height: 560,
     backgroundColor: '#030b0d',
     scene: [NetworkMapScene, HackScene, MissionEndScene],
+    input: {
+      activePointers: 2,
+    },
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
