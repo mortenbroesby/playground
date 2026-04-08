@@ -180,4 +180,36 @@ describe('host routes', () => {
     await renderRoute('/about');
     expect(getByTestId('mobile-menu-button')).toBeTruthy();
   });
+
+  it('opens and closes the mobile drawer', async () => {
+    await renderRoute('/about');
+
+    expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
+
+    await click(getByTestId('mobile-menu-button'));
+
+    expect(getByTestId('mobile-drawer')).toBeTruthy();
+
+    await click(getByTestId('mobile-drawer-close'));
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
+    });
+  });
+
+  it('closes the mobile drawer on navigation', async () => {
+    const { router } = await renderRoute('/about');
+
+    await click(getByTestId('mobile-menu-button'));
+    expect(getByTestId('mobile-drawer')).toBeTruthy();
+
+    const systemLink = document.querySelector<HTMLElement>('[data-testid="mobile-drawer"] a[href="/system"]');
+    expect(systemLink).not.toBeNull();
+    await click(systemLink!);
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/system');
+      expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
+    });
+  });
 });
