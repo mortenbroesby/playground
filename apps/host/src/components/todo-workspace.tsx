@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, MetricCard, Panel } from '@playground/ui';
 
 const EXAMPLE_TODOS: Todo[] = [
-  { id: 'host-seeded-1', title: 'High priority: add an MDX-based content system', completed: false },
+  { id: 'host-seeded-1', title: 'Split host architecture into clearer route modules', completed: false },
   { id: 'host-seeded-2', title: 'Verify injected composition path', completed: false },
   {
     id: 'host-seeded-3',

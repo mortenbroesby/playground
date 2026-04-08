@@ -69,13 +69,11 @@ export function WritingPostPage() {
 
         <div
           data-testid="writing-post-body"
-          className="space-y-5 border-t border-border/60 pt-8 text-sm leading-8 text-foreground sm:text-base"
+          className="border-t border-border/60 pt-8"
         >
-          {post.body.map((paragraph) => (
-            <p key={paragraph} className="max-w-none">
-              {paragraph}
-            </p>
-          ))}
+          <div className="writing-prose">
+            <post.Content />
+          </div>
         </div>
       </article>
     </div>

@@ -11,11 +11,6 @@ Priority scale:
 
 ## Now
 
-- [ ] `P0` Add an MDX-based content system
-  Why: the site now has real public writing, and the current TypeScript-backed content model is intentionally temporary.
-  Outcome: MDX-backed articles with frontmatter, shared metadata, and a cleaner path for richer long-form content.
-  Source: existing seeded todo and writing/content direction in `docs/ideas/personal-site-transition.md`.
-
 - [ ] `P1` Pull remaining ideas from `morten.broesby.dk` into the backlog
   Why: there are still useful content and structure cues on the current site that have not been translated into this repo.
   Outcome: a clearer list of pages, copy ideas, and content gaps for the personal-site side.
@@ -122,6 +117,10 @@ Priority scale:
 
 ## Done
 
+- [x] `P0` Add an MDX-based content system
+  Why: the site now has real public writing, and the previous TypeScript-backed content model was intentionally temporary.
+  Outcome: writing posts now live as MDX files with frontmatter and render through a shared content loader in the host.
+  Source: existing seeded todo and writing/content direction in `docs/ideas/personal-site-transition.md`.
 - [x] `P0` Turn `/` into a real home page instead of redirecting to `/about`
 - [x] `P0` Split the host into public and playground layouts
 - [x] `P0` Add `Writing` as a first-class section with seeded posts

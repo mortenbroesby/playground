@@ -79,7 +79,7 @@ describe('host routes', () => {
       expect(getByTestId('todo-remaining-count').textContent).toContain('3');
     });
 
-    expect(getByText('High priority: add an MDX-based content system')).toBeTruthy();
+    expect(getByText('Split host architecture into clearer route modules')).toBeTruthy();
     expect(getByText('Pull remaining ideas from morten.broesby.dk into the site backlog')).toBeTruthy();
 
     await click(document.querySelector<HTMLElement>('[aria-label="Toggle Verify injected composition path"]')!);

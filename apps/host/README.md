@@ -22,7 +22,7 @@ The host and todo app communicate through the mount contract:
 - The host can seed or clear todos through the returned handle
 - The todo app renders inside `/playground/todo` but manages its own UI
 - The personal site now lands on `/`
-- Writing now lives at `/writing` with file-backed post content in the host workspace
+- Writing now lives at `/writing` with MDX-backed post content in the host workspace
 - The personal content route now lives at `/uses`
 - `/readme` redirects to `/about`
 - Legacy app routes like `/system`, `/todo`, and `/game` redirect into `/playground/*`
