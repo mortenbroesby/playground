@@ -25,7 +25,7 @@ export function Sidebar({
       <div className="terminal-panel terminal-panel--quiet flex h-full flex-col p-2 sm:p-3">
         <div className="border-b border-border/70 px-2 pb-3">
           <p className="chrome-label">{title}</p>
-          <p className="terminal-heading mt-2 hidden text-sm text-foreground sm:block">{subtitle}</p>
+          <p className="terminal-heading mt-2 hidden text-xs text-foreground sm:block">{subtitle}</p>
         </div>
 
         <nav className="mt-3 space-y-2">
@@ -33,6 +33,7 @@ export function Sidebar({
             <NavLink
               key={app.href}
               to={app.href}
+              end={app.href === '/playground'}
               className={({ isActive }) =>
                 cn(
                   'group block rounded-md border px-2 py-2 transition-colors sm:px-3',
@@ -55,13 +56,13 @@ export function Sidebar({
                       aria-hidden="true"
                     />
                     <div className="min-w-0">
-                      <div className="terminal-heading text-xs uppercase tracking-[0.2em] sm:text-sm sm:tracking-[0.16em]">
+                      <div className="terminal-heading text-[11px] uppercase tracking-[0.18em] sm:text-xs sm:tracking-[0.14em]">
                         {app.label}
                       </div>
                       {showMeta ? (
                         <div className="mt-1 hidden sm:block">
                           <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
-                          <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
+                          <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/80">
                             {meta?.status ?? 'standby'}
                           </div>
                         </div>
@@ -78,7 +79,7 @@ export function Sidebar({
           <div className="mt-auto border-t border-border/70 px-2 pt-3">
             <Link
               to={footerLinkHref}
-              className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <span className="chrome-label text-primary">exit</span>
               <span>{footerLinkLabel}</span>

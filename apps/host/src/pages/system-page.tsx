@@ -140,14 +140,14 @@ export function SystemPage() {
       data-testid="system-page"
       className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6"
     >
-      <Panel glow grid className="p-6 sm:p-8">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+      <Panel glow grid className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <p className="chrome-label text-primary">Shared UI Registry</p>
-            <h1 className="terminal-heading mt-3 text-3xl text-foreground sm:text-4xl">
+            <h1 className="terminal-heading mt-3 text-lg text-foreground sm:text-xl">
               Searchable token explorer
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
               Browse the current design-system tokens and utility classes exposed by
               <code className="mx-1 text-foreground">@playground/ui</code>.
               Search by token name, group, value, or description.
@@ -166,7 +166,7 @@ export function SystemPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="chrome-label">Search</p>
-              <h2 className="terminal-heading mt-2 text-xl text-foreground">Token lookup</h2>
+              <h2 className="terminal-heading mt-2 text-sm text-foreground">Token lookup</h2>
             </div>
             <Badge tone="muted">live filter</Badge>
           </div>
@@ -251,7 +251,7 @@ export function SystemPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="chrome-label">Components</p>
-              <h2 className="terminal-heading mt-2 text-xl text-foreground">
+              <h2 className="terminal-heading mt-2 text-sm text-foreground">
                 Shared primitive showcase
               </h2>
             </div>
@@ -275,10 +275,10 @@ export function SystemPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="terminal-heading text-sm text-foreground">
+                      <p className="terminal-heading text-xs text-foreground">
                         {component.name}
                       </p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      <p className="mt-2 text-xs leading-6 text-muted-foreground">
                         {component.description}
                       </p>
                     </div>
@@ -308,7 +308,7 @@ export function SystemPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="chrome-label">Tokens</p>
-              <h2 className="terminal-heading mt-2 text-xl text-foreground">
+              <h2 className="terminal-heading mt-2 text-sm text-foreground">
                 Design-system inventory
               </h2>
             </div>
@@ -332,7 +332,7 @@ export function SystemPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="terminal-heading text-sm text-foreground">{token.name}</p>
+                      <p className="terminal-heading text-xs text-foreground">{token.name}</p>
                       <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         {token.group}
                       </p>
@@ -345,7 +345,7 @@ export function SystemPage() {
                   </div>
 
                   <div className="mt-4 space-y-2">
-                    <p className="text-sm leading-6 text-muted-foreground">{token.description}</p>
+                    <p className="text-xs leading-6 text-muted-foreground">{token.description}</p>
                     <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
                       <p className="chrome-label">Value</p>
                       <p className="mt-2 break-all font-mono text-xs text-foreground">
@@ -365,7 +365,7 @@ export function SystemPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="chrome-label">Utility classes</p>
-              <h2 className="terminal-heading mt-2 text-xl text-foreground">
+              <h2 className="terminal-heading mt-2 text-sm text-foreground">
                 Shared class inventory
               </h2>
             </div>
@@ -375,8 +375,8 @@ export function SystemPage() {
           <div className="mt-5 grid gap-3 lg:grid-cols-2">
             {filteredUtilities.map((utility) => (
               <div key={utility.name} className="terminal-item rounded-md px-4 py-3">
-                <p className="terminal-heading text-sm text-foreground">{utility.name}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                <p className="terminal-heading text-xs text-foreground">{utility.name}</p>
+                <p className="mt-2 text-xs leading-6 text-muted-foreground">
                   {utility.description}
                 </p>
               </div>

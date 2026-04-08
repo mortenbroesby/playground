@@ -10,9 +10,9 @@ export function mount(el: HTMLElement): () => void {
     width: 900,
     height: 560,
     backgroundColor: '#030b0d',
-    pixelArt: true,
-    antialias: false,
-    roundPixels: true,
+    pixelArt: false,
+    antialias: true,
+    roundPixels: false,
     scene: [NetworkMapScene, HackScene, MissionEndScene],
     input: {
       activePointers: 2,
@@ -24,6 +24,8 @@ export function mount(el: HTMLElement): () => void {
   });
 
   game.canvas.style.display = 'block';
+  game.canvas.style.width = '100%';
+  game.canvas.style.height = '100%';
 
   return () => game.destroy(true);
 }

@@ -58,14 +58,14 @@ export function PlaygroundPage() {
       data-testid="playground-page"
       className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6"
     >
-      <Panel glow grid className="p-6 sm:p-8">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+      <Panel glow grid className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <p className="chrome-label text-primary">Playground directory</p>
-            <h1 className="terminal-heading mt-3 text-3xl text-foreground sm:text-4xl">
+            <h1 className="terminal-heading mt-3 text-lg text-foreground sm:text-xl">
               Apps, experiments, and odd ideas
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
               A separate section for surfaces that should not compete with the personal pages.
               Some entries are practical, some are visual, and some can be stranger or more
               atmospheric than the rest of the site.
@@ -118,7 +118,7 @@ export function PlaygroundPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="chrome-label">{surface.label}</p>
-                  <h2 className="terminal-heading mt-3 text-xl text-foreground">{surface.title}</h2>
+                  <h2 className="terminal-heading mt-3 text-sm text-foreground">{surface.title}</h2>
                 </div>
                 <span className="flex h-10 w-10 items-center justify-center rounded-md border border-border/70 bg-background/50 text-primary">
                   <Icon className="h-4 w-4" aria-hidden="true" />
@@ -150,8 +150,8 @@ export function PlaygroundPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="max-w-3xl">
                 <p className="chrome-label text-primary">Featured visual</p>
-                <h2 className="terminal-heading mt-2 text-2xl text-foreground">Signal mesh</h2>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
+                <h2 className="terminal-heading mt-2 text-sm text-foreground">Signal mesh</h2>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
                   The live canvas experiment stays here as one of the playground entries instead of
                   being the entire identity of the section.
                 </p>

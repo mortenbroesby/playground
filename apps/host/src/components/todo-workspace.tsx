@@ -92,10 +92,10 @@ export function TodoWorkspace() {
           <div className="space-y-2">
             <p className="chrome-label text-primary">Host Console</p>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="terminal-heading text-xl text-foreground">Injected composition</h2>
+              <h2 className="terminal-heading text-sm text-foreground">Injected composition</h2>
               <Badge tone="accent">bridge live</Badge>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+            <p className="max-w-sm text-xs leading-6 text-muted-foreground">
               The host mounts the todo app from the workspace and stays in sync through an explicit
               bridge.
             </p>
@@ -128,14 +128,14 @@ export function TodoWorkspace() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <div className="terminal-item rounded-md px-4 py-3">
               <p className="chrome-label">Transport</p>
-              <div className="mt-3 flex items-center gap-2 text-sm text-foreground">
+              <div className="mt-3 flex items-center gap-2 text-xs text-foreground">
                 <span className="status-led status-led--live" aria-hidden="true" />
                 Event stream linked
               </div>
             </div>
             <div className="terminal-item rounded-md px-4 py-3">
               <p className="chrome-label">Handshake</p>
-              <div className="mt-3 flex items-center gap-2 text-sm text-foreground">
+              <div className="mt-3 flex items-center gap-2 text-xs text-foreground">
                 <span className="status-led status-led--accent" aria-hidden="true" />
                 Host issued commands
               </div>
@@ -155,7 +155,7 @@ export function TodoWorkspace() {
         <div className="terminal-grid relative z-10 flex flex-col gap-4 border-b border-border/70 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="chrome-label text-primary">Todo App</p>
-            <h2 className="terminal-heading mt-2 text-xl text-foreground">
+            <h2 className="terminal-heading mt-2 text-sm text-foreground">
               Workspace-mounted mFE
             </h2>
           </div>

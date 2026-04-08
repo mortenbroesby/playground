@@ -81,7 +81,7 @@ export function MobileDrawer({
               </p>
               <p
                 className={cn(
-                  'mt-1 text-sm text-foreground',
+                  'mt-1 text-xs text-foreground',
                   variant === 'public' ? 'font-medium tracking-tight' : 'terminal-heading'
                 )}
               >
@@ -110,6 +110,7 @@ export function MobileDrawer({
               <NavLink
                 key={app.href}
                 to={app.href}
+                end={app.href === '/playground'}
                 className={({ isActive }) =>
                   cn(
                     'group block rounded-md px-3 py-2 transition-colors',
@@ -139,10 +140,10 @@ export function MobileDrawer({
                       <div className="min-w-0">
                         <div
                           className={cn(
-                            'text-sm text-foreground',
+                            'text-xs text-foreground',
                             variant === 'public'
                               ? 'font-medium tracking-tight'
-                              : 'terminal-heading uppercase tracking-[0.16em]'
+                              : 'terminal-heading uppercase tracking-[0.14em]'
                           )}
                         >
                           {app.label}
@@ -150,7 +151,7 @@ export function MobileDrawer({
                         {showMeta ? (
                           <div className="mt-1">
                             <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
-                            <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
+                            <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/80">
                               {meta?.status ?? 'standby'}
                             </div>
                           </div>
@@ -174,7 +175,7 @@ export function MobileDrawer({
                 to={footerLinkHref}
                 onClick={onClose}
                 className={cn(
-                  'inline-flex items-center gap-2 text-sm transition-colors hover:text-foreground',
+                  'inline-flex items-center gap-2 text-xs transition-colors hover:text-foreground',
                   variant === 'public' ? 'text-muted-foreground' : 'font-medium text-muted-foreground'
                 )}
               >

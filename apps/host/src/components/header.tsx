@@ -31,7 +31,7 @@ export function Header({
             <span className="status-led status-led--live" aria-hidden="true" />
             <div className="min-w-0">
               <p className="chrome-label text-primary">{brandLabel}</p>
-              <p className="terminal-heading truncate text-sm text-foreground">{brandTitle}</p>
+              <p className="terminal-heading truncate text-xs text-foreground">{brandTitle}</p>
             </div>
           </div>
 
