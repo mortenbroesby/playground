@@ -93,10 +93,10 @@ export function MobileDrawer({
               onClick={onClose}
               aria-label="Close navigation menu"
               className={cn(
-                'rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground',
+                'text-muted-foreground transition-colors hover:text-foreground',
                 variant === 'public'
-                  ? 'border border-border/50 bg-background'
-                  : 'border border-border/60 bg-background/30 hover:border-primary/30'
+                  ? 'rounded-md border border-border/50 bg-background p-1.5'
+                  : 'min-w-11 rounded-sm border border-border/60 bg-background/30 px-3 py-2 hover:border-primary/30'
               )}
             >
               <span className={cn('text-sm leading-none', variant === 'public' ? '' : 'chrome-label')}>

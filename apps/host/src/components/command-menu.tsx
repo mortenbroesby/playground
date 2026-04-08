@@ -260,7 +260,7 @@ export function CommandMenu() {
         type="button"
         variant="ghost"
         size="sm"
-        className="hidden h-9 gap-2 rounded-sm bg-background/20 px-2.5 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted/20 hover:text-foreground md:inline-flex"
+        className="inline-flex h-9 gap-2 rounded-sm bg-background/20 px-2.5 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted/20 hover:text-foreground"
         onClick={() => setOpen(true)}
         data-testid="command-menu-trigger"
       >

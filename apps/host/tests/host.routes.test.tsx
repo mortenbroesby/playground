@@ -228,9 +228,8 @@ describe('host routes', () => {
     });
   });
 
-  it('renders a mobile menu button in the header', async () => {
+  it('renders the command search trigger in the public header', async () => {
     await renderRoute('/about');
-    expect(getByTestId('mobile-menu-button')).toBeTruthy();
     expect(getByTestId('command-menu-trigger')).toBeTruthy();
   });
 
@@ -265,39 +264,27 @@ describe('host routes', () => {
     });
   });
 
-  it('opens and closes the mobile drawer', async () => {
+  it('opens the command menu from the public header trigger', async () => {
     await renderRoute('/about');
 
-    expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
+    expect(document.querySelector('[data-testid="command-menu-input"]')).toBeNull();
 
-    await click(getByTestId('mobile-menu-button'));
+    await click(getByTestId('command-menu-trigger'));
 
-    expect(getByTestId('mobile-drawer')).toBeTruthy();
-
-    await click(getByTestId('mobile-drawer-close'));
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
-    });
+    expect(getByTestId('command-menu-input')).toBeTruthy();
   });
 
-  it('closes the mobile drawer on navigation', async () => {
+  it('navigates from the public header search trigger', async () => {
     const { router } = await renderRoute('/about');
 
-    await click(getByTestId('mobile-menu-button'));
-    expect(getByTestId('mobile-drawer')).toBeTruthy();
+    await click(getByTestId('command-menu-trigger'));
+    expect(getByTestId('command-menu-input')).toBeTruthy();
 
-    expect(document.querySelector('[data-testid="mobile-drawer"] a[href="/system"]')).toBeNull();
-
-    const playgroundLink = document.querySelector<HTMLElement>(
-      '[data-testid="mobile-drawer"] a[href="/playground"]',
-    );
-    expect(playgroundLink).not.toBeNull();
-    await click(playgroundLink!);
+    await click(getByTestId('command-item-page-playground'));
 
     await vi.waitFor(() => {
       expect(router.state.location.pathname).toBe('/playground');
-      expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
+      expect(document.querySelector('[data-testid="command-menu-input"]')).toBeNull();
     });
   });
 

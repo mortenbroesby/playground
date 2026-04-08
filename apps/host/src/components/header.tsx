@@ -48,7 +48,7 @@ export function Header({
           data-testid="mobile-menu-button"
           onClick={onMenuOpen}
           aria-label="Open navigation menu"
-          className="flex items-center justify-center rounded-md border border-border/60 bg-background/30 p-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground md:hidden"
+          className="flex min-w-11 items-center justify-center rounded-sm border border-border/60 bg-background/30 px-3 py-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground md:hidden"
         >
           <span className="chrome-label text-base leading-none">≡</span>
         </button>
