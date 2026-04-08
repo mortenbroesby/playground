@@ -1,6 +1,13 @@
+import { Github, Instagram, Linkedin } from 'lucide-react';
 import { aboutPage } from '../content/about';
 
 const ABOUT_NAME = 'Morten Broesby-Olsen';
+
+const socialIcons = {
+  GitHub: Github,
+  LinkedIn: Linkedin,
+  Instagram: Instagram,
+} as const;
 
 export function AboutPage() {
   return (
@@ -50,16 +57,24 @@ export function AboutPage() {
             <p className="chrome-label text-primary">Elsewhere</p>
             <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-foreground">
               {aboutPage.socials.map((social) => (
-                <a
-                  key={social.label}
-                  data-testid={`about-social-${social.label.toLowerCase()}`}
-                  href={social.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="transition-colors hover:text-primary"
-                >
-                  {social.label}
-                </a>
+                (() => {
+                  const Icon = socialIcons[social.label as keyof typeof socialIcons];
+
+                  return (
+                    <a
+                      key={social.label}
+                      data-testid={`about-social-${social.label.toLowerCase()}`}
+                      href={social.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 transition-colors hover:text-primary"
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                      <span>{social.label}</span>
+                      <span className="text-muted-foreground">{social.handle}</span>
+                    </a>
+                  );
+                })()
               ))}
             </div>
           </div>

@@ -3,13 +3,6 @@ import { publishedWritingPosts } from '../content/writing';
 
 const featuredPosts = publishedWritingPosts.slice(0, 2);
 
-const quickLinks = [
-  { href: '/about', label: 'About' },
-  { href: '/writing', label: 'Writing' },
-  { href: '/uses', label: 'Uses' },
-  { href: '/playground', label: 'Playground' },
-] as const;
-
 export function HomePage() {
   return (
     <div data-testid="home-page" className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-14">
@@ -37,16 +30,6 @@ export function HomePage() {
             <Link to="/writing" className="transition-colors hover:text-primary">
               Open writing
             </Link>
-          </div>
-        </section>
-
-        <section className="border-t border-border/60 pt-6">
-          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-            {quickLinks.map((link) => (
-              <Link key={link.href} to={link.href} className="transition-colors hover:text-foreground">
-                {link.label}
-              </Link>
-            ))}
           </div>
         </section>
 

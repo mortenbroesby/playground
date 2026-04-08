@@ -13,12 +13,16 @@ const sections: UsesSection[] = [
   {
     title: 'Editor & Shell',
     items: [
-      { label: 'Cursor', href: 'https://cursor.com', note: 'AI-first editor' },
       { label: 'VS Code', href: 'https://code.visualstudio.com', note: 'fallback editor' },
       {
         label: 'Claude Code',
         href: 'https://www.anthropic.com/claude-code',
         note: 'agentic coding CLI',
+      },
+      {
+        label: "Codex",
+        href: "https://chatgpt.com/codex",
+        note: "Agentic coding UI"
       },
       { label: 'Warp', href: 'https://www.warp.dev', note: 'modern terminal with AI' },
       { label: 'Oh My ZSH', href: 'https://ohmyz.sh', note: 'zsh shell setup' },
@@ -126,9 +130,9 @@ const sections: UsesSection[] = [
     title: 'Philosophies',
     items: [
       {
-        label: 'Shape Up',
-        href: 'https://basecamp.com/shapeup',
-        note: 'Basecamp product shaping and appetite-based planning',
+        label: 'Deep Work',
+        href: 'https://www.calnewport.com/books/deep-work/',
+        note: 'protecting focused time for work that actually needs uninterrupted attention',
       },
       {
         label: 'Getting Things Done (GTD)',
