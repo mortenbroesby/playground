@@ -12,8 +12,8 @@ export function WritingPage() {
             Notes and essays
           </h1>
           <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-            Short writing on frontend architecture, platform thinking, and the decisions that make
-            software easier to evolve.
+            Essays, notes, and older blog posts on frontend architecture, software, games, and the
+            occasional life decision that changes everything.
           </p>
         </section>
 

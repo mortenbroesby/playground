@@ -1,0 +1,90 @@
+---
+slug: screeps-a-game-for-programmers
+title: Screeps - A Game for Programmers
+summary: A real-time strategy game for programmers; control your colony with JavaScript
+date: May 19, 2022
+tags:
+  - games
+  - programming
+  - javascript
+published: true
+---
+
+A while back I discovered this game called Screeps — a real-time strategy game for programmers.
+
+I was immediately intrigued by the concept, but it took me a while to find the time and courage to play.
+When I finally started playing it properly, I lost myself in the game for several days on end.
+
+> Screeps means “scripting creeps.”
+>
+> It is an open-source game for programmers, where the core mechanic is programming
+> your units' AI. You control your colony by writing JavaScript.
+
+#### Gameplay trailer
+
+<iframe
+  width="100%"
+  height="460"
+  src="https://www.youtube-nocookie.com/embed/ZboTgOajnGg"
+  title="Screeps gameplay trailer"
+  frameBorder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+#### About the game
+
+In essence, Screeps is a simple game.
+
+It has a top-down view. You start in a randomly generated area with nothing more than some basic resources and your base.
+Nothing fun will happen — _unless you program it yourself!_
+
+As a player, it is your job to “script” your own creeps’ AI. Anything you want to have happen, you have to program.
+
+You will need to write a program that makes your base spawn workers. Next, those workers will need to be programmed to actually work.
+You need to direct them to go to the resources, mine the resources, stop mining when their inventories are full, and return
+their mined resources to your base.
+
+You will probably also want some soldiers and other defenses, so those need to be spawned with their own guard and attack instructions as well.
+
+Everything needs to be scripted well, as the game — and thus, your Screeps — runs online, 24/7, i.e. also when you are not playing yourself. Truly your personal, virtual, mini-AI colony.
+
+The programming mostly happens in JavaScript. This can be difficult for those who do not know JavaScript, but the game includes a fairly extensive tutorial
+that should direct you towards setting up the basics in a matter of hours. Step by step, you will learn (read: be forced) to create different worker types;
+harvesters, builders, repairmen, and even some stupid soldiers, and even some basic colony management scripts; spawning workers, spending resources, upgrading stuff.
+
+In the meantime, you will silently learn JavaScript and programming concepts while you are playing. As I was putting in more and more hours,
+I could see how to improve on my earlier scripts. I was able to make a lot of improvements, and with the help of other open-source libraries, I ended up feeling pretty happy about my code foundation.
+
+The above experience makes Screeps a uniquely fun and rewarding gaming & learning experience.
+
+Do expect to run into frustrations, though. If you are not a JavaScript expert, you will create a lot of bugs yourself.
+The game will happily tell you about them while your colony gets stuck overnight. Moreover, you will likely need to
+Google nearly everything you want to do at the start. I found YouTube tutorials especially helpful when getting started.
+Finally, you are only under artificial protection for the first several hours, after which there is a good chance you will get slaughtered
+by all the advanced multi-CPU players on the servers.
+
+If you end up getting inspired to try it out, just be aware that _Screeps is a time-consuming game_.
+
+Feel free to find inspiration in my Screeps GitHub repository: [mortenbroesby/screeps-typescript](https://github.com/mortenbroesby/screeps-typescript)
+
+#### Screeps Explained
+
+<iframe
+  width="100%"
+  height="460"
+  src="https://www.youtube-nocookie.com/embed/y0rCn6Ux0Xw"
+  title="Screeps explained"
+  frameBorder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+#### Closing notes
+
+When the urge strikes, I love sitting down and playing with the game: figuring out what strategy to use, thinking through the architecture, and everything else that comes with it.
+I enjoy thinking about how to make it better, more memory-efficient, more readable, and better at dealing with opponents.
+
+I don't know many games that entertain my brain on this level. Truly a game for programmers.
+
+_Thanks for reading!_

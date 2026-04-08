@@ -14,4 +14,4 @@ Keep this file loose:
 
 ## Current Inbox
 
-- Empty for now. Add new raw ideas here before promoting them into `KANBAN.md`.
+- Revisit `How I Built This Website` as a reinvented post for the current site and stack, instead of keeping the older archived version live.

@@ -13,6 +13,11 @@ Priority scale:
 
 ## Now
 
+- [ ] `P0` Merge host architecture refactor from `refactor/host-architecture` worktree
+  Why: route modules, content domain split, and uplink-game inlining are done and green on `../playground-refactor`. Merge unblocks further EFA work on a clean base.
+  Outcome: `src/routes/` domain modules, `content/about.ts` split, `UplinkGameCanvas` co-located — all landed on main.
+  Source: `refactor/host-architecture` branch (`../playground-refactor` worktree).
+
 - [ ] `P1` Pull remaining ideas from `morten.broesby.dk` into the backlog
   Why: there are still useful content and structure cues on the current site that have not been translated into this repo.
   Outcome: a clearer list of pages, copy ideas, and content gaps for the personal-site side.
@@ -154,6 +159,10 @@ Priority scale:
 
 ## Done
 
+- [x] `P1` Import the legacy blog archive into the host writing system
+  Why: the personal site needed the earlier writing to actually live in this repo instead of staying stranded on the old site.
+  Outcome: the legacy posts now live as MDX in the host, key linked assets were copied over, and the imported copy received a light editorial cleanup.
+  Source: `mortenbroesby/website-blog` and `morten.broesby.dk`.
 - [x] `P1` Add a proper favicon and basic app-icon set for the host
   Why: the site no longer ships with generic browser defaults in tabs and saved-site contexts.
   Outcome: the host now serves a favicon, touch icon, and manifest-backed icon set from `index.html`.

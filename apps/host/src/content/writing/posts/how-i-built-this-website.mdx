@@ -1,0 +1,48 @@
+---
+slug: how-i-built-this-website
+title: How I Built This Website
+summary: An insight into the tech stack behind this website
+date: May 26, 2023
+tags:
+  - web
+  - mdx
+  - tooling
+published: false
+---
+
+### Introduction
+
+When building this site, my biggest priority was to find a solution that would embrace simplicity,
+but also let me embed completely custom content in each blog post, should I want or need it.
+
+When using Markdown or a rich-text editor in a CMS, it is not at all clear how to do this.
+You're generally limited to the handful of HTML elements that these tools can render to.
+
+#### The stack
+
+This blog is a Next.js application.
+
+I chose Next.js because it provides a great developer experience with all the features I needed:
+Hybrid static & server rendering, TypeScript support, smart bundling, route pre-fetching, and more.
+
+I deploy and host this blog on Vercel.
+
+Their hosting approach is hassle-free, and it comes with basic CI built in.
+
+#### MDX to the rescue!
+
+MDX is great. It allows me to write in Markdown and seamlessly integrate JSX components.
+It's an extension of Markdown that allows you to import and use custom React components.
+
+Even if you've never written Markdown, you've probably seen it before.
+It is a widely used format. All those `README.md` files shown on GitHub repositories are Markdown.
+
+For metadata, I use frontmatter. It is a simple way to add metadata to Markdown files.
+
+To orchestrate fetching and rendering of MDX files, I use [ContentLayer](https://www.contentlayer.dev/).
+Shoutout for making file-based content generation so easy!
+
+#### Database
+
+For type-safe database interactions, I use Prisma. For now, I am set up with Supabase and its Postgres database.
+I might switch to PlanetScale for hosting later on, as they provide a more scalable solution.
