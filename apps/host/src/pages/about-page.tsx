@@ -72,7 +72,7 @@ export function AboutPage() {
 
             <div className="space-y-3">
               {aboutPage.socials.map((social) => {
-                const Icon = SOCIAL_ICONS[social.label];
+                const Icon = SOCIAL_ICONS[social.label as keyof typeof SOCIAL_ICONS];
 
                 return (
                   <a
