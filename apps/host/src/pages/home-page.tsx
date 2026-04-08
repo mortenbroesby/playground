@@ -21,11 +21,12 @@ export function HomePage() {
               Hi, I&apos;m Morten.
             </h1>
             <p className="max-w-2xl text-sm leading-7 text-foreground">
-              I build frontend systems, write occasionally, and keep a separate playground for
-              ideas that do not belong on the main site.
+              I build frontend systems, write now and then, and keep a separate playground for
+              ideas, experiments, and smaller apps.
             </p>
             <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-              Start here if you want the shortest version.
+              This is the quieter side of the site. The playground is where experiments and more
+              eclectic ideas live.
             </p>
           </div>
 
