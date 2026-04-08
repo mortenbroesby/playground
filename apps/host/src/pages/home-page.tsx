@@ -2,34 +2,49 @@ import { Link } from 'react-router-dom';
 import { publishedWritingPosts } from '../content/writing';
 
 const featuredPosts = publishedWritingPosts.slice(0, 2);
+const profileImageHref = 'https://github.com/mortenbroesby.png';
 
 export function HomePage() {
   return (
-    <div data-testid="home-page" className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-14">
+    <div data-testid="home-page" className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-14">
       <div className="space-y-8">
-        <section className="space-y-4">
-          <p className="chrome-label text-primary">personal site</p>
-          <div className="space-y-3">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Hi, I&apos;m Morten.
-            </h1>
-            <p className="max-w-2xl text-sm leading-7 text-foreground">
-              I build frontend systems, write now and then, and keep a separate playground for
-              ideas, experiments, and smaller apps.
-            </p>
-            <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-              This is the quieter side of the site. The playground is where experiments and more
-              eclectic ideas live.
-            </p>
+        <section className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_160px] sm:items-start">
+          <div className="space-y-4">
+            <p className="chrome-label text-primary">personal site</p>
+            <div className="space-y-3">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                Hi, I&apos;m Morten.
+              </h1>
+              <p className="max-w-2xl text-sm leading-7 text-foreground">
+                I build frontend systems for products that need to keep growing without becoming
+                harder to work on.
+              </p>
+              <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
+                I work across web, mobile, and TV, write now and then, and keep a separate
+                playground for ideas and experiments that do not belong on the main site.
+              </p>
+              <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
+                I&apos;m also a husband, a father, and interested in how people build and learn.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground">
+              <Link to="/about" className="transition-colors hover:text-primary">
+                Read the about page
+              </Link>
+              <Link to="/writing" className="transition-colors hover:text-primary">
+                Open writing
+              </Link>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground">
-            <Link to="/about" className="transition-colors hover:text-primary">
-              Read the about page
-            </Link>
-            <Link to="/writing" className="transition-colors hover:text-primary">
-              Open writing
-            </Link>
+          <div className="mx-auto w-32 rounded-full border border-border/40 bg-muted/10 p-1 sm:mx-0 sm:justify-self-end">
+            <img
+              src={profileImageHref}
+              alt="Portrait of Morten Broesby-Olsen"
+              className="aspect-square w-full rounded-full object-cover [mask-image:radial-gradient(circle,black_62%,transparent_82%)]"
+              loading="eager"
+            />
           </div>
         </section>
 
