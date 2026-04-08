@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { CommandMenu } from '@/components/command-menu';
 import { MobileDrawer } from '@/components/mobile-drawer';
 import { SITE_NAV_ITEMS } from '../lib/nav';
 
@@ -31,6 +32,10 @@ export function PublicLayout() {
               </NavLink>
             ))}
           </nav>
+
+          <div className="hidden md:block">
+            <CommandMenu />
+          </div>
 
           <button
             data-testid="mobile-menu-button"

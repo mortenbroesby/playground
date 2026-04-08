@@ -56,6 +56,13 @@ export async function click(element: HTMLElement): Promise<void> {
   });
 }
 
+export async function keydown(key: string, init?: KeyboardEventInit): Promise<void> {
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...init }));
+    await Promise.resolve();
+  });
+}
+
 export async function typeInto(
   element: HTMLInputElement | HTMLTextAreaElement,
   value: string,

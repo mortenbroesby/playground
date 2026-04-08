@@ -3,6 +3,7 @@ import {
   click,
   getByTestId,
   getByText,
+  keydown,
   renderRoute,
   typeInto,
   waitForText,
@@ -230,6 +231,38 @@ describe('host routes', () => {
   it('renders a mobile menu button in the header', async () => {
     await renderRoute('/about');
     expect(getByTestId('mobile-menu-button')).toBeTruthy();
+    expect(getByTestId('command-menu-trigger')).toBeTruthy();
+  });
+
+  it('opens the global command menu with cmd+k on public routes', async () => {
+    await renderRoute('/about');
+
+    expect(document.querySelector('[data-testid="command-menu-input"]')).toBeNull();
+
+    await keydown('k', { metaKey: true });
+
+    await vi.waitFor(() => {
+      expect(getByTestId('command-menu-input')).toBeTruthy();
+      expect(getByText('Go to Writing')).toBeTruthy();
+      expect(getByText('Open Playground')).toBeTruthy();
+    });
+  });
+
+  it('navigates through the command menu', async () => {
+    const { router } = await renderRoute('/about');
+
+    await keydown('k', { metaKey: true });
+
+    await vi.waitFor(() => {
+      expect(getByTestId('command-item-page-writing')).toBeTruthy();
+    });
+
+    await click(getByTestId('command-item-page-writing'));
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/writing');
+      expect(getByTestId('writing-page')).toBeTruthy();
+    });
   });
 
   it('opens and closes the mobile drawer', async () => {
