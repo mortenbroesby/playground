@@ -21,7 +21,7 @@ venv
 .venv
 node_modules
 .sass-cache
-.claude
+.claude/settings.local.json
 .mcp.json
 .vercel
 

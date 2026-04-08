@@ -1,0 +1,12 @@
+{
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "agent-orchestration@claude-code-workflows": true,
+    "superpowers@claude-plugins-official": true,
+    "ralph-wiggum@claude-plugins-official": true,
+    "playground@playground-repo": true,
+    "context-mode@context-mode": true,
+    "agent-skills@addy-agent-skills": true
+  }
+}
