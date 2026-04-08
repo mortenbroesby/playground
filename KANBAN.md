@@ -28,12 +28,12 @@ Priority scale:
   Outcome: keep the microfrontend seam trustworthy while the host architecture evolves.
   Source: existing seeded todo.
 
-- [ ] `P1` Split host architecture into clearer route modules
+- [x] `P1` Split host architecture into clearer route modules
   Why: `apps/host/src/routes.tsx` is still the switchboard for public pages, playground pages, redirects, and layouts.
   Outcome: route definitions grouped by public site, playground, and legacy redirects so the route tree is easier to reason about.
   Source: architecture review.
 
-- [ ] `P1` Introduce a content-domain layer for public pages
+- [x] `P1` Introduce a content-domain layer for public pages
   Why: `apps/host/src/content/uses.ts` is carrying about content, profile pitch, uses data, and other public content concerns.
   Outcome: separate content modules by domain such as `about`, `uses`, and `writing`, with clearer ownership and less coupling.
   Source: architecture review.
@@ -45,9 +45,9 @@ Priority scale:
   Outcome: cleaner editorial defaults for public pages without weakening the playground’s stronger local identity.
   Source: roadmap and host migration checklist.
 
-- [ ] `P1` Add a second remote that proves the pattern on something meaningfully different from todo
-  Why: the repo still leans heavily on one injected remote as proof of the architecture.
-  Outcome: stronger confidence that the microfrontend contract is reusable and not overfit to the todo example.
+- [ ] `P3` Revisit second MFE only if the todo contract needs validation on a different shape
+  Why: uplink-game was inlined as a direct host library; todo-app is now the sole MFE demo and the contract is sufficient for the current scope.
+  Outcome: decision to add a second remote only if a concrete new product surface demands the pattern.
   Source: `docs/ideas/roadmap.md`.
 
 - [ ] `P2` Add baseline SEO metadata management with React head support
@@ -159,6 +159,10 @@ Priority scale:
 
 ## Done
 
+- [x] `P1` Inline uplink-game and narrow MFE scope to todo-app only
+  Why: uplink-game's mount contract (`mount(el) → cleanup`) was just a `useEffect` in disguise; the workspace abstraction added indirection with no benefit.
+  Outcome: `GameWorkspace` retired, `UplinkGameCanvas` co-located with game-page, todo-app remains the sole live MFE demo. Routes split into domain modules (`src/routes/`), content split into `about.ts` + `uses.ts`.
+  Source: architecture review.
 - [x] `P1` Import the legacy blog archive into the host writing system
   Why: the personal site needed the earlier writing to actually live in this repo instead of staying stranded on the old site.
   Outcome: the legacy posts now live as MDX in the host, key linked assets were copied over, and the imported copy received a light editorial cleanup.

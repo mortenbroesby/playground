@@ -1,9 +1,9 @@
-import { GameWorkspace } from '@/components/game-workspace';
+import { UplinkGameCanvas } from './uplink-game-canvas';
 
 export function GamePage() {
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
-      <GameWorkspace />
+      <UplinkGameCanvas />
 
       <section className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
