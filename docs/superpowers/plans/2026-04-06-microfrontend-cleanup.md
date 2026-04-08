@@ -1,5 +1,7 @@
 # Microfrontend Cleanup Implementation Plan
 
+> **Status: Superseded.** MFE scope narrowed to todo-app only. uplink-game is now a direct host library (`UplinkGameCanvas`). See `refactor/host-architecture` branch.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reduce 5 apps to 3, replace Mantine with Tailwind + shadcn/ui, enforce dark mode only, and give the host a full-width header + sidebar navigation.

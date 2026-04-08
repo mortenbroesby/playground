@@ -1,7 +1,7 @@
 import { mount } from '@playground/uplink-game';
 import { useEffect, useRef } from 'react';
 
-export function GameWorkspace() {
+export function UplinkGameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

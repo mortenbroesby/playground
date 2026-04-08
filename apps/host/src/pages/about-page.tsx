@@ -1,4 +1,4 @@
-import { aboutPage } from '../content/uses';
+import { aboutPage } from '../content/about';
 
 const ABOUT_NAME = 'Morten Broesby-Olsen';
 
