@@ -5,7 +5,7 @@ import { appStatusMeta } from '@/lib/theme';
 
 export function Sidebar() {
   return (
-    <aside className="w-24 shrink-0 border-r border-border/80 bg-card/70 p-3 sm:w-60 sm:p-4">
+    <aside className="hidden w-24 shrink-0 border-r border-border/80 bg-card/70 p-3 md:block md:w-60 md:p-4">
       <div className="terminal-panel terminal-panel--quiet flex h-full flex-col p-2 sm:p-3">
         <div className="border-b border-border/70 px-2 pb-3">
           <p className="chrome-label">App Matrix</p>
