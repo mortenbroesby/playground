@@ -163,23 +163,34 @@ Priority scale:
   Why: the personal site needed the earlier writing to actually live in this repo instead of staying stranded on the old site.
   Outcome: the legacy posts now live as MDX in the host, key linked assets were copied over, and the imported copy received a light editorial cleanup.
   Source: `mortenbroesby/website-blog` and `morten.broesby.dk`.
+
 - [x] `P1` Add a proper favicon and basic app-icon set for the host
   Why: the site no longer ships with generic browser defaults in tabs and saved-site contexts.
   Outcome: the host now serves a favicon, touch icon, and manifest-backed icon set from `index.html`.
   Source: SEO/favicon planning.
+
 - [x] `P1` Fix Uplink rendering sharpness on the playground route
   Why: the current Uplink surface still looked grainy and undermined the stronger UI direction.
   Outcome: Uplink now renders with an explicit retro-crisp policy, and the implementation is documented in `.specs`.
   Source: `BRAINDUMP.md`.
+
 - [x] `P0` Add an MDX-based content system
   Why: the site now has real public writing, and the previous TypeScript-backed content model was intentionally temporary.
   Outcome: writing posts now live as MDX files with frontmatter and render through a shared content loader in the host.
   Source: existing seeded todo and writing/content direction in `docs/ideas/personal-site-transition.md`.
+
 - [x] `P0` Turn `/` into a real home page instead of redirecting to `/about`
+
 - [x] `P0` Split the host into public and playground layouts
+
 - [x] `P0` Add `Writing` as a first-class section with seeded posts
+
 - [x] `P0` Move app surfaces under `/playground/*` with legacy redirects
+
 - [x] `P1` Keep the playground navigation limited to playground-only surfaces
+
 - [x] `P1` Add a dedicated path back to the main site from the playground
+
 - [x] `P1` Simplify the public shell and reduce hacker-theme bleed on public pages
+
 - [x] `P1` Move writing article pages into the editorial visual language instead of the playground language
