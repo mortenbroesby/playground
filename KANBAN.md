@@ -41,6 +41,24 @@ AI appetite scale:
   Outcome: projects get compact public entry points and can expand into richer modules when needed.
   Source: `docs/ideas/roadmap.md`.
 
+- `P2` Evaluate SSR or pre-rendering for the public host
+  AI Appetite: 60%
+  Why: the public site is becoming more content-driven, and client-only rendering may not be the right long-term fit for first load, metadata, and crawler behavior.
+  Outcome: a clear decision on whether the host should stay CSR, move to selective pre-rendering, or adopt a fuller SSR path.
+  Source: backlog capture.
+
+- `P2` Add a Spotify currently-playing surface to the public site
+  AI Appetite: 65%
+  Why: a lightweight now-playing module could make the site feel more alive without pushing it back into dashboard territory.
+  Outcome: one small public component or route-level module that shows current listening state in a restrained way.
+  Source: backlog capture.
+
+- `P2` Define a shared secrets path through Vercel or GitHub
+  AI Appetite: 45%
+  Why: the repo is accumulating integrations and deployment-adjacent work, but secret handling should not stay ad hoc.
+  Outcome: one clear path for shared secrets management, rotation, and local-dev access using either Vercel-managed env vars or GitHub-managed secrets where appropriate.
+  Source: backlog capture.
+
 - `P2` Formalize the shared design layer
   AI Appetite: 55%
   Why: the host and remotes are more coherent than before, but the design system is still half toolkit, half historical styling residue.
