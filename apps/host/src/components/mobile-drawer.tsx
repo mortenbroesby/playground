@@ -13,6 +13,7 @@ interface MobileDrawerProps {
   title: string;
   subtitle: string;
   showMeta?: boolean;
+  variant?: 'public' | 'playground';
 }
 
 export function MobileDrawer({
@@ -24,6 +25,7 @@ export function MobileDrawer({
   title,
   subtitle,
   showMeta = true,
+  variant = 'playground',
 }: MobileDrawerProps) {
   const location = useLocation();
 
@@ -54,21 +56,52 @@ export function MobileDrawer({
 
       <div
         data-testid="mobile-drawer"
-        className="fixed inset-y-0 left-0 z-50 w-64 border-r border-border/80 bg-card/95 p-4 backdrop-blur-sm"
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-64 p-4',
+          variant === 'public'
+            ? 'border-r border-border/60 bg-background'
+            : 'border-r border-border/80 bg-card/95 backdrop-blur-sm'
+        )}
       >
-        <div className="terminal-panel terminal-panel--quiet flex h-full flex-col p-3">
-          <div className="flex items-center justify-between border-b border-border/70 pb-3">
+        <div
+          className={cn(
+            'flex h-full flex-col',
+            variant === 'public' ? 'p-0' : 'terminal-panel terminal-panel--quiet p-3'
+          )}
+        >
+          <div
+            className={cn(
+              'flex items-center justify-between pb-3',
+              variant === 'public' ? 'border-b border-border/60' : 'border-b border-border/70'
+            )}
+          >
             <div>
-              <p className="chrome-label">{title}</p>
-              <p className="terminal-heading mt-1 text-sm text-foreground">{subtitle}</p>
+              <p className={cn(variant === 'public' ? 'text-xs text-muted-foreground' : 'chrome-label')}>
+                {title}
+              </p>
+              <p
+                className={cn(
+                  'mt-1 text-sm text-foreground',
+                  variant === 'public' ? 'font-medium tracking-tight' : 'terminal-heading'
+                )}
+              >
+                {subtitle}
+              </p>
             </div>
             <button
               data-testid="mobile-drawer-close"
               onClick={onClose}
               aria-label="Close navigation menu"
-              className="rounded-md border border-border/60 bg-background/30 p-1.5 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+              className={cn(
+                'rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground',
+                variant === 'public'
+                  ? 'border border-border/50 bg-background'
+                  : 'border border-border/60 bg-background/30 hover:border-primary/30'
+              )}
             >
-              <span className="chrome-label text-sm leading-none">✕</span>
+              <span className={cn('text-sm leading-none', variant === 'public' ? '' : 'chrome-label')}>
+                ✕
+              </span>
             </button>
           </div>
 
@@ -79,26 +112,39 @@ export function MobileDrawer({
                 to={app.href}
                 className={({ isActive }) =>
                   cn(
-                    'group block rounded-md border px-3 py-2 transition-colors',
-                    isActive
-                      ? 'border-primary/50 bg-primary/10 text-foreground shadow-[inset_0_0_0_1px_rgba(110,255,184,0.08)]'
-                      : 'border-border/60 bg-background/30 text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                    'group block rounded-md px-3 py-2 transition-colors',
+                    variant === 'public'
+                      ? isActive
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                      : isActive
+                        ? 'border border-primary/50 bg-primary/10 text-foreground shadow-[inset_0_0_0_1px_rgba(110,255,184,0.08)]'
+                        : 'border border-border/60 bg-background/30 text-muted-foreground hover:border-primary/30 hover:text-foreground'
                   )
                 }
               >
                 {({ isActive }) => {
                   const meta = appStatusMeta[app.href];
                   return (
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={cn(
-                          'status-led mt-1',
-                          isActive ? 'status-led--live' : 'status-led--accent opacity-60'
-                        )}
-                        aria-hidden="true"
-                      />
+                    <div className={cn('flex items-start', variant === 'public' ? 'gap-0' : 'gap-3')}>
+                      {variant === 'playground' ? (
+                        <span
+                          className={cn(
+                            'status-led mt-1',
+                            isActive ? 'status-led--live' : 'status-led--accent opacity-60'
+                          )}
+                          aria-hidden="true"
+                        />
+                      ) : null}
                       <div className="min-w-0">
-                        <div className="terminal-heading text-sm uppercase tracking-[0.16em]">
+                        <div
+                          className={cn(
+                            'text-sm text-foreground',
+                            variant === 'public'
+                              ? 'font-medium tracking-tight'
+                              : 'terminal-heading uppercase tracking-[0.16em]'
+                          )}
+                        >
                           {app.label}
                         </div>
                         {showMeta ? (
@@ -118,13 +164,21 @@ export function MobileDrawer({
           </nav>
 
           {footerLinkHref && footerLinkLabel ? (
-            <div className="mt-auto border-t border-border/70 pt-3">
+            <div
+              className={cn(
+                'mt-auto pt-3',
+                variant === 'public' ? 'border-t border-border/60' : 'border-t border-border/70'
+              )}
+            >
               <Link
                 to={footerLinkHref}
                 onClick={onClose}
-                className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className={cn(
+                  'inline-flex items-center gap-2 text-sm transition-colors hover:text-foreground',
+                  variant === 'public' ? 'text-muted-foreground' : 'font-medium text-muted-foreground'
+                )}
               >
-                <span className="chrome-label text-primary">exit</span>
+                {variant === 'public' ? null : <span className="chrome-label text-primary">exit</span>}
                 <span>{footerLinkLabel}</span>
               </Link>
             </div>

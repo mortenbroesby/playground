@@ -50,6 +50,7 @@ export function PublicLayout() {
         title="Pages"
         subtitle="Main site"
         showMeta={false}
+        variant="public"
       />
 
       <main>
