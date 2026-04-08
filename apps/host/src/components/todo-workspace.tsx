@@ -8,7 +8,7 @@ const EXAMPLE_TODOS: Todo[] = [
   { id: 'host-seeded-2', title: 'Verify injected composition path', completed: false },
   {
     id: 'host-seeded-3',
-    title: 'Pull remaining ideas from morten.broesby.dk into the site backlog',
+    title: 'Introduce a content-domain layer for public pages',
     completed: false,
   },
 ];

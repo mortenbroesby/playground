@@ -13,11 +13,6 @@ Priority scale:
 
 ## Now
 
-- [ ] `P1` Pull remaining ideas from `morten.broesby.dk` into the backlog
-  Why: there are still useful content and structure cues on the current site that have not been translated into this repo.
-  Outcome: a clearer list of pages, copy ideas, and content gaps for the personal-site side.
-  Source: existing seeded todo.
-
 - [ ] `P1` Verify injected composition path
   Why: the todo remote is still the best live proof of the host-to-remote contract.
   Outcome: keep the microfrontend seam trustworthy while the host architecture evolves.
@@ -65,6 +60,16 @@ Priority scale:
   Outcome: projects get compact public entry points and can expand into richer modules when needed.
   Source: `docs/ideas/roadmap.md`.
 
+- [ ] `P2` Decide whether snippets belong inside `Writing` or deserve their own route
+  Why: the older personal site had a distinct `Snippets` surface, while this repo currently only has `Writing`.
+  Outcome: a clear taxonomy for short-form notes before more public content surfaces are added.
+  Source: `docs/ideas/morten-site-backlog.md`.
+
+- [ ] `P2` Enrich `Uses` with a few more concrete categories from the older site
+  Why: the older `Uses` page had useful specificity around tools, software, cloud services, and inspirations that the current route only partially captures.
+  Outcome: a more grounded `Uses` page without reverting to a noisy exhaustive inventory.
+  Source: `docs/ideas/morten-site-backlog.md`.
+
 - [ ] `P2` Replace `uses/gear` with a cleaner canonical `/uses` structure
   Why: the current redirect works, but it reflects the older route shape rather than the current public-site intent.
   Outcome: simpler information architecture and fewer transitional redirects on the public side.
@@ -81,6 +86,11 @@ Priority scale:
   Source: `docs/ideas/mobile-future.md` Option B.
 
 ## Later
+
+- [ ] `P3` Add one more personal signal to the home page
+  Why: the older personal site used a photo and lightweight presence details to make the page feel more human immediately.
+  Outcome: one small personal module on the home page without turning it into a dashboard.
+  Source: `docs/ideas/morten-site-backlog.md`.
 
 - [ ] `P2` Define a stronger page-composition pattern for public routes
   Why: `Home`, `About`, `Writing`, and `Uses` are simpler now, but they still evolved page by page.
@@ -154,6 +164,10 @@ Priority scale:
 
 ## Done
 
+- [x] `P1` Pull remaining ideas from `morten.broesby.dk` into the backlog
+  Why: there were still useful page, copy, and content cues on the older site that had not been translated into this repo.
+  Outcome: those cues now live in `docs/ideas/morten-site-backlog.md` and have been promoted into concrete backlog items.
+  Source: existing seeded todo.
 - [x] `P1` Add a proper favicon and basic app-icon set for the host
   Why: the site no longer ships with generic browser defaults in tabs and saved-site contexts.
   Outcome: the host now serves a favicon, touch icon, and manifest-backed icon set from `index.html`.

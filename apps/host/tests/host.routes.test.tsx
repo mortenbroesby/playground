@@ -80,7 +80,7 @@ describe('host routes', () => {
     });
 
     expect(getByText('Split host architecture into clearer route modules')).toBeTruthy();
-    expect(getByText('Pull remaining ideas from morten.broesby.dk into the site backlog')).toBeTruthy();
+    expect(getByText('Introduce a content-domain layer for public pages')).toBeTruthy();
 
     await click(document.querySelector<HTMLElement>('[aria-label="Toggle Verify injected composition path"]')!);
 
