@@ -114,7 +114,7 @@ The root README is the front door. The more detailed and more fluid thinking liv
 | `pnpm turbo type-check` | TypeScript check across all workspaces                                        |
 | `pnpm turbo lint`       | ESLint across all workspaces                                                  |
 | `pnpm turbo dev`        | Start all dev servers in parallel                                             |
-| `pnpm dev:web`          | Start the host app and open `/todo`                                           |
+| `pnpm dev:web`          | Start the host app and open `/`                                               |
 | `pnpm test`             | Run workspace tests through Turborepo                                         |
 | `pnpm test:integration` | Run the todo remote integration test suite                                    |
 | `pnpm lint:md`          | Lint root docs, workspace READMEs, and active planning docs with markdownlint |
@@ -123,7 +123,7 @@ The root README is the front door. The more detailed and more fluid thinking liv
 
 ```text
 apps/
-  host/                   Vite shell with `/todo` and personal-site routes
+  host/                   Vite shell with `/`, app routes, and personal-site pages
 packages/
   remotes/todo-app/       Injected todo microfrontend package
   ui/                     Shared React components

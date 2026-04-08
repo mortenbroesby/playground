@@ -3,10 +3,20 @@ import { useLocation } from 'react-router-dom';
 import { appStatusMeta } from '@/lib/theme';
 
 interface HeaderProps {
+  brandLabel: string;
+  brandTitle: string;
   onMenuOpen: () => void;
+  primaryBadge: string;
+  showRouteMeta?: boolean;
 }
 
-export function Header({ onMenuOpen }: HeaderProps) {
+export function Header({
+  brandLabel,
+  brandTitle,
+  onMenuOpen,
+  primaryBadge,
+  showRouteMeta = true,
+}: HeaderProps) {
   const location = useLocation();
   const activeRoute = appStatusMeta[location.pathname] ?? {
     code: 'SYS-00',
@@ -20,15 +30,17 @@ export function Header({ onMenuOpen }: HeaderProps) {
           <div className="flex items-center gap-3">
             <span className="status-led status-led--live" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="chrome-label text-primary">playground</p>
-              <p className="terminal-heading truncate text-sm text-foreground">operations shell</p>
+              <p className="chrome-label text-primary">{brandLabel}</p>
+              <p className="terminal-heading truncate text-sm text-foreground">{brandTitle}</p>
             </div>
           </div>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <Badge tone="primary">host online</Badge>
-            <Badge tone="muted">{activeRoute.code}</Badge>
-            <span className="chrome-label text-muted-foreground">{activeRoute.status}</span>
+            <Badge tone="primary">{primaryBadge}</Badge>
+            {showRouteMeta ? <Badge tone="muted">{activeRoute.code}</Badge> : null}
+            {showRouteMeta ? (
+              <span className="chrome-label text-muted-foreground">{activeRoute.status}</span>
+            ) : null}
           </div>
         </div>
 

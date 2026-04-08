@@ -1,21 +1,35 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
+import type { NavItem } from '@/lib/nav';
 import { cn } from '@/lib/utils';
-import { NAV_APPS } from '@/lib/nav';
 import { appStatusMeta } from '@/lib/theme';
 
-export function Sidebar() {
+interface SidebarProps {
+  footerLinkHref?: string;
+  footerLinkLabel?: string;
+  navItems: readonly NavItem[];
+  title: string;
+  subtitle: string;
+  showMeta?: boolean;
+}
+
+export function Sidebar({
+  footerLinkHref,
+  footerLinkLabel,
+  navItems,
+  title,
+  subtitle,
+  showMeta = true,
+}: SidebarProps) {
   return (
     <aside className="hidden w-24 shrink-0 border-r border-border/80 bg-card/70 p-3 md:block md:w-60 md:p-4">
       <div className="terminal-panel terminal-panel--quiet flex h-full flex-col p-2 sm:p-3">
         <div className="border-b border-border/70 px-2 pb-3">
-          <p className="chrome-label">App Matrix</p>
-          <p className="terminal-heading mt-2 hidden text-sm text-foreground sm:block">
-            Routed modules
-          </p>
+          <p className="chrome-label">{title}</p>
+          <p className="terminal-heading mt-2 hidden text-sm text-foreground sm:block">{subtitle}</p>
         </div>
 
         <nav className="mt-3 space-y-2">
-          {NAV_APPS.map(app => (
+          {navItems.map((app) => (
             <NavLink
               key={app.href}
               to={app.href}
@@ -44,12 +58,14 @@ export function Sidebar() {
                       <div className="terminal-heading text-xs uppercase tracking-[0.2em] sm:text-sm sm:tracking-[0.16em]">
                         {app.label}
                       </div>
-                      <div className="mt-1 hidden sm:block">
-                        <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
-                        <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
-                          {meta?.status ?? 'standby'}
+                      {showMeta ? (
+                        <div className="mt-1 hidden sm:block">
+                          <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
+                          <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
+                            {meta?.status ?? 'standby'}
+                          </div>
                         </div>
-                      </div>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -57,6 +73,18 @@ export function Sidebar() {
             </NavLink>
           ))}
         </nav>
+
+        {footerLinkHref && footerLinkLabel ? (
+          <div className="mt-auto border-t border-border/70 px-2 pt-3">
+            <Link
+              to={footerLinkHref}
+              className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span className="chrome-label text-primary">exit</span>
+              <span>{footerLinkLabel}</span>
+            </Link>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

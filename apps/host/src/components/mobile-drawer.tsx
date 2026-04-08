@@ -1,15 +1,30 @@
 import { useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import type { NavItem } from '@/lib/nav';
 import { cn } from '@/lib/utils';
-import { NAV_APPS } from '@/lib/nav';
 import { appStatusMeta } from '@/lib/theme';
 
 interface MobileDrawerProps {
+  footerLinkHref?: string;
+  footerLinkLabel?: string;
   isOpen: boolean;
+  navItems: readonly NavItem[];
   onClose: () => void;
+  title: string;
+  subtitle: string;
+  showMeta?: boolean;
 }
 
-export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
+export function MobileDrawer({
+  footerLinkHref,
+  footerLinkLabel,
+  isOpen,
+  navItems,
+  onClose,
+  title,
+  subtitle,
+  showMeta = true,
+}: MobileDrawerProps) {
   const location = useLocation();
 
   // Close on route change
@@ -44,8 +59,8 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
         <div className="terminal-panel terminal-panel--quiet flex h-full flex-col p-3">
           <div className="flex items-center justify-between border-b border-border/70 pb-3">
             <div>
-              <p className="chrome-label">App Matrix</p>
-              <p className="terminal-heading mt-1 text-sm text-foreground">Routed modules</p>
+              <p className="chrome-label">{title}</p>
+              <p className="terminal-heading mt-1 text-sm text-foreground">{subtitle}</p>
             </div>
             <button
               data-testid="mobile-drawer-close"
@@ -58,7 +73,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           </div>
 
           <nav className="mt-3 space-y-2">
-            {NAV_APPS.map((app) => (
+            {navItems.map((app) => (
               <NavLink
                 key={app.href}
                 to={app.href}
@@ -86,12 +101,14 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                         <div className="terminal-heading text-sm uppercase tracking-[0.16em]">
                           {app.label}
                         </div>
-                        <div className="mt-1">
-                          <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
-                          <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
-                            {meta?.status ?? 'standby'}
+                        {showMeta ? (
+                          <div className="mt-1">
+                            <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
+                            <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
+                              {meta?.status ?? 'standby'}
+                            </div>
                           </div>
-                        </div>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -99,6 +116,19 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               </NavLink>
             ))}
           </nav>
+
+          {footerLinkHref && footerLinkLabel ? (
+            <div className="mt-auto border-t border-border/70 pt-3">
+              <Link
+                to={footerLinkHref}
+                onClick={onClose}
+                className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span className="chrome-label text-primary">exit</span>
+                <span>{footerLinkLabel}</span>
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
     </>

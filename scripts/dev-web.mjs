@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const HOST_URL = 'http://127.0.0.1:3000/todo';
+const HOST_URL = 'http://127.0.0.1:3000/';
 const STARTUP_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 1_000;
 

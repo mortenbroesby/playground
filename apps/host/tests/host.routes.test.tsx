@@ -22,8 +22,47 @@ vi.mock('@playground/uplink-game', () => ({
 }));
 
 describe('host routes', () => {
+  it('renders the home route as the personal site entry point', async () => {
+    await renderRoute('/');
+
+    expect(getByTestId('home-page')).toBeTruthy();
+    expect(getByText('Morten Broesby-Olsen')).toBeTruthy();
+    expect(getByText('personal site')).toBeTruthy();
+    expect(getByText('Read the about page')).toBeTruthy();
+    expect(getByText('Open writing')).toBeTruthy();
+  });
+
+  it('renders the writing index with published posts', async () => {
+    await renderRoute('/writing');
+
+    expect(getByTestId('writing-page')).toBeTruthy();
+    expect(getByText('Writing')).toBeTruthy();
+    expect(getByTestId('writing-post-card-steady-interfaces')).toBeTruthy();
+    expect(getByTestId('writing-post-card-why-keep-a-playground')).toBeTruthy();
+  });
+
+  it('renders a published writing post by slug', async () => {
+    await renderRoute('/writing/steady-interfaces');
+
+    expect(getByTestId('writing-post-page')).toBeTruthy();
+    expect(getByText('Steady Interfaces for Growing Frontend Systems')).toBeTruthy();
+    expect(getByTestId('writing-post-summary').textContent).toContain('understandable');
+    expect(getByTestId('writing-post-body').textContent).toContain('calm structures scale better');
+  });
+
+  it('renders a not found state for unknown writing slugs', async () => {
+    await renderRoute('/writing/missing-post');
+
+    expect(getByTestId('writing-post-not-found')).toBeTruthy();
+    expect(getByText('Post not found')).toBeTruthy();
+  });
+
   it('renders the todo workspace and syncs host and microfrontend state', async () => {
-    await renderRoute('/todo');
+    const { router } = await renderRoute('/todo');
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/playground/todo');
+    });
 
     expect(getByTestId('host-controls')).toBeTruthy();
     expect(getByTestId('todo-app-container')).toBeTruthy();
@@ -104,8 +143,11 @@ describe('host routes', () => {
 
     expect(getByTestId('playground-page')).toBeTruthy();
     expect(getByText('Signal mesh')).toBeTruthy();
-    expect(getByText('Visual playground')).toBeTruthy();
-    expect(getByText('experiment live')).toBeTruthy();
+    expect(getByText('Apps, experiments, and odd ideas')).toBeTruthy();
+    expect(getByText('directory live')).toBeTruthy();
+    expect(getByTestId('playground-card-system')).toBeTruthy();
+    expect(getByTestId('playground-card-todo')).toBeTruthy();
+    expect(getByTestId('playground-card-uplink')).toBeTruthy();
   });
 
   it('redirects /uses to /uses/gear and renders the gear page', async () => {
@@ -125,7 +167,11 @@ describe('host routes', () => {
   });
 
   it('renders the system route and lets us search design-system tokens', async () => {
-    await renderRoute('/system');
+    const { router } = await renderRoute('/system');
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/playground/system');
+    });
 
     expect(getByTestId('system-page')).toBeTruthy();
     expect(getByText('Searchable token explorer')).toBeTruthy();
@@ -165,7 +211,11 @@ describe('host routes', () => {
   });
 
   it('renders the game route and mounts the game workspace', async () => {
-    await renderRoute('/game');
+    const { router } = await renderRoute('/game');
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/playground/uplink');
+    });
 
     expect(getByText('Uplink terminal')).toBeTruthy();
     expect(getByTestId('game-container')).toBeTruthy();
@@ -203,12 +253,56 @@ describe('host routes', () => {
     await click(getByTestId('mobile-menu-button'));
     expect(getByTestId('mobile-drawer')).toBeTruthy();
 
-    const systemLink = document.querySelector<HTMLElement>('[data-testid="mobile-drawer"] a[href="/system"]');
+    expect(document.querySelector('[data-testid="mobile-drawer"] a[href="/system"]')).toBeNull();
+
+    const playgroundLink = document.querySelector<HTMLElement>(
+      '[data-testid="mobile-drawer"] a[href="/playground"]',
+    );
+    expect(playgroundLink).not.toBeNull();
+    await click(playgroundLink!);
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/playground');
+      expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
+    });
+  });
+
+  it('uses the playground shell navigation on playground routes', async () => {
+    const { router } = await renderRoute('/playground');
+
+    await click(getByTestId('mobile-menu-button'));
+    expect(getByTestId('mobile-drawer')).toBeTruthy();
+    expect(getByText('Lab map')).toBeTruthy();
+    expect(document.querySelector('[data-testid="mobile-drawer"] a[href="/about"]')).toBeNull();
+    expect(document.querySelector('[data-testid="mobile-drawer"] a[href="/writing"]')).toBeNull();
+
+    const systemLink = document.querySelector<HTMLElement>(
+      '[data-testid="mobile-drawer"] a[href="/playground/system"]',
+    );
     expect(systemLink).not.toBeNull();
     await click(systemLink!);
 
     await vi.waitFor(() => {
-      expect(router.state.location.pathname).toBe('/system');
+      expect(router.state.location.pathname).toBe('/playground/system');
+      expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
+    });
+  });
+
+  it('offers a dedicated way back to the main site from playground routes', async () => {
+    const { router } = await renderRoute('/playground');
+
+    await click(getByTestId('mobile-menu-button'));
+    expect(getByTestId('mobile-drawer')).toBeTruthy();
+
+    const backToSiteLink = document.querySelector<HTMLElement>(
+      '[data-testid="mobile-drawer"] a[href="/"]',
+    );
+    expect(backToSiteLink).not.toBeNull();
+    expect(getByText('Back to main site')).toBeTruthy();
+    await click(backToSiteLink!);
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
       expect(document.querySelector('[data-testid="mobile-drawer"]')).toBeNull();
     });
   });
