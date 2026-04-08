@@ -17,8 +17,20 @@ export type SocialLink = {
 
 export const aboutPage = {
   headline: 'About',
-  tagline: 'Frontend architect. Platform engineer. Long-term thinker.',
-  bio: 'I build reliable frontend platforms that scale across web, mobile, and Smart TV — with a focus on developer experience, shared ownership, and long-term maintainability. Ten-plus years in the industry working on products like HBO Max, Disney Life, Videoland, TV 2 PLAY, Pleo, Danske Bank.',
+  tagline: 'Frontend architect for product teams that need software to keep scaling without turning brittle.',
+  bio: 'I have spent more than ten years building frontend systems across web, mobile, and Smart TV for products including HBO Max, Disney Life, Videoland, TV 2 PLAY, Pleo, and Danske Bank. The work I enjoy most sits between architecture, platform thinking, and the practical reality of helping teams ship.',
+  pitch:
+    'My focus is usually the same: make the frontend easier to reason about, easier to contribute to, and more dependable as the product and team grow.',
+  whatIDo: [
+    'Shape frontend architecture that stays legible as the product surface expands.',
+    'Improve developer experience so shipping gets faster, calmer, and more consistent.',
+    'Build shared systems across web, mobile, and TV without forcing every platform into the same mold.',
+  ],
+  teamsGet: [
+    'Clearer structure, boundaries, and ownership across the frontend stack.',
+    'Pragmatic standards that help teams move without slowing them down.',
+    'A stronger platform foundation for product work that needs to keep evolving over years, not months.',
+  ],
   socials: [
     {
       label: 'GitHub',
@@ -219,5 +231,7 @@ export const usesGearPage = {
   name: 'Morten Broesby-Olsen',
   profileHref: 'https://github.com/mortenbroesby',
   updatedOn: 'April 6, 2026',
+  intro:
+    'The tools and defaults I keep close for everyday product work, writing, and experiments.',
   sections,
 };

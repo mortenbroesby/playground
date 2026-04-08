@@ -72,14 +72,15 @@ describe('host routes', () => {
 
     await vi.waitFor(() => {
       expect(getByTestId('host-total-count').textContent).toContain('3');
-      expect(getByTestId('host-done-count').textContent).toContain('1');
-      expect(getByTestId('host-open-count').textContent).toContain('2');
+      expect(getByTestId('host-done-count').textContent).toContain('0');
+      expect(getByTestId('host-open-count').textContent).toContain('3');
       expect(getByTestId('todo-total-count').textContent).toContain('3');
-      expect(getByTestId('todo-done-count').textContent).toContain('1');
-      expect(getByTestId('todo-remaining-count').textContent).toContain('2');
+      expect(getByTestId('todo-done-count').textContent).toContain('0');
+      expect(getByTestId('todo-remaining-count').textContent).toContain('3');
     });
 
-    expect(getByText('Refactor microfrontend contract')).toBeTruthy();
+    expect(getByText('High priority: add an MDX-based content system')).toBeTruthy();
+    expect(getByText('Pull remaining ideas from morten.broesby.dk into the site backlog')).toBeTruthy();
 
     await click(document.querySelector<HTMLElement>('[aria-label="Toggle Verify injected composition path"]')!);
 
@@ -87,10 +88,10 @@ describe('host routes', () => {
       expect(getByTestId('last-event').textContent).toContain(
         'Todo app toggled "Verify injected composition path"',
       );
-      expect(getByTestId('host-done-count').textContent).toContain('2');
-      expect(getByTestId('host-open-count').textContent).toContain('1');
-      expect(getByTestId('todo-done-count').textContent).toContain('2');
-      expect(getByTestId('todo-remaining-count').textContent).toContain('1');
+      expect(getByTestId('host-done-count').textContent).toContain('1');
+      expect(getByTestId('host-open-count').textContent).toContain('2');
+      expect(getByTestId('todo-done-count').textContent).toContain('1');
+      expect(getByTestId('todo-remaining-count').textContent).toContain('2');
     });
 
     await click(getByTestId('clear-todos'));
@@ -110,7 +111,7 @@ describe('host routes', () => {
     await vi.waitFor(() => {
       expect(router.state.location.pathname).toBe('/about');
       expect(getByTestId('about-page')).toBeTruthy();
-      expect(getByTestId('about-bio').textContent).toContain('I build reliable frontend platforms');
+      expect(getByTestId('about-bio').textContent).toContain('I have spent more than ten years');
     });
 
     expect(getByText('Morten Broesby-Olsen')).toBeTruthy();
@@ -121,7 +122,7 @@ describe('host routes', () => {
     expect(getByTestId('about-hobbies')).toBeTruthy();
     expect(getByTestId('about-values')).toBeTruthy();
     expect(getByTestId('about-inspirations')).toBeTruthy();
-    expect(getByText('Hobbies')).toBeTruthy();
+    expect(getByText('Beyond the work')).toBeTruthy();
 
     const githubLink = document.querySelector<HTMLAnchorElement>(
       '[data-testid="about-social-github"]',

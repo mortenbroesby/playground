@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, MetricCard, Panel } from '@playground/ui';
 
 const EXAMPLE_TODOS: Todo[] = [
-  { id: 'host-seeded-1', title: 'Refactor microfrontend contract', completed: true },
+  { id: 'host-seeded-1', title: 'High priority: add an MDX-based content system', completed: false },
   { id: 'host-seeded-2', title: 'Verify injected composition path', completed: false },
-  { id: 'host-seeded-3', title: 'Ship render integration coverage', completed: false },
+  {
+    id: 'host-seeded-3',
+    title: 'Pull remaining ideas from morten.broesby.dk into the site backlog',
+    completed: false,
+  },
 ];
 
 function formatEvent(event: TodoAppEvent): string {

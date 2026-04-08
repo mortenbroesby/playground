@@ -178,6 +178,7 @@ Practical design guidance:
 - keep the sharp quality bar and clean structure
 - reduce system chrome on public pages
 - use more whitespace and stronger typography on home, about, and writing
+- keep writing detail pages firmly in the public/editorial language, not the playground language
 - reserve dense UI chrome, status indicators, and hacker motifs for playground pages that genuinely benefit from them
 
 ## Architecture approach

@@ -250,6 +250,8 @@ Checklist:
 - add `writing-post-page.tsx` for individual posts
 - add empty-state handling if only drafts exist
 - decide whether unpublished drafts are excluded at build time or filtered in-app
+- keep writing detail pages in the public/editorial visual language
+- do not reuse playground panels, badges, or denser hacker chrome on article pages
 
 ### 9. Playground index
 

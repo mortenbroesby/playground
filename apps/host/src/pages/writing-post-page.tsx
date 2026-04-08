@@ -1,6 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { Badge, Panel } from '@playground/ui';
 import { getWritingPostBySlug } from '../content/writing';
 
 export function WritingPostPage() {
@@ -11,22 +10,24 @@ export function WritingPostPage() {
     return (
       <div
         data-testid="writing-post-not-found"
-        className="mx-auto max-w-4xl px-4 py-4 sm:px-6 sm:py-6"
+        className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-14"
       >
-        <Panel className="p-6 sm:p-8">
+        <div className="space-y-4">
           <p className="chrome-label text-primary">Writing</p>
-          <h1 className="terminal-heading mt-3 text-3xl text-foreground">Post not found</h1>
-          <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            Post not found
+          </h1>
+          <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             That writing entry is not available. Head back to the index and choose another post.
           </p>
           <Link
             to="/writing"
-            className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
+            className="inline-flex items-center gap-2 text-sm text-foreground transition-colors hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Back to writing
           </Link>
-        </Panel>
+        </div>
       </div>
     );
   }
@@ -34,45 +35,47 @@ export function WritingPostPage() {
   return (
     <div
       data-testid="writing-post-page"
-      className="mx-auto max-w-4xl px-4 py-4 sm:px-6 sm:py-6"
+      className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-14"
     >
-      <article className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden p-6 sm:p-8">
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge tone="primary">writing</Badge>
-            {post.tags.map((tag) => (
-              <Badge key={tag} tone="muted">
-                {tag}
-              </Badge>
-            ))}
-          </div>
+      <article className="space-y-8">
+        <header className="space-y-4">
+          <Link
+            to="/writing"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to writing
+          </Link>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <p className="chrome-label text-primary">{post.date}</p>
-            <h1 className="terminal-heading text-4xl text-foreground sm:text-5xl">{post.title}</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              {post.title}
+            </h1>
             <p
               data-testid="writing-post-summary"
-              className="text-base leading-7 text-muted-foreground sm:text-lg"
+              className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base"
             >
               {post.summary}
             </p>
           </div>
 
-          <div data-testid="writing-post-body" className="space-y-4">
-            {post.body.map((paragraph) => (
-              <p key={paragraph} className="text-base leading-8 text-foreground/95">
-                {paragraph}
-              </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            {post.tags.map((tag) => (
+              <span key={tag}>{tag}</span>
             ))}
           </div>
+        </header>
 
-          <Link
-            to="/writing"
-            className="inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to writing
-          </Link>
+        <div
+          data-testid="writing-post-body"
+          className="space-y-5 border-t border-border/60 pt-8 text-sm leading-8 text-foreground sm:text-base"
+        >
+          {post.body.map((paragraph) => (
+            <p key={paragraph} className="max-w-none">
+              {paragraph}
+            </p>
+          ))}
         </div>
       </article>
     </div>
