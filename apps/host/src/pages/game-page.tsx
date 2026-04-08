@@ -3,6 +3,8 @@ import { GameWorkspace } from '@/components/game-workspace';
 export function GamePage() {
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
+      <GameWorkspace />
+
       <section className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -20,8 +22,6 @@ export function GamePage() {
           </div>
         </div>
       </section>
-
-      <GameWorkspace />
 
       <p className="px-1 text-xs text-muted-foreground/50">
         Fan-made hacker sim inspired by{' '}
