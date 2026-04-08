@@ -48,7 +48,7 @@ const playgroundSurfaces = [
 
 function SignalMeshFallback() {
   return (
-    <div className="terminal-panel terminal-panel--glow relative min-h-[24rem] overflow-hidden rounded-md border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.14),transparent_38%),linear-gradient(180deg,rgba(3,11,13,0.98),rgba(5,12,14,0.94))] sm:min-h-[30rem]" />
+    <div className="terminal-panel terminal-panel--glow relative h-[24rem] overflow-hidden rounded-md border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.14),transparent_38%),linear-gradient(180deg,rgba(3,11,13,0.98),rgba(5,12,14,0.94))] sm:h-[30rem] lg:h-[34rem]" />
   );
 }
 

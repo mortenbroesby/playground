@@ -254,7 +254,7 @@ export function HackerSignalCanvas() {
   }, []);
 
   return (
-    <div className="terminal-panel terminal-panel--glow relative min-h-[20rem] overflow-hidden rounded-md border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.14),transparent_38%),linear-gradient(180deg,rgba(3,11,13,0.98),rgba(5,12,14,0.94))] sm:min-h-[24rem]">
+    <div className="terminal-panel terminal-panel--glow relative h-[24rem] overflow-hidden rounded-md border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(49,217,146,0.14),transparent_38%),linear-gradient(180deg,rgba(3,11,13,0.98),rgba(5,12,14,0.94))] sm:h-[30rem] lg:h-[34rem]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(59,224,159,0.12),transparent_24%),radial-gradient(circle_at_76%_34%,rgba(46,167,214,0.16),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_26%,transparent_72%,rgba(255,255,255,0.02))]" />
       <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(to_right,transparent_0,transparent_39px,rgba(78,108,97,0.18)_40px),repeating-linear-gradient(to_bottom,transparent_0,transparent_39px,rgba(78,108,97,0.14)_40px)] opacity-45" />
 
