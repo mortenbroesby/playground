@@ -2,6 +2,8 @@
 
 Current todo list for moving the repo toward a more elegant frontend architecture while continuing the personal-site transition.
 
+Raw and half-formed ideas belong in [BRAINDUMP.md](/Users/macbook/personal/playground/BRAINDUMP.md). This file should stay task-shaped.
+
 Priority scale:
 
 - `P0` critical next architectural move
@@ -10,6 +12,11 @@ Priority scale:
 - `P3` later or exploratory
 
 ## Now
+
+- [ ] `P1` Fix Uplink rendering sharpness on the playground route
+  Why: the current Uplink surface still looks grainy and undermines the stronger UI direction.
+  Outcome: Uplink renders crisply enough to feel intentional on standard displays.
+  Source: `BRAINDUMP.md`.
 
 - [ ] `P1` Pull remaining ideas from `morten.broesby.dk` into the backlog
   Why: there are still useful content and structure cues on the current site that have not been translated into this repo.
@@ -42,6 +49,16 @@ Priority scale:
   Why: the repo still leans heavily on one injected remote as proof of the architecture.
   Outcome: stronger confidence that the microfrontend contract is reusable and not overfit to the todo example.
   Source: `docs/ideas/roadmap.md`.
+
+- [ ] `P2` Add a global CMD+K command menu for navigation and power actions
+  Why: the site and playground now have enough surfaces that a keyboard-first launcher would improve movement and make the shell feel more intentional.
+  Outcome: one command palette for route jumps and a path for later power-user actions.
+  Source: `BRAINDUMP.md`.
+
+- [ ] `P2` Fix signal mesh layout positioning after the recent move
+  Why: the signal mesh sits too low after the layout shift and currently reads as a visual regression on the playground entry surface.
+  Outcome: the canvas sits at the intended height in the playground page again.
+  Source: `BRAINDUMP.md`.
 
 - [ ] `P2` Build a project showcase system
   Why: the host is becoming a real personal site, but projects still do not have a deliberate home beyond writing and playground entries.
@@ -100,10 +117,30 @@ Priority scale:
   Outcome: a cleaner long-term information architecture if the playground expands significantly.
   Source: `docs/ideas/roadmap.md`.
 
+- [ ] `P3` Add gentle grid-line motion to the public site only if it stays subtle
+  Why: a restrained motion layer could add atmosphere, but it should not reintroduce hacker-shell noise to the calmer public pages.
+  Outcome: either a minimal public-site motion pass or a clear decision not to ship it.
+  Source: `BRAINDUMP.md`.
+
 - [ ] `P3` Evaluate plugin or tools showcase surfaces
   Why: internal utilities and AI-assisted workflows could become a meaningful part of the repo story later.
   Outcome: a structured home for internal tools if they grow beyond isolated experiments.
   Source: `docs/ideas/roadmap.md`.
+
+- [ ] `P3` Explore a pseudo-terminal mode inside Uplink
+  Why: a terminal-adjacent layer could strengthen the app's identity without forcing the whole playground into one visual language.
+  Outcome: one scoped Uplink experiment that tests the idea without a site-wide redesign.
+  Source: `BRAINDUMP.md`.
+
+- [ ] `P3` Define the next gameplay expansion for Uplink
+  Why: the current Uplink surface has room to grow, but the next slice needs to be bounded instead of vague.
+  Outcome: one concrete gameplay expansion such as progression, interaction loops, or a small shop-like subgame.
+  Source: `BRAINDUMP.md`.
+
+- [ ] `P3` Prototype a SmartTV-style playground app with a fixed TV aspect ratio
+  Why: this would test the playground model on a very different interface shape than the current app set.
+  Outcome: an MVP app with a browse surface, fullscreen TV framing, and a simple player flow.
+  Source: `BRAINDUMP.md`.
 
 - [ ] `P3` Consider realtime or event-stream ideas only after a concrete product need appears
   Why: the repo does not currently need live collaboration or websocket-heavy architecture.
