@@ -1002,7 +1002,7 @@
     {
       "name": "playground",
       "source": "./plugins/playground",
-      "description": "Skills for this monorepo playground: plugin authoring, wave-based parallel agent orchestration, and Turborepo workspace setup.",
+      "description": "Skills for this monorepo playground: plugin authoring, Ralph-style iterative delivery, wave-based parallel agent orchestration, and Turborepo workspace setup.",
       "version": "1.0.0",
       "author": {
         "name": "Morten Broesby-Olsen",
