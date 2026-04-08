@@ -1,5 +1,6 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig(async () => {
@@ -10,11 +11,14 @@ export default defineConfig(async () => {
       import('remark-mdx-frontmatter'),
     ]);
 
+  const mdxPlugin = mdx({
+    remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter],
+  }) as Plugin;
+  mdxPlugin.enforce = 'pre';
+
   return {
     plugins: [
-      mdx({
-        remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter],
-      }),
+      mdxPlugin,
       react({
         include: /\.(mdx|js|jsx|ts|tsx)$/,
       }),

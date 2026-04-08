@@ -45,6 +45,11 @@ Priority scale:
   Outcome: stronger confidence that the microfrontend contract is reusable and not overfit to the todo example.
   Source: `docs/ideas/roadmap.md`.
 
+- [ ] `P2` Add baseline SEO metadata management with React head support
+  Why: the host currently only has a static `<title>` and viewport tag, which is too thin for page-level titles, descriptions, canonicals, and social metadata.
+  Outcome: public routes get a small shared metadata system with route-aware head tags and writing post metadata.
+  Source: SEO/favicon planning.
+
 - [ ] `P2` Add a global CMD+K command menu for navigation and power actions
   Why: the site and playground now have enough surfaces that a keyboard-first launcher would improve movement and make the shell feel more intentional.
   Outcome: one command palette for route jumps and a path for later power-user actions.
@@ -149,6 +154,10 @@ Priority scale:
 
 ## Done
 
+- [x] `P1` Add a proper favicon and basic app-icon set for the host
+  Why: the site no longer ships with generic browser defaults in tabs and saved-site contexts.
+  Outcome: the host now serves a favicon, touch icon, and manifest-backed icon set from `index.html`.
+  Source: SEO/favicon planning.
 - [x] `P1` Fix Uplink rendering sharpness on the playground route
   Why: the current Uplink surface still looked grainy and undermined the stronger UI direction.
   Outcome: Uplink now renders with an explicit retro-crisp policy, and the implementation is documented in `.specs`.
