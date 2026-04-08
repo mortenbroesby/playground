@@ -175,4 +175,9 @@ describe('host routes', () => {
       expect(getByTestId('mock-game')).toBeTruthy();
     });
   });
+
+  it('renders a mobile menu button in the header', async () => {
+    await renderRoute('/about');
+    expect(getByTestId('mobile-menu-button')).toBeTruthy();
+  });
 });
