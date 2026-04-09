@@ -163,12 +163,6 @@ AI appetite scale:
 
 ## Ready
 
-- `P0` Merge host architecture refactor from `refactor/host-architecture` worktree
-  AI Appetite: 35%
-  Why: route modules, content domain split, and uplink-game inlining are done and green on `../playground-refactor`. Merge unblocks further EFA work on a clean base.
-  Outcome: `src/routes/` domain modules, `content/about.ts` split, `UplinkGameCanvas` co-located — all landed on main.
-  Source: `refactor/host-architecture` branch (`../playground-refactor` worktree).
-
 - `P1` Pull remaining ideas from `morten.broesby.dk` into the backlog
   AI Appetite: 85%
   Why: there are still useful content and structure cues on the current site that have not been translated into this repo.
@@ -190,6 +184,18 @@ AI appetite scale:
 ## In Progress
 
 ## Done
+
+- `P0` Apply EFA layering to host app
+  AI Appetite: 60%
+  Why: the host had grown organically and its src directory had no clear layer boundaries — pages, components, content, and layouts were all siblings.
+  Outcome: `src/` is now structured as `application/`, `domain/`, `ui/`, `infrastructure/`, and `utils/` — matching Elegant Frontend Architecture principles with explicit layer ownership.
+  Source: architecture review and `refactor/host-architecture` merge.
+
+- `P1` Add PageMetadata SEO to all playground routes
+  AI Appetite: 85%
+  Why: playground pages (game, playground, todo, system) had no route-aware head tags after the SEO system was introduced for public pages.
+  Outcome: all nine routes now have title, description, canonical, og, and twitter metadata via `react-helmet-async`.
+  Source: SEO/favicon planning.
 
 - `P1` Split host architecture into clearer route modules
   AI Appetite: 65%
