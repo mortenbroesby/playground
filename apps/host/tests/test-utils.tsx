@@ -2,8 +2,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { RouterProviderProps } from 'react-router-dom';
 import { afterEach, expect, vi } from 'vitest';
-import { HostApp } from '../src/host-app';
-import { createAppRouter } from '../src/routes';
+import { HostApp } from '../src/application/host-app';
+import { createAppRouter } from '../src/application/routes';
 
 let root: Root | null = null;
 
