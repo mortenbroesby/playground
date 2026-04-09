@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { ArrowRight, Boxes, Gamepad2, ListTodo, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge, MetricCard, Panel } from '@playground/ui';
+import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
 
 const HackerSignalCanvas = lazy(() =>
   import('@/ui/HackerSignalCanvas/HackerSignalCanvas').then((module) => ({
@@ -54,6 +55,11 @@ function SignalMeshFallback() {
 
 export function PlaygroundPage() {
   return (
+    <>
+      <PageMetadata
+        title="Playground"
+        description="A separate section for apps, experiments, and odd ideas that stay distinct from the personal pages."
+      />
     <div
       data-testid="playground-page"
       className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6"
@@ -166,5 +172,6 @@ export function PlaygroundPage() {
         </section>
       )}
     </div>
+    </>
   );
 }

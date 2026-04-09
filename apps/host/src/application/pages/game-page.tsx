@@ -1,7 +1,13 @@
 import { GameCanvas } from '@/domain/playground/GameCanvas';
+import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
 
 export function GamePage() {
   return (
+    <>
+      <PageMetadata
+        title="Uplink terminal"
+        description="A fan-made hacker sim surface for interaction, pacing, and atmospheric experiments."
+      />
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
       <GameCanvas />
 
@@ -29,5 +35,6 @@ export function GamePage() {
         Not affiliated with or endorsed by Introversion Software Ltd.
       </p>
     </div>
+    </>
   );
 }

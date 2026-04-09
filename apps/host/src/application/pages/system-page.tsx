@@ -11,6 +11,7 @@ import {
   type DesignSystemComponent,
   type DesignSystemToken,
 } from '@playground/ui';
+import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
 
 type SystemView = 'all' | 'components' | 'tokens' | 'utilities';
 
@@ -136,6 +137,11 @@ export function SystemPage() {
   const showUtilities = view === 'all' || view === 'utilities';
 
   return (
+    <>
+      <PageMetadata
+        title="System"
+        description="Browse tokens, utilities, and component previews from the shared UI package."
+      />
     <div
       data-testid="system-page"
       className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6"
@@ -385,5 +391,6 @@ export function SystemPage() {
         </Panel>
       ) : null}
     </div>
+    </>
   );
 }
