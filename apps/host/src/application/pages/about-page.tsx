@@ -10,7 +10,6 @@ export function AboutPage() {
       <PageMetadata
         title="About"
         description={aboutPage.bio}
-        pathname="/about"
       />
       <PublicPage testId="about-page">
         <section className="space-y-4">

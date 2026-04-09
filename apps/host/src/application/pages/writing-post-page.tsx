@@ -38,7 +38,6 @@ export function WritingPostPage() {
       <PageMetadata
         title={post.title}
         description={post.summary}
-        pathname={`/writing/${post.slug}`}
         type="article"
       />
     <div

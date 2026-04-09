@@ -18,7 +18,6 @@ export function HomePage() {
       <PageMetadata
         title="Morten Broesby-Olsen"
         description="Frontend architect and engineer. I build frontend systems, write occasionally, and keep a separate playground for ideas."
-        pathname="/"
       />
       <PublicPage testId="home-page">
         <section className="space-y-4">

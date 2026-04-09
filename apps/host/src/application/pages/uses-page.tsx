@@ -57,7 +57,6 @@ export function UsesPage() {
       <PageMetadata
         title="Uses"
         description={usesGearPage.intro}
-        pathname="/uses"
       />
     <div data-testid="uses-page" className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-14">
       <section className="space-y-3">

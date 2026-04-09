@@ -10,7 +10,6 @@ export function WritingPage() {
       <PageMetadata
         title="Writing"
         description="Essays, notes, and older blog posts on frontend architecture, software, games, and the occasional life decision that changes everything."
-        pathname="/writing"
       />
       <PublicPage testId="writing-page">
         <section className="space-y-3">

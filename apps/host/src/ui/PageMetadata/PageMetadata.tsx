@@ -1,30 +1,22 @@
 import { Helmet } from 'react-helmet-async';
+import { useLocation } from 'react-router-dom';
 
 const SITE_NAME = 'Morten Broesby-Olsen';
 
 type PageMetadataProps = {
   title: string;
   description: string;
-  pathname: string;
   type?: 'website' | 'article';
 };
-
-function buildCanonicalUrl(pathname: string) {
-  if (typeof window === 'undefined') {
-    return pathname;
-  }
-
-  return new URL(pathname, window.location.origin).toString();
-}
 
 export function PageMetadata({
   title,
   description,
-  pathname,
   type = 'website',
 }: PageMetadataProps) {
+  const { pathname } = useLocation();
   const resolvedTitle = title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
-  const canonicalUrl = buildCanonicalUrl(pathname);
+  const canonicalUrl = new URL(pathname, window.location.origin).toString();
 
   return (
     <Helmet defer={false}>
