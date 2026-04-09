@@ -2,7 +2,7 @@ import { Navigate, type RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../layouts/public-layout';
 import { AboutPage } from '../pages/about-page';
 import { HomePage } from '../pages/home-page';
-import { UsesPage } from '../pages/uses-gear-page';
+import { UsesPage } from '../pages/uses-page';
 import { WritingPage } from '../pages/writing-page';
 import { WritingPostPage } from '../pages/writing-post-page';
 
