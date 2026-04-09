@@ -1,9 +1,52 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
-import type { Plugin } from 'vite';
+import { loadEnv, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { createNowPlayingResponse } from './src/server/now-playing';
 
-export default defineConfig(async () => {
+type NowPlayingEnv = {
+  SPOTIFY_CLIENT_ID?: string;
+  SPOTIFY_CLIENT_SECRET?: string;
+  SPOTIFY_REFRESH_TOKEN?: string;
+};
+
+function nowPlayingApiPlugin(env: NowPlayingEnv): Plugin {
+  return {
+    name: 'now-playing-api',
+    configureServer(server) {
+      server.middlewares.use('/api/now-playing', async (req, res, next) => {
+        if (req.method !== 'GET') {
+          next();
+          return;
+        }
+
+        try {
+          const response = await createNowPlayingResponse({
+            env,
+            fetchImpl: fetch,
+          });
+
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+          });
+          res.end(await response.text());
+        } catch (error) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(
+            JSON.stringify({
+              error: error instanceof Error ? error.message : 'Failed to load now playing state',
+            }),
+          );
+        }
+      });
+    },
+  };
+}
+
+export default defineConfig(async ({ mode }) => {
+  const env = loadEnv(mode, __dirname, '');
   const [{ default: mdx }, { default: remarkFrontmatter }, { default: remarkMdxFrontmatter }] =
     await Promise.all([
       import('@mdx-js/rollup'),
@@ -19,6 +62,7 @@ export default defineConfig(async () => {
   return {
     plugins: [
       mdxPlugin,
+      nowPlayingApiPlugin({ ...process.env, ...env }),
       react({
         include: /\.(mdx|js|jsx|ts|tsx)$/,
       }),
@@ -45,7 +89,7 @@ export default defineConfig(async () => {
     test: {
       environment: 'happy-dom',
       globals: true,
-      include: ['tests/**/*.test.tsx'],
+      include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
       setupFiles: ['./tests/setup.ts'],
       testTimeout: 30_000,
     },

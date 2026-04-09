@@ -41,6 +41,33 @@ It runs:
 
 - `@playground/host` on port `3000`
 
+### Vercel routing
+
+The host deploys as a Vite SPA on Vercel and rewrites unmatched paths to `index.html`, so direct
+links like `/playground`, `/playground/system`, and `/writing/:slug` resolve through the client
+router instead of 404ing on refresh.
+
+### Spotify now playing
+
+If you want the footer now-playing widget locally, create `apps/host/.env.local` from the example
+file and fill in the Spotify credentials:
+
+```bash
+cp apps/host/.env.example apps/host/.env.local
+```
+
+Required variables:
+
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
+- `SPOTIFY_REFRESH_TOKEN`
+
+If those variables are absent, the widget stays hidden and the API returns `{ "isPlaying": false }`.
+When Spotify returns a current track but playback is paused, the footer stays visible with a
+`Last played` label on the public-site shell.
+If there is no current track at all, the host falls back to Spotify recent playback and shows the
+most recent track with the same `Last played` label.
+
 ## Verification
 
 - `pnpm --filter @playground/host test`

@@ -24,6 +24,10 @@ node_modules
 .claude/settings.local.json
 .mcp.json
 .vercel
+.env.local
+.env.*.local
+apps/*/.env.local
+apps/*/.env.*.local
 
 # Monorepo
 .turbo/
