@@ -181,23 +181,11 @@ AI appetite scale:
   Outcome: keep the microfrontend seam trustworthy while the host architecture evolves.
   Source: existing seeded todo.
 
-- `P2` Add baseline SEO metadata management with React head support
-  AI Appetite: 85%
-  Why: the host currently only has a static `<title>` and viewport tag, which is too thin for page-level titles, descriptions, canonicals, and social metadata.
-  Outcome: public routes get a small shared metadata system with route-aware head tags and writing post metadata.
-  Source: SEO/favicon planning.
-
 - `P2` Fix signal mesh layout positioning after the recent move
   AI Appetite: 45%
   Why: the signal mesh sits too low after the layout shift and currently reads as a visual regression on the playground entry surface.
   Outcome: the canvas sits at the intended height in the playground page again.
   Source: `BRAINDUMP.md`.
-
-- `P2` Replace `uses/gear` with a cleaner canonical `/uses` structure
-  AI Appetite: 60%
-  Why: the current redirect works, but it reflects the older route shape rather than the current public-site intent.
-  Outcome: simpler information architecture and fewer transitional redirects on the public side.
-  Source: host migration checklist.
 
 ## In Progress
 
@@ -233,6 +221,12 @@ AI appetite scale:
   Outcome: the host now serves a favicon, touch icon, and manifest-backed icon set from `index.html`.
   Source: SEO/favicon planning.
 
+- `P2` Add baseline SEO metadata management with React head support
+  AI Appetite: 85%
+  Why: the host no longer relies on a single static `<title>` and now applies route-aware titles, descriptions, canonicals, and social metadata across public pages and writing posts.
+  Outcome: public routes now get a small shared metadata system with route-aware head tags and writing post metadata.
+  Source: SEO/favicon planning.
+
 - `P1` Fix Uplink rendering sharpness on the playground route
   AI Appetite: 70%
   Why: the current Uplink surface still looked grainy and undermined the stronger UI direction.
@@ -256,6 +250,12 @@ AI appetite scale:
   Why: the site needed a clearer boundary between editorial public pages and the playground shell.
   Outcome: the host now has distinct public and playground layout modes.
   Source: host migration execution.
+
+- `P2` Replace `uses/gear` with a cleaner canonical `/uses` structure
+  AI Appetite: 60%
+  Why: `/uses` is now the canonical public route, while `/uses/gear` remains as a legacy redirect instead of the primary information architecture.
+  Outcome: simpler information architecture and fewer transitional redirects on the public side.
+  Source: host migration checklist.
 
 - `P0` Add `Writing` as a first-class section with seeded posts
   AI Appetite: 85%

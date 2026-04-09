@@ -82,7 +82,7 @@ export function CommandMenu() {
         keywords: ['gear', 'setup', 'tools'],
         shortcut: 'G U',
         icon: Sparkles,
-        run: () => navigate('/uses/gear'),
+        run: () => navigate('/uses'),
       },
       {
         id: 'page-playground',

@@ -93,5 +93,11 @@ afterEach(async () => {
     await Promise.resolve();
   });
 
+  document.title = 'Morten Broesby-Olsen';
+  document.head
+    .querySelectorAll(
+      'meta[name="description"], meta[property="og:title"], meta[property="og:description"], meta[property="og:type"], meta[property="og:url"], meta[name="twitter:card"], meta[name="twitter:title"], meta[name="twitter:description"], link[rel="canonical"]',
+    )
+    .forEach((element) => element.remove());
   root = null;
 });

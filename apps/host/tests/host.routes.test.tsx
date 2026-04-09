@@ -18,6 +18,10 @@ const { mountGameMock } = vi.hoisted(() => ({
   }),
 }));
 
+function getMetaContent(selector: string) {
+  return document.head.querySelector<HTMLMetaElement>(selector)?.content ?? null;
+}
+
 vi.mock('@playground/uplink-game', () => ({
   mount: mountGameMock,
 }));
@@ -31,6 +35,11 @@ describe('host routes', () => {
     expect(getByText('personal site')).toBeTruthy();
     expect(getByText('Read the about page')).toBeTruthy();
     expect(getByText('Open writing')).toBeTruthy();
+    expect(document.title).toBe('Morten Broesby-Olsen');
+    expect(getMetaContent('meta[name="description"]')).toContain('Frontend architect');
+    expect(document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href).toBe(
+      'http://localhost:3000/',
+    );
   });
 
   it('renders the writing index with published posts', async () => {
@@ -140,6 +149,26 @@ describe('host routes', () => {
     expect(instagramLink?.href).toBe('https://www.instagram.com/mortenbroesby/');
   });
 
+  it('uses the shared public page width on the home route', async () => {
+    await renderRoute('/');
+    expect(getByTestId('home-page').className).toContain('max-w-4xl');
+  });
+
+  it('uses the shared public page width on the about route', async () => {
+    await renderRoute('/about');
+    expect(getByTestId('about-page').className).toContain('max-w-4xl');
+  });
+
+  it('uses the shared public page width on the writing route', async () => {
+    await renderRoute('/writing');
+    expect(getByTestId('writing-page').className).toContain('max-w-4xl');
+  });
+
+  it('uses the shared public page width on the uses route', async () => {
+    await renderRoute('/uses');
+    expect(getByTestId('uses-page').className).toContain('max-w-4xl');
+  });
+
   it('renders the playground route with the signal mesh app', async () => {
     await renderRoute('/playground');
 
@@ -152,20 +181,42 @@ describe('host routes', () => {
     expect(getByTestId('playground-card-uplink')).toBeTruthy();
   });
 
-  it('redirects /uses to /uses/gear and renders the gear page', async () => {
+  it('renders /uses as the canonical uses route', async () => {
     const { router } = await renderRoute('/uses');
 
     await vi.waitFor(() => {
-      expect(router.state.location.pathname).toBe('/uses/gear');
-      expect(getByTestId('uses-gear-page')).toBeTruthy();
+      expect(router.state.location.pathname).toBe('/uses');
+      expect(getByTestId('uses-page')).toBeTruthy();
     });
 
     expect(getByText('Uses')).toBeTruthy();
     expect(getByText('April 6, 2026')).toBeTruthy();
     expect(getByText('Cloud')).toBeTruthy();
+    expect(document.title).toBe('Uses | Morten Broesby-Olsen');
+    expect(getMetaContent('meta[property="og:url"]')).toBe('http://localhost:3000/uses');
 
     const profileLink = document.querySelector<HTMLAnchorElement>('a[href="https://github.com/mortenbroesby"]');
     expect(profileLink).not.toBeNull();
+  });
+
+  it('redirects /uses/gear to the canonical /uses route', async () => {
+    const { router } = await renderRoute('/uses/gear');
+
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/uses');
+      expect(getByTestId('uses-page')).toBeTruthy();
+    });
+  });
+
+  it('applies article metadata to published writing posts', async () => {
+    await renderRoute('/writing/steady-interfaces');
+
+    expect(document.title).toBe('Steady Interfaces for Growing Frontend Systems | Morten Broesby-Olsen');
+    expect(getMetaContent('meta[name="description"]')).toContain('understandable');
+    expect(getMetaContent('meta[property="og:type"]')).toBe('article');
+    expect(document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href).toBe(
+      'http://localhost:3000/writing/steady-interfaces',
+    );
   });
 
   it('renders the system route and lets us search design-system tokens', async () => {

@@ -9,7 +9,7 @@ export const appStatusMeta: Record<string, { code: string; status: string }> = {
   '/system': { code: 'UI-01', status: 'redirect' },
   '/todo': { code: 'MF-01', status: 'redirect' },
   '/game': { code: 'GM-01', status: 'redirect' },
-  '/uses': { code: 'DOC-02', status: 'redirect' },
-  '/uses/gear': { code: 'DOC-02', status: 'indexed' },
+  '/uses': { code: 'DOC-02', status: 'indexed' },
+  '/uses/gear': { code: 'DOC-02', status: 'redirect' },
   '/readme': { code: 'DOC-01', status: 'redirect' },
 };

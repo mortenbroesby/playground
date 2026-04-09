@@ -16,10 +16,30 @@
 A monorepo for experimenting with multi-agent workflows, injected microfrontends, and the ongoing
 personal-site direction for `@mortenbroesby`.
 
+## Current state
+
+The repo currently centers on one Vite host app with two clear modes:
+
+- a calmer public-site shell for `/`, `/about`, `/writing`, and `/uses`
+- a denser playground shell for `/playground`, `/playground/system`, `/playground/todo`, and `/playground/uplink`
+
+The host now acts as the public personal site, with:
+
+- a real home page at `/`
+- MDX-backed writing posts under `/writing`
+- a canonical `/uses` route, with `/uses/gear` kept as a legacy redirect
+- shared page metadata and a unified public-page layout across the main public routes
+
+The microfrontend boundary is still present, but it is intentionally narrower now:
+
+- `todo-app` is the sole live injected remote and remains the main host-to-remote contract demo
+- `uplink` is still part of the repo, but it now runs as a host-local playground surface instead of as the primary remote example
+
 Current repo surfaces:
 
-- [Host app](./apps/host) for the shell, routes, and personal-site pages
-- [Todo remote](./packages/remotes/todo-app) for the injected microfrontend example
+- [Host app](./apps/host) for the public site, playground shell, and route composition
+- [Todo remote](./packages/remotes/todo-app) for the sole injected microfrontend example
+- [Uplink game package](./packages/remotes/uplink-game) for the game surface that now plugs into the host-local playground flow
 - [Shared UI](./packages/ui) for reusable React components
 - [Shared types](./packages/types) for host and remote contracts
 - [Shared config](./packages/config) for TypeScript and ESLint setup
@@ -87,9 +107,9 @@ The root README is the front door. The more detailed and more fluid thinking liv
 ### Planning
 
 - [Roadmap](./docs/ideas/roadmap.md)
-  - **TLDR**: The repo is currently strongest as a host app plus one injected remote, with the
-    next likely steps being stronger personal-site structure, another remote, and better shared UI
-    primitives.
+  - **TLDR**: The repo is strongest as a personal-site host plus one deliberate injected remote,
+    with the next likely steps being stronger public-site structure, project surfaces, and better
+    shared UI primitives.
 - [Parking lot](./docs/ideas/parking-lot.md)
   - **TLDR**: Personal website refinements, a hacker-inspired UI pass, and possible realtime ideas
     are worth keeping around without treating them as immediate priorities.
@@ -123,9 +143,10 @@ The root README is the front door. The more detailed and more fluid thinking liv
 
 ```text
 apps/
-  host/                   Vite shell with `/`, app routes, and personal-site pages
+  host/                   Vite host with public routes, playground routes, and page composition
 packages/
   remotes/todo-app/       Injected todo microfrontend package
+  remotes/uplink-game/    Uplink gameplay package used by the host playground route
   ui/                     Shared React components
   types/                  Shared host and remote contracts
   config/                 Shared TypeScript and ESLint configuration
@@ -157,8 +178,9 @@ Add shared configs to the new workspace `package.json`:
 
 The repo is intentionally small right now:
 
-- one deployable host app
-- one injected remote that proves the microfrontend boundary
+- one deployable host app that now serves both the public personal site and the playground shell
+- one injected remote that still proves the host-to-remote boundary without turning the repo into a remote zoo
+- one host-local game surface that keeps the playground expressive without forcing every module through the same composition model
 - shared UI, type, and config packages that keep experiments reusable
 - docs that separate active direction from parked ideas and deeper planning tracks
 
