@@ -1,0 +1,279 @@
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+import { execFile as execFileCallback } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+
+const execFile = promisify(execFileCallback);
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = path.resolve(path.dirname(scriptPath), "..");
+
+function tokenize(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9/._-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function normalize(value) {
+  return value.toLowerCase();
+}
+
+async function walkMarkdownFiles(rootDir) {
+  const entries = await readdir(rootDir, { withFileTypes: true });
+  const results = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(rootDir, entry.name);
+
+    if (entry.isDirectory()) {
+      results.push(...(await walkMarkdownFiles(fullPath)));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.endsWith(".md")) {
+      results.push(fullPath);
+    }
+  }
+
+  return results;
+}
+
+function scoreDocument(query, doc) {
+  const queryTokens = tokenize(query);
+  const docTokens = tokenize(doc.searchText);
+  const docTokenSet = new Set(docTokens);
+  let score = 0;
+
+  for (const token of queryTokens) {
+    if (docTokenSet.has(token)) {
+      score += 2;
+    }
+
+    if (doc.pathTokens.has(token)) {
+      score += 3;
+    }
+  }
+
+  const normalizedQuery = normalize(query);
+
+  if (doc.normalizedText.includes(normalizedQuery)) {
+    score += 10;
+  }
+
+  if (normalizedQuery.includes("question") && doc.normalizedText.includes("type: repo-question")) {
+    score += 4;
+  }
+
+  if (normalizedQuery.includes("decision") && doc.normalizedText.includes("type: repo-decision")) {
+    score += 4;
+  }
+
+  if (normalizedQuery.includes("session") && doc.normalizedText.includes("type: repo-session")) {
+    score += 4;
+  }
+
+  return score;
+}
+
+async function loadCorpus(vaultPath) {
+  const markdownFiles = await walkMarkdownFiles(path.join(vaultPath, "02 Repositories"));
+
+  return Promise.all(
+    markdownFiles.map(async (filePath) => {
+      const content = await readFile(filePath, "utf8");
+      const relativePath = path.relative(vaultPath, filePath).replace(/\\/g, "/");
+
+      return {
+        path: relativePath,
+        content,
+        normalizedText: normalize(`${relativePath}\n${content}`),
+        searchText: `${relativePath}\n${content}`,
+        pathTokens: new Set(tokenize(relativePath)),
+      };
+    }),
+  );
+}
+
+function searchCorpus(corpus, query, limit = 5) {
+  return corpus
+    .map((doc) => ({
+      path: doc.path,
+      score: scoreDocument(query, doc),
+    }))
+    .filter((result) => result.score > 0)
+    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .slice(0, limit);
+}
+
+async function seedVerificationNotes(vaultPath) {
+  const notes = [
+    {
+      relativePath: "02 Repositories/playground/01 Architecture/Host Ownership.md",
+      content: `---
+type: repo-architecture
+repo: playground
+summary: The host app owns routing, page composition, and page metadata for public and playground routes.
+keywords:
+  - host routing
+  - page composition
+  - metadata
+related_paths:
+  - apps/host/src/application/routes
+  - apps/host/src/application/pages
+tags:
+  - repo/playground
+---
+
+# Host Ownership
+
+The host app owns routing and page composition. Remotes mount into host-owned surfaces rather than
+defining the site shell or top-level navigation.`,
+    },
+    {
+      relativePath: "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
+      content: `---
+type: repo-decision
+repo: playground
+decision_id: DEC-001
+status: accepted
+decided_on: 2026-04-08
+summary: Narrow the microfrontend seam so todo-app remains the sole live injected remote.
+keywords:
+  - todo-app
+  - sole live injected remote
+  - microfrontend
+related_paths:
+  - packages/remotes/todo-app
+  - packages/remotes/uplink-game
+tags:
+  - type/decision
+  - repo/playground
+---
+
+# Narrow MFE Scope
+
+We kept todo-app as the sole live injected remote. Uplink-game was inlined as a host-local
+playground surface because the extra mount indirection was not paying for itself.`,
+    },
+    {
+      relativePath: "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
+      content: `---
+type: repo-question
+repo: playground
+status: open
+opened_on: 2026-04-10
+summary: Evaluate SSR or pre-rendering for the public host to improve first load and crawler behavior.
+keywords:
+  - SSR
+  - pre-rendering
+  - rendering strategy
+related_paths:
+  - apps/host
+tags:
+  - type/question
+  - state/active
+  - repo/playground
+---
+
+# Rendering Strategy
+
+Open question: should the public host stay CSR, move to selective pre-rendering, or adopt fuller
+SSR for metadata and first load quality?`,
+    },
+    {
+      relativePath: "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+      content: `---
+type: repo-session
+repo: playground
+date: 2026-04-10
+started_at: 2026-04-10 10:30
+summary: Added route-aware metadata coverage across playground routes and kept host route ownership explicit.
+keywords:
+  - route metadata
+  - SEO
+  - host route ownership
+touched_paths:
+  - apps/host/src/application/pages
+tags:
+  - type/session
+  - repo/playground
+---
+
+# Route Metadata Pass
+
+Verified that playground pages have route-aware metadata and that the host remains the routing
+switchboard for public and playground composition.`,
+    },
+  ];
+
+  await Promise.all(
+    notes.map(async (note) => {
+      const targetPath = path.join(vaultPath, note.relativePath);
+      await writeFile(targetPath, note.content, "utf8");
+    }),
+  );
+}
+
+async function bootstrapVault(vaultPath) {
+  await execFile("node", ["scripts/bootstrap-obsidian-vault.mjs", "--vault", vaultPath, "--force"], {
+    cwd: repoRoot,
+  });
+}
+
+async function run() {
+  const vaultPath = await mkdtemp(path.join(os.tmpdir(), "playground-obsidian-rag-"));
+  const checks = [
+    {
+      query: "Which remote is the sole live injected remote?",
+      expectedPath: "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
+    },
+    {
+      query: "Who owns routing and page composition?",
+      expectedPath: "02 Repositories/playground/01 Architecture/Host Ownership.md",
+    },
+    {
+      query: "What open question exists about rendering strategy?",
+      expectedPath: "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
+    },
+    {
+      query: "Where did route metadata work land?",
+      expectedPath: "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+    },
+  ];
+
+  try {
+    await bootstrapVault(vaultPath);
+    await seedVerificationNotes(vaultPath);
+
+    const corpus = await loadCorpus(vaultPath);
+    const results = checks.map((check) => {
+      const hits = searchCorpus(corpus, check.query, 3);
+      const passed = hits.some((hit) => hit.path === check.expectedPath);
+
+      return {
+        ...check,
+        passed,
+        hits,
+      };
+    });
+
+    const failed = results.filter((result) => !result.passed);
+
+    console.log(JSON.stringify({ vaultPath, results }, null, 2));
+
+    if (failed.length > 0) {
+      process.exitCode = 1;
+    }
+  } finally {
+    await rm(vaultPath, { recursive: true, force: true });
+  }
+}
+
+run().catch((error) => {
+  console.error(error instanceof Error ? error.stack || error.message : error);
+  process.exit(1);
+});

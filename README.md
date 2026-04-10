@@ -84,6 +84,7 @@ The root README is the front door. The more detailed and more fluid thinking liv
 ### Start here
 
 - [Docs index](./docs/README.md) for the docs map
+- [Obsidian repository brain](./docs/obsidian/README.md) for the vault bootstrap and note model used to keep structured repo memory
 - [Roadmap](./docs/ideas/roadmap.md) for where the repo is now and the most believable next steps
 - [Parking lot](./docs/ideas/parking-lot.md) for good ideas that are intentionally not active
 - [Host README](./apps/host/README.md) for the current shell and microfrontend setup
