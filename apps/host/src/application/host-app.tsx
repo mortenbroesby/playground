@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import { HelmetProvider } from 'react-helmet-async';
 import { RouterProvider, type RouterProviderProps } from 'react-router-dom';
 import { router as defaultRouter } from './routes';
@@ -7,9 +8,14 @@ export function HostApp({
 }: {
   router?: RouterProviderProps['router'];
 }) {
+  const shouldRenderAnalytics = import.meta.env.MODE !== 'test';
+
   return (
     <HelmetProvider>
-      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      <>
+        <RouterProvider router={router} future={{ v7_startTransition: true }} />
+        {shouldRenderAnalytics ? <Analytics /> : null}
+      </>
     </HelmetProvider>
   );
 }
