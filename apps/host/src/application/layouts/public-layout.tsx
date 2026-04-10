@@ -66,6 +66,12 @@ export function PublicLayout() {
           <Outlet />
         </main>
 
+        <footer className="mt-16 border-t border-border/60 px-4 py-8 sm:px-6 sm:py-10">
+          <div className="mx-auto max-w-4xl text-sm text-muted-foreground">
+            <p>© 2022-present Morten Broesby-Olsen. All rights reserved.</p>
+          </div>
+        </footer>
+
         <NowPlayingWidget />
       </div>
     </QueryClientProvider>

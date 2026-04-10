@@ -9,12 +9,23 @@ export type UsesSection = {
   items: UsesItem[];
 };
 
+export type UsesDefault = {
+  label: string;
+  items: UsesItem[];
+  note: string;
+};
+
 const sections: UsesSection[] = [
   {
     title: 'Editor & Shell',
     items: [
-      { label: 'Cursor', href: 'https://cursor.com', note: 'AI-first editor' },
-      { label: 'VS Code', href: 'https://code.visualstudio.com', note: 'fallback editor' },
+      { label: 'VS Code', href: 'https://code.visualstudio.com', note: 'primary editor' },
+      { label: 'Codex CLI', href: 'https://openai.com/codex', note: 'terminal-first coding agent' },
+      {
+        label: 'GitHub Copilot CLI',
+        href: 'https://docs.github.com/copilot/how-tos/copilot-cli',
+        note: 'CLI assistance inside the shell',
+      },
       {
         label: 'Claude Code',
         href: 'https://www.anthropic.com/claude-code',
@@ -26,7 +37,7 @@ const sections: UsesSection[] = [
     ],
   },
   {
-    title: 'VS Code / Cursor Extensions',
+    title: 'VS Code Extensions',
     items: [
       {
         label: 'GitLens',
@@ -139,6 +150,56 @@ const sections: UsesSection[] = [
   },
 ];
 
+const itemsByLabel = new Map(sections.flatMap((section) => section.items.map((item) => [item.label, item] as const)));
+
+function getItem(label: string): UsesItem {
+  const item = itemsByLabel.get(label);
+
+  if (!item) {
+    throw new Error(`Unknown uses item: ${label}`);
+  }
+
+  return item;
+}
+
+const currentDefaults: UsesDefault[] = [
+  {
+    label: 'Editor',
+    items: [getItem('VS Code')],
+    note: 'the current default for day-to-day coding',
+  },
+  {
+    label: 'Agents',
+    items: [getItem('Codex CLI'), getItem('GitHub Copilot CLI'), getItem('Claude Code')],
+    note: 'the CLI stack I lean on for coding help',
+  },
+  {
+    label: 'Terminal',
+    items: [getItem('Warp')],
+    note: 'with iTerm2 as fallback',
+  },
+  {
+    label: 'Browser',
+    items: [getItem('Arc')],
+    note: 'still the daily driver',
+  },
+  {
+    label: 'Design',
+    items: [getItem('Figma')],
+    note: 'for interface and systems work',
+  },
+  {
+    label: 'Planning',
+    items: [getItem('Notion'), getItem('Linear')],
+    note: 'notes and execution split cleanly',
+  },
+  {
+    label: 'Deploy',
+    items: [getItem('Vercel')],
+    note: 'closest path from repo to live app',
+  },
+];
+
 export const usesGearPage = {
   title: 'Uses',
   handle: '@mortenbroesby',
@@ -147,5 +208,6 @@ export const usesGearPage = {
   updatedOn: 'April 6, 2026',
   intro:
     'The tools and defaults I keep close for everyday product work, writing, and experiments.',
+  currentDefaults,
   sections,
 };
