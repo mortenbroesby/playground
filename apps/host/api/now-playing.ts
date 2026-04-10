@@ -1,4 +1,4 @@
-import { createNowPlayingResponse } from '../src/server/now-playing';
+import { createNowPlayingResponse } from '../src/server/now-playing.js';
 
 export const runtime = 'nodejs';
 

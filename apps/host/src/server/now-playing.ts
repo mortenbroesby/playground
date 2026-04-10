@@ -1,4 +1,4 @@
-import { idleNowPlayingState, type NowPlayingState } from '../domain/spotify/now-playing';
+import { idleNowPlayingState, type NowPlayingState } from '../domain/spotify/now-playing.js';
 
 const CACHE_CONTROL_HEADER = 'public, max-age=30';
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
