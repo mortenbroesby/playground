@@ -6,6 +6,8 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "dev:web": "node scripts/dev-web.mjs",
+    "docs:check": "pnpm knowledge:check",
+    "knowledge:check": "node scripts/check-knowledge-reminder.mjs",
     "lint": "turbo lint && pnpm lint:md",
     "lint:md": "pnpm markdown:check",
     "markdown:fix": "markdownlint-cli2 \"README.md\" \"AGENTS.md\" \".github/copilot-instructions.md\" \"docs/*.md\" \"docs/ideas/**/*.md\" \"docs/obsidian/**/*.md\" \"vault/**/*.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\" --fix",

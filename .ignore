@@ -1,0 +1,15 @@
+# Keep default file discovery focused for agents and humans using rg/fd.
+README.md
+
+.git/
+.rag/
+node_modules/
+
+vault/
+plugins/
+docs/superpowers/
+
+dist/
+.next/
+.turbo/
+coverage/

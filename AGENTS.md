@@ -9,7 +9,12 @@ closest to the files you edit.
 - Keep changes scoped to the workspace that owns the behavior.
 - Do not edit generated output such as `dist/`, `.next/`, or `.turbo/`.
 - Unless the task is explicitly about planning, do not modify `docs/superpowers/`.
-- Treat `README.md` as the high-level overview and keep evolving direction in `docs/`.
+- Update the relevant README, `AGENTS.md`, docs note, or vault note when a change
+  alters behavior, architecture, workflow, or setup expectations.
+- Use the repo `.ignore` defaults for file discovery; bypass them only when the
+  task explicitly needs ignored files.
+- Larger staged code/config changes must include a vault note under
+  `vault/02 Repositories/`; `pnpm knowledge:check` enforces this before commit.
 
 ## Repo Shape
 

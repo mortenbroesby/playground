@@ -51,6 +51,11 @@ Current repo surfaces:
 - Prefer small, workspace-scoped changes over broad repo edits.
 - Treat the root README as the overview and keep evolving direction in `docs/`.
 - Leave `docs/superpowers` alone unless the work is explicitly about that track.
+- When a change alters behavior, architecture, workflow, setup, or a public route, update the
+  matching README or docs note in the same commit.
+- The pre-commit hook runs `pnpm knowledge:check` and stops larger staged code/config changes when no
+  repo memory note is staged. Use `SKIP_MEMORY_CHECK=1 git commit ...` only
+  for intentional no-memory commits.
 
 ## Monorepo
 

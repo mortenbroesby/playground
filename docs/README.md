@@ -11,3 +11,10 @@ Project docs are split into a small number of purpose-driven areas:
 - [`ideas/superpowers-kanban-ralph-loop-summary.md`](./ideas/superpowers-kanban-ralph-loop-summary.md) summarizes the closest open-source comparisons for a future board-first Superpowers surface that combines kanban scanning, browser execution, and Ralph-loop style iteration.
 - [`ideas/parking-lot.md`](./ideas/parking-lot.md) keeps intentionally parked ideas around without mixing them into active planning.
 - [`superpowers/`](./superpowers/) holds the detailed planning and spec workstream for Superpowers. Leave that area untouched unless the task explicitly calls for it.
+
+## Documentation hygiene
+
+When a change alters behavior, architecture, workflow, setup, or public routes, update the matching
+README or docs note in the same commit. The Husky pre-commit hook runs `pnpm knowledge:check`, which
+blocks larger staged code/config changes when no repo memory note is staged. Use
+`SKIP_MEMORY_CHECK=1 git commit ...` only for deliberate no-memory commits.
