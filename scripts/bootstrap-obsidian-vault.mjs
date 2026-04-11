@@ -80,7 +80,12 @@ async function ensureDir(targetPath) {
   await mkdir(targetPath, { recursive: true });
 }
 
-async function writeRenderedFile(targetPath, templatePath, replacements, force) {
+async function writeRenderedFile(
+  targetPath,
+  templatePath,
+  replacements,
+  force,
+) {
   if (!force && (await pathExists(targetPath))) {
     return { status: "skipped", targetPath };
   }
@@ -221,7 +226,10 @@ async function buildQuickAddExports({ assetsRoot, generatedOn, repoSlug }) {
   const assets = await Promise.all(
     templateSpecs.map(async (spec) => {
       const templateName = path.basename(spec.templatePath);
-      const content = await readFile(path.join(assetsRoot, "templates", templateName), "utf8");
+      const content = await readFile(
+        path.join(assetsRoot, "templates", templateName),
+        "utf8",
+      );
 
       return {
         kind: "template",
@@ -273,7 +281,10 @@ These files are generated for repo-local QuickAdd setup.
 ## Generated commands
 
 ${choiceEntries
-  .map((entry) => `- \`${entry.choice.name}\` -> \`quickadd:choice:${entry.choice.id}\``)
+  .map(
+    (entry) =>
+      `- \`${entry.choice.name}\` -> \`quickadd:choice:${entry.choice.id}\``,
+  )
   .join("\n")}
 `;
 
@@ -296,7 +307,11 @@ async function main() {
   const vaultName = path.basename(vaultPath);
   const repoSlug = args.repoSlug || path.basename(repoRoot);
   const isCurrentRepo = repoSlug === path.basename(repoRoot);
-  const repoPath = args.repoPath ? path.resolve(process.cwd(), args.repoPath) : isCurrentRepo ? repoRoot : "";
+  const repoPath = args.repoPath
+    ? path.resolve(process.cwd(), args.repoPath)
+    : isCurrentRepo
+      ? repoRoot
+      : "";
   const owner = args.owner || (isCurrentRepo ? "mortenbroesby" : "unknown");
   const today = new Date().toISOString().slice(0, 10);
   const generatedOn = new Date().toISOString();
@@ -304,21 +319,23 @@ async function main() {
   const dailyAppend = `- [${repoSlug}] `;
 
   const replacements = {
-    "__AGENTS_URI__": buildFileUri(path.join(repoRoot, "AGENTS.md")),
-    "__README_URI__": buildFileUri(path.join(repoRoot, "README.md")),
-    "__KANBAN_URI__": buildFileUri(path.join(repoRoot, "KANBAN.md")),
-    "__BRAINDUMP_URI__": buildFileUri(path.join(repoRoot, "BRAINDUMP.md")),
-    "__DOCS_IDEAS_URI__": buildFileUri(path.join(repoRoot, "docs", "ideas")),
-    "__HOST_AGENTS_URI__": buildFileUri(path.join(repoRoot, "apps", "host", "AGENTS.md")),
-    "__GENERATED_ON__": generatedOn,
-    "__REPO_HOME_PATH_ENCODED__": encodeUriComponent(repoHomeRelativePath),
-    "__REPO_PATH__": repoPath,
-    "__REPO_SLUG__": repoSlug,
-    "__TODAY__": today,
-    "__VAULT_NAME__": vaultName,
-    "__VAULT_NAME_ENCODED__": encodeUriComponent(vaultName),
-    "__DAILY_APPEND_ENCODED__": encodeUriComponent(dailyAppend),
-    "__OWNER__": owner,
+    __AGENTS_URI__: buildFileUri(path.join(repoRoot, "AGENTS.md")),
+    __README_URI__: buildFileUri(path.join(repoRoot, "README.md")),
+    __KANBAN_URI__: buildFileUri(path.join(repoRoot, "KANBAN.md")),
+    __BRAINDUMP_URI__: buildFileUri(path.join(repoRoot, "BRAINDUMP.md")),
+    __DOCS_IDEAS_URI__: buildFileUri(path.join(repoRoot, "docs", "ideas")),
+    __HOST_AGENTS_URI__: buildFileUri(
+      path.join(repoRoot, "apps", "host", "AGENTS.md"),
+    ),
+    __GENERATED_ON__: generatedOn,
+    __REPO_HOME_PATH_ENCODED__: encodeUriComponent(repoHomeRelativePath),
+    __REPO_PATH__: repoPath,
+    __REPO_SLUG__: repoSlug,
+    __TODAY__: today,
+    __VAULT_NAME__: vaultName,
+    __VAULT_NAME_ENCODED__: encodeUriComponent(vaultName),
+    __DAILY_APPEND_ENCODED__: encodeUriComponent(dailyAppend),
+    __OWNER__: owner,
   };
 
   const vaultDirs = [
@@ -418,19 +435,29 @@ async function main() {
 
   const exportedFiles = await Promise.all([
     writePlainFile(
-      path.join(vaultPath, "06 Exports", "quickadd", `${repoSlug}-repo-brain.quickadd.json`),
+      path.join(
+        vaultPath,
+        "06 Exports",
+        "quickadd",
+        `${repoSlug}-repo-brain.quickadd.json`,
+      ),
       JSON.stringify(quickAddExports.packageJson, null, 2),
-      true,
+      args.force,
     ),
     writePlainFile(
-      path.join(vaultPath, "06 Exports", "quickadd", `${repoSlug}-repo-brain-data-snippet.json`),
+      path.join(
+        vaultPath,
+        "06 Exports",
+        "quickadd",
+        `${repoSlug}-repo-brain-data-snippet.json`,
+      ),
       JSON.stringify(quickAddExports.dataSnippetJson, null, 2),
-      true,
+      args.force,
     ),
     writePlainFile(
       path.join(vaultPath, "06 Exports", "quickadd", "README.md"),
       quickAddExports.importReadme,
-      true,
+      args.force,
     ),
   ]);
 
@@ -441,8 +468,12 @@ async function main() {
   logResults("Seeded notes", renderedFiles);
   logResults("QuickAdd exports", exportedFiles);
   console.log("\nNext steps");
-  console.log("- Enable Templates, Daily Notes, Properties, Bases, and Bookmarks in Obsidian.");
-  console.log("- Install QuickAdd, Templater, Dataview, Obsidian Git, and Advanced URI.");
+  console.log(
+    "- Enable Templates, Daily Notes, Properties, Bases, and Bookmarks in Obsidian.",
+  );
+  console.log(
+    "- Install QuickAdd, Templater, Dataview, Obsidian Git, and Advanced URI.",
+  );
   console.log("- Point Templater's script folder to 05 Scripts/templater.");
 }
 

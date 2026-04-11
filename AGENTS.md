@@ -38,6 +38,14 @@ This file provides guidance to coding agents when working in this repository.
 - For one-workspace changes, start with workspace-local scripts or filtered root commands.
 - Use broader verification only when changes cross workspace boundaries, affect shared contracts, or touch shared tooling.
 
+## Repository RAG Memory
+
+- The repo-local Obsidian vault lives in `vault/` and is tracked by git except for local Obsidian state.
+- Run `pnpm rag:init` once after cloning to seed the vault, install the local post-commit hook, and build the first `obsidian-vault` corpus.
+- Run `pnpm rag:index` after editing vault notes if you need an immediate memory refresh before committing.
+- The generated `.rag/obsidian-vault.corpus.json` file is intentionally agent-neutral. Any agent or MCP bridge can consume it for semantic search and section unfold behavior.
+- Before answering architecture, historical, or "why was this decided?" questions, query the `obsidian-vault` memory corpus when your environment exposes a search tool for it. Prefer retrieved chunks over loading whole notes.
+
 ## Workspace Commands
 
 ### `apps/host`

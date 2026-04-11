@@ -30,10 +30,10 @@ Keep cross-session memory in Obsidian:
 
 ## Bootstrap a vault
 
-Run the bootstrap command against your main Obsidian vault:
+Run the repo-local bootstrap command once:
 
 ```bash
-pnpm obsidian:bootstrap -- --vault "/absolute/path/to/your/Obsidian vault"
+pnpm rag:init
 ```
 
 What it creates:
@@ -47,17 +47,19 @@ What it creates:
 - one QuickAdd recipes note with concrete capture-path patterns
 - one QuickAdd package export plus a lower-level `choices[]` JSON snippet under `06 Exports/quickadd/`
 - Templater helper scripts under `05 Scripts/templater/`
+- a portable `obsidian-vault` RAG corpus under `.rag/`
+- a local `.git/hooks/post-commit` symlink that re-indexes when committed `vault/` files changed
 
 Re-run with `--force` if you want to overwrite the generated starter notes:
 
 ```bash
-pnpm obsidian:bootstrap -- --vault "/absolute/path/to/your/Obsidian vault" --force
+pnpm rag:init -- --force
 ```
 
-If you want to seed a different repo slug into the same vault:
+If you want to bootstrap a separate external vault, the lower-level bootstrap command still exists:
 
 ```bash
-pnpm obsidian:bootstrap -- --vault "/absolute/path/to/your/Obsidian vault" --repo-slug "sample-repo"
+pnpm obsidian:bootstrap -- --vault "/absolute/path/to/your/Obsidian vault"
 ```
 
 The bootstrap uses the `playground`-specific seed only when the repo slug matches this repository.
@@ -167,6 +169,16 @@ capture-path patterns are visible from within Obsidian, plus a `06 Exports/quick
 note with import and merge guidance.
 
 ## Local RAG verification
+
+Build or refresh the agent-neutral corpus with:
+
+```bash
+pnpm rag:index
+```
+
+The generated corpus lives at `.rag/obsidian-vault.corpus.json`. It contains heading-level chunks
+with source paths, headings, note type, repo slug, tags, status, summary, and keywords. The indexer
+skips unchanged notes by mtime and rewrites the portable corpus artifact on each run.
 
 Run the local verification loop with:
 

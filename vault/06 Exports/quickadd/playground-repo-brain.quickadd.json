@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "quickAddVersion": "2.11.0",
+  "createdAt": "2026-04-11T18:35:01.960Z",
+  "rootChoiceIds": [
+    "b92f769a-5f12-4ec8-ba15-c0d5637ed4e3",
+    "7d4edee9-62af-4b08-a68b-96eb6d0800f7",
+    "97ca94ae-f6a3-48fe-bfc5-e32d3ef89f3b",
+    "9a8276da-881d-435e-bfdf-9f1e9fa6f78d"
+  ],
+  "choices": [
+    {
+      "choice": {
+        "id": "b92f769a-5f12-4ec8-ba15-c0d5637ed4e3",
+        "name": "Repo Brain: playground Repo Home",
+        "type": "Template",
+        "command": true,
+        "templatePath": "04 Templates/repo-home.md",
+        "fileNameFormat": {
+          "enabled": true,
+          "format": "00 Repo Home"
+        },
+        "folder": {
+          "enabled": true,
+          "folders": ["02 Repositories/playground"],
+          "chooseWhenCreatingNote": false,
+          "createInSameFolderAsActiveFile": false,
+          "chooseFromSubfolders": false
+        },
+        "appendLink": false,
+        "openFileInNewTab": {
+          "enabled": false,
+          "direction": "vertical",
+          "focus": true
+        },
+        "openFile": true,
+        "openFileInMode": "default",
+        "fileExistsMode": "Increment the file name",
+        "setFileExistsBehavior": false,
+        "fileOpening": {
+          "location": "tab",
+          "direction": "vertical",
+          "focus": true,
+          "mode": "default"
+        }
+      },
+      "pathHint": ["Repo Brain: playground Repo Home"],
+      "parentChoiceId": null
+    },
+    {
+      "choice": {
+        "id": "7d4edee9-62af-4b08-a68b-96eb6d0800f7",
+        "name": "Repo Brain: playground Session",
+        "type": "Template",
+        "command": true,
+        "templatePath": "04 Templates/repo-session.md",
+        "fileNameFormat": {
+          "enabled": true,
+          "format": "{{DATE:YYYY-MM-DD}} {{VALUE:session_title|session}}"
+        },
+        "folder": {
+          "enabled": true,
+          "folders": ["02 Repositories/playground/03 Sessions"],
+          "chooseWhenCreatingNote": false,
+          "createInSameFolderAsActiveFile": false,
+          "chooseFromSubfolders": false
+        },
+        "appendLink": false,
+        "openFileInNewTab": {
+          "enabled": false,
+          "direction": "vertical",
+          "focus": true
+        },
+        "openFile": true,
+        "openFileInMode": "default",
+        "fileExistsMode": "Increment the file name",
+        "setFileExistsBehavior": false,
+        "fileOpening": {
+          "location": "tab",
+          "direction": "vertical",
+          "focus": true,
+          "mode": "default"
+        }
+      },
+      "pathHint": ["Repo Brain: playground Session"],
+      "parentChoiceId": null
+    },
+    {
+      "choice": {
+        "id": "97ca94ae-f6a3-48fe-bfc5-e32d3ef89f3b",
+        "name": "Repo Brain: playground Decision",
+        "type": "Template",
+        "command": true,
+        "templatePath": "04 Templates/repo-decision.md",
+        "fileNameFormat": {
+          "enabled": true,
+          "format": "{{DATE:YYYY-MM-DD}} {{VALUE:decision_title|decision}}"
+        },
+        "folder": {
+          "enabled": true,
+          "folders": ["02 Repositories/playground/02 Decisions"],
+          "chooseWhenCreatingNote": false,
+          "createInSameFolderAsActiveFile": false,
+          "chooseFromSubfolders": false
+        },
+        "appendLink": false,
+        "openFileInNewTab": {
+          "enabled": false,
+          "direction": "vertical",
+          "focus": true
+        },
+        "openFile": true,
+        "openFileInMode": "default",
+        "fileExistsMode": "Increment the file name",
+        "setFileExistsBehavior": false,
+        "fileOpening": {
+          "location": "tab",
+          "direction": "vertical",
+          "focus": true,
+          "mode": "default"
+        }
+      },
+      "pathHint": ["Repo Brain: playground Decision"],
+      "parentChoiceId": null
+    },
+    {
+      "choice": {
+        "id": "9a8276da-881d-435e-bfdf-9f1e9fa6f78d",
+        "name": "Repo Brain: playground Question",
+        "type": "Template",
+        "command": true,
+        "templatePath": "04 Templates/repo-question.md",
+        "fileNameFormat": {
+          "enabled": true,
+          "format": "{{DATE:YYYY-MM-DD}} {{VALUE:question_title|question}}"
+        },
+        "folder": {
+          "enabled": true,
+          "folders": ["02 Repositories/playground/04 Questions"],
+          "chooseWhenCreatingNote": false,
+          "createInSameFolderAsActiveFile": false,
+          "chooseFromSubfolders": false
+        },
+        "appendLink": false,
+        "openFileInNewTab": {
+          "enabled": false,
+          "direction": "vertical",
+          "focus": true
+        },
+        "openFile": true,
+        "openFileInMode": "default",
+        "fileExistsMode": "Increment the file name",
+        "setFileExistsBehavior": false,
+        "fileOpening": {
+          "location": "tab",
+          "direction": "vertical",
+          "focus": true,
+          "mode": "default"
+        }
+      },
+      "pathHint": ["Repo Brain: playground Question"],
+      "parentChoiceId": null
+    }
+  ],
+  "assets": [
+    {
+      "kind": "template",
+      "originalPath": "04 Templates/repo-home.md",
+      "contentEncoding": "base64",
+      "content": "LS0tCnR5cGU6IHJlcG8KcmVwb19zbHVnOiA8JSB0cC51c2VyLnJlcG9fY29udGV4dC5jdXJyZW50UmVwbyh0cCkgJT4KcmVwb19wYXRoOgpzdGF0dXM6IGFjdGl2ZQpzdW1tYXJ5OgprZXl3b3JkczogW10Kc3RhY2s6IFtdCm93bmVyOgpzb3VyY2Vfb2ZfdHJ1dGg6IFtdCmFjdGl2ZV9mb2N1czoKbGFzdF9yZXZpZXdlZDogPCUgdHAuZGF0ZS5ub3coIllZWVktTU0tREQiKSAlPgp0YWdzOgogIC0gdHlwZS9yZXBvCiAgLSBzdGF0ZS9hY3RpdmUKICAtIHJlcG8vPCUgdHAudXNlci5yZXBvX2NvbnRleHQuY3VycmVudFJlcG8odHApICU+Ci0tLQoKIyBSZXBvIEhvbWUgLSA8JSB0cC51c2VyLnJlcG9fY29udGV4dC5jdXJyZW50UmVwbyh0cCkgJT4KCiMjIFdoYXQgVGhpcyBSZXBvIElzCgpTaG9ydCBzdW1tYXJ5IG9mIHdoYXQgdGhlIHJlcG8gZXhpc3RzIHRvIGRvLgoKVXNlIG9uZSB0aWdodCBwYXJhZ3JhcGggaGVyZS4gVGhpcyBpcyB0aGUgaGlnaGVzdC1zaWduYWwgcmV0cmlldmFsIGNodW5rIGZvciBsb2NhbCBSQUcgb3Igc2VhcmNoLgoKIyMgU291cmNlIE9mIFRydXRoCgotIGBBR0VOVFMubWRgCi0gYFJFQURNRS5tZGAKLSBgS0FOQkFOLm1kYAotIGBCUkFJTkRVTVAubWRgCi0gYGRvY3MvaWRlYXMvYAoKVHJpbSBvciByZXBsYWNlIHRoaXMgbGlzdCBzbyBpdCBtYXRjaGVzIHRoZSBhY3R1YWwgcmVwby4KCiMjIEN1cnJlbnQgQXJjaGl0ZWN0dXJlCgotIHByaW1hcnkgYXBwIG9yIHBhY2thZ2UgbGF5b3V0Ci0gbWFpbiBvd25lcnNoaXAgYm91bmRhcmllcwotIGltcG9ydGFudCBjb250cmFjdHMgYW5kIHNlYW1zCgojIyBBY3RpdmUgRm9jdXMKCi0gY3VycmVudCBwcm9kdWN0IG9yIGFyY2hpdGVjdHVyZSBkaXJlY3Rpb24KLSBjdXJyZW50bHkgcmlza3kgYXJlYQotIHdoYXQgc2hvdWxkIGJlIGxvb2tlZCBhdCBmaXJzdCBhZnRlciB0aW1lIGF3YXkKCiMjIE9wZW4gUXVlc3Rpb25zCgotIHVucmVzb2x2ZWQgcHJvZHVjdCBvciB0ZWNobmljYWwgcXVlc3Rpb25zCgojIyBLZXkgRGVjaXNpb25zCgotIGxpbmtzIHRvIGRlY2lzaW9uIG5vdGVzIHVuZGVyIGAwMiBEZWNpc2lvbnMvYAoKIyMgTmV4dCBBY3Rpb25zCgotIGltbWVkaWF0ZSBuZXh0IGFjdGlvbnMgd29ydGggcmVzdW1pbmcKCiMjIFJlbGF0ZWQgUmVwbyBGaWxlcwoKLSByZWxhdGl2ZSBwYXRocyBvciBleHRlcm5hbCBmaWxlIGxpbmtzCg=="
+    },
+    {
+      "kind": "template",
+      "originalPath": "04 Templates/repo-session.md",
+      "contentEncoding": "base64",
+      "content": "LS0tCnR5cGU6IHJlcG8tc2Vzc2lvbgpyZXBvOiA8JSB0cC51c2VyLnJlcG9fY29udGV4dC5jdXJyZW50UmVwbyh0cCkgJT4KZGF0ZTogPCUgdHAuZGF0ZS5ub3coIllZWVktTU0tREQiKSAlPgpzdGFydGVkX2F0OiA8JSB0cC5kYXRlLm5vdygiWVlZWS1NTS1ERCBISDptbSIpICU+CnN1bW1hcnk6CmtleXdvcmRzOiBbXQpicmFuY2g6CmdvYWw6Cm91dGNvbWU6CnRvdWNoZWRfcGF0aHM6IFtdCmRlY2lzaW9uczogW10KYmxvY2tlcnM6IFtdCm5leHRfc3RlcDoKcmVwb19ob21lOiAiPCUgdHAudXNlci5yZXBvX2NvbnRleHQucmVwb0hvbWVMaW5rKHRwKSAlPiIKdGFnczoKICAtIHR5cGUvc2Vzc2lvbgogIC0gc3RhdGUvYWN0aXZlCiAgLSByZXBvLzwlIHRwLnVzZXIucmVwb19jb250ZXh0LmN1cnJlbnRSZXBvKHRwKSAlPgotLS0KCiMgU2Vzc2lvbiAtIDwlIHRwLmRhdGUubm93KCJZWVlZLU1NLUREIEhIOm1tIikgJT4KCiMjIEdvYWwKCiMjIFdoYXQgQ2hhbmdlZAoKIyMgRGVjaXNpb25zCgojIyBCbG9ja2VycwoKIyMgTmV4dCBTdGVwCg=="
+    },
+    {
+      "kind": "template",
+      "originalPath": "04 Templates/repo-decision.md",
+      "contentEncoding": "base64",
+      "content": "LS0tCnR5cGU6IHJlcG8tZGVjaXNpb24KcmVwbzogPCUgdHAudXNlci5yZXBvX2NvbnRleHQuY3VycmVudFJlcG8odHApICU+CmRlY2lzaW9uX2lkOgpzdGF0dXM6IHByb3Bvc2VkCmRlY2lkZWRfb246IDwlIHRwLmRhdGUubm93KCJZWVlZLU1NLUREIikgJT4Kc3VtbWFyeToKa2V5d29yZHM6IFtdCnN1cGVyc2VkZXM6CnJlbGF0ZWRfcGF0aHM6IFtdCnJlcG9faG9tZTogIjwlIHRwLnVzZXIucmVwb19jb250ZXh0LnJlcG9Ib21lTGluayh0cCkgJT4iCnRhZ3M6CiAgLSB0eXBlL2RlY2lzaW9uCiAgLSByZXBvLzwlIHRwLnVzZXIucmVwb19jb250ZXh0LmN1cnJlbnRSZXBvKHRwKSAlPgotLS0KCiMgRGVjaXNpb24KCiMjIENvbnRleHQKCiMjIERlY2lzaW9uCgojIyBDb25zZXF1ZW5jZXMKCiMjIFJlbGF0ZWQgRmlsZXMK"
+    },
+    {
+      "kind": "template",
+      "originalPath": "04 Templates/repo-question.md",
+      "contentEncoding": "base64",
+      "content": "LS0tCnR5cGU6IHJlcG8tcXVlc3Rpb24KcmVwbzogPCUgdHAudXNlci5yZXBvX2NvbnRleHQuY3VycmVudFJlcG8odHApICU+CnN0YXR1czogb3BlbgpvcGVuZWRfb246IDwlIHRwLmRhdGUubm93KCJZWVlZLU1NLUREIikgJT4Kc3VtbWFyeToKa2V5d29yZHM6IFtdCm93bmVyOgpyZWxhdGVkX3BhdGhzOiBbXQpyZXBvX2hvbWU6ICI8JSB0cC51c2VyLnJlcG9fY29udGV4dC5yZXBvSG9tZUxpbmsodHApICU+Igp0YWdzOgogIC0gdHlwZS9xdWVzdGlvbgogIC0gc3RhdGUvYWN0aXZlCiAgLSByZXBvLzwlIHRwLnVzZXIucmVwb19jb250ZXh0LmN1cnJlbnRSZXBvKHRwKSAlPgotLS0KCiMgUXVlc3Rpb24KCiMjIFdoeSBJdCBNYXR0ZXJzCgojIyBDdXJyZW50IEh5cG90aGVzZXMKCiMjIFdoYXQgV291bGQgUmVzb2x2ZSBJdAoKIyMgRm9sbG93LVVwCg=="
+    }
+  ]
+}

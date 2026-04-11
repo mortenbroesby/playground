@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -20,26 +20,6 @@ function tokenize(value) {
 
 function normalize(value) {
   return value.toLowerCase();
-}
-
-async function walkMarkdownFiles(rootDir) {
-  const entries = await readdir(rootDir, { withFileTypes: true });
-  const results = [];
-
-  for (const entry of entries) {
-    const fullPath = path.join(rootDir, entry.name);
-
-    if (entry.isDirectory()) {
-      results.push(...(await walkMarkdownFiles(fullPath)));
-      continue;
-    }
-
-    if (entry.isFile() && entry.name.endsWith(".md")) {
-      results.push(fullPath);
-    }
-  }
-
-  return results;
 }
 
 function scoreDocument(query, doc) {
@@ -64,55 +44,84 @@ function scoreDocument(query, doc) {
     score += 10;
   }
 
-  if (normalizedQuery.includes("question") && doc.normalizedText.includes("type: repo-question")) {
+  if (
+    normalizedQuery.includes("question") &&
+    doc.normalizedText.includes("type: repo-question")
+  ) {
     score += 4;
   }
 
-  if (normalizedQuery.includes("decision") && doc.normalizedText.includes("type: repo-decision")) {
+  if (
+    normalizedQuery.includes("decision") &&
+    doc.normalizedText.includes("type: repo-decision")
+  ) {
     score += 4;
   }
 
-  if (normalizedQuery.includes("session") && doc.normalizedText.includes("type: repo-session")) {
+  if (
+    normalizedQuery.includes("session") &&
+    doc.normalizedText.includes("type: repo-session")
+  ) {
     score += 4;
   }
 
   return score;
 }
 
-async function loadCorpus(vaultPath) {
-  const markdownFiles = await walkMarkdownFiles(path.join(vaultPath, "02 Repositories"));
+async function buildIndexedCorpus(vaultPath) {
+  const outputDir = path.join(vaultPath, ".rag");
 
-  return Promise.all(
-    markdownFiles.map(async (filePath) => {
-      const content = await readFile(filePath, "utf8");
-      const relativePath = path.relative(vaultPath, filePath).replace(/\\/g, "/");
-
-      return {
-        path: relativePath,
-        content,
-        normalizedText: normalize(`${relativePath}\n${content}`),
-        searchText: `${relativePath}\n${content}`,
-        pathTokens: new Set(tokenize(relativePath)),
-      };
-    }),
+  await execFile(
+    "node",
+    [
+      "tools/rag-index.ts",
+      "--force",
+      "--json",
+      "--vault",
+      vaultPath,
+      "--output-dir",
+      outputDir,
+    ],
+    {
+      cwd: repoRoot,
+    },
   );
+
+  const corpus = JSON.parse(
+    await readFile(path.join(outputDir, "obsidian-vault.corpus.json"), "utf8"),
+  );
+
+  return corpus.chunks.map((chunk) => ({
+    path: chunk.source_file.replace(/^vault\//, ""),
+    sourcePath: chunk.source_path,
+    heading: chunk.heading,
+    normalizedText: normalize(`${chunk.source_path}\n${chunk.text}`),
+    searchText: `${chunk.source_path}\n${chunk.text}`,
+    pathTokens: new Set(tokenize(chunk.source_path)),
+  }));
 }
 
 function searchCorpus(corpus, query, limit = 5) {
   return corpus
     .map((doc) => ({
       path: doc.path,
+      heading: doc.heading,
+      sourcePath: doc.sourcePath,
       score: scoreDocument(query, doc),
     }))
     .filter((result) => result.score > 0)
-    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .sort(
+      (left, right) =>
+        right.score - left.score || left.path.localeCompare(right.path),
+    )
     .slice(0, limit);
 }
 
 async function seedVerificationNotes(vaultPath) {
   const notes = [
     {
-      relativePath: "02 Repositories/playground/01 Architecture/Host Ownership.md",
+      relativePath:
+        "02 Repositories/playground/01 Architecture/Host Ownership.md",
       content: `---
 type: repo-architecture
 repo: playground
@@ -134,7 +143,8 @@ The host app owns routing and page composition. Remotes mount into host-owned su
 defining the site shell or top-level navigation.`,
     },
     {
-      relativePath: "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
+      relativePath:
+        "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
       content: `---
 type: repo-decision
 repo: playground
@@ -160,7 +170,8 @@ We kept todo-app as the sole live injected remote. Uplink-game was inlined as a 
 playground surface because the extra mount indirection was not paying for itself.`,
     },
     {
-      relativePath: "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
+      relativePath:
+        "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
       content: `---
 type: repo-question
 repo: playground
@@ -185,7 +196,8 @@ Open question: should the public host stay CSR, move to selective pre-rendering,
 SSR for metadata and first load quality?`,
     },
     {
-      relativePath: "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+      relativePath:
+        "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
       content: `---
 type: repo-session
 repo: playground
@@ -213,35 +225,51 @@ switchboard for public and playground composition.`,
   await Promise.all(
     notes.map(async (note) => {
       const targetPath = path.join(vaultPath, note.relativePath);
+      await mkdir(path.dirname(targetPath), { recursive: true });
       await writeFile(targetPath, note.content, "utf8");
     }),
   );
 }
 
 async function bootstrapVault(vaultPath) {
-  await execFile("node", ["scripts/bootstrap-obsidian-vault.mjs", "--vault", vaultPath, "--force"], {
-    cwd: repoRoot,
-  });
+  await execFile(
+    "node",
+    ["scripts/bootstrap-obsidian-vault.mjs", "--vault", vaultPath, "--force"],
+    {
+      cwd: repoRoot,
+    },
+  );
 }
 
 async function run() {
-  const vaultPath = await mkdtemp(path.join(os.tmpdir(), "playground-obsidian-rag-"));
+  const vaultPath = await mkdtemp(
+    path.join(os.tmpdir(), "playground-obsidian-rag-"),
+  );
   const checks = [
     {
       query: "Which remote is the sole live injected remote?",
-      expectedPath: "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
+      expectedPath:
+        "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
     },
     {
       query: "Who owns routing and page composition?",
-      expectedPath: "02 Repositories/playground/01 Architecture/Host Ownership.md",
+      expectedPath:
+        "02 Repositories/playground/01 Architecture/Host Ownership.md",
     },
     {
       query: "What open question exists about rendering strategy?",
-      expectedPath: "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
+      expectedPath:
+        "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
     },
     {
       query: "Where did route metadata work land?",
-      expectedPath: "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+      expectedPath:
+        "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+    },
+    {
+      query: "active focus playground",
+      expectedPath: "02 Repositories/playground/00 Repo Home.md",
+      expectedHeading: "Active Focus",
     },
   ];
 
@@ -249,10 +277,14 @@ async function run() {
     await bootstrapVault(vaultPath);
     await seedVerificationNotes(vaultPath);
 
-    const corpus = await loadCorpus(vaultPath);
+    const corpus = await buildIndexedCorpus(vaultPath);
     const results = checks.map((check) => {
       const hits = searchCorpus(corpus, check.query, 3);
-      const passed = hits.some((hit) => hit.path === check.expectedPath);
+      const passed = hits.some(
+        (hit) =>
+          hit.path === check.expectedPath &&
+          (!check.expectedHeading || hit.heading === check.expectedHeading),
+      );
 
       return {
         ...check,

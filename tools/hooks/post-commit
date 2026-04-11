@@ -1,0 +1,7 @@
+#!/bin/sh
+
+changed=$(git diff --name-only HEAD~1 HEAD -- vault/)
+
+[ -z "$changed" ] && exit 0
+
+pnpm rag:index

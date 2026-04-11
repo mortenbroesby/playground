@@ -28,6 +28,9 @@ node_modules
 .env.*.local
 apps/*/.env.local
 apps/*/.env.*.local
+vault/.obsidian/
+vault/.trash/
+.rag/
 
 # Monorepo
 .turbo/
