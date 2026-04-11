@@ -283,6 +283,7 @@ function contextMemory(args) {
   const desiredHeadings = [
     "What This Repo Is",
     "Current Architecture",
+    "Architecture Map",
     "Active Focus",
     "Open Questions",
     "Key Decisions",

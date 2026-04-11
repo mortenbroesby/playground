@@ -56,6 +56,15 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - `packages/ui/`, `packages/types/`, and `packages/config/` hold the shared layer for components,
   contracts, and tooling.
 
+## Architecture Map
+
+- [[01 Architecture/Host Routing and Shells|Host Routing and Shells]]
+- [[01 Architecture/Workspace Remote Composition|Workspace Remote Composition]]
+- [[01 Architecture/Shared Packages and Tooling|Shared Packages and Tooling]]
+- [[01 Architecture/Spotify Now Playing Boundary|Spotify Now Playing Boundary]]
+- [[01 Architecture/Verification Map|Verification Map]]
+- [[01 Architecture/Repo Memory Architecture|Repo Memory Architecture]]
+
 ## Active Focus
 
 - Keep the host strong as a real personal site while preserving the playground as a distinct lab.
