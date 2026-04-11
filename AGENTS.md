@@ -44,6 +44,7 @@ This file provides guidance to coding agents when working in this repository.
 - Run `pnpm rag:init` once after cloning to seed the vault, install the local post-commit hook, and build the first `obsidian-vault` corpus.
 - Run `pnpm rag:index` after editing vault notes if you need an immediate memory refresh before committing.
 - The generated `.rag/obsidian-vault.corpus.json` file is intentionally agent-neutral. Any agent or MCP bridge can consume it for semantic search and section unfold behavior.
+- Codex can use the repo-local MCP server at `tools/rag-mcp-server.mjs`. Register it once with `codex mcp add obsidian-memory -- node /Users/macbook/personal/playground/tools/rag-mcp-server.mjs`.
 - Before answering architecture, historical, or "why was this decided?" questions, query the `obsidian-vault` memory corpus when your environment exposes a search tool for it. Prefer retrieved chunks over loading whole notes.
 
 ## Workspace Commands

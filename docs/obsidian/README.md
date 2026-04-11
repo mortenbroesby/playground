@@ -180,6 +180,23 @@ The generated corpus lives at `.rag/obsidian-vault.corpus.json`. It contains hea
 with source paths, headings, note type, repo slug, tags, status, summary, and keywords. The indexer
 skips unchanged notes by mtime and rewrites the portable corpus artifact on each run.
 
+## Codex MCP setup
+
+Register the repo-local MCP server once:
+
+```bash
+codex mcp add obsidian-memory -- node /Users/macbook/personal/playground/tools/rag-mcp-server.mjs
+```
+
+Then restart Codex. The server exposes these tools:
+
+- `memory_context` for the highest-signal repo primer
+- `memory_search` for architecture, decision, session, and question lookup
+- `memory_unfold` for expanding a cited source section
+
+The server reads `.rag/obsidian-vault.corpus.json` and runs `pnpm rag:index` automatically if the
+corpus is missing.
+
 Run the local verification loop with:
 
 ```bash
