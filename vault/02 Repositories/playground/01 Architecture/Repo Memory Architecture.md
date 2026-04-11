@@ -56,6 +56,10 @@ Search and context tools are compact by default. `memory_search` returns source 
 short excerpts, and an explicit `memory_unfold` call for each hit. Agents should unfold only the
 specific chunk needed for the task instead of loading every retrieved section.
 
+`jcodemunch` MCP is the companion tool for source-code navigation. Use it for symbols, references,
+file outlines, and code relationships when available. Keep `obsidian-memory` focused on durable
+architecture, decisions, sessions, and questions rather than raw source-code indexing.
+
 ## Forgetting Guard
 
 `pnpm knowledge:check` runs before commit through Husky. Large or structural staged changes must

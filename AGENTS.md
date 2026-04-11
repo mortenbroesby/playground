@@ -15,6 +15,8 @@ closest to the files you edit.
   task explicitly needs ignored files.
 - Larger staged code/config changes must include a vault note under
   `vault/02 Repositories/`; `pnpm knowledge:check` enforces this before commit.
+- When available, use `jcodemunch` MCP for code navigation and symbol/reference
+  questions; use `obsidian-memory` for repo history, architecture, and decisions.
 
 ## Repo Shape
 
