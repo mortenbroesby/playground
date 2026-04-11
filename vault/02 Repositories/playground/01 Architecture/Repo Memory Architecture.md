@@ -52,6 +52,10 @@ state plus template and script folders from the corpus.
 Agents should query `obsidian-memory` for repo history, architecture, and decisions before opening
 vault files directly.
 
+Search and context tools are compact by default. `memory_search` returns source paths, summaries,
+short excerpts, and an explicit `memory_unfold` call for each hit. Agents should unfold only the
+specific chunk needed for the task instead of loading every retrieved section.
+
 ## Forgetting Guard
 
 `pnpm knowledge:check` runs before commit through Husky. Large or structural staged changes must

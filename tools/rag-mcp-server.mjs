@@ -30,6 +30,12 @@ const toolDefinitions = [
           type: "number",
           description: "Maximum results to return. Defaults to 5.",
         },
+        detail: {
+          type: "string",
+          enum: ["compact", "full"],
+          description:
+            "Response detail level. Defaults to compact; use full only when excerpts are insufficient.",
+        },
         repo_slug: {
           type: "string",
           description: "Optional repo slug filter, for example playground.",
@@ -79,6 +85,12 @@ const toolDefinitions = [
         repo_slug: {
           type: "string",
           description: "Repo slug to load context for. Defaults to playground.",
+        },
+        detail: {
+          type: "string",
+          enum: ["compact", "full"],
+          description:
+            "Response detail level. Defaults to compact; use full only when the full repo primer is needed.",
         },
       },
       additionalProperties: false,
@@ -208,6 +220,7 @@ function searchMemory(args) {
     ? Math.max(1, Math.min(20, args.limit))
     : 5;
   const query = args.query.trim();
+  const fullDetail = args.detail === "full";
 
   if (!query) {
     throw new Error("query is required");
@@ -221,6 +234,7 @@ function searchMemory(args) {
       score: scoreChunk(query, chunk),
     }))
     .filter((hit) => hit.score > 0)
+    .filter((hit) => hasSubstantiveContent(hit.chunk))
     .sort((left, right) => {
       return (
         right.score - left.score ||
@@ -233,20 +247,33 @@ function searchMemory(args) {
     return `No memory results found for: ${query}`;
   }
 
-  return hits
-    .map(({ chunk, score }, index) => {
-      return [
-        `#${index + 1} score=${score}`,
-        `source_path: ${chunk.source_path}`,
-        `type: ${chunk.note_type ?? "unknown"} repo: ${chunk.repo_slug ?? "unknown"}`,
-        chunk.summary ? `summary: ${chunk.summary}` : null,
-        "",
-        trimText(chunk.text, 1200),
-      ]
-        .filter((line) => line !== null)
-        .join("\n");
-    })
-    .join("\n\n---\n\n");
+  const formattedHits = hits.map(({ chunk, score }, index) => {
+    if (fullDetail) {
+      return formatFullChunk(chunk, `#${index + 1} score=${score}`);
+    }
+
+    return [
+      `#${index + 1} score=${score}`,
+      `source_path: ${chunk.source_path}`,
+      `type: ${chunk.note_type ?? "unknown"} repo: ${chunk.repo_slug ?? "unknown"}`,
+      `heading: ${chunk.heading}`,
+      chunk.summary ? `summary: ${chunk.summary}` : null,
+      "",
+      `excerpt: ${createExcerpt(contentOnly(chunk), query)}`,
+    ]
+      .filter((line) => line !== null)
+      .join("\n");
+  });
+
+  if (fullDetail) {
+    return formattedHits.join("\n\n---\n\n");
+  }
+
+  return [
+    "Compact memory results. Use memory_unfold with a source_path for detail.",
+    "",
+    formattedHits.join("\n\n---\n\n"),
+  ].join("\n");
 }
 
 function unfoldMemory(args) {
@@ -267,19 +294,12 @@ function unfoldMemory(args) {
     );
   }
 
-  return [
-    `source_path: ${chunk.source_path}`,
-    `type: ${chunk.note_type ?? "unknown"} repo: ${chunk.repo_slug ?? "unknown"}`,
-    chunk.summary ? `summary: ${chunk.summary}` : null,
-    "",
-    chunk.text,
-  ]
-    .filter((line) => line !== null)
-    .join("\n");
+  return formatFullChunk(chunk);
 }
 
 function contextMemory(args) {
   const repoSlug = args.repo_slug ?? "playground";
+  const fullDetail = args.detail === "full";
   const desiredHeadings = [
     "What This Repo Is",
     "Current Architecture",
@@ -311,16 +331,101 @@ function contextMemory(args) {
     });
   }
 
-  return chunks
-    .map((chunk) =>
-      [
-        `## ${chunk.heading}`,
-        `source_path: ${chunk.source_path}`,
-        "",
-        chunk.text,
-      ].join("\n"),
-    )
-    .join("\n\n---\n\n");
+  const formattedChunks = chunks.map((chunk) =>
+    formatContextChunk(chunk, fullDetail),
+  );
+
+  if (fullDetail) {
+    return formattedChunks.join("\n\n---\n\n");
+  }
+
+  return [
+    `source_file: ${chunks[0].source_file}`,
+    "Compact repo context. Use memory_unfold with source_file and heading for detail.",
+    "",
+    formattedChunks.join("\n\n"),
+  ].join("\n");
+}
+
+function formatContextChunk(chunk, fullDetail) {
+  if (!fullDetail) {
+    return [`## ${chunk.heading}`, trimText(contentOnly(chunk), 450)].join(
+      "\n",
+    );
+  }
+
+  return [
+    `## ${chunk.heading}`,
+    `source_path: ${chunk.source_path}`,
+    chunk.summary ? `summary: ${chunk.summary}` : null,
+    "",
+    contentOnly(chunk),
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
+function formatFullChunk(chunk, headingLine = null) {
+  return [
+    headingLine,
+    `source_path: ${chunk.source_path}`,
+    `type: ${chunk.note_type ?? "unknown"} repo: ${chunk.repo_slug ?? "unknown"}`,
+    `heading: ${chunk.heading}`,
+    chunk.summary ? `summary: ${chunk.summary}` : null,
+    "",
+    contentOnly(chunk),
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
+function contentOnly(chunk) {
+  const separatorIndex = chunk.text.indexOf("\n\n");
+
+  if (separatorIndex === -1) {
+    return chunk.text;
+  }
+
+  return chunk.text.slice(separatorIndex + 2).trim();
+}
+
+function hasSubstantiveContent(chunk) {
+  const content = contentOnly(chunk)
+    .replace(/^#+\s+.+$/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return content.length >= 40;
+}
+
+function createExcerpt(content, query, maxLength = 240) {
+  const compactContent = compactWhitespace(content);
+
+  if (compactContent.length <= maxLength) {
+    return compactContent;
+  }
+
+  const tokens = tokenize(query).filter((token) => token.length > 2);
+  const lowerContent = compactContent.toLowerCase();
+  const matchIndex = tokens
+    .map((token) => lowerContent.indexOf(token))
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right)[0];
+
+  if (matchIndex === undefined) {
+    return trimText(compactContent, maxLength);
+  }
+
+  const start = Math.max(0, matchIndex - Math.floor(maxLength / 3));
+  const end = Math.min(compactContent.length, start + maxLength);
+  const prefix = start > 0 ? "... " : "";
+  const suffix = end < compactContent.length ? " ..." : "";
+
+  return `${prefix}${compactContent.slice(start, end).trim()}${suffix}`;
+}
+
+function compactWhitespace(value) {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function trimText(value, maxLength) {
