@@ -18,6 +18,48 @@ closest to the files you edit.
 - When available, use `jcodemunch` MCP for code navigation and symbol/reference
   questions; use `obsidian-memory` for repo history, architecture, and decisions.
 
+## Code Exploration Policy
+
+Always use jCodemunch-MCP tools for code navigation. Never fall back to Read,
+Grep, Glob, or Bash for code exploration.
+
+Exception: use `Read` when you need to edit a file. Use jCodemunch tools to find
+and understand code, then read only the specific file you are about to modify.
+
+Start any session by confirming the repository is indexed:
+
+1. `resolve_repo { "path": "." }`
+2. If it is not indexed, call `index_folder { "path": "." }`
+
+If your client supports it, install the jCodemunch enforcement hooks with
+`jcodemunch-mcp init --hooks` so read guards, auto-reindex, and session snapshots
+stay on the fast path.
+
+For this repo specifically, `pnpm rag:init` installs the post-commit hook that
+keeps the Obsidian corpus fresh when vault files change.
+
+Codex does not have the same Claude Code hook surface. For Codex, the closest
+adaptation is:
+
+- register `jcodemunch` in `~/.codex/config.toml`
+- point Codex at an AGENTS-style instruction file with the code exploration
+  policy above
+- use a shell/tool allowlist in the executor if you are wiring Codex through
+  the Responses API or Agents SDK
+- keep `pnpm rag:init` as the repo-local freshness hook for vault changes
+
+The hard read/edit/index interception described in `AGENT_HOOKS.md` remains
+Claude Code-only.
+
+Prefer these tools when exploring:
+
+- symbol by name: `search_symbols`
+- string, comment, or config value: `search_text`
+- file API surface: `get_file_outline`
+- one or more symbols: `get_symbol_source`
+- repository structure: `get_repo_outline` or `get_file_tree`
+- dependency questions: `find_importers`, `find_references`, `get_blast_radius`
+
 ## Repo Shape
 
 - `apps/host/` owns routing, page composition, and the public-site/playground split.
