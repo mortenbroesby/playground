@@ -17,6 +17,8 @@ closest to the files you edit.
   `vault/02 Repositories/`; `pnpm knowledge:check` enforces this before commit.
 - When available, use `jcodemunch` MCP for code navigation and symbol/reference
   questions; use `obsidian-memory` for repo history, architecture, and decisions.
+- Historical planning docs that used to live under `docs/superpowers/` are now
+  archived in `vault/02 Repositories/playground/01 Architecture/Superpowers Archive.md`.
 
 ## Code Exploration Policy
 

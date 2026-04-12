@@ -64,6 +64,7 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - [[01 Architecture/Agent Hooks|Agent Hooks]]
 - [[01 Architecture/Archived Specs|Archived Specs]]
 - [[01 Architecture/Kanban Archive|Kanban Archive]]
+- [[01 Architecture/Superpowers Archive|Superpowers Archive]]
 - [[01 Architecture/Design System Split Migration Plan|Design System Split Migration Plan]]
 - [[01 Architecture/Spotify Now Playing Boundary|Spotify Now Playing Boundary]]
 - [[01 Architecture/Verification Map|Verification Map]]
@@ -74,6 +75,7 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - Keep the host strong as a real personal site while preserving the playground as a distinct lab.
 - Keep the design-system split incremental: shared primitives for now, surface-specific systems later.
 - Keep the shared hook policy in sync between Codex and Claude Code.
+- Keep completed `docs/superpowers` planning docs archived in the vault.
 - Keep `KANBAN.md` task-shaped and `BRAINDUMP.md` loose.
 - Keep the host-to-remote contract trustworthy while the host architecture evolves.
 
