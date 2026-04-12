@@ -3,6 +3,7 @@ import { ArrowRight, Boxes, Gamepad2, ListTodo, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge, MetricCard, Panel } from '@playground/ui';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
+import { PlaygroundPage as PlaygroundPageShell } from '@/ui/primitives/playground-page';
 
 const HackerSignalCanvas = lazy(() =>
   import('@/ui/HackerSignalCanvas/HackerSignalCanvas').then((module) => ({
@@ -60,10 +61,7 @@ export function PlaygroundPage() {
         title="Playground"
         description="A separate section for apps, experiments, and odd ideas that stay distinct from the personal pages."
       />
-    <div
-      data-testid="playground-page"
-      className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6"
-    >
+    <PlaygroundPageShell testId="playground-page">
       <Panel glow grid className="p-6 sm:p-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -171,7 +169,7 @@ export function PlaygroundPage() {
           </Suspense>
         </section>
       )}
-    </div>
+    </PlaygroundPageShell>
     </>
   );
 }

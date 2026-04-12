@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import type { NavItem } from '@/infrastructure/nav';
 import { cn } from '@/utils/utils';
 import { appStatusMeta } from '@/infrastructure/theme';
+import { NavigationFooterLink } from '@/ui/NavigationFooterLink/NavigationFooterLink';
+import { NavigationMeta } from '@/ui/NavigationMeta/NavigationMeta';
 
 interface MobileDrawerProps {
   footerLinkHref?: string;
@@ -148,12 +150,7 @@ export function MobileDrawer({
                           {app.label}
                         </div>
                         {showMeta ? (
-                          <div className="mt-1">
-                            <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
-                            <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
-                              {meta?.status ?? 'standby'}
-                            </div>
-                          </div>
+                          <NavigationMeta code={meta?.code ?? 'SYS-00'} status={meta?.status ?? 'standby'} />
                         ) : null}
                       </div>
                     </div>
@@ -164,24 +161,20 @@ export function MobileDrawer({
           </nav>
 
           {footerLinkHref && footerLinkLabel ? (
-            <div
+            <NavigationFooterLink
               className={cn(
                 'mt-auto pt-3',
                 variant === 'public' ? 'border-t border-border/60' : 'border-t border-border/70'
               )}
-            >
-              <Link
-                to={footerLinkHref}
-                onClick={onClose}
-                className={cn(
-                  'inline-flex items-center gap-2 text-sm transition-colors hover:text-foreground',
-                  variant === 'public' ? 'text-muted-foreground' : 'font-medium text-muted-foreground'
-                )}
-              >
-                {variant === 'public' ? null : <span className="chrome-label text-primary">exit</span>}
-                <span>{footerLinkLabel}</span>
-              </Link>
-            </div>
+              href={footerLinkHref}
+              label={footerLinkLabel}
+              linkClassName={cn(
+                'inline-flex items-center gap-2 text-sm transition-colors hover:text-foreground',
+                variant === 'public' ? 'text-muted-foreground' : 'font-medium text-muted-foreground'
+              )}
+              onClick={onClose}
+              showPrefix={variant !== 'public'}
+            />
           ) : null}
         </div>
       </div>

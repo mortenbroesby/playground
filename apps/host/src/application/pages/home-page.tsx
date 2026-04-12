@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { publishedWritingPosts } from '@/domain/writing/writing';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
-import { PublicPage } from '@/ui/primitives/public-page';
+import { PersonalPage } from '@/ui/primitives/personal-page';
 
 const featuredPosts = publishedWritingPosts.slice(0, 2);
 
@@ -19,7 +19,7 @@ export function HomePage() {
         title="Morten Broesby-Olsen"
         description="Frontend architect and engineer. I build frontend systems, write occasionally, and keep a separate playground for ideas."
       />
-      <PublicPage testId="home-page">
+      <PersonalPage testId="home-page">
         <section className="space-y-4">
           <p className="chrome-label text-primary">personal site</p>
           <div className="space-y-3">
@@ -92,7 +92,7 @@ export function HomePage() {
             </Link>
           </div>
         </section>
-      </PublicPage>
+      </PersonalPage>
     </>
   );
 }

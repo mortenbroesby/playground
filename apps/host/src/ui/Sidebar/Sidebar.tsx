@@ -1,7 +1,9 @@
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import type { NavItem } from '@/infrastructure/nav';
 import { cn } from '@/utils/utils';
 import { appStatusMeta } from '@/infrastructure/theme';
+import { NavigationFooterLink } from '@/ui/NavigationFooterLink/NavigationFooterLink';
+import { NavigationMeta } from '@/ui/NavigationMeta/NavigationMeta';
 
 interface SidebarProps {
   footerLinkHref?: string;
@@ -60,10 +62,7 @@ export function Sidebar({
                       </div>
                       {showMeta ? (
                         <div className="mt-1 hidden sm:block">
-                          <div className="chrome-label">{meta?.code ?? 'SYS-00'}</div>
-                          <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80">
-                            {meta?.status ?? 'standby'}
-                          </div>
+                          <NavigationMeta code={meta?.code ?? 'SYS-00'} status={meta?.status ?? 'standby'} />
                         </div>
                       ) : null}
                     </div>
@@ -75,15 +74,12 @@ export function Sidebar({
         </nav>
 
         {footerLinkHref && footerLinkLabel ? (
-          <div className="mt-auto border-t border-border/70 px-2 pt-3">
-            <Link
-              to={footerLinkHref}
-              className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <span className="chrome-label text-primary">exit</span>
-              <span>{footerLinkLabel}</span>
-            </Link>
-          </div>
+          <NavigationFooterLink
+            className="mt-auto border-t border-border/70 px-2 pt-3"
+            href={footerLinkHref}
+            label={footerLinkLabel}
+            linkClassName="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          />
         ) : null}
       </div>
     </aside>

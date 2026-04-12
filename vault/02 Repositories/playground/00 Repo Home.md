@@ -23,7 +23,7 @@ source_of_truth:
   - BRAINDUMP.md
   - docs/ideas/
   - apps/host/AGENTS.md
-active_focus: personal-site host plus one deliberate injected remote
+active_focus: personal-site host plus one deliberate injected remote, with an intentional drift toward separate personal and playground surface systems
 last_reviewed: 2026-04-11
 tags:
   - type/repo
@@ -61,6 +61,7 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - [[01 Architecture/Host Routing and Shells|Host Routing and Shells]]
 - [[01 Architecture/Workspace Remote Composition|Workspace Remote Composition]]
 - [[01 Architecture/Shared Packages and Tooling|Shared Packages and Tooling]]
+- [[01 Architecture/Design System Split Migration Plan|Design System Split Migration Plan]]
 - [[01 Architecture/Spotify Now Playing Boundary|Spotify Now Playing Boundary]]
 - [[01 Architecture/Verification Map|Verification Map]]
 - [[01 Architecture/Repo Memory Architecture|Repo Memory Architecture]]
@@ -68,6 +69,7 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 ## Active Focus
 
 - Keep the host strong as a real personal site while preserving the playground as a distinct lab.
+- Keep the design-system split incremental: shared primitives for now, surface-specific systems later.
 - Keep `KANBAN.md` task-shaped and `BRAINDUMP.md` loose.
 - Keep the host-to-remote contract trustworthy while the host architecture evolves.
 

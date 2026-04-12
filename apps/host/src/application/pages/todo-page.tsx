@@ -1,6 +1,7 @@
 import { Badge, Panel } from '@playground/ui';
 import { TodoWorkspace } from '@/domain/playground/TodoWorkspace';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
+import { PlaygroundPage } from '@/ui/primitives/playground-page';
 
 export function TodoPage() {
   return (
@@ -9,7 +10,7 @@ export function TodoPage() {
         title="Todo"
         description="Validate host-to-remote state flow without changing the underlying product logic."
       />
-    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
+    <PlaygroundPage>
       <Panel glow grid className="px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -31,7 +32,7 @@ export function TodoPage() {
       </Panel>
 
       <TodoWorkspace />
-    </div>
+    </PlaygroundPage>
     </>
   );
 }

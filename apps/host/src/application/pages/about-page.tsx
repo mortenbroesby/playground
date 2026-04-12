@@ -1,6 +1,6 @@
 import { aboutPage } from '@/domain/about/about';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
-import { PublicPage } from '@/ui/primitives/public-page';
+import { PersonalPage } from '@/ui/primitives/personal-page';
 
 const ABOUT_NAME = 'Morten Broesby-Olsen';
 
@@ -11,7 +11,7 @@ export function AboutPage() {
         title="About"
         description={aboutPage.bio}
       />
-      <PublicPage testId="about-page">
+      <PersonalPage testId="about-page">
         <section className="space-y-4">
           <p className="chrome-label text-primary">{aboutPage.headline}</p>
           <div className="space-y-3">
@@ -113,7 +113,7 @@ export function AboutPage() {
             </div>
           </div>
         </section>
-      </PublicPage>
+      </PersonalPage>
     </>
   );
 }

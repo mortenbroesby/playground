@@ -1,6 +1,6 @@
 import { usesGearPage } from '@/domain/uses/uses';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
-import { PublicPage } from '@/ui/primitives/public-page';
+import { PersonalPage } from '@/ui/primitives/personal-page';
 
 function UsesItemRow({
   label,
@@ -86,7 +86,7 @@ export function UsesPage() {
         title="Uses"
         description={usesGearPage.intro}
       />
-      <PublicPage testId="uses-page" contentClassName="space-y-12">
+      <PersonalPage testId="uses-page" contentClassName="space-y-12">
         <section className="space-y-5">
           <div className="space-y-5">
             <p className="text-sm uppercase tracking-[0.24em] text-primary/80">Uses</p>
@@ -194,7 +194,7 @@ export function UsesPage() {
             </article>
           ))}
         </section>
-      </PublicPage>
+      </PersonalPage>
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { GameCanvas } from '@/domain/playground/GameCanvas';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
+import { PlaygroundPage } from '@/ui/primitives/playground-page';
 
 export function GamePage() {
   return (
@@ -8,7 +9,7 @@ export function GamePage() {
         title="Uplink terminal"
         description="A fan-made hacker sim surface for interaction, pacing, and atmospheric experiments."
       />
-    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
+    <PlaygroundPage>
       <GameCanvas />
 
       <section className="terminal-panel terminal-panel--glow terminal-grid overflow-hidden px-5 py-5 sm:px-6 sm:py-6">
@@ -34,7 +35,7 @@ export function GamePage() {
         <span className="text-muted-foreground/70">Uplink</span> by Introversion Software (2001).
         Not affiliated with or endorsed by Introversion Software Ltd.
       </p>
-    </div>
+    </PlaygroundPage>
     </>
   );
 }

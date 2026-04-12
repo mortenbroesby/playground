@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { publishedWritingPosts } from '@/domain/writing/writing';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
-import { PublicPage } from '@/ui/primitives/public-page';
+import { PersonalPage } from '@/ui/primitives/personal-page';
 
 export function WritingPage() {
   return (
@@ -11,7 +11,7 @@ export function WritingPage() {
         title="Writing"
         description="Essays, notes, and older blog posts on frontend architecture, software, games, and the occasional life decision that changes everything."
       />
-      <PublicPage testId="writing-page">
+      <PersonalPage testId="writing-page">
         <section className="space-y-3">
           <p className="chrome-label text-primary">Writing</p>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -45,7 +45,7 @@ export function WritingPage() {
             ))}
           </div>
         </section>
-      </PublicPage>
+      </PersonalPage>
     </>
   );
 }

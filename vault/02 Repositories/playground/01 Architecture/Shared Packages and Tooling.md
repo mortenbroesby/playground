@@ -37,6 +37,11 @@ type-check work to workspace scripts through Turbo where practical.
 ## Shared Packages
 
 `packages/ui` exports reusable React UI primitives and tokens used by host and remote surfaces.
+It is currently the shared base for both public and playground chrome, even though the repo is
+intentionally moving toward separate personal and playground surface systems above that base.
+
+Do not fork the package yet just to name the split. Keep shared primitives shared, and introduce
+surface-specific wrappers or recipes in `apps/host` until the divergence is real.
 
 `packages/types` currently owns the shared `Todo` shape. Keep it narrow; only promote types here
 when multiple workspaces genuinely need the contract.

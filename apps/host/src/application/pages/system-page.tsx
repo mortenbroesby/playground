@@ -12,6 +12,7 @@ import {
   type DesignSystemToken,
 } from '@playground/ui';
 import { PageMetadata } from '@/ui/PageMetadata/PageMetadata';
+import { PlaygroundPage } from '@/ui/primitives/playground-page';
 
 type SystemView = 'all' | 'components' | 'tokens' | 'utilities';
 
@@ -142,10 +143,7 @@ export function SystemPage() {
         title="System"
         description="Browse tokens, utilities, and component previews from the shared UI package."
       />
-    <div
-      data-testid="system-page"
-      className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6"
-    >
+    <PlaygroundPage testId="system-page">
       <Panel glow grid className="p-6 sm:p-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -390,7 +388,7 @@ export function SystemPage() {
           </div>
         </Panel>
       ) : null}
-    </div>
+    </PlaygroundPage>
     </>
   );
 }
