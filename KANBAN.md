@@ -236,7 +236,7 @@ AI appetite scale:
 - `P1` Fix Uplink rendering sharpness on the playground route
   AI Appetite: 70%
   Why: the current Uplink surface still looked grainy and undermined the stronger UI direction.
-  Outcome: Uplink now renders with an explicit retro-crisp policy, and the implementation is documented in `.specs`.
+  Outcome: Uplink now renders with an explicit retro-crisp policy, and the implementation is documented in [Archived Specs](file:///Users/macbook/personal/playground/vault/02%20Repositories/playground/01%20Architecture/Archived%20Specs.md).
   Source: `BRAINDUMP.md`.
 
 - `P0` Add an MDX-based content system
@@ -257,56 +257,6 @@ AI appetite scale:
   Outcome: the host now has distinct public and playground layout modes.
   Source: host migration execution.
 
-- `P2` Replace `uses/gear` with a cleaner canonical `/uses` structure
-  AI Appetite: 60%
-  Why: `/uses` is now the canonical public route, while `/uses/gear` remains as a legacy redirect instead of the primary information architecture.
-  Outcome: simpler information architecture and fewer transitional redirects on the public side.
-  Source: host migration checklist.
+## Archived Done Items
 
-- `P0` Add `Writing` as a first-class section with seeded posts
-  AI Appetite: 85%
-  Why: the personal site direction required a dedicated writing surface instead of burying content.
-  Outcome: `Writing` became a top-level public section with routed post pages.
-  Source: host migration execution.
-
-- `P0` Move app surfaces under `/playground/*` with legacy redirects
-  AI Appetite: 75%
-  Why: the playground needed to read as a contained area rather than the main site itself.
-  Outcome: apps now live under `/playground/*` and older routes still redirect cleanly.
-  Source: host migration execution.
-
-- `P1` Keep the playground navigation limited to playground-only surfaces
-  AI Appetite: 65%
-  Why: mixing public pages into the playground navigation blurred the product boundary.
-  Outcome: the playground nav now lists only playground-native surfaces.
-  Source: host cleanup execution.
-
-- `P1` Add a dedicated path back to the main site from the playground
-  AI Appetite: 65%
-  Why: the split between public site and playground needed a clear way back home.
-  Outcome: the playground shell now has an explicit return path to the public site.
-  Source: host cleanup execution.
-
-- `P1` Simplify the public shell and reduce hacker-theme bleed on public pages
-  AI Appetite: 75%
-  Why: the public side needed to feel quieter and more personal than the experimental shell.
-  Outcome: public pages now use a simpler editorial language with less hacker-shell residue.
-  Source: public-site refinement.
-
-- `P1` Move writing article pages into the editorial visual language instead of the playground language
-  AI Appetite: 80%
-  Why: writing pages were still leaking the playground theme into the public site.
-  Outcome: articles now read like public editorial surfaces rather than terminal-themed modules.
-  Source: writing refinement.
-
-- `P1` Rebuild the admin kanban board on Mantine and align it with the markdown workflow model
-  AI Appetite: 80%
-  Why: the admin app is mid-migration and still needs a cleaner component system plus support for workflow lanes and AI appetite metadata.
-  Outcome: the board uses a coherent Mantine surface language, edits lane state directly, and round-trips `AI Appetite` through `KANBAN.md`.
-  Source: active admin work.
-
-- `P2` Add a global CMD+K command menu for navigation and power actions
-  AI Appetite: 75%
-  Why: the site and playground now have enough surfaces that a keyboard-first launcher would improve movement and make the shell feel more intentional.
-  Outcome: one command palette for route jumps and a path for later power-user actions.
-  Source: `BRAINDUMP.md`.
+Older completed items live in [vault/02 Repositories/playground/01 Architecture/Kanban Archive.md](/Users/macbook/personal/playground/vault/02%20Repositories/playground/01%20Architecture/Kanban%20Archive.md).

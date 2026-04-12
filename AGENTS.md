@@ -43,13 +43,14 @@ adaptation is:
 
 - register `jcodemunch` in `~/.codex/config.toml`
 - point Codex at an AGENTS-style instruction file with the code exploration
-  policy above
+  policy above and the shared hook policy in `AGENT_HOOKS.md`
 - use a shell/tool allowlist in the executor if you are wiring Codex through
   the Responses API or Agents SDK
 - keep `pnpm rag:init` as the repo-local freshness hook for vault changes
 
 The hard read/edit/index interception described in `AGENT_HOOKS.md` remains
-Claude Code-only.
+Claude Code-only, but the shared hook policy and security checks are common to
+both runtimes.
 
 Prefer these tools when exploring:
 
