@@ -106,7 +106,8 @@ export class HackScene extends Phaser.Scene {
 
   init(data: HackSceneData): void {
     this.targetName = data.targetName;
-    this.inputMode = data.inputMode ?? 'mouse';
+    const isMobile = Boolean(this.sys.game.device.os.android || this.sys.game.device.os.iOS);
+    this.inputMode = isMobile ? 'mouse' : (data.inputMode ?? 'mouse');
     this.trace = 0;
     this.logTexts = [];
     this.logLineIndex = 0;
@@ -156,17 +157,19 @@ export class HackScene extends Phaser.Scene {
     }).setOrigin(1, 0);
     this.updateTraceBar();
 
-    this.exitText = this.add.text(888, 26, this.inputMode === 'keyboard' ? '[ESC] EXIT' : '[EXIT]', {
+    const exitX = 14;
+    const exitY = 544;
+    this.exitText = this.add.text(exitX, exitY, this.inputMode === 'keyboard' ? '[ESC] EXIT' : '[EXIT]', {
       fontFamily: 'monospace',
-      fontSize: '10px',
-      color: '#2a6a4a',
-    }).setOrigin(1, 0).setAlpha(0.9);
+      fontSize: '12px',
+      color: '#53d1ff',
+    }).setOrigin(0, 0.5).setAlpha(0.95);
 
     if (this.inputMode === 'mouse') {
-      const exitZone = this.add.zone(840, 32, 120, 22).setInteractive({ useHandCursor: true });
+      const exitZone = this.add.zone(exitX + 56, exitY, 140, 34).setInteractive({ useHandCursor: true });
       exitZone.on('pointerdown', () => this.exitToMenu());
-      exitZone.on('pointerover', () => this.exitText.setColor('#53d1ff'));
-      exitZone.on('pointerout', () => this.exitText.setColor('#2a6a4a'));
+      exitZone.on('pointerover', () => this.exitText.setColor('#ffffff'));
+      exitZone.on('pointerout', () => this.exitText.setColor('#53d1ff'));
     }
 
     // Trace timer: +1% per second

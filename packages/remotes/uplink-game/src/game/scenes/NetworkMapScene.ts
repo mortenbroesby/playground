@@ -43,6 +43,7 @@ const INPUT_MODE_KEY = 'uplink_input_mode';
 export class NetworkMapScene extends Phaser.Scene {
   private rainDrops: RainDrop[] = [];
   private inputMode: InputMode = 'mouse';
+  private isMobile = false;
   private modeLabel!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -50,7 +51,11 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.inputMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? 'mouse';
+    this.isMobile = Boolean(this.sys.game.device.os.android || this.sys.game.device.os.iOS);
+
+    const storedMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? 'mouse';
+    this.inputMode = this.isMobile ? 'mouse' : storedMode;
+    if (this.isMobile) localStorage.setItem(INPUT_MODE_KEY, 'mouse');
     this.rainDrops = [];
 
     this.drawGrid();
@@ -85,12 +90,14 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   private toggleMode(): void {
+    if (this.isMobile) return;
     this.inputMode = this.inputMode === 'keyboard' ? 'mouse' : 'keyboard';
     localStorage.setItem(INPUT_MODE_KEY, this.inputMode);
     this.scene.restart();
   }
 
   private setMode(mode: InputMode): void {
+    if (this.isMobile && mode === 'keyboard') return;
     if (this.inputMode === mode) return;
     this.inputMode = mode;
     localStorage.setItem(INPUT_MODE_KEY, this.inputMode);
@@ -287,6 +294,7 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   private getModeLabel(): string {
+    if (this.isMobile) return `[MOUSE MODE]`;
     return `[${this.inputMode.toUpperCase()} MODE]`;
   }
 
