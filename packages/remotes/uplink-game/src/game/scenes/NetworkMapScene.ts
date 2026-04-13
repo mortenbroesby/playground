@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { InputMode } from './HackScene';
+import type { Difficulty, InputMode } from './HackScene';
 
 const MATRIX_CHARS = [
   '0', '1', '<', '>', '[', ']', '{', '}', '/', '\\',
@@ -39,12 +39,19 @@ const CONNECTIONS: [number, number][] = [
 const PACKET_CONNECTIONS: [number, number][] = [[0, 1], [1, 5], [4, 6], [2, 4]];
 
 const INPUT_MODE_KEY = 'uplink_input_mode';
+const DIFFICULTY_KEY = 'uplink_difficulty';
+
+const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 
 export class NetworkMapScene extends Phaser.Scene {
   private rainDrops: RainDrop[] = [];
   private inputMode: InputMode = 'mouse';
   private isMobile = false;
   private modeLabel!: Phaser.GameObjects.Text;
+  private difficulty: Difficulty = 'medium';
+  private difficultyLabel!: Phaser.GameObjects.Text;
+  private settingsOpen = false;
+  private settingsContainer: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super({ key: 'NetworkMapScene' });
@@ -56,6 +63,10 @@ export class NetworkMapScene extends Phaser.Scene {
     const storedMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? 'mouse';
     this.inputMode = this.isMobile ? 'mouse' : storedMode;
     if (this.isMobile) localStorage.setItem(INPUT_MODE_KEY, 'mouse');
+
+    const storedDifficulty = (localStorage.getItem(DIFFICULTY_KEY) as Difficulty) ?? 'medium';
+    this.difficulty = DIFFICULTIES.includes(storedDifficulty) ? storedDifficulty : 'medium';
+    localStorage.setItem(DIFFICULTY_KEY, this.difficulty);
     this.rainDrops = [];
 
     this.drawGrid();
@@ -69,6 +80,11 @@ export class NetworkMapScene extends Phaser.Scene {
       this.input.keyboard!.once('keydown-ENTER', () => this.startHack());
       this.input.keyboard!.once('keydown-SPACE', () => this.startHack());
       this.input.keyboard!.once('keydown-M', () => this.setMode('mouse'));
+      this.input.keyboard!.on('keydown-S', () => this.toggleSettings());
+      this.input.keyboard!.on('keydown-ESC', () => this.closeSettings());
+      this.input.keyboard!.on('keydown-ONE', () => this.setDifficulty('easy'));
+      this.input.keyboard!.on('keydown-TWO', () => this.setDifficulty('medium'));
+      this.input.keyboard!.on('keydown-THREE', () => this.setDifficulty('hard'));
     }
   }
 
@@ -86,7 +102,8 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   private startHack(): void {
-    this.scene.start('HackScene', { targetName: 'DARKNET-07', inputMode: this.inputMode });
+    if (this.settingsOpen) return;
+    this.scene.start('HackScene', { targetName: 'DARKNET-07', inputMode: this.inputMode, difficulty: this.difficulty });
   }
 
   private toggleMode(): void {
@@ -102,6 +119,129 @@ export class NetworkMapScene extends Phaser.Scene {
     this.inputMode = mode;
     localStorage.setItem(INPUT_MODE_KEY, this.inputMode);
     this.scene.restart();
+  }
+
+  private setDifficulty(difficulty: Difficulty): void {
+    if (!DIFFICULTIES.includes(difficulty)) return;
+    this.difficulty = difficulty;
+    localStorage.setItem(DIFFICULTY_KEY, this.difficulty);
+    if (this.difficultyLabel) this.difficultyLabel.setText(this.getDifficultyLabel());
+    if (this.settingsOpen) {
+      this.closeSettings();
+      this.openSettings();
+    }
+  }
+
+  private toggleSettings(): void {
+    if (this.settingsOpen) {
+      this.closeSettings();
+      return;
+    }
+    this.openSettings();
+  }
+
+  private openSettings(): void {
+    if (this.settingsOpen) return;
+    this.settingsOpen = true;
+
+    const w = 900;
+    const h = 560;
+    const panelW = 520;
+    const panelH = 270;
+    const x = (w - panelW) / 2;
+    const y = (h - panelH) / 2;
+
+    const container = this.add.container(0, 0).setDepth(50);
+    this.settingsContainer = container;
+
+    const shade = this.add.graphics().setDepth(50);
+    shade.fillStyle(0x000000, 0.55);
+    shade.fillRect(0, 0, w, h);
+    container.add(shade);
+
+    const bg = this.add.graphics().setDepth(51);
+    bg.fillStyle(0x010608, 0.95);
+    bg.fillRect(x, y, panelW, panelH);
+    bg.lineStyle(1, 0x4df3a9, 0.18);
+    bg.strokeRect(x, y, panelW, panelH);
+    container.add(bg);
+
+    const title = this.add.text(w / 2, y + 24, 'SETTINGS', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#4df3a9',
+    }).setOrigin(0.5, 0.5).setDepth(52);
+    container.add(title);
+
+    const sub = this.add.text(x + 20, y + 56, `DIFFICULTY: ${this.difficulty.toUpperCase()}`, {
+      fontFamily: 'monospace', fontSize: '12px', color: '#53d1ff',
+    }).setDepth(52);
+    container.add(sub);
+
+    const hint = this.inputMode === 'keyboard'
+      ? '[1] EASY   [2] MEDIUM   [3] HARD   [ESC] CLOSE'
+      : 'CLICK A DIFFICULTY  —  CLICK OUTSIDE TO CLOSE';
+    const hintText = this.add.text(w / 2, y + panelH - 22, hint, {
+      fontFamily: 'monospace', fontSize: '11px', color: '#2a6a4a',
+    }).setOrigin(0.5, 0.5).setDepth(52);
+    container.add(hintText);
+
+    if (this.inputMode === 'mouse') {
+      const makeButton = (label: string, dx: number, value: Difficulty): void => {
+        const btnW = 140;
+        const btnH = 40;
+        const cx = x + 70 + dx;
+        const cy = y + 130;
+
+        const gfx = this.add.graphics().setDepth(52);
+        const draw = (hover: boolean): void => {
+          gfx.clear();
+          gfx.fillStyle(0x061012, 1);
+          gfx.fillRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          gfx.lineStyle(1, hover ? 0x53d1ff : 0x4df3a9, 1);
+          gfx.strokeRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          if (value === this.difficulty) {
+            gfx.fillStyle(0x4df3a9, 0.08);
+            gfx.fillRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          } else if (hover) {
+            gfx.fillStyle(0x4df3a9, 0.04);
+            gfx.fillRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          }
+        };
+        draw(false);
+
+        const txt = this.add.text(cx, cy, label, {
+          fontFamily: 'monospace', fontSize: '12px', color: '#4df3a9',
+        }).setOrigin(0.5, 0.5).setDepth(53);
+
+        const zone = this.add.zone(cx, cy, btnW, btnH).setInteractive({ useHandCursor: true }).setDepth(54);
+        zone.on('pointerdown', () => {
+          this.setDifficulty(value);
+        });
+        zone.on('pointerover', () => draw(true));
+        zone.on('pointerout', () => draw(false));
+
+        container.add(gfx);
+        container.add(txt);
+        container.add(zone);
+      };
+
+      makeButton('EASY', 0, 'easy');
+      makeButton('MEDIUM', 170, 'medium');
+      makeButton('HARD', 340, 'hard');
+
+      const closeZone = this.add.zone(w / 2, h / 2, w, h).setDepth(49);
+      closeZone.setInteractive();
+      closeZone.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (p.x < x || p.x > x + panelW || p.y < y || p.y > y + panelH) this.closeSettings();
+      });
+      container.addAt(closeZone, 0);
+    }
+  }
+
+  private closeSettings(): void {
+    if (!this.settingsOpen) return;
+    this.settingsOpen = false;
+    this.settingsContainer?.destroy(true);
+    this.settingsContainer = null;
   }
 
   // ─── Background grid ─────────────────────────────────────────────────────────
@@ -291,11 +431,32 @@ export class NetworkMapScene extends Phaser.Scene {
     modeZone.on('pointerdown', () => this.toggleMode());
     modeZone.on('pointerover', () => this.modeLabel.setColor('#53d1ff'));
     modeZone.on('pointerout', () => this.modeLabel.setColor('#4df3a9'));
+
+    // Difficulty (left side of bottom bar)
+    this.difficultyLabel = this.add.text(22, 542, this.getDifficultyLabel(), {
+      fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
+    }).setOrigin(0, 0.5).setDepth(9);
+
+    if (this.inputMode === 'mouse') {
+      const diffZone = this.add.zone(86, 542, 150, 28).setInteractive({ useHandCursor: true }).setDepth(9);
+      diffZone.on('pointerdown', () => this.openSettings());
+      diffZone.on('pointerover', () => this.difficultyLabel.setColor('#53d1ff'));
+      diffZone.on('pointerout', () => this.difficultyLabel.setColor('#4df3a9'));
+    } else {
+      const settingsHint = this.add.text(22, 524, '[S] SETTINGS', {
+        fontFamily: 'monospace', fontSize: '9px', color: '#2a6a4a',
+      }).setOrigin(0, 0).setDepth(9);
+      this.tweens.add({ targets: settingsHint, alpha: 0.35, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
   }
 
   private getModeLabel(): string {
     if (this.isMobile) return `[MOUSE MODE]`;
     return `[${this.inputMode.toUpperCase()} MODE]`;
+  }
+
+  private getDifficultyLabel(): string {
+    return `[${this.difficulty.toUpperCase()}]`;
   }
 
   // ─── Scan line overlay ────────────────────────────────────────────────────────

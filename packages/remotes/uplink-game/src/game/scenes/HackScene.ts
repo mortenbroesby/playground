@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 
 export type InputMode = 'keyboard' | 'mouse';
+export type Difficulty = 'easy' | 'medium' | 'hard';
 
 interface HackSceneData {
   targetName: string;
   inputMode?: InputMode;
+  difficulty?: Difficulty;
 }
 
 interface ToolDef {
@@ -52,15 +54,51 @@ const TOOLS: ToolDef[] = [
   { name: 'WIPE LOGS', y: 360 },
 ];
 
-// Keystrokes required to complete each tool
-const KEYBOARD_KEYSTROKE_TARGETS = [85, 62, 22];
+const DIFFICULTY_KEY = 'uplink_difficulty';
 
-const KEYBOARD_IDLE_GRACE_MS = 350;
+type DifficultyConfig = {
+  traceTickMs: number;
+  keyboardKeystrokeTargets: [number, number, number];
+  keyboardIdleGraceMs: number;
+  keyboardIdleDecayPerMs: number;
+  keyboardIdleTracePerSecond: number;
+  keyboardSlowCadenceMs: number;
+  keyboardSlowTracePenalty: number;
+  mouseToolTweenMs: [number, number];
+};
 
-// Progress decay while idle (percent per ms)
-const KEYBOARD_IDLE_DECAY_PER_MS = 0.008;
-
-const KEYBOARD_IDLE_TRACE_PER_SECOND = 2;
+const DIFFICULTY: Record<Difficulty, DifficultyConfig> = {
+  easy: {
+    traceTickMs: 1250,
+    keyboardKeystrokeTargets: [65, 48, 16],
+    keyboardIdleGraceMs: 450,
+    keyboardIdleDecayPerMs: 0.005,
+    keyboardIdleTracePerSecond: 1,
+    keyboardSlowCadenceMs: 320,
+    keyboardSlowTracePenalty: 1,
+    mouseToolTweenMs: [900, 1500],
+  },
+  medium: {
+    traceTickMs: 1000,
+    keyboardKeystrokeTargets: [85, 62, 22],
+    keyboardIdleGraceMs: 350,
+    keyboardIdleDecayPerMs: 0.008,
+    keyboardIdleTracePerSecond: 2,
+    keyboardSlowCadenceMs: 240,
+    keyboardSlowTracePenalty: 1,
+    mouseToolTweenMs: [1100, 1900],
+  },
+  hard: {
+    traceTickMs: 850,
+    keyboardKeystrokeTargets: [110, 82, 32],
+    keyboardIdleGraceMs: 260,
+    keyboardIdleDecayPerMs: 0.011,
+    keyboardIdleTracePerSecond: 3,
+    keyboardSlowCadenceMs: 200,
+    keyboardSlowTracePenalty: 2,
+    mouseToolTweenMs: [1450, 2400],
+  },
+};
 
 const BAR_MAX_WIDTH = 340;
 const TOOL_PANEL_X = 500;
@@ -75,6 +113,7 @@ const LOG_MAX = 11;
 export class HackScene extends Phaser.Scene {
   private targetName = '';
   private inputMode: InputMode = 'mouse';
+  private difficulty: Difficulty = 'medium';
   private trace = 0;
   private traceBarGfx!: Phaser.GameObjects.Graphics;
   private traceText!: Phaser.GameObjects.Text;
@@ -108,6 +147,8 @@ export class HackScene extends Phaser.Scene {
     this.targetName = data.targetName;
     const isMobile = Boolean(this.sys.game.device.os.android || this.sys.game.device.os.iOS);
     this.inputMode = isMobile ? 'mouse' : (data.inputMode ?? 'mouse');
+    this.difficulty = (localStorage.getItem(DIFFICULTY_KEY) as Difficulty) ?? data.difficulty ?? 'medium';
+    if (!DIFFICULTY[this.difficulty]) this.difficulty = 'medium';
     this.trace = 0;
     this.logTexts = [];
     this.logLineIndex = 0;
@@ -172,9 +213,10 @@ export class HackScene extends Phaser.Scene {
       exitZone.on('pointerout', () => this.exitText.setColor('#53d1ff'));
     }
 
-    // Trace timer: +1% per second
+    // Trace timer: difficulty-dependent
+    const difficulty = DIFFICULTY[this.difficulty];
     this.time.addEvent({
-      delay: 1000,
+      delay: difficulty.traceTickMs,
       repeat: 99,
       callback: () => {
         this.trace = Math.min(100, this.trace + 1);
@@ -229,18 +271,19 @@ export class HackScene extends Phaser.Scene {
     const i = this.activeToolIndex;
     if (i === null || !this.toolStates[i].running) return;
 
+    const difficulty = DIFFICULTY[this.difficulty];
     const idleMs = Date.now() - this.lastKeypressTime;
-    if (idleMs < KEYBOARD_IDLE_GRACE_MS) return;
+    if (idleMs < difficulty.keyboardIdleGraceMs) return;
 
     // Bar decay while idle
-    this.toolProgress[i] = Math.max(0, this.toolProgress[i] - delta * KEYBOARD_IDLE_DECAY_PER_MS);
+    this.toolProgress[i] = Math.max(0, this.toolProgress[i] - delta * difficulty.keyboardIdleDecayPerMs);
     this.drawTypingProgress(i);
 
     // Extra trace tick while idle (on top of the regular timer)
     this.idleTraceAccumulator += delta;
     if (this.idleTraceAccumulator >= 1000) {
       this.idleTraceAccumulator -= 1000;
-      this.trace = Math.min(100, this.trace + KEYBOARD_IDLE_TRACE_PER_SECOND);
+      this.trace = Math.min(100, this.trace + difficulty.keyboardIdleTracePerSecond);
       this.updateTraceBar();
       if (this.trace >= 100) {
         this.scene.start('MissionEndScene', { success: false, trace: 100 });
@@ -270,14 +313,15 @@ export class HackScene extends Phaser.Scene {
     this.idleTraceAccumulator = 0;
 
     // Random progress per keypress (base ± 30% variance)
-    const base = 100 / KEYBOARD_KEYSTROKE_TARGETS[i];
+    const difficulty = DIFFICULTY[this.difficulty];
+    const base = 100 / difficulty.keyboardKeystrokeTargets[i];
     const speedBonus = this.lastKeypressDeltaMs > 0 && this.lastKeypressDeltaMs < 140 ? 1.25 : 1;
     const increment = base * (0.7 + Math.random() * 0.6) * speedBonus;
     this.toolProgress[i] = Math.min(100, this.toolProgress[i] + increment);
 
     // Punish slow cadence with trace pressure
-    if (this.lastKeypressDeltaMs > 240) {
-      this.trace = Math.min(100, this.trace + 1);
+    if (this.lastKeypressDeltaMs > difficulty.keyboardSlowCadenceMs) {
+      this.trace = Math.min(100, this.trace + difficulty.keyboardSlowTracePenalty);
       this.updateTraceBar();
       if (this.trace >= 100) {
         this.scene.start('MissionEndScene', { success: false, trace: 100 });
@@ -525,7 +569,8 @@ export class HackScene extends Phaser.Scene {
     label.setColor('#53d1ff');
     this.toolZones[index].disableInteractive();
 
-    const duration = Phaser.Math.Between(1100, 1900);
+    const difficulty = DIFFICULTY[this.difficulty];
+    const duration = Phaser.Math.Between(difficulty.mouseToolTweenMs[0], difficulty.mouseToolTweenMs[1]);
     this.tweens.addCounter({
       from: 0,
       to: 100,
