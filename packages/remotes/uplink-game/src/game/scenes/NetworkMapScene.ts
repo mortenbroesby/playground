@@ -514,12 +514,14 @@ export class NetworkMapScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
     }).setOrigin(1, 0.5).setDepth(9);
 
-    const modeZone = this.add.zone(820, 542, 140, 28)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(9);
-    modeZone.on('pointerdown', () => this.toggleMode());
-    modeZone.on('pointerover', () => this.modeLabel.setColor('#53d1ff'));
-    modeZone.on('pointerout', () => this.modeLabel.setColor('#4df3a9'));
+    if (this.inputMode === 'mouse') {
+      const modeZone = this.add.zone(820, 542, 140, 28)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(9);
+      modeZone.on('pointerdown', () => this.toggleMode());
+      modeZone.on('pointerover', () => this.modeLabel.setColor('#53d1ff'));
+      modeZone.on('pointerout', () => this.modeLabel.setColor('#4df3a9'));
+    }
 
     // Difficulty (left side of bottom bar)
     this.difficultyLabel = this.add.text(22, 542, this.getDifficultyLabel(), {
