@@ -80,13 +80,14 @@ export class NetworkMapScene extends Phaser.Scene {
     if (this.inputMode === 'keyboard') {
       this.input.keyboard!.once('keydown-ENTER', () => this.startHack());
       this.input.keyboard!.once('keydown-SPACE', () => this.startHack());
-      this.input.keyboard!.once('keydown-M', () => this.setMode('mouse'));
       this.input.keyboard!.on('keydown-S', () => this.toggleSettings());
       this.input.keyboard!.on('keydown-ESC', () => this.closeSettings());
       this.input.keyboard!.on('keydown-ONE', () => this.setDifficulty('easy'));
       this.input.keyboard!.on('keydown-TWO', () => this.setDifficulty('medium'));
       this.input.keyboard!.on('keydown-THREE', () => this.setDifficulty('hard'));
       this.input.keyboard!.on('keydown-T', () => { if (this.settingsOpen) this.toggleFullscreenFromMenu(); });
+      this.input.keyboard!.on('keydown-M', () => { if (this.settingsOpen) this.setMode('mouse'); });
+      this.input.keyboard!.on('keydown-K', () => { if (this.settingsOpen) this.setMode('keyboard'); });
     }
   }
 
@@ -146,7 +147,7 @@ export class NetworkMapScene extends Phaser.Scene {
     const w = 900;
     const h = 560;
     const panelW = 520;
-    const panelH = 320;
+    const panelH = 380;
     const x = (w - panelW) / 2;
     const y = (h - panelH) / 2;
 
@@ -170,13 +171,22 @@ export class NetworkMapScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5).setDepth(52);
     container.add(title);
 
-    const sub = this.add.text(x + 20, y + 56, `DIFFICULTY: ${this.difficulty.toUpperCase()}`, {
+    const inputModeText = this.isMobile
+      ? `INPUT MODE: MOUSE (MOBILE)`
+      : `INPUT MODE: ${this.inputMode.toUpperCase()}`;
+
+    const inputModeLabel = this.add.text(x + 20, y + 56, inputModeText, {
+      fontFamily: 'monospace', fontSize: '12px', color: '#53d1ff',
+    }).setDepth(52);
+    container.add(inputModeLabel);
+
+    const sub = this.add.text(x + 20, y + 80, `DIFFICULTY: ${this.difficulty.toUpperCase()}`, {
       fontFamily: 'monospace', fontSize: '12px', color: '#53d1ff',
     }).setDepth(52);
     container.add(sub);
 
     const hint = this.inputMode === 'keyboard'
-      ? '[1] EASY   [2] MEDIUM   [3] HARD   [T] FULLSCREEN   [ESC] CLOSE'
+      ? '[M] MOUSE   [K] KEYBOARD   [1/2/3] DIFFICULTY   [T] FULLSCREEN   [ESC] CLOSE'
       : 'CLICK A DIFFICULTY OR FULLSCREEN  —  CLICK OUTSIDE TO CLOSE';
     const hintText = this.add.text(w / 2, y + panelH - 22, hint, {
       fontFamily: 'monospace', fontSize: '11px', color: '#2a6a4a',
@@ -184,11 +194,53 @@ export class NetworkMapScene extends Phaser.Scene {
     container.add(hintText);
 
     if (this.inputMode === 'mouse') {
+      const makeModeButton = (label: string, dx: number, value: InputMode): void => {
+        const btnW = 160;
+        const btnH = 36;
+        const cx = x + 100 + dx;
+        const cy = y + 120;
+
+        const gfx = this.add.graphics().setDepth(52);
+        const draw = (hover: boolean): void => {
+          gfx.clear();
+          gfx.fillStyle(0x061012, 1);
+          gfx.fillRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          const active = value === this.inputMode;
+          gfx.lineStyle(1, hover ? 0x53d1ff : 0x4df3a9, 1);
+          gfx.strokeRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          if (active) {
+            gfx.fillStyle(0x4df3a9, 0.08);
+            gfx.fillRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          } else if (hover) {
+            gfx.fillStyle(0x4df3a9, 0.04);
+            gfx.fillRect(cx - btnW / 2, cy - btnH / 2, btnW, btnH);
+          }
+        };
+        draw(false);
+
+        const txt = this.add.text(cx, cy, label, {
+          fontFamily: 'monospace', fontSize: '12px', color: '#4df3a9',
+        }).setOrigin(0.5, 0.5).setDepth(53);
+
+        const zone = this.add.zone(cx, cy, btnW, btnH).setDepth(54);
+        if (!(this.isMobile && value === 'keyboard')) zone.setInteractive({ useHandCursor: true });
+        zone.on('pointerdown', () => this.setMode(value));
+        zone.on('pointerover', () => draw(true));
+        zone.on('pointerout', () => draw(false));
+
+        container.add(gfx);
+        container.add(txt);
+        container.add(zone);
+      };
+
+      makeModeButton('MOUSE MODE', 0, 'mouse');
+      makeModeButton('KEYBOARD MODE', 220, 'keyboard');
+
       const makeButton = (label: string, dx: number, value: Difficulty): void => {
         const btnW = 140;
         const btnH = 40;
         const cx = x + 70 + dx;
-        const cy = y + 130;
+        const cy = y + 180;
 
         const gfx = this.add.graphics().setDepth(52);
         const draw = (hover: boolean): void => {
@@ -229,7 +281,7 @@ export class NetworkMapScene extends Phaser.Scene {
 
       const fsLabel = this.isFullscreenActive() ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
       const fsX = w / 2;
-      const fsY = y + 200;
+      const fsY = y + 260;
       const fsW = 240;
       const fsH = 40;
 

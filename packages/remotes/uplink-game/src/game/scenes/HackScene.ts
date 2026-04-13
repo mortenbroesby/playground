@@ -201,7 +201,7 @@ export class HackScene extends Phaser.Scene {
 
     const exitX = 14;
     const exitY = 544;
-    this.exitText = this.add.text(exitX, exitY, this.inputMode === 'keyboard' ? '[Q] EXIT' : '[EXIT]', {
+    this.exitText = this.add.text(exitX, exitY, this.inputMode === 'keyboard' ? '[CTRL+Q] EXIT' : '[EXIT]', {
       fontFamily: 'monospace',
       fontSize: '12px',
       color: '#53d1ff',
@@ -304,7 +304,8 @@ export class HackScene extends Phaser.Scene {
   private onKeyDown(event: KeyboardEvent): void {
     if (this.inputMode !== 'keyboard') return;
 
-    if (event.code === 'KeyQ') {
+    if (event.code === 'KeyQ' && event.ctrlKey) {
+      event.preventDefault();
       this.exitToMenu();
       return;
     }

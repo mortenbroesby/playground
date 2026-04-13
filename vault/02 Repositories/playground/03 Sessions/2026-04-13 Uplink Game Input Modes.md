@@ -8,6 +8,7 @@ Implemented a persistent input mode setting (`mouse` vs `keyboard`) for the Upli
 
 - `NetworkMapScene` now lets players toggle input mode from the start screen and persists it via `localStorage`.
 - Added a `Difficulty` setting (`easy` / `medium` / `hard`) persisted via `localStorage` and configurable from a start-screen settings overlay.
+- Input mode selection (mouse vs keyboard) is now also available in the settings overlay.
 - Fullscreen is now only toggled intentionally from the settings menu (removed in-game fullscreen hotkeys/buttons and the dblclick toggle); mobile uses a full-window fallback when Fullscreen API is unavailable.
 - `HackScene` behavior is mode-specific:
   - `mouse`: click a tool to execute it with an auto-completing tween (no typing).
