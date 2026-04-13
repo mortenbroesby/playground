@@ -145,7 +145,7 @@ export class HackScene extends Phaser.Scene {
 
   init(data: HackSceneData): void {
     this.targetName = data.targetName;
-    const isMobile = Boolean(this.sys.game.device.os.android || this.sys.game.device.os.iOS);
+    const isMobile = this.detectMobile();
     this.inputMode = isMobile ? 'mouse' : (data.inputMode ?? 'mouse');
     this.difficulty = (localStorage.getItem(DIFFICULTY_KEY) as Difficulty) ?? data.difficulty ?? 'medium';
     if (!DIFFICULTY[this.difficulty]) this.difficulty = 'medium';
@@ -342,6 +342,31 @@ export class HackScene extends Phaser.Scene {
 
   private exitToMenu(): void {
     this.scene.start('NetworkMapScene');
+  }
+
+  private detectMobile(): boolean {
+    const device = this.sys.game.device;
+    const os = device.os as Record<string, unknown>;
+    const input = device.input as Record<string, unknown>;
+
+    const mobileOS = Boolean(
+      os.android
+      || os.iOS
+      || os.iPad
+      || os.iPhone
+      || os.windowsPhone
+    );
+
+    const touchCapable = Boolean(input.touch);
+
+    const coarsePointer = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(pointer: coarse)').matches;
+
+    const smallViewport = typeof window !== 'undefined'
+      && Math.min(window.innerWidth, window.innerHeight) <= 820;
+
+    return mobileOS || (touchCapable && (coarsePointer || smallViewport));
   }
 
   private revealCorpusChars(count: number): void {

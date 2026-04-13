@@ -58,7 +58,7 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.isMobile = Boolean(this.sys.game.device.os.android || this.sys.game.device.os.iOS);
+    this.isMobile = this.detectMobile();
 
     const storedMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? 'mouse';
     this.inputMode = this.isMobile ? 'mouse' : storedMode;
@@ -126,10 +126,7 @@ export class NetworkMapScene extends Phaser.Scene {
     this.difficulty = difficulty;
     localStorage.setItem(DIFFICULTY_KEY, this.difficulty);
     if (this.difficultyLabel) this.difficultyLabel.setText(this.getDifficultyLabel());
-    if (this.settingsOpen) {
-      this.closeSettings();
-      this.openSettings();
-    }
+    if (this.settingsOpen) this.closeSettings();
   }
 
   private toggleSettings(): void {
@@ -242,6 +239,31 @@ export class NetworkMapScene extends Phaser.Scene {
     this.settingsOpen = false;
     this.settingsContainer?.destroy(true);
     this.settingsContainer = null;
+  }
+
+  private detectMobile(): boolean {
+    const device = this.sys.game.device;
+    const os = device.os as Record<string, unknown>;
+    const input = device.input as Record<string, unknown>;
+
+    const mobileOS = Boolean(
+      os.android
+      || os.iOS
+      || os.iPad
+      || os.iPhone
+      || os.windowsPhone
+    );
+
+    const touchCapable = Boolean(input.touch);
+
+    const coarsePointer = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(pointer: coarse)').matches;
+
+    const smallViewport = typeof window !== 'undefined'
+      && Math.min(window.innerWidth, window.innerHeight) <= 820;
+
+    return mobileOS || (touchCapable && (coarsePointer || smallViewport));
   }
 
   // ─── Background grid ─────────────────────────────────────────────────────────
