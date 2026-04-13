@@ -111,7 +111,12 @@ const COLOR_BG = 0x061012;
 // Max narrative log lines (leave one slot below for the live typing line)
 const LOG_MAX = 11;
 
-const TAP_KEYS = ['Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F', 'Z', 'X', 'C', 'V'] as const;
+const TAP_KEY_ROWS = [
+  ['Q', 'W', 'E', 'R', 'T', 'Y'],
+  ['A', 'S', 'D', 'F', 'G', 'H'],
+  ['Z', 'X', 'C', 'V', 'B'],
+] as const;
+const TAP_KEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'A', 'S', 'D', 'F', 'G', 'H', 'Z', 'X', 'C', 'V', 'B'] as const;
 type TapKey = (typeof TAP_KEYS)[number];
 
 type TapKeyButton = {
@@ -288,8 +293,8 @@ export class HackScene extends Phaser.Scene {
       this.createToolButton(i);
     }
 
+    this.input.keyboard!.on('keydown', this.onKeyboardKeyDown, this);
     if (this.inputMode === 'keyboard') {
-      this.input.keyboard!.on('keydown', this.onKeyboardKeyDown, this);
       this.startKeyboardTool(0);
     }
   }
@@ -321,8 +326,6 @@ export class HackScene extends Phaser.Scene {
   }
 
   private onKeyboardKeyDown(event: KeyboardEvent): void {
-    if (this.inputMode !== 'keyboard') return;
-
     if (event.code === 'KeyQ' && event.ctrlKey) {
       event.preventDefault();
       this.exitToMenu();
@@ -335,7 +338,7 @@ export class HackScene extends Phaser.Scene {
     if (!this.isTapKey(key)) return;
 
     event.preventDefault();
-    this.onTapKey(key);
+    this.onTapKey(key, 'keyboard');
   }
 
   private exitToMenu(): void {
@@ -404,11 +407,8 @@ export class HackScene extends Phaser.Scene {
       this.activeToolIndex = null;
     }
 
-    if (this.inputMode === 'keyboard') {
-      // Finalize any partial typing line
-      this.finalizeTypingLine();
-      this.destroyTapKeyboard();
-    }
+    this.finalizeTypingLine();
+    this.destroyTapKeyboard();
 
     const state = this.toolStates[index];
     state.running = false;
@@ -559,58 +559,59 @@ export class HackScene extends Phaser.Scene {
     this.createTapKeyboard(index);
   }
 
-  private createTapKeyboard(index: number): void {
+  private createTapKeyboard(_index: number): void {
     this.destroyTapKeyboard();
 
-    const tool = TOOLS[index];
-    const bx = TOOL_PANEL_X + 10;
-    const by = tool.y;
-    const bw = 360;
-    const bh = 80;
-
-    const cols = 4;
-    const rows = 3;
-    const keyW = 40;
-    const keyH = 22;
-    const gap = 6;
-
-    const gridW = cols * keyW + (cols - 1) * gap;
-    const gridH = rows * keyH + (rows - 1) * gap;
-    const startX = bx + bw / 2 - gridW / 2;
-    const startY = by + bh / 2 - gridH / 2 + 10;
+    const keyW = 52;
+    const keyH = 34;
+    const gapX = 5;
+    const gapY = 6;
+    // QWERTY stagger: each row offset right by ~0.25 key pitch
+    const rowOffsets = [0, 14, 28];
+    const startX = 28;
+    const startY = 383;
 
     const container = this.add.container(0, 0).setDepth(20);
     this.tapKeyboardContainer = container;
     this.tapKeys = [];
 
-    for (let i = 0; i < TAP_KEYS.length; i++) {
-      const key = TAP_KEYS[i];
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const x = startX + col * (keyW + gap);
-      const y = startY + row * (keyH + gap);
+    for (let rowIdx = 0; rowIdx < TAP_KEY_ROWS.length; rowIdx++) {
+      const row = TAP_KEY_ROWS[rowIdx];
+      const rowX = startX + rowOffsets[rowIdx];
+      const rowY = startY + rowIdx * (keyH + gapY);
 
-      const gfx = this.add.graphics();
-      const text = this.add.text(x + keyW / 2, y + keyH / 2, key, {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#4df3a9',
-      }).setOrigin(0.5, 0.5);
+      for (let colIdx = 0; colIdx < row.length; colIdx++) {
+        const key = row[colIdx] as TapKey;
+        const x = rowX + colIdx * (keyW + gapX);
+        const y = rowY;
 
-      const zone = this.add.zone(x + keyW / 2, y + keyH / 2, keyW, keyH)
-        .setInteractive({ useHandCursor: true });
+        const gfx = this.add.graphics();
+        const text = this.add.text(x + keyW / 2, y + keyH / 2, key, {
+          fontFamily: 'monospace',
+          fontSize: '13px',
+          color: '#4df3a9',
+        }).setOrigin(0.5, 0.5);
 
-      const button: TapKeyButton = { key, gfx, text, zone };
-      this.tapKeys.push(button);
+        const zone = this.add.zone(x + keyW / 2, y + keyH / 2, keyW, keyH)
+          .setInteractive({ useHandCursor: true });
 
-      zone.on('pointerdown', () => this.onTapKey(key));
-      zone.on('pointerover', () => this.drawTapKey(button, true));
-      zone.on('pointerout', () => this.drawTapKey(button, false));
+        const button: TapKeyButton = { key, gfx, text, zone };
+        this.tapKeys.push(button);
 
-      container.add(gfx);
-      container.add(text);
-      container.add(zone);
+        zone.on('pointerdown', () => this.onTapKey(key, 'pointer'));
+        zone.on('pointerover', () => this.drawTapKey(button, true));
+        zone.on('pointerout', () => this.drawTapKey(button, false));
+
+        container.add(gfx);
+        container.add(text);
+        container.add(zone);
+      }
     }
+
+    const label = this.add.text(startX, startY - 16, 'TAP KEY:', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#2a6a4a',
+    });
+    container.add(label);
 
     this.redrawTapKeyboard();
   }
@@ -652,13 +653,27 @@ export class HackScene extends Phaser.Scene {
     }
   }
 
+  private flashCorrectKey(key: TapKey): void {
+    const btn = this.tapKeys.find(b => b.key === key);
+    if (!btn) return;
+    const flash = this.add.text(btn.zone.x, btn.zone.y - 8, '+HIT', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#53d1ff',
+    }).setOrigin(0.5, 1).setDepth(30);
+    this.tweens.add({
+      targets: flash,
+      y: btn.zone.y - 36,
+      alpha: 0,
+      duration: 480,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+  }
+
   private isTapKey(key: string): key is TapKey {
     return TAP_KEYS.includes(key as TapKey);
   }
 
-  private onTapKey(key: TapKey): void {
-    if (this.inputMode !== 'keyboard') return;
-
+  private onTapKey(key: TapKey, source: 'keyboard' | 'pointer' = 'keyboard'): void {
     const i = this.activeToolIndex;
     if (i === null) return;
     const state = this.toolStates[i];
@@ -674,8 +689,11 @@ export class HackScene extends Phaser.Scene {
 
     const targetBonus = key === this.tapTargetKey ? 1.35 : 1;
     const speedBonus = this.lastKeypressDeltaMs > 0 && this.lastKeypressDeltaMs < 160 ? 1.2 : 1;
-    const increment = base * (0.75 + Math.random() * 0.55) * targetBonus * speedBonus;
+    const pointerBonus = source === 'pointer' ? 1.6 : 1;
+    const increment = base * (0.75 + Math.random() * 0.55) * targetBonus * speedBonus * pointerBonus;
     this.toolProgress[i] = Math.min(100, this.toolProgress[i] + increment);
+
+    if (key === this.tapTargetKey) this.flashCorrectKey(key);
 
     if (this.lastKeypressDeltaMs > difficulty.keyboardSlowCadenceMs) {
       this.trace = Math.min(100, this.trace + difficulty.keyboardSlowTracePenalty);
@@ -697,7 +715,9 @@ export class HackScene extends Phaser.Scene {
     }
 
     this.pickNextTapTarget();
-    this.toolLabels[i].setText(`[TYPE: ${this.tapTargetKey}]`);
+    if (this.inputMode === 'keyboard') {
+      this.toolLabels[i].setText(`[TYPE: ${this.tapTargetKey}]`);
+    }
   }
 
   private startMouseTool(index: number): void {
@@ -705,6 +725,7 @@ export class HackScene extends Phaser.Scene {
     state.running = true;
     this.activeToolIndex = index;
     this.toolProgress[index] = 0;
+    this.lastKeypressTime = Date.now();
     this.drawTypingProgress(index);
 
     const label = this.toolLabels[index];
@@ -712,20 +733,36 @@ export class HackScene extends Phaser.Scene {
     label.setColor('#53d1ff');
     this.toolZones[index].disableInteractive();
 
+    this.pickNextTapTarget();
+    this.createTapKeyboard(index);
+
     const difficulty = DIFFICULTY[this.difficulty];
     const duration = Phaser.Math.Between(difficulty.mouseToolTweenMs[0], difficulty.mouseToolTweenMs[1]);
+    let tweenLastValue = 0;
+    let completed = false;
     this.tweens.addCounter({
       from: 0,
       to: 100,
       duration,
       ease: 'Sine.easeInOut',
       onUpdate: (tween) => {
-        this.toolProgress[index] = tween.getValue() ?? 0;
+        if (completed) return;
+        const val = tween.getValue() ?? 0;
+        const delta = val - tweenLastValue;
+        tweenLastValue = val;
+        this.toolProgress[index] = Math.min(100, this.toolProgress[index] + delta);
         this.drawTypingProgress(index);
+        if (this.toolProgress[index] >= 100) {
+          completed = true;
+          tween.stop();
+          this.completeTool(index);
+        }
       },
       onComplete: () => {
-        this.toolProgress[index] = 100;
-        this.completeTool(index);
+        if (!completed) {
+          this.toolProgress[index] = 100;
+          this.completeTool(index);
+        }
       },
     });
   }
