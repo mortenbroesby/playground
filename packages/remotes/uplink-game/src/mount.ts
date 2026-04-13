@@ -27,5 +27,21 @@ export function mount(el: HTMLElement): () => void {
   game.canvas.style.width = '100%';
   game.canvas.style.height = '100%';
 
-  return () => game.destroy(true);
+  const onDoubleClick = (): void => {
+    if (!game.scale.fullscreen.available) return;
+
+    if (game.scale.isFullscreen) {
+      game.scale.stopFullscreen();
+      return;
+    }
+
+    game.scale.startFullscreen();
+  };
+
+  game.canvas.addEventListener('dblclick', onDoubleClick);
+
+  return () => {
+    game.canvas.removeEventListener('dblclick', onDoubleClick);
+    game.destroy(true);
+  };
 }
