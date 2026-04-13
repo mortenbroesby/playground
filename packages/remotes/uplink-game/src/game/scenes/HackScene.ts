@@ -89,14 +89,14 @@ const DIFFICULTY: Record<Difficulty, DifficultyConfig> = {
     mouseToolTweenMs: [1100, 1900],
   },
   hard: {
-    traceTickMs: 850,
-    keyboardKeystrokeTargets: [110, 82, 32],
-    keyboardIdleGraceMs: 260,
-    keyboardIdleDecayPerMs: 0.011,
-    keyboardIdleTracePerSecond: 3,
-    keyboardSlowCadenceMs: 200,
-    keyboardSlowTracePenalty: 2,
-    mouseToolTweenMs: [1450, 2400],
+    traceTickMs: 700,
+    keyboardKeystrokeTargets: [140, 105, 42],
+    keyboardIdleGraceMs: 220,
+    keyboardIdleDecayPerMs: 0.014,
+    keyboardIdleTracePerSecond: 4,
+    keyboardSlowCadenceMs: 170,
+    keyboardSlowTracePenalty: 3,
+    mouseToolTweenMs: [1850, 2900],
   },
 };
 
