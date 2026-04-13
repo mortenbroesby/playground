@@ -289,8 +289,7 @@ export class HackScene extends Phaser.Scene {
     }
 
     if (this.inputMode === 'keyboard') {
-      // Only reserve a deliberate exit shortcut; gameplay uses on-screen taps.
-      this.input.keyboard!.on('keydown', this.onExitKeyDown, this);
+      this.input.keyboard!.on('keydown', this.onKeyboardKeyDown, this);
       this.startKeyboardTool(0);
     }
   }
@@ -321,7 +320,7 @@ export class HackScene extends Phaser.Scene {
     }
   }
 
-  private onExitKeyDown(event: KeyboardEvent): void {
+  private onKeyboardKeyDown(event: KeyboardEvent): void {
     if (this.inputMode !== 'keyboard') return;
 
     if (event.code === 'KeyQ' && event.ctrlKey) {
@@ -329,6 +328,14 @@ export class HackScene extends Phaser.Scene {
       this.exitToMenu();
       return;
     }
+
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+    const key = event.key.toUpperCase();
+    if (!this.isTapKey(key)) return;
+
+    event.preventDefault();
+    this.onTapKey(key);
   }
 
   private exitToMenu(): void {
@@ -546,7 +553,7 @@ export class HackScene extends Phaser.Scene {
 
     const label = this.toolLabels[index];
     this.pickNextTapTarget();
-    label.setText(`[TAP: ${this.tapTargetKey}]`);
+    label.setText(`[TYPE: ${this.tapTargetKey}]`);
     label.setColor('#53d1ff');
 
     this.createTapKeyboard(index);
@@ -645,6 +652,10 @@ export class HackScene extends Phaser.Scene {
     }
   }
 
+  private isTapKey(key: string): key is TapKey {
+    return TAP_KEYS.includes(key as TapKey);
+  }
+
   private onTapKey(key: TapKey): void {
     if (this.inputMode !== 'keyboard') return;
 
@@ -661,19 +672,10 @@ export class HackScene extends Phaser.Scene {
     const difficulty = DIFFICULTY[this.difficulty];
     const base = 100 / difficulty.keyboardKeystrokeTargets[i];
 
-    const targetBonus = key === this.tapTargetKey ? 1.35 : 0.9;
+    const targetBonus = key === this.tapTargetKey ? 1.35 : 1;
     const speedBonus = this.lastKeypressDeltaMs > 0 && this.lastKeypressDeltaMs < 160 ? 1.2 : 1;
     const increment = base * (0.75 + Math.random() * 0.55) * targetBonus * speedBonus;
     this.toolProgress[i] = Math.min(100, this.toolProgress[i] + increment);
-
-    if (key !== this.tapTargetKey) {
-      this.trace = Math.min(100, this.trace + 1);
-      this.updateTraceBar();
-      if (this.trace >= 100) {
-        this.scene.start('MissionEndScene', { success: false, trace: 100 });
-        return;
-      }
-    }
 
     if (this.lastKeypressDeltaMs > difficulty.keyboardSlowCadenceMs) {
       this.trace = Math.min(100, this.trace + difficulty.keyboardSlowTracePenalty);
@@ -695,7 +697,7 @@ export class HackScene extends Phaser.Scene {
     }
 
     this.pickNextTapTarget();
-    this.toolLabels[i].setText(`[TAP: ${this.tapTargetKey}]`);
+    this.toolLabels[i].setText(`[TYPE: ${this.tapTargetKey}]`);
   }
 
   private startMouseTool(index: number): void {
