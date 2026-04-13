@@ -359,7 +359,7 @@ export class HackScene extends Phaser.Scene {
 
       if (!this.typingLineText) {
         // Start a new live typing line below the current log entries
-        const yPos = 75 + Math.min(this.logTexts.length, LOG_MAX) * 18;
+        const yPos = 93 + Math.min(this.logTexts.length, LOG_MAX) * 18;
         this.typingLineText = this.add.text(28, yPos, '', {
           fontFamily: 'monospace', fontSize: '11px', color: '#53d1ff',
         });
@@ -377,7 +377,7 @@ export class HackScene extends Phaser.Scene {
       oldest?.destroy();
       for (const t of this.logTexts) t.y -= 18;
     }
-    this.typingLineText.setY(75 + this.logTexts.length * 18);
+    this.typingLineText.setY(93 + this.logTexts.length * 18);
     this.logTexts.push(this.typingLineText);
     this.typingLineText = null;
   }
@@ -463,7 +463,7 @@ export class HackScene extends Phaser.Scene {
       for (const t of this.logTexts) t.y -= 18;
     }
 
-    const yPos = 75 + this.logTexts.length * 18;
+    const yPos = 93 + this.logTexts.length * 18;
     const txt = this.add.text(28, yPos, line, {
       fontFamily: 'monospace', fontSize: '11px', color: '#4df3a9',
     });
@@ -471,7 +471,7 @@ export class HackScene extends Phaser.Scene {
 
     // Keep live typing line below log entries
     if (this.typingLineText) {
-      this.typingLineText.setY(75 + this.logTexts.length * 18);
+      this.typingLineText.setY(93 + this.logTexts.length * 18);
     }
   }
 
@@ -562,14 +562,14 @@ export class HackScene extends Phaser.Scene {
   private createTapKeyboard(_index: number): void {
     this.destroyTapKeyboard();
 
-    const keyW = 52;
-    const keyH = 34;
-    const gapX = 5;
-    const gapY = 6;
+    const keyW = 40;
+    const keyH = 26;
+    const gapX = 4;
+    const gapY = 4;
     // QWERTY stagger: each row offset right by ~0.25 key pitch
-    const rowOffsets = [0, 14, 28];
-    const startX = 28;
-    const startY = 383;
+    const rowOffsets = [0, 11, 22];
+    const startX = 120;
+    const startY = 400;
 
     const container = this.add.container(0, 0).setDepth(20);
     this.tapKeyboardContainer = container;
@@ -588,7 +588,7 @@ export class HackScene extends Phaser.Scene {
         const gfx = this.add.graphics();
         const text = this.add.text(x + keyW / 2, y + keyH / 2, key, {
           fontFamily: 'monospace',
-          fontSize: '13px',
+          fontSize: '11px',
           color: '#4df3a9',
         }).setOrigin(0.5, 0.5);
 
