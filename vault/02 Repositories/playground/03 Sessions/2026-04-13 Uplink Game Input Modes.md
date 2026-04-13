@@ -15,4 +15,3 @@ Implemented a persistent input mode setting (`mouse` vs `keyboard`) for the Upli
 
 - `packages/remotes/uplink-game/src/game/scenes/NetworkMapScene.ts`
 - `packages/remotes/uplink-game/src/game/scenes/HackScene.ts`
-

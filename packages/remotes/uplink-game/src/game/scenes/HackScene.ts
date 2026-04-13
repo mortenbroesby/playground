@@ -78,6 +78,7 @@ export class HackScene extends Phaser.Scene {
   private trace = 0;
   private traceBarGfx!: Phaser.GameObjects.Graphics;
   private traceText!: Phaser.GameObjects.Text;
+  private exitText!: Phaser.GameObjects.Text;
   private logTexts: Phaser.GameObjects.Text[] = [];
   private logLineIndex = 0;
   private shuffledLogLines: string[] = [];
@@ -155,6 +156,19 @@ export class HackScene extends Phaser.Scene {
     }).setOrigin(1, 0);
     this.updateTraceBar();
 
+    this.exitText = this.add.text(888, 26, this.inputMode === 'keyboard' ? '[ESC] EXIT' : '[EXIT]', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#2a6a4a',
+    }).setOrigin(1, 0).setAlpha(0.9);
+
+    if (this.inputMode === 'mouse') {
+      const exitZone = this.add.zone(840, 32, 120, 22).setInteractive({ useHandCursor: true });
+      exitZone.on('pointerdown', () => this.exitToMenu());
+      exitZone.on('pointerover', () => this.exitText.setColor('#53d1ff'));
+      exitZone.on('pointerout', () => this.exitText.setColor('#2a6a4a'));
+    }
+
     // Trace timer: +1% per second
     this.time.addEvent({
       delay: 1000,
@@ -231,8 +245,16 @@ export class HackScene extends Phaser.Scene {
     }
   }
 
-  private onKeyDown(): void {
+  private onKeyDown(event: KeyboardEvent): void {
     if (this.inputMode !== 'keyboard') return;
+
+    if (event.code === 'Escape') {
+      this.exitToMenu();
+      return;
+    }
+
+    // Ignore non-printable keys (modifiers, arrows, etc.)
+    if (event.key.length !== 1 && event.key !== ' ') return;
 
     const i = this.activeToolIndex;
     if (i === null) return;
@@ -269,6 +291,10 @@ export class HackScene extends Phaser.Scene {
     if (this.toolProgress[i] >= 100) {
       this.completeTool(i);
     }
+  }
+
+  private exitToMenu(): void {
+    this.scene.start('NetworkMapScene');
   }
 
   private revealCorpusChars(count: number): void {
