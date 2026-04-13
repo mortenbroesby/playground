@@ -47,7 +47,6 @@ export class NetworkMapScene extends Phaser.Scene {
   private rainDrops: RainDrop[] = [];
   private inputMode: InputMode = 'mouse';
   private isMobile = false;
-  private modeLabel!: Phaser.GameObjects.Text;
   private difficulty: Difficulty = 'medium';
   private difficultyLabel: Phaser.GameObjects.Text | null = null;
   private settingsOpen = false;
@@ -61,7 +60,7 @@ export class NetworkMapScene extends Phaser.Scene {
   create(): void {
     this.isMobile = this.detectMobile();
 
-    const storedMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? 'mouse';
+    const storedMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? 'keyboard';
     this.inputMode = this.isMobile ? 'mouse' : storedMode;
     if (this.isMobile) localStorage.setItem(INPUT_MODE_KEY, 'mouse');
 
@@ -109,13 +108,6 @@ export class NetworkMapScene extends Phaser.Scene {
     this.scene.start('HackScene', { targetName: 'DARKNET-07', inputMode: this.inputMode, difficulty: this.difficulty });
   }
 
-  private toggleMode(): void {
-    if (this.isMobile) return;
-    this.inputMode = this.inputMode === 'keyboard' ? 'mouse' : 'keyboard';
-    localStorage.setItem(INPUT_MODE_KEY, this.inputMode);
-    this.scene.restart();
-  }
-
   private setMode(mode: InputMode): void {
     if (this.isMobile && mode === 'keyboard') return;
     if (this.inputMode === mode) return;
@@ -144,8 +136,8 @@ export class NetworkMapScene extends Phaser.Scene {
     if (this.settingsOpen) return;
     this.settingsOpen = true;
 
-    const w = 900;
-    const h = 560;
+    const w = this.scale.width;
+    const h = this.scale.height;
     const panelW = 520;
     const panelH = 380;
     const x = (w - panelW) / 2;
@@ -561,41 +553,21 @@ export class NetworkMapScene extends Phaser.Scene {
     instrBg.lineStyle(1, 0x2a5a3a, 0.35);
     instrBg.strokeRect(0, 524, 900, 36);
 
-    // Mode toggle (right side of bottom bar)
-    this.modeLabel = this.add.text(878, 542, this.getModeLabel(), {
-      fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
-    }).setOrigin(1, 0.5).setDepth(9);
-
     if (this.inputMode === 'mouse') {
-      const modeZone = this.add.zone(820, 542, 140, 28)
-        .setInteractive({ useHandCursor: true })
-        .setDepth(9);
-      modeZone.on('pointerdown', () => this.toggleMode());
-      modeZone.on('pointerover', () => this.modeLabel.setColor('#53d1ff'));
-      modeZone.on('pointerout', () => this.modeLabel.setColor('#4df3a9'));
-    }
-
-    if (this.inputMode === 'mouse') {
-      // Difficulty (left side of bottom bar)
-      this.difficultyLabel = this.add.text(22, 542, this.getDifficultyLabel(), {
+      const settingsLabel = this.add.text(22, 542, '[SETTINGS]', {
         fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
       }).setOrigin(0, 0.5).setDepth(9);
 
-      const diffZone = this.add.zone(86, 542, 150, 28).setInteractive({ useHandCursor: true }).setDepth(9);
-      diffZone.on('pointerdown', () => this.openSettings());
-      diffZone.on('pointerover', () => this.difficultyLabel?.setColor('#53d1ff'));
-      diffZone.on('pointerout', () => this.difficultyLabel?.setColor('#4df3a9'));
+      const settingsZone = this.add.zone(70, 542, 120, 28).setInteractive({ useHandCursor: true }).setDepth(9);
+      settingsZone.on('pointerdown', () => this.openSettings());
+      settingsZone.on('pointerover', () => settingsLabel.setColor('#53d1ff'));
+      settingsZone.on('pointerout', () => settingsLabel.setColor('#4df3a9'));
     } else {
       const settingsHint = this.add.text(22, 524, '[S] SETTINGS', {
         fontFamily: 'monospace', fontSize: '9px', color: '#2a6a4a',
       }).setOrigin(0, 0).setDepth(9);
       this.tweens.add({ targets: settingsHint, alpha: 0.35, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
-  }
-
-  private getModeLabel(): string {
-    if (this.isMobile) return `[MOUSE MODE]`;
-    return `[${this.inputMode.toUpperCase()} MODE]`;
   }
 
   private getDifficultyLabel(): string {
