@@ -12,7 +12,7 @@ Implemented a persistent input mode setting (`mouse` vs `keyboard`) for the Upli
 - Fullscreen is now only toggled intentionally from the settings menu (removed in-game fullscreen hotkeys/buttons and the dblclick toggle); mobile uses a full-window fallback when Fullscreen API is unavailable.
 - `HackScene` behavior is mode-specific:
   - `mouse`: click a tool to execute it with an auto-completing tween (no typing).
-  - `keyboard`: tool 1 starts automatically; typing completes tools sequentially with difficulty-scaled pressure (targets, decay, and trace pressure).
+  - `keyboard`: tool 1 starts automatically; tapping an on-screen key grid completes tools with difficulty-scaled pressure (targets, decay, and trace pressure).
 
 ## Files
 

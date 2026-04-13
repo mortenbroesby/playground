@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { detectMobile } from '../lib/device';
 
 export type InputMode = 'keyboard' | 'mouse';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -110,6 +111,16 @@ const COLOR_BG = 0x061012;
 // Max narrative log lines (leave one slot below for the live typing line)
 const LOG_MAX = 11;
 
+const TAP_KEYS = ['Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F', 'Z', 'X', 'C', 'V'] as const;
+type TapKey = (typeof TAP_KEYS)[number];
+
+type TapKeyButton = {
+  key: TapKey;
+  gfx: Phaser.GameObjects.Graphics;
+  text: Phaser.GameObjects.Text;
+  zone: Phaser.GameObjects.Zone;
+};
+
 export class HackScene extends Phaser.Scene {
   private targetName = '';
   private inputMode: InputMode = 'mouse';
@@ -140,13 +151,18 @@ export class HackScene extends Phaser.Scene {
   private typingLineText: Phaser.GameObjects.Text | null = null;
   private idleTraceAccumulator = 0;
 
+  // Tap-keyboard mechanic state (keyboard mode)
+  private tapKeyboardContainer: Phaser.GameObjects.Container | null = null;
+  private tapKeys: TapKeyButton[] = [];
+  private tapTargetKey: TapKey = 'Q';
+
   constructor() {
     super({ key: 'HackScene' });
   }
 
   init(data: HackSceneData): void {
     this.targetName = data.targetName;
-    this.isMobile = this.detectMobile();
+    this.isMobile = detectMobile(this.sys.game.device);
     this.inputMode = this.isMobile ? 'mouse' : (data.inputMode ?? 'mouse');
     this.difficulty = (localStorage.getItem(DIFFICULTY_KEY) as Difficulty) ?? data.difficulty ?? 'medium';
     if (!DIFFICULTY[this.difficulty]) this.difficulty = 'medium';
@@ -169,6 +185,10 @@ export class HackScene extends Phaser.Scene {
     this.corpusCharIndex = 0;
     this.typingLineText = null;
     this.idleTraceAccumulator = 0;
+
+    this.tapKeyboardContainer = null;
+    this.tapKeys = [];
+    this.tapTargetKey = 'Q';
   }
 
   create(): void {
@@ -269,8 +289,8 @@ export class HackScene extends Phaser.Scene {
     }
 
     if (this.inputMode === 'keyboard') {
-      // Keyboard capture
-      this.input.keyboard!.on('keydown', this.onKeyDown, this);
+      // Only reserve a deliberate exit shortcut; gameplay uses on-screen taps.
+      this.input.keyboard!.on('keydown', this.onExitKeyDown, this);
       this.startKeyboardTool(0);
     }
   }
@@ -301,7 +321,7 @@ export class HackScene extends Phaser.Scene {
     }
   }
 
-  private onKeyDown(event: KeyboardEvent): void {
+  private onExitKeyDown(event: KeyboardEvent): void {
     if (this.inputMode !== 'keyboard') return;
 
     if (event.code === 'KeyQ' && event.ctrlKey) {
@@ -309,75 +329,10 @@ export class HackScene extends Phaser.Scene {
       this.exitToMenu();
       return;
     }
-
-    // Ignore non-printable keys (modifiers, arrows, etc.)
-    if (event.key.length !== 1 && event.key !== ' ') return;
-
-    const i = this.activeToolIndex;
-    if (i === null) return;
-    const state = this.toolStates[i];
-    if (!state.running || state.done) return;
-
-    const now = Date.now();
-    this.lastKeypressDeltaMs = now - this.lastKeypressTime;
-    this.lastKeypressTime = now;
-    this.idleTraceAccumulator = 0;
-
-    // Random progress per keypress (base ± 30% variance)
-    const difficulty = DIFFICULTY[this.difficulty];
-    const base = 100 / difficulty.keyboardKeystrokeTargets[i];
-    const speedBonus = this.lastKeypressDeltaMs > 0 && this.lastKeypressDeltaMs < 140 ? 1.25 : 1;
-    const increment = base * (0.7 + Math.random() * 0.6) * speedBonus;
-    this.toolProgress[i] = Math.min(100, this.toolProgress[i] + increment);
-
-    // Punish slow cadence with trace pressure
-    if (this.lastKeypressDeltaMs > difficulty.keyboardSlowCadenceMs) {
-      this.trace = Math.min(100, this.trace + difficulty.keyboardSlowTracePenalty);
-      this.updateTraceBar();
-      if (this.trace >= 100) {
-        this.scene.start('MissionEndScene', { success: false, trace: 100 });
-        return;
-      }
-    }
-
-    // Reveal 1–3 chars (random burst)
-    const charCount = Math.floor(Math.random() * 3) + 1;
-    this.revealCorpusChars(charCount);
-
-    this.drawTypingProgress(i);
-
-    if (this.toolProgress[i] >= 100) {
-      this.completeTool(i);
-    }
   }
 
   private exitToMenu(): void {
     this.scene.start('NetworkMapScene');
-  }
-
-  private detectMobile(): boolean {
-    const device = this.sys.game.device;
-    const os = device.os as Record<string, unknown>;
-    const input = device.input as Record<string, unknown>;
-
-    const mobileOS = Boolean(
-      os.android
-      || os.iOS
-      || os.iPad
-      || os.iPhone
-      || os.windowsPhone
-    );
-
-    const touchCapable = Boolean(input.touch);
-
-    const coarsePointer = typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && window.matchMedia('(pointer: coarse)').matches;
-
-    const smallViewport = typeof window !== 'undefined'
-      && Math.min(window.innerWidth, window.innerHeight) <= 820;
-
-    return mobileOS || (touchCapable && (coarsePointer || smallViewport));
   }
 
   private revealCorpusChars(count: number): void {
@@ -445,6 +400,7 @@ export class HackScene extends Phaser.Scene {
     if (this.inputMode === 'keyboard') {
       // Finalize any partial typing line
       this.finalizeTypingLine();
+      this.destroyTapKeyboard();
     }
 
     const state = this.toolStates[index];
@@ -589,8 +545,157 @@ export class HackScene extends Phaser.Scene {
     this.drawTypingProgress(index);
 
     const label = this.toolLabels[index];
-    label.setText('[TYPE TO HACK...]');
+    this.pickNextTapTarget();
+    label.setText(`[TAP: ${this.tapTargetKey}]`);
     label.setColor('#53d1ff');
+
+    this.createTapKeyboard(index);
+  }
+
+  private createTapKeyboard(index: number): void {
+    this.destroyTapKeyboard();
+
+    const tool = TOOLS[index];
+    const bx = TOOL_PANEL_X + 10;
+    const by = tool.y;
+    const bw = 360;
+    const bh = 80;
+
+    const cols = 4;
+    const rows = 3;
+    const keyW = 40;
+    const keyH = 22;
+    const gap = 6;
+
+    const gridW = cols * keyW + (cols - 1) * gap;
+    const gridH = rows * keyH + (rows - 1) * gap;
+    const startX = bx + bw / 2 - gridW / 2;
+    const startY = by + bh / 2 - gridH / 2 + 10;
+
+    const container = this.add.container(0, 0).setDepth(20);
+    this.tapKeyboardContainer = container;
+    this.tapKeys = [];
+
+    for (let i = 0; i < TAP_KEYS.length; i++) {
+      const key = TAP_KEYS[i];
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const x = startX + col * (keyW + gap);
+      const y = startY + row * (keyH + gap);
+
+      const gfx = this.add.graphics();
+      const text = this.add.text(x + keyW / 2, y + keyH / 2, key, {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#4df3a9',
+      }).setOrigin(0.5, 0.5);
+
+      const zone = this.add.zone(x + keyW / 2, y + keyH / 2, keyW, keyH)
+        .setInteractive({ useHandCursor: true });
+
+      const button: TapKeyButton = { key, gfx, text, zone };
+      this.tapKeys.push(button);
+
+      zone.on('pointerdown', () => this.onTapKey(key));
+      zone.on('pointerover', () => this.drawTapKey(button, true));
+      zone.on('pointerout', () => this.drawTapKey(button, false));
+
+      container.add(gfx);
+      container.add(text);
+      container.add(zone);
+    }
+
+    this.redrawTapKeyboard();
+  }
+
+  private destroyTapKeyboard(): void {
+    this.tapKeyboardContainer?.destroy(true);
+    this.tapKeyboardContainer = null;
+    this.tapKeys = [];
+  }
+
+  private pickNextTapTarget(): void {
+    this.tapTargetKey = TAP_KEYS[Phaser.Math.Between(0, TAP_KEYS.length - 1)] ?? 'Q';
+    this.redrawTapKeyboard();
+  }
+
+  private redrawTapKeyboard(): void {
+    for (const btn of this.tapKeys) this.drawTapKey(btn, false);
+  }
+
+  private drawTapKey(btn: TapKeyButton, hover: boolean): void {
+    const isTarget = btn.key === this.tapTargetKey;
+    btn.gfx.clear();
+
+    const x = btn.zone.x - btn.zone.width / 2;
+    const y = btn.zone.y - btn.zone.height / 2;
+    const w = btn.zone.width;
+    const h = btn.zone.height;
+
+    btn.gfx.fillStyle(COLOR_BG, 1);
+    btn.gfx.fillRect(x, y, w, h);
+
+    const borderColor = isTarget ? 0x53d1ff : COLOR_PRIMARY;
+    btn.gfx.lineStyle(1, borderColor, isTarget ? 1 : 0.7);
+    btn.gfx.strokeRect(x, y, w, h);
+
+    if (hover || isTarget) {
+      btn.gfx.fillStyle(0x4df3a9, isTarget ? 0.08 : 0.04);
+      btn.gfx.fillRect(x, y, w, h);
+    }
+  }
+
+  private onTapKey(key: TapKey): void {
+    if (this.inputMode !== 'keyboard') return;
+
+    const i = this.activeToolIndex;
+    if (i === null) return;
+    const state = this.toolStates[i];
+    if (!state.running || state.done) return;
+
+    const now = Date.now();
+    this.lastKeypressDeltaMs = now - this.lastKeypressTime;
+    this.lastKeypressTime = now;
+    this.idleTraceAccumulator = 0;
+
+    const difficulty = DIFFICULTY[this.difficulty];
+    const base = 100 / difficulty.keyboardKeystrokeTargets[i];
+
+    const targetBonus = key === this.tapTargetKey ? 1.35 : 0.9;
+    const speedBonus = this.lastKeypressDeltaMs > 0 && this.lastKeypressDeltaMs < 160 ? 1.2 : 1;
+    const increment = base * (0.75 + Math.random() * 0.55) * targetBonus * speedBonus;
+    this.toolProgress[i] = Math.min(100, this.toolProgress[i] + increment);
+
+    if (key !== this.tapTargetKey) {
+      this.trace = Math.min(100, this.trace + 1);
+      this.updateTraceBar();
+      if (this.trace >= 100) {
+        this.scene.start('MissionEndScene', { success: false, trace: 100 });
+        return;
+      }
+    }
+
+    if (this.lastKeypressDeltaMs > difficulty.keyboardSlowCadenceMs) {
+      this.trace = Math.min(100, this.trace + difficulty.keyboardSlowTracePenalty);
+      this.updateTraceBar();
+      if (this.trace >= 100) {
+        this.scene.start('MissionEndScene', { success: false, trace: 100 });
+        return;
+      }
+    }
+
+    const charCount = Math.floor(Math.random() * 2) + 1;
+    this.revealCorpusChars(charCount);
+
+    this.drawTypingProgress(i);
+
+    if (this.toolProgress[i] >= 100) {
+      this.completeTool(i);
+      return;
+    }
+
+    this.pickNextTapTarget();
+    this.toolLabels[i].setText(`[TAP: ${this.tapTargetKey}]`);
   }
 
   private startMouseTool(index: number): void {

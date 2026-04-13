@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { Difficulty, InputMode } from './HackScene';
+import { detectMobile } from '../lib/device';
 
 const MATRIX_CHARS = [
   '0', '1', '<', '>', '[', ']', '{', '}', '/', '\\',
@@ -58,11 +59,15 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.isMobile = this.detectMobile();
+    // Defensive reset (scene restarts keep instance fields)
+    this.settingsOpen = false;
+    this.settingsContainer = null;
 
-    const storedMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? 'keyboard';
-    this.inputMode = this.isMobile ? 'mouse' : storedMode;
-    if (this.isMobile) localStorage.setItem(INPUT_MODE_KEY, 'mouse');
+    this.isMobile = detectMobile(this.sys.game.device);
+
+    const storedMode = (localStorage.getItem(INPUT_MODE_KEY) as InputMode) ?? (this.isMobile ? 'mouse' : 'keyboard');
+    this.inputMode = storedMode;
+    localStorage.setItem(INPUT_MODE_KEY, this.inputMode);
 
     const storedDifficulty = (localStorage.getItem(DIFFICULTY_KEY) as Difficulty) ?? 'medium';
     this.difficulty = DIFFICULTIES.includes(storedDifficulty) ? storedDifficulty : 'medium';
@@ -76,18 +81,16 @@ export class NetworkMapScene extends Phaser.Scene {
     this.drawUI();
     this.drawScanLine();
 
-    if (this.inputMode === 'keyboard') {
-      this.input.keyboard!.once('keydown-ENTER', () => this.startHack());
-      this.input.keyboard!.once('keydown-SPACE', () => this.startHack());
-      this.input.keyboard!.on('keydown-S', () => this.toggleSettings());
-      this.input.keyboard!.on('keydown-ESC', () => this.closeSettings());
-      this.input.keyboard!.on('keydown-ONE', () => this.setDifficulty('easy'));
-      this.input.keyboard!.on('keydown-TWO', () => this.setDifficulty('medium'));
-      this.input.keyboard!.on('keydown-THREE', () => this.setDifficulty('hard'));
-      this.input.keyboard!.on('keydown-T', () => { if (this.settingsOpen) this.toggleFullscreenFromMenu(); });
-      this.input.keyboard!.on('keydown-M', () => { if (this.settingsOpen) this.setMode('mouse'); });
-      this.input.keyboard!.on('keydown-K', () => { if (this.settingsOpen) this.setMode('keyboard'); });
-    }
+    this.input.keyboard!.once('keydown-ENTER', () => this.startHack());
+    this.input.keyboard!.once('keydown-SPACE', () => this.startHack());
+    this.input.keyboard!.on('keydown-S', () => this.toggleSettings());
+    this.input.keyboard!.on('keydown-ESC', () => this.closeSettings());
+    this.input.keyboard!.on('keydown-ONE', () => { if (this.settingsOpen) this.setDifficulty('easy'); });
+    this.input.keyboard!.on('keydown-TWO', () => { if (this.settingsOpen) this.setDifficulty('medium'); });
+    this.input.keyboard!.on('keydown-THREE', () => { if (this.settingsOpen) this.setDifficulty('hard'); });
+    this.input.keyboard!.on('keydown-T', () => { if (this.settingsOpen) this.toggleFullscreenFromMenu(); });
+    this.input.keyboard!.on('keydown-M', () => { if (this.settingsOpen) this.setMode('mouse'); });
+    this.input.keyboard!.on('keydown-K', () => { if (this.settingsOpen) this.setMode('keyboard'); });
   }
 
   update(_time: number, delta: number): void {
@@ -109,10 +112,10 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   private setMode(mode: InputMode): void {
-    if (this.isMobile && mode === 'keyboard') return;
     if (this.inputMode === mode) return;
     this.inputMode = mode;
     localStorage.setItem(INPUT_MODE_KEY, this.inputMode);
+    if (this.settingsOpen) this.closeSettings();
     this.scene.restart();
   }
 
@@ -163,9 +166,7 @@ export class NetworkMapScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5).setDepth(52);
     container.add(title);
 
-    const inputModeText = this.isMobile
-      ? `INPUT MODE: MOUSE (MOBILE)`
-      : `INPUT MODE: ${this.inputMode.toUpperCase()}`;
+    const inputModeText = `INPUT MODE: ${this.inputMode.toUpperCase()}`;
 
     const inputModeLabel = this.add.text(x + 20, y + 56, inputModeText, {
       fontFamily: 'monospace', fontSize: '12px', color: '#53d1ff',
@@ -177,15 +178,13 @@ export class NetworkMapScene extends Phaser.Scene {
     }).setDepth(52);
     container.add(sub);
 
-    const hint = this.inputMode === 'keyboard'
-      ? '[M] MOUSE   [K] KEYBOARD   [1/2/3] DIFFICULTY   [T] FULLSCREEN   [ESC] CLOSE'
-      : 'CLICK A DIFFICULTY OR FULLSCREEN  —  CLICK OUTSIDE TO CLOSE';
+    const hint = '[M] MOUSE   [K] KEYBOARD   [1/2/3] DIFFICULTY   [T] FULLSCREEN   [ESC] CLOSE';
     const hintText = this.add.text(w / 2, y + panelH - 22, hint, {
       fontFamily: 'monospace', fontSize: '11px', color: '#2a6a4a',
     }).setOrigin(0.5, 0.5).setDepth(52);
     container.add(hintText);
 
-    if (this.inputMode === 'mouse') {
+    {
       const makeModeButton = (label: string, dx: number, value: InputMode): void => {
         const btnW = 160;
         const btnH = 36;
@@ -214,8 +213,7 @@ export class NetworkMapScene extends Phaser.Scene {
           fontFamily: 'monospace', fontSize: '12px', color: '#4df3a9',
         }).setOrigin(0.5, 0.5).setDepth(53);
 
-        const zone = this.add.zone(cx, cy, btnW, btnH).setDepth(54);
-        if (!(this.isMobile && value === 'keyboard')) zone.setInteractive({ useHandCursor: true });
+        const zone = this.add.zone(cx, cy, btnW, btnH).setDepth(54).setInteractive({ useHandCursor: true });
         zone.on('pointerdown', () => this.setMode(value));
         zone.on('pointerover', () => draw(true));
         zone.on('pointerout', () => draw(false));
@@ -343,31 +341,6 @@ export class NetworkMapScene extends Phaser.Scene {
 
   private isFullscreenActive(): boolean {
     return this.scale.isFullscreen || Boolean(this.registry.get('uplink_fullwindow'));
-  }
-
-  private detectMobile(): boolean {
-    const device = this.sys.game.device;
-    const os = device.os as Record<string, unknown>;
-    const input = device.input as Record<string, unknown>;
-
-    const mobileOS = Boolean(
-      os.android
-      || os.iOS
-      || os.iPad
-      || os.iPhone
-      || os.windowsPhone
-    );
-
-    const touchCapable = Boolean(input.touch);
-
-    const coarsePointer = typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && window.matchMedia('(pointer: coarse)').matches;
-
-    const smallViewport = typeof window !== 'undefined'
-      && Math.min(window.innerWidth, window.innerHeight) <= 820;
-
-    return mobileOS || (touchCapable && (coarsePointer || smallViewport));
   }
 
   // ─── Background grid ─────────────────────────────────────────────────────────
@@ -501,15 +474,13 @@ export class NetworkMapScene extends Phaser.Scene {
     }).setOrigin(0, 0.5).setDepth(6);
     this.tweens.add({ targets: callout, alpha: 0.08, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-    if (this.inputMode === 'mouse') {
-      const zone = this.add
-        .zone(node.x, node.y, node.radius * 2 + 32, node.radius * 2 + 32)
-        .setInteractive({ useHandCursor: true })
-        .setDepth(7);
-      zone.on('pointerdown', () => this.startHack());
-      zone.on('pointerover', () => this.input.setDefaultCursor('pointer'));
-      zone.on('pointerout', () => this.input.setDefaultCursor('default'));
-    }
+    const zone = this.add
+      .zone(node.x, node.y, node.radius * 2 + 32, node.radius * 2 + 32)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(7);
+    zone.on('pointerdown', () => this.startHack());
+    zone.on('pointerover', () => this.input.setDefaultCursor('pointer'));
+    zone.on('pointerout', () => this.input.setDefaultCursor('default'));
   }
 
   // ─── UI chrome ───────────────────────────────────────────────────────────────
@@ -553,23 +524,16 @@ export class NetworkMapScene extends Phaser.Scene {
     instrBg.lineStyle(1, 0x2a5a3a, 0.35);
     instrBg.strokeRect(0, 524, 900, 36);
 
-    if (this.inputMode === 'mouse') {
-      const settingsX = 86;
-      const settingsY = 542;
-      const settingsLabel = this.add.text(settingsX, settingsY, '[SETTINGS]', {
-        fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
-      }).setOrigin(0.5, 0.5).setDepth(9);
+    const settingsX = 86;
+    const settingsY = 542;
+    const settingsLabel = this.add.text(settingsX, settingsY, '[SETTINGS]', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
+    }).setOrigin(0.5, 0.5).setDepth(9);
 
-      const settingsZone = this.add.zone(settingsX, settingsY, 150, 28).setInteractive({ useHandCursor: true }).setDepth(9);
-      settingsZone.on('pointerdown', () => this.openSettings());
-      settingsZone.on('pointerover', () => settingsLabel.setColor('#53d1ff'));
-      settingsZone.on('pointerout', () => settingsLabel.setColor('#4df3a9'));
-    } else {
-      const settingsHint = this.add.text(22, 524, '[S] SETTINGS', {
-        fontFamily: 'monospace', fontSize: '9px', color: '#2a6a4a',
-      }).setOrigin(0, 0).setDepth(9);
-      this.tweens.add({ targets: settingsHint, alpha: 0.35, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    }
+    const settingsZone = this.add.zone(settingsX, settingsY, 150, 28).setInteractive({ useHandCursor: true }).setDepth(9);
+    settingsZone.on('pointerdown', () => this.openSettings());
+    settingsZone.on('pointerover', () => settingsLabel.setColor('#53d1ff'));
+    settingsZone.on('pointerout', () => settingsLabel.setColor('#4df3a9'));
   }
 
   private getDifficultyLabel(): string {
