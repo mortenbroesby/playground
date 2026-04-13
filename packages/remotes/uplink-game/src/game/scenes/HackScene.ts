@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
 
+export type InputMode = 'keyboard' | 'mouse';
+
 interface HackSceneData {
   targetName: string;
+  inputMode?: InputMode;
 }
 
 interface ToolDef {
@@ -50,7 +53,14 @@ const TOOLS: ToolDef[] = [
 ];
 
 // Keystrokes required to complete each tool
-const KEYSTROKE_TARGETS = [50, 35, 8];
+const KEYBOARD_KEYSTROKE_TARGETS = [85, 62, 22];
+
+const KEYBOARD_IDLE_GRACE_MS = 350;
+
+// Progress decay while idle (percent per ms)
+const KEYBOARD_IDLE_DECAY_PER_MS = 0.008;
+
+const KEYBOARD_IDLE_TRACE_PER_SECOND = 2;
 
 const BAR_MAX_WIDTH = 340;
 const TOOL_PANEL_X = 500;
@@ -64,6 +74,7 @@ const LOG_MAX = 11;
 
 export class HackScene extends Phaser.Scene {
   private targetName = '';
+  private inputMode: InputMode = 'mouse';
   private trace = 0;
   private traceBarGfx!: Phaser.GameObjects.Graphics;
   private traceText!: Phaser.GameObjects.Text;
@@ -81,6 +92,7 @@ export class HackScene extends Phaser.Scene {
   private activeToolIndex: number | null = null;
   private lastKeypressTime = 0;
   private toolProgress: number[] = [];
+  private lastKeypressDeltaMs = 0;
   private shuffledCommands: string[] = [];
   private corpusIndex = 0;
   private corpusCharIndex = 0;
@@ -93,6 +105,7 @@ export class HackScene extends Phaser.Scene {
 
   init(data: HackSceneData): void {
     this.targetName = data.targetName;
+    this.inputMode = data.inputMode ?? 'mouse';
     this.trace = 0;
     this.logTexts = [];
     this.logLineIndex = 0;
@@ -106,6 +119,7 @@ export class HackScene extends Phaser.Scene {
     this.activeToolIndex = null;
     this.lastKeypressTime = 0;
     this.toolProgress = [0, 0, 0];
+    this.lastKeypressDeltaMs = 0;
     this.shuffledCommands = [...HACK_COMMANDS].sort(() => Math.random() - 0.5);
     this.corpusIndex = 0;
     this.corpusCharIndex = 0;
@@ -185,26 +199,31 @@ export class HackScene extends Phaser.Scene {
       this.createToolButton(i);
     }
 
-    // Keyboard capture
-    this.input.keyboard!.on('keydown', this.onKeyDown, this);
+    if (this.inputMode === 'keyboard') {
+      // Keyboard capture
+      this.input.keyboard!.on('keydown', this.onKeyDown, this);
+      this.startKeyboardTool(0);
+    }
   }
 
   update(_time: number, delta: number): void {
+    if (this.inputMode !== 'keyboard') return;
+
     const i = this.activeToolIndex;
     if (i === null || !this.toolStates[i].running) return;
 
     const idleMs = Date.now() - this.lastKeypressTime;
-    if (idleMs < 500) return;
+    if (idleMs < KEYBOARD_IDLE_GRACE_MS) return;
 
-    // Bar decay: 3% per second while idle
-    this.toolProgress[i] = Math.max(0, this.toolProgress[i] - delta * 0.003);
+    // Bar decay while idle
+    this.toolProgress[i] = Math.max(0, this.toolProgress[i] - delta * KEYBOARD_IDLE_DECAY_PER_MS);
     this.drawTypingProgress(i);
 
-    // Extra trace tick: +1% per second on top of the regular timer
+    // Extra trace tick while idle (on top of the regular timer)
     this.idleTraceAccumulator += delta;
     if (this.idleTraceAccumulator >= 1000) {
       this.idleTraceAccumulator -= 1000;
-      this.trace = Math.min(100, this.trace + 1);
+      this.trace = Math.min(100, this.trace + KEYBOARD_IDLE_TRACE_PER_SECOND);
       this.updateTraceBar();
       if (this.trace >= 100) {
         this.scene.start('MissionEndScene', { success: false, trace: 100 });
@@ -213,18 +232,33 @@ export class HackScene extends Phaser.Scene {
   }
 
   private onKeyDown(): void {
+    if (this.inputMode !== 'keyboard') return;
+
     const i = this.activeToolIndex;
     if (i === null) return;
     const state = this.toolStates[i];
     if (!state.running || state.done) return;
 
-    this.lastKeypressTime = Date.now();
+    const now = Date.now();
+    this.lastKeypressDeltaMs = now - this.lastKeypressTime;
+    this.lastKeypressTime = now;
     this.idleTraceAccumulator = 0;
 
     // Random progress per keypress (base ± 30% variance)
-    const base = 100 / KEYSTROKE_TARGETS[i];
-    const increment = base * (0.7 + Math.random() * 0.6);
+    const base = 100 / KEYBOARD_KEYSTROKE_TARGETS[i];
+    const speedBonus = this.lastKeypressDeltaMs > 0 && this.lastKeypressDeltaMs < 140 ? 1.25 : 1;
+    const increment = base * (0.7 + Math.random() * 0.6) * speedBonus;
     this.toolProgress[i] = Math.min(100, this.toolProgress[i] + increment);
+
+    // Punish slow cadence with trace pressure
+    if (this.lastKeypressDeltaMs > 240) {
+      this.trace = Math.min(100, this.trace + 1);
+      this.updateTraceBar();
+      if (this.trace >= 100) {
+        this.scene.start('MissionEndScene', { success: false, trace: 100 });
+        return;
+      }
+    }
 
     // Reveal 1–3 chars (random burst)
     const charCount = Math.floor(Math.random() * 3) + 1;
@@ -233,7 +267,7 @@ export class HackScene extends Phaser.Scene {
     this.drawTypingProgress(i);
 
     if (this.toolProgress[i] >= 100) {
-      this.completeActiveTool();
+      this.completeTool(i);
     }
   }
 
@@ -294,12 +328,15 @@ export class HackScene extends Phaser.Scene {
     progGfx.fillRect(startX + val - 1, progY, 3, progH);
   }
 
-  private completeActiveTool(): void {
-    const index = this.activeToolIndex!;
-    this.activeToolIndex = null;
+  private completeTool(index: number): void {
+    if (this.activeToolIndex === index) {
+      this.activeToolIndex = null;
+    }
 
-    // Finalize any partial typing line
-    this.finalizeTypingLine();
+    if (this.inputMode === 'keyboard') {
+      // Finalize any partial typing line
+      this.finalizeTypingLine();
+    }
 
     const state = this.toolStates[index];
     state.running = false;
@@ -320,7 +357,12 @@ export class HackScene extends Phaser.Scene {
       this.toolStates[next].enabled = true;
       this.toolLabels[next].setColor('#4df3a9');
       this.drawToolButton(next, 0);
-      this.toolZones[next].setInteractive({ useHandCursor: true });
+
+      if (this.inputMode === 'mouse') {
+        this.toolZones[next].setInteractive({ useHandCursor: true });
+      } else {
+        this.startKeyboardTool(next);
+      }
     }
 
     if (this.toolStates.every((s) => s.done)) {
@@ -378,29 +420,31 @@ export class HackScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
     this.toolLabels.push(label);
 
-    const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh).setInteractive({ useHandCursor: true });
+    const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh);
+    if (this.inputMode === 'mouse' && this.toolStates[index].enabled) {
+      zone.setInteractive({ useHandCursor: true });
+    }
     this.toolZones.push(zone);
 
     zone.on('pointerdown', () => {
+      if (this.inputMode !== 'mouse') return;
+
       const state = this.toolStates[index];
       if (!state.enabled || state.running || state.done) return;
 
-      state.running = true;
-      this.activeToolIndex = index;
-      this.lastKeypressTime = Date.now(); // grace period before decay
-      this.toolProgress[index] = 0;
-
-      label.setText('[TYPE TO HACK...]');
-      label.setColor('#53d1ff');
-      zone.disableInteractive();
+      this.startMouseTool(index);
     });
 
     zone.on('pointerover', () => {
+      if (this.inputMode !== 'mouse') return;
       const state = this.toolStates[index];
       if (state.enabled && !state.running && !state.done) this.drawToolButton(index, 1);
     });
 
-    zone.on('pointerout', () => this.drawToolButton(index, 0));
+    zone.on('pointerout', () => {
+      if (this.inputMode !== 'mouse') return;
+      this.drawToolButton(index, 0);
+    });
   }
 
   private drawToolButton(index: number, hover: number): void {
@@ -423,6 +467,50 @@ export class HackScene extends Phaser.Scene {
       gfx.fillStyle(COLOR_PRIMARY, alpha);
       gfx.fillRect(bx, by, bw, bh);
     }
+  }
+
+  private startKeyboardTool(index: number): void {
+    const state = this.toolStates[index];
+    if (!state.enabled || state.running || state.done) return;
+
+    state.running = true;
+    this.activeToolIndex = index;
+    this.lastKeypressTime = Date.now(); // grace period before decay
+    this.toolProgress[index] = 0;
+    this.drawTypingProgress(index);
+
+    const label = this.toolLabels[index];
+    label.setText('[TYPE TO HACK...]');
+    label.setColor('#53d1ff');
+  }
+
+  private startMouseTool(index: number): void {
+    const state = this.toolStates[index];
+    state.running = true;
+    this.activeToolIndex = index;
+    this.toolProgress[index] = 0;
+    this.drawTypingProgress(index);
+
+    const label = this.toolLabels[index];
+    label.setText('[EXECUTING...]');
+    label.setColor('#53d1ff');
+    this.toolZones[index].disableInteractive();
+
+    const duration = Phaser.Math.Between(1100, 1900);
+    this.tweens.addCounter({
+      from: 0,
+      to: 100,
+      duration,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        this.toolProgress[index] = tween.getValue() ?? 0;
+        this.drawTypingProgress(index);
+      },
+      onComplete: () => {
+        this.toolProgress[index] = 100;
+        this.completeTool(index);
+      },
+    });
   }
 
   private onAllToolsDone(): void {
