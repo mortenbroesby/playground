@@ -279,11 +279,6 @@ export class NetworkMapScene extends Phaser.Scene {
   private toggleFullscreen(): void {
     const fullWindow = Boolean(this.registry.get('uplink_fullwindow'));
 
-    if (this.scale.isFullscreen) {
-      this.scale.stopFullscreen();
-      return;
-    }
-
     if (fullWindow) {
       this.registry.set('uplink_fullwindow', false);
       return;
@@ -294,8 +289,7 @@ export class NetworkMapScene extends Phaser.Scene {
       return;
     }
 
-    const target = this.registry.get('uplink_fullscreen_target') as HTMLElement | undefined;
-    this.scale.startFullscreen(target);
+    this.scale.toggleFullscreen();
   }
 
   private toggleFullscreenFromMenu(): void {

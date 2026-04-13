@@ -20,6 +20,7 @@ export function mount(el: HTMLElement): () => void {
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
+      fullscreenTarget: el,
     },
   });
 
@@ -27,7 +28,6 @@ export function mount(el: HTMLElement): () => void {
   game.canvas.style.width = '100%';
   game.canvas.style.height = '100%';
 
-  game.registry.set('uplink_fullscreen_target', el);
   game.registry.set('uplink_fullwindow', false);
 
   const prevElStyle = {
@@ -92,8 +92,8 @@ export function mount(el: HTMLElement): () => void {
 
     // Fill the screen but cap raster size for performance.
     // Canvas will be scaled to fit inside the fullscreen container.
-    game.canvas.style.width = '100vw';
-    game.canvas.style.height = '100vh';
+    game.canvas.style.width = '100%';
+    game.canvas.style.height = '100%';
     game.canvas.style.maxWidth = '1600px';
     game.canvas.style.maxHeight = '1000px';
   };
