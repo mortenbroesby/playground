@@ -554,11 +554,13 @@ export class NetworkMapScene extends Phaser.Scene {
     instrBg.strokeRect(0, 524, 900, 36);
 
     if (this.inputMode === 'mouse') {
-      const settingsLabel = this.add.text(22, 542, '[SETTINGS]', {
+      const settingsX = 86;
+      const settingsY = 542;
+      const settingsLabel = this.add.text(settingsX, settingsY, '[SETTINGS]', {
         fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
-      }).setOrigin(0, 0.5).setDepth(9);
+      }).setOrigin(0.5, 0.5).setDepth(9);
 
-      const settingsZone = this.add.zone(70, 542, 120, 28).setInteractive({ useHandCursor: true }).setDepth(9);
+      const settingsZone = this.add.zone(settingsX, settingsY, 150, 28).setInteractive({ useHandCursor: true }).setDepth(9);
       settingsZone.on('pointerdown', () => this.openSettings());
       settingsZone.on('pointerover', () => settingsLabel.setColor('#53d1ff'));
       settingsZone.on('pointerout', () => settingsLabel.setColor('#4df3a9'));
