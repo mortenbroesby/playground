@@ -49,7 +49,7 @@ export class NetworkMapScene extends Phaser.Scene {
   private isMobile = false;
   private modeLabel!: Phaser.GameObjects.Text;
   private difficulty: Difficulty = 'medium';
-  private difficultyLabel!: Phaser.GameObjects.Text;
+  private difficultyLabel: Phaser.GameObjects.Text | null = null;
   private settingsOpen = false;
   private settingsContainer: Phaser.GameObjects.Container | null = null;
   private mobileLabel: Phaser.GameObjects.Text | null = null;
@@ -128,7 +128,7 @@ export class NetworkMapScene extends Phaser.Scene {
     if (!DIFFICULTIES.includes(difficulty)) return;
     this.difficulty = difficulty;
     localStorage.setItem(DIFFICULTY_KEY, this.difficulty);
-    if (this.difficultyLabel) this.difficultyLabel.setText(this.getDifficultyLabel());
+    this.difficultyLabel?.setText(this.getDifficultyLabel());
     if (this.settingsOpen) this.closeSettings();
   }
 
@@ -575,16 +575,16 @@ export class NetworkMapScene extends Phaser.Scene {
       modeZone.on('pointerout', () => this.modeLabel.setColor('#4df3a9'));
     }
 
-    // Difficulty (left side of bottom bar)
-    this.difficultyLabel = this.add.text(22, 542, this.getDifficultyLabel(), {
-      fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
-    }).setOrigin(0, 0.5).setDepth(9);
-
     if (this.inputMode === 'mouse') {
+      // Difficulty (left side of bottom bar)
+      this.difficultyLabel = this.add.text(22, 542, this.getDifficultyLabel(), {
+        fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
+      }).setOrigin(0, 0.5).setDepth(9);
+
       const diffZone = this.add.zone(86, 542, 150, 28).setInteractive({ useHandCursor: true }).setDepth(9);
       diffZone.on('pointerdown', () => this.openSettings());
-      diffZone.on('pointerover', () => this.difficultyLabel.setColor('#53d1ff'));
-      diffZone.on('pointerout', () => this.difficultyLabel.setColor('#4df3a9'));
+      diffZone.on('pointerover', () => this.difficultyLabel?.setColor('#53d1ff'));
+      diffZone.on('pointerout', () => this.difficultyLabel?.setColor('#4df3a9'));
     } else {
       const settingsHint = this.add.text(22, 524, '[S] SETTINGS', {
         fontFamily: 'monospace', fontSize: '9px', color: '#2a6a4a',
