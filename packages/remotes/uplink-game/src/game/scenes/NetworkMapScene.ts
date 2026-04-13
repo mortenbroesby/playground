@@ -52,6 +52,8 @@ export class NetworkMapScene extends Phaser.Scene {
   private difficultyLabel!: Phaser.GameObjects.Text;
   private settingsOpen = false;
   private settingsContainer: Phaser.GameObjects.Container | null = null;
+  private fullscreenLabel: Phaser.GameObjects.Text | null = null;
+  private mobileLabel: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super({ key: 'NetworkMapScene' });
@@ -76,6 +78,8 @@ export class NetworkMapScene extends Phaser.Scene {
     this.drawUI();
     this.drawScanLine();
 
+    this.registerFullscreenListeners();
+
     if (this.inputMode === 'keyboard') {
       this.input.keyboard!.once('keydown-ENTER', () => this.startHack());
       this.input.keyboard!.once('keydown-SPACE', () => this.startHack());
@@ -85,6 +89,7 @@ export class NetworkMapScene extends Phaser.Scene {
       this.input.keyboard!.on('keydown-ONE', () => this.setDifficulty('easy'));
       this.input.keyboard!.on('keydown-TWO', () => this.setDifficulty('medium'));
       this.input.keyboard!.on('keydown-THREE', () => this.setDifficulty('hard'));
+      this.input.keyboard!.on('keydown-F', () => this.toggleFullscreen());
     }
   }
 
@@ -239,6 +244,36 @@ export class NetworkMapScene extends Phaser.Scene {
     this.settingsOpen = false;
     this.settingsContainer?.destroy(true);
     this.settingsContainer = null;
+  }
+
+  private toggleFullscreen(): void {
+    if (!this.scale.fullscreen.available) return;
+
+    if (this.scale.isFullscreen) {
+      this.scale.stopFullscreen();
+      return;
+    }
+
+    const target = this.registry.get('uplink_fullscreen_target') as HTMLElement | undefined;
+    this.scale.startFullscreen(target);
+  }
+
+  private updateFullscreenLabel(): void {
+    if (!this.fullscreenLabel) return;
+    this.fullscreenLabel.setText(this.scale.isFullscreen ? '[EXIT FULL]' : '[FULL]');
+  }
+
+  private registerFullscreenListeners(): void {
+    if (!this.scale.fullscreen.available) return;
+    this.scale.on('enterfullscreen', this.updateFullscreenLabel, this);
+    this.scale.on('leavefullscreen', this.updateFullscreenLabel, this);
+    this.scale.on('fullscreenfailed', this.updateFullscreenLabel, this);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('enterfullscreen', this.updateFullscreenLabel, this);
+      this.scale.off('leavefullscreen', this.updateFullscreenLabel, this);
+      this.scale.off('fullscreenfailed', this.updateFullscreenLabel, this);
+    });
   }
 
   private detectMobile(): boolean {
@@ -421,10 +456,28 @@ export class NetworkMapScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '13px', color: '#4df3a9',
     }).setOrigin(0.5, 0.5).setDepth(9);
 
+    if (this.isMobile) {
+      this.mobileLabel = this.add.text(12, 18, '[MOBILE]', {
+        fontFamily: 'monospace', fontSize: '10px', color: '#53d1ff',
+      }).setOrigin(0, 0.5).setDepth(9);
+      this.tweens.add({ targets: this.mobileLabel, alpha: 0.35, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+
     const onlineText = this.add.text(882, 18, '● ONLINE', {
       fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
     }).setOrigin(1, 0.5).setDepth(9);
     this.tweens.add({ targets: onlineText, alpha: 0.4, duration: 1100, yoyo: true, repeat: -1 });
+
+    if (this.scale.fullscreen.available) {
+      this.fullscreenLabel = this.add.text(760, 18, this.scale.isFullscreen ? '[EXIT FULL]' : '[FULL]', {
+        fontFamily: 'monospace', fontSize: '10px', color: '#2a6a4a',
+      }).setOrigin(1, 0.5).setDepth(9);
+
+      const fsZone = this.add.zone(720, 18, 120, 26).setInteractive({ useHandCursor: true }).setDepth(9);
+      fsZone.on('pointerdown', () => this.toggleFullscreen());
+      fsZone.on('pointerover', () => this.fullscreenLabel?.setColor('#53d1ff'));
+      fsZone.on('pointerout', () => this.fullscreenLabel?.setColor('#2a6a4a'));
+    }
 
     // Bottom bar
     const instrBg = this.add.graphics().setDepth(8);

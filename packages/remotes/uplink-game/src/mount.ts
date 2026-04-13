@@ -27,6 +27,8 @@ export function mount(el: HTMLElement): () => void {
   game.canvas.style.width = '100%';
   game.canvas.style.height = '100%';
 
+  game.registry.set('uplink_fullscreen_target', el);
+
   const prevElStyle = {
     display: el.style.display,
     alignItems: el.style.alignItems,
