@@ -28,12 +28,20 @@ export function mount(el: HTMLElement): () => void {
   game.canvas.style.height = '100%';
 
   game.registry.set('uplink_fullscreen_target', el);
+  game.registry.set('uplink_fullwindow', false);
 
   const prevElStyle = {
     display: el.style.display,
     alignItems: el.style.alignItems,
     justifyContent: el.style.justifyContent,
     background: el.style.background,
+    position: el.style.position,
+    inset: (el.style as unknown as { inset?: string }).inset ?? '',
+    left: el.style.left,
+    top: el.style.top,
+    width: el.style.width,
+    height: el.style.height,
+    zIndex: el.style.zIndex,
   };
 
   const prevCanvasStyle = {
@@ -44,19 +52,37 @@ export function mount(el: HTMLElement): () => void {
   };
 
   const applyFullscreenLayout = (): void => {
-    if (!game.scale.fullscreen.available) return;
+    const fullWindow = Boolean(game.registry.get('uplink_fullwindow'));
 
-    if (!game.scale.isFullscreen) {
+    if (!game.scale.isFullscreen && !fullWindow) {
       el.style.display = prevElStyle.display;
       el.style.alignItems = prevElStyle.alignItems;
       el.style.justifyContent = prevElStyle.justifyContent;
       el.style.background = prevElStyle.background;
+      el.style.position = prevElStyle.position;
+      (el.style as unknown as { inset?: string }).inset = prevElStyle.inset;
+      el.style.left = prevElStyle.left;
+      el.style.top = prevElStyle.top;
+      el.style.width = prevElStyle.width;
+      el.style.height = prevElStyle.height;
+      el.style.zIndex = prevElStyle.zIndex;
 
       game.canvas.style.width = prevCanvasStyle.width;
       game.canvas.style.height = prevCanvasStyle.height;
       game.canvas.style.maxWidth = prevCanvasStyle.maxWidth;
       game.canvas.style.maxHeight = prevCanvasStyle.maxHeight;
       return;
+    }
+
+    // Full window fallback (useful on iOS where Fullscreen API can be unavailable/limited)
+    if (fullWindow) {
+      el.style.position = 'fixed';
+      (el.style as unknown as { inset?: string }).inset = '0';
+      el.style.left = '0';
+      el.style.top = '0';
+      el.style.width = '100vw';
+      el.style.height = '100vh';
+      el.style.zIndex = '9999';
     }
 
     el.style.display = 'flex';
@@ -72,30 +98,29 @@ export function mount(el: HTMLElement): () => void {
     game.canvas.style.maxHeight = '1000px';
   };
 
-  const onDoubleClick = (): void => {
-    if (!game.scale.fullscreen.available) return;
-
-    if (game.scale.isFullscreen) {
-      game.scale.stopFullscreen();
-      applyFullscreenLayout();
-      return;
-    }
-
-    game.scale.startFullscreen(el);
+  const onEnterFullscreen = (): void => {
+    game.registry.set('uplink_fullwindow', false);
     applyFullscreenLayout();
   };
 
-  game.canvas.addEventListener('dblclick', onDoubleClick);
-  game.scale.on('enterfullscreen', applyFullscreenLayout);
+  const onFullscreenFailed = (): void => {
+    if (!game.scale.isFullscreen) game.registry.set('uplink_fullwindow', true);
+    applyFullscreenLayout();
+  };
+
+  game.registry.events.on('changedata-uplink_fullwindow', applyFullscreenLayout);
+
+  game.scale.on('enterfullscreen', onEnterFullscreen);
   game.scale.on('leavefullscreen', applyFullscreenLayout);
-  game.scale.on('fullscreenfailed', applyFullscreenLayout);
+  game.scale.on('fullscreenfailed', onFullscreenFailed);
   window.addEventListener('resize', applyFullscreenLayout);
+  applyFullscreenLayout();
 
   return () => {
-    game.canvas.removeEventListener('dblclick', onDoubleClick);
-    game.scale.off('enterfullscreen', applyFullscreenLayout);
+    game.registry.events.off('changedata-uplink_fullwindow', applyFullscreenLayout);
+    game.scale.off('enterfullscreen', onEnterFullscreen);
     game.scale.off('leavefullscreen', applyFullscreenLayout);
-    game.scale.off('fullscreenfailed', applyFullscreenLayout);
+    game.scale.off('fullscreenfailed', onFullscreenFailed);
     window.removeEventListener('resize', applyFullscreenLayout);
     game.destroy(true);
   };

@@ -119,7 +119,6 @@ export class HackScene extends Phaser.Scene {
   private traceBarGfx!: Phaser.GameObjects.Graphics;
   private traceText!: Phaser.GameObjects.Text;
   private exitText!: Phaser.GameObjects.Text;
-  private fullscreenText: Phaser.GameObjects.Text | null = null;
   private logTexts: Phaser.GameObjects.Text[] = [];
   private logLineIndex = 0;
   private shuffledLogLines: string[] = [];
@@ -213,30 +212,8 @@ export class HackScene extends Phaser.Scene {
         fontFamily: 'monospace',
         fontSize: '10px',
         color: '#2a6a4a',
-      }).setOrigin(0, 0).setAlpha(0.9);
+      }).setOrigin(0, 0.5).setAlpha(0.9);
       this.tweens.add({ targets: mobileText, alpha: 0.35, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    }
-
-    if (this.scale.fullscreen.available) {
-      this.fullscreenText = this.add.text(160, exitY, this.scale.isFullscreen ? '[EXIT FULL]' : '[FULL]', {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#2a6a4a',
-      }).setOrigin(0, 0.5).setAlpha(0.95);
-
-      const fsZone = this.add.zone(220, exitY, 170, 34).setInteractive({ useHandCursor: true });
-      fsZone.on('pointerdown', () => this.toggleFullscreen());
-      fsZone.on('pointerover', () => this.fullscreenText?.setColor('#53d1ff'));
-      fsZone.on('pointerout', () => this.fullscreenText?.setColor('#2a6a4a'));
-
-      this.scale.on('enterfullscreen', this.updateFullscreenText, this);
-      this.scale.on('leavefullscreen', this.updateFullscreenText, this);
-      this.scale.on('fullscreenfailed', this.updateFullscreenText, this);
-      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-        this.scale.off('enterfullscreen', this.updateFullscreenText, this);
-        this.scale.off('leavefullscreen', this.updateFullscreenText, this);
-        this.scale.off('fullscreenfailed', this.updateFullscreenText, this);
-      });
     }
 
     if (this.inputMode === 'mouse') {
@@ -332,11 +309,6 @@ export class HackScene extends Phaser.Scene {
       return;
     }
 
-    if (event.code === 'KeyF') {
-      this.toggleFullscreen();
-      return;
-    }
-
     // Ignore non-printable keys (modifiers, arrows, etc.)
     if (event.key.length !== 1 && event.key !== ' ') return;
 
@@ -380,23 +352,6 @@ export class HackScene extends Phaser.Scene {
 
   private exitToMenu(): void {
     this.scene.start('NetworkMapScene');
-  }
-
-  private toggleFullscreen(): void {
-    if (!this.scale.fullscreen.available) return;
-
-    if (this.scale.isFullscreen) {
-      this.scale.stopFullscreen();
-      return;
-    }
-
-    const target = this.registry.get('uplink_fullscreen_target') as HTMLElement | undefined;
-    this.scale.startFullscreen(target);
-  }
-
-  private updateFullscreenText(): void {
-    if (!this.fullscreenText) return;
-    this.fullscreenText.setText(this.scale.isFullscreen ? '[EXIT FULL]' : '[FULL]');
   }
 
   private detectMobile(): boolean {

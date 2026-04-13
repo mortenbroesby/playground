@@ -52,7 +52,6 @@ export class NetworkMapScene extends Phaser.Scene {
   private difficultyLabel!: Phaser.GameObjects.Text;
   private settingsOpen = false;
   private settingsContainer: Phaser.GameObjects.Container | null = null;
-  private fullscreenLabel: Phaser.GameObjects.Text | null = null;
   private mobileLabel: Phaser.GameObjects.Text | null = null;
 
   constructor() {
@@ -78,8 +77,6 @@ export class NetworkMapScene extends Phaser.Scene {
     this.drawUI();
     this.drawScanLine();
 
-    this.registerFullscreenListeners();
-
     if (this.inputMode === 'keyboard') {
       this.input.keyboard!.once('keydown-ENTER', () => this.startHack());
       this.input.keyboard!.once('keydown-SPACE', () => this.startHack());
@@ -89,7 +86,7 @@ export class NetworkMapScene extends Phaser.Scene {
       this.input.keyboard!.on('keydown-ONE', () => this.setDifficulty('easy'));
       this.input.keyboard!.on('keydown-TWO', () => this.setDifficulty('medium'));
       this.input.keyboard!.on('keydown-THREE', () => this.setDifficulty('hard'));
-      this.input.keyboard!.on('keydown-F', () => this.toggleFullscreen());
+      this.input.keyboard!.on('keydown-T', () => { if (this.settingsOpen) this.toggleFullscreenFromMenu(); });
     }
   }
 
@@ -149,7 +146,7 @@ export class NetworkMapScene extends Phaser.Scene {
     const w = 900;
     const h = 560;
     const panelW = 520;
-    const panelH = 270;
+    const panelH = 320;
     const x = (w - panelW) / 2;
     const y = (h - panelH) / 2;
 
@@ -179,8 +176,8 @@ export class NetworkMapScene extends Phaser.Scene {
     container.add(sub);
 
     const hint = this.inputMode === 'keyboard'
-      ? '[1] EASY   [2] MEDIUM   [3] HARD   [ESC] CLOSE'
-      : 'CLICK A DIFFICULTY  —  CLICK OUTSIDE TO CLOSE';
+      ? '[1] EASY   [2] MEDIUM   [3] HARD   [T] FULLSCREEN   [ESC] CLOSE'
+      : 'CLICK A DIFFICULTY OR FULLSCREEN  —  CLICK OUTSIDE TO CLOSE';
     const hintText = this.add.text(w / 2, y + panelH - 22, hint, {
       fontFamily: 'monospace', fontSize: '11px', color: '#2a6a4a',
     }).setOrigin(0.5, 0.5).setDepth(52);
@@ -230,6 +227,39 @@ export class NetworkMapScene extends Phaser.Scene {
       makeButton('MEDIUM', 170, 'medium');
       makeButton('HARD', 340, 'hard');
 
+      const fsLabel = this.isFullscreenActive() ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+      const fsX = w / 2;
+      const fsY = y + 200;
+      const fsW = 240;
+      const fsH = 40;
+
+      const fsGfx = this.add.graphics().setDepth(52);
+      const drawFs = (hover: boolean): void => {
+        fsGfx.clear();
+        fsGfx.fillStyle(0x061012, 1);
+        fsGfx.fillRect(fsX - fsW / 2, fsY - fsH / 2, fsW, fsH);
+        fsGfx.lineStyle(1, hover ? 0x53d1ff : 0x4df3a9, 1);
+        fsGfx.strokeRect(fsX - fsW / 2, fsY - fsH / 2, fsW, fsH);
+        if (hover) {
+          fsGfx.fillStyle(0x4df3a9, 0.04);
+          fsGfx.fillRect(fsX - fsW / 2, fsY - fsH / 2, fsW, fsH);
+        }
+      };
+      drawFs(false);
+
+      const fsText = this.add.text(fsX, fsY, `[${fsLabel}]`, {
+        fontFamily: 'monospace', fontSize: '12px', color: '#4df3a9',
+      }).setOrigin(0.5, 0.5).setDepth(53);
+
+      const fsZone = this.add.zone(fsX, fsY, fsW, fsH).setInteractive({ useHandCursor: true }).setDepth(54);
+      fsZone.on('pointerdown', () => this.toggleFullscreenFromMenu());
+      fsZone.on('pointerover', () => drawFs(true));
+      fsZone.on('pointerout', () => drawFs(false));
+
+      container.add(fsGfx);
+      container.add(fsText);
+      container.add(fsZone);
+
       const closeZone = this.add.zone(w / 2, h / 2, w, h).setDepth(49);
       closeZone.setInteractive();
       closeZone.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -247,10 +277,20 @@ export class NetworkMapScene extends Phaser.Scene {
   }
 
   private toggleFullscreen(): void {
-    if (!this.scale.fullscreen.available) return;
+    const fullWindow = Boolean(this.registry.get('uplink_fullwindow'));
 
     if (this.scale.isFullscreen) {
       this.scale.stopFullscreen();
+      return;
+    }
+
+    if (fullWindow) {
+      this.registry.set('uplink_fullwindow', false);
+      return;
+    }
+
+    if (!this.scale.fullscreen.available) {
+      this.registry.set('uplink_fullwindow', true);
       return;
     }
 
@@ -258,22 +298,13 @@ export class NetworkMapScene extends Phaser.Scene {
     this.scale.startFullscreen(target);
   }
 
-  private updateFullscreenLabel(): void {
-    if (!this.fullscreenLabel) return;
-    this.fullscreenLabel.setText(this.scale.isFullscreen ? '[EXIT FULL]' : '[FULL]');
+  private toggleFullscreenFromMenu(): void {
+    this.toggleFullscreen();
+    this.closeSettings();
   }
 
-  private registerFullscreenListeners(): void {
-    if (!this.scale.fullscreen.available) return;
-    this.scale.on('enterfullscreen', this.updateFullscreenLabel, this);
-    this.scale.on('leavefullscreen', this.updateFullscreenLabel, this);
-    this.scale.on('fullscreenfailed', this.updateFullscreenLabel, this);
-
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off('enterfullscreen', this.updateFullscreenLabel, this);
-      this.scale.off('leavefullscreen', this.updateFullscreenLabel, this);
-      this.scale.off('fullscreenfailed', this.updateFullscreenLabel, this);
-    });
+  private isFullscreenActive(): boolean {
+    return this.scale.isFullscreen || Boolean(this.registry.get('uplink_fullwindow'));
   }
 
   private detectMobile(): boolean {
@@ -456,6 +487,11 @@ export class NetworkMapScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '13px', color: '#4df3a9',
     }).setOrigin(0.5, 0.5).setDepth(9);
 
+    const onlineText = this.add.text(882, 18, '● ONLINE', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
+    }).setOrigin(1, 0.5).setDepth(9);
+    this.tweens.add({ targets: onlineText, alpha: 0.4, duration: 1100, yoyo: true, repeat: -1 });
+
     if (this.isMobile) {
       this.mobileLabel = this.add.text(12, 18, '[MOBILE]', {
         fontFamily: 'monospace', fontSize: '10px', color: '#53d1ff',
@@ -463,21 +499,14 @@ export class NetworkMapScene extends Phaser.Scene {
       this.tweens.add({ targets: this.mobileLabel, alpha: 0.35, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
 
-    const onlineText = this.add.text(882, 18, '● ONLINE', {
-      fontFamily: 'monospace', fontSize: '10px', color: '#4df3a9',
-    }).setOrigin(1, 0.5).setDepth(9);
-    this.tweens.add({ targets: onlineText, alpha: 0.4, duration: 1100, yoyo: true, repeat: -1 });
+    const locateText = this.inputMode === 'keyboard'
+      ? '> LOCATE DARKNET-07 — PRESS ENTER TO INITIATE HACK'
+      : '> LOCATE DARKNET-07 (RED NODE) — CLICK TO INITIATE HACK';
 
-    if (this.scale.fullscreen.available) {
-      this.fullscreenLabel = this.add.text(760, 18, this.scale.isFullscreen ? '[EXIT FULL]' : '[FULL]', {
-        fontFamily: 'monospace', fontSize: '10px', color: '#2a6a4a',
-      }).setOrigin(1, 0.5).setDepth(9);
-
-      const fsZone = this.add.zone(720, 18, 120, 26).setInteractive({ useHandCursor: true }).setDepth(9);
-      fsZone.on('pointerdown', () => this.toggleFullscreen());
-      fsZone.on('pointerover', () => this.fullscreenLabel?.setColor('#53d1ff'));
-      fsZone.on('pointerout', () => this.fullscreenLabel?.setColor('#2a6a4a'));
-    }
+    const locate = this.add.text(450, 44, locateText, {
+      fontFamily: 'monospace', fontSize: '11px', color: '#53d1ff',
+    }).setOrigin(0.5, 0).setDepth(9);
+    this.tweens.add({ targets: locate, alpha: 0.28, duration: 850, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // Bottom bar
     const instrBg = this.add.graphics().setDepth(8);
@@ -485,15 +514,6 @@ export class NetworkMapScene extends Phaser.Scene {
     instrBg.fillRect(0, 524, 900, 36);
     instrBg.lineStyle(1, 0x2a5a3a, 0.35);
     instrBg.strokeRect(0, 524, 900, 36);
-
-    const instrText = this.inputMode === 'keyboard'
-      ? '> LOCATE DARKNET-07 — PRESS ENTER TO INITIATE HACK'
-      : '> LOCATE DARKNET-07 (RED NODE) — CLICK TO INITIATE HACK';
-
-    const instr = this.add.text(340, 542, instrText, {
-      fontFamily: 'monospace', fontSize: '11px', color: '#53d1ff',
-    }).setOrigin(0.5, 0.5).setDepth(9);
-    this.tweens.add({ targets: instr, alpha: 0.3, duration: 850, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // Mode toggle (right side of bottom bar)
     this.modeLabel = this.add.text(878, 542, this.getModeLabel(), {
