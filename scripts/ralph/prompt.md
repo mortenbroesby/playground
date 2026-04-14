@@ -9,6 +9,7 @@ You are running one opt-in Ralph iteration for `playground`.
 - PRD branch: `{{BRANCH_NAME}}`
 - Current git branch: `{{CURRENT_BRANCH}}`
 - Active story: `{{STORY_ID}} - {{STORY_TITLE}}`
+- Active story status: `{{STORY_STATUS}}`
 
 ## Files To Read First
 
@@ -22,6 +23,16 @@ You are running one opt-in Ralph iteration for `playground`.
 
 {{STORY_NOTES}}
 
+## Story Queue Snapshot
+
+{{STORY_SUMMARY}}
+
+## Recent Progress Tail
+
+```text
+{{RECENT_PROGRESS}}
+```
+
 ## Required Working Style
 
 - Implement only the single active story for this iteration.
@@ -33,6 +44,8 @@ You are running one opt-in Ralph iteration for `playground`.
   files changed
   checks run
   reusable learnings or gotchas
+- Leave a short next-step note when partial work remains so the next iteration
+  can resume without rediscovery.
 - Update `{{RUN_DIR}}/prd.json` only if the story is fully complete and the
   listed checks passed.
 - Add reusable directory-specific learnings to nearby `AGENTS.md` files only if

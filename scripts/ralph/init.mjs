@@ -84,6 +84,7 @@ const prdTemplate = {
       id: "STORY-1",
       title: "Describe the first vertical slice",
       priority: "high",
+      status: "pending",
       passes: false,
       notes: "Replace this placeholder with a concrete, verifiable story.",
     },
@@ -110,6 +111,7 @@ writeIfMissing(
     "",
     "- `prd.json`: task state and story checklist",
     "- `progress.txt`: append-only learnings and iteration log",
+    "- `last-run.json`: metadata for the most recently generated iteration",
     "- generated prompt/output files from `pnpm ralph:loop`",
     "",
     "Suggested next steps:",
@@ -117,8 +119,11 @@ writeIfMissing(
     "1. Edit `prd.json` with concrete stories.",
     "2. Run `pnpm ralph:loop -- --dir "
       + relativeDir
-      + " --dry-run` to inspect the next prompt.",
+      + " --list` to inspect story state.",
     "3. Run `pnpm ralph:loop -- --dir "
+      + relativeDir
+      + " --dry-run` to inspect the next prompt.",
+    "4. Run `pnpm ralph:loop -- --dir "
       + relativeDir
       + " --agent codex` when the PRD is ready.",
     "",

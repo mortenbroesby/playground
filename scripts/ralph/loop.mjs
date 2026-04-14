@@ -13,11 +13,13 @@ function parseArgs(argv) {
     dir: "",
     agent: "",
     agentCommand: "",
+    storyId: "",
     model: "",
     sandbox: "workspace-write",
     dryRun: false,
     autoCommit: false,
     enforceBranch: false,
+    list: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -37,6 +39,12 @@ function parseArgs(argv) {
 
     if (token === "--agent-command") {
       args.agentCommand = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+
+    if (token === "--story") {
+      args.storyId = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -65,6 +73,11 @@ function parseArgs(argv) {
 
     if (token === "--enforce-branch") {
       args.enforceBranch = true;
+      continue;
+    }
+
+    if (token === "--list") {
+      args.list = true;
       continue;
     }
   }
@@ -102,11 +115,93 @@ function normalizePriority(priority) {
   return 99;
 }
 
-function pickNextStory(stories) {
+function normalizeStatus(story) {
+  if (story?.passes === true) {
+    return "done";
+  }
+
+  if (typeof story?.status === "string" && story.status.trim() !== "") {
+    return story.status.trim().toLowerCase();
+  }
+
+  return "pending";
+}
+
+function validatePrd(prd) {
+  const issues = [];
+
+  if (!prd || typeof prd !== "object" || Array.isArray(prd)) {
+    issues.push("`prd.json` must contain a JSON object.");
+    return issues;
+  }
+
+  if (typeof prd.title !== "string" || prd.title.trim() === "") {
+    issues.push("`title` must be a non-empty string.");
+  }
+
+  if (!Array.isArray(prd.stories) || prd.stories.length === 0) {
+    issues.push("`stories` must be a non-empty array.");
+    return issues;
+  }
+
+  const storyIds = new Set();
+
+  prd.stories.forEach((story, index) => {
+    const label = `stories[${index}]`;
+
+    if (!story || typeof story !== "object" || Array.isArray(story)) {
+      issues.push(`${label} must be an object.`);
+      return;
+    }
+
+    if (typeof story.id !== "string" || story.id.trim() === "") {
+      issues.push(`${label}.id must be a non-empty string.`);
+    } else if (storyIds.has(story.id)) {
+      issues.push(`${label}.id '${story.id}' is duplicated.`);
+    } else {
+      storyIds.add(story.id);
+    }
+
+    if (typeof story.title !== "string" || story.title.trim() === "") {
+      issues.push(`${label}.title must be a non-empty string.`);
+    }
+
+    const status = normalizeStatus(story);
+    const allowedStatuses = new Set(["pending", "in_progress", "blocked", "done"]);
+
+    if (!allowedStatuses.has(status)) {
+      issues.push(
+        `${label}.status must be one of pending, in_progress, blocked, done.`,
+      );
+    }
+  });
+
+  return issues;
+}
+
+function pickNextStory(stories, storyId = "") {
+  if (storyId) {
+    return stories.find((story) => story?.id === storyId);
+  }
+
   return stories
     .map((story, index) => ({ ...story, _index: index }))
-    .filter((story) => story?.passes !== true)
+    .filter((story) => normalizeStatus(story) !== "done")
     .sort((left, right) => {
+      const statusOrder = new Map([
+        ["in_progress", 0],
+        ["pending", 1],
+        ["blocked", 2],
+        ["done", 3],
+      ]);
+      const statusDelta =
+        (statusOrder.get(normalizeStatus(left)) ?? 99) -
+        (statusOrder.get(normalizeStatus(right)) ?? 99);
+
+      if (statusDelta !== 0) {
+        return statusDelta;
+      }
+
       const priorityDelta =
         normalizePriority(left.priority) - normalizePriority(right.priority);
 
@@ -118,6 +213,16 @@ function pickNextStory(stories) {
     })[0];
 }
 
+function formatStories(stories) {
+  return stories
+    .map((story) => {
+      const status = normalizeStatus(story);
+      const priority = story.priority ?? "none";
+      return `- ${story.id}: ${story.title} [status=${status}, priority=${priority}]`;
+    })
+    .join("\n");
+}
+
 function joinChecks(checks) {
   if (!Array.isArray(checks) || checks.length === 0) {
     return "- No explicit checks listed in `prd.json`. Use the narrowest relevant project checks.";
@@ -126,7 +231,28 @@ function joinChecks(checks) {
   return checks.map((check) => `- ${check}`).join("\n");
 }
 
-function buildPrompt({ template, runDir, prd, story, branch, autoCommit }) {
+function readRecentProgress(progressPath) {
+  const raw = fs.readFileSync(progressPath, "utf8").trim();
+
+  if (!raw) {
+    return "No prior progress logged yet.";
+  }
+
+  const lines = raw.split("\n");
+  const tail = lines.slice(-16).join("\n").trim();
+  return tail || "No prior progress logged yet.";
+}
+
+function buildPrompt({
+  template,
+  runDir,
+  prd,
+  story,
+  branch,
+  autoCommit,
+  recentProgress,
+  storySummary,
+}) {
   return template
     .replaceAll("{{RUN_DIR}}", runDir)
     .replaceAll("{{PRD_TITLE}}", prd.title || "Untitled Ralph Run")
@@ -134,10 +260,13 @@ function buildPrompt({ template, runDir, prd, story, branch, autoCommit }) {
     .replaceAll("{{CURRENT_BRANCH}}", branch || "(detached)")
     .replaceAll("{{STORY_ID}}", story.id || "UNKNOWN")
     .replaceAll("{{STORY_TITLE}}", story.title || "Untitled story")
+    .replaceAll("{{STORY_STATUS}}", normalizeStatus(story))
     .replaceAll(
       "{{STORY_NOTES}}",
       story.notes || "No additional story notes were provided.",
     )
+    .replaceAll("{{STORY_SUMMARY}}", storySummary)
+    .replaceAll("{{RECENT_PROGRESS}}", recentProgress)
     .replaceAll("{{CHECKS}}", joinChecks(prd.checks))
     .replaceAll(
       "{{COMMIT_POLICY}}",
@@ -155,9 +284,22 @@ function buildPrompt({ template, runDir, prd, story, branch, autoCommit }) {
 
 function writePrompt(runDirPath, prompt) {
   const stamp = new Date().toISOString().replaceAll(":", "-");
-  const promptPath = path.join(runDirPath, `prompt-${stamp}.md`);
+  let promptPath = path.join(runDirPath, `prompt-${stamp}.md`);
+  let suffix = 1;
+
+  while (fs.existsSync(promptPath)) {
+    promptPath = path.join(runDirPath, `prompt-${stamp}-${suffix}.md`);
+    suffix += 1;
+  }
+
   fs.writeFileSync(promptPath, prompt, "utf8");
   return promptPath;
+}
+
+function writeLastRun(runDirPath, payload) {
+  const lastRunPath = path.join(runDirPath, "last-run.json");
+  fs.writeFileSync(lastRunPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return lastRunPath;
 }
 
 function fail(message) {
@@ -185,11 +327,36 @@ if (!fs.existsSync(progressPath)) {
 }
 
 const prd = readJson(prdPath);
-const story = pickNextStory(Array.isArray(prd.stories) ? prd.stories : []);
+const issues = validatePrd(prd);
+
+if (issues.length > 0) {
+  fail(
+    [
+      "Invalid `prd.json`:",
+      ...issues.map((issue) => `- ${issue}`),
+    ].join("\n"),
+  );
+}
+
+if (args.list) {
+  console.log(`Stories in ${relativeRunDir}:`);
+  console.log(formatStories(prd.stories));
+  process.exit(0);
+}
+
+const story = pickNextStory(prd.stories, args.storyId);
 
 if (!story) {
+  if (args.storyId) {
+    fail(`Story not found: ${args.storyId}`);
+  }
+
   console.log(`No pending stories remain in ${relativeRunDir}`);
   process.exit(0);
+}
+
+if (normalizeStatus(story) === "done") {
+  fail(`Story ${story.id} is already marked done.`);
 }
 
 const branch = currentBranch();
@@ -209,6 +376,8 @@ if (
 }
 
 const template = fs.readFileSync(promptTemplatePath, "utf8");
+const recentProgress = readRecentProgress(progressPath);
+const storySummary = formatStories(prd.stories);
 const prompt = buildPrompt({
   template,
   runDir: relativeRunDir,
@@ -216,13 +385,26 @@ const prompt = buildPrompt({
   story,
   branch,
   autoCommit: args.autoCommit,
+  recentProgress,
+  storySummary,
 });
 const promptPath = writePrompt(absoluteRunDir, prompt);
 const lastMessagePath = path.join(absoluteRunDir, "last-message.txt");
+const lastRunPath = writeLastRun(absoluteRunDir, {
+  generatedAt: new Date().toISOString(),
+  branch,
+  storyId: story.id,
+  storyTitle: story.title,
+  storyStatus: normalizeStatus(story),
+  promptPath: path.relative(repoRoot, promptPath),
+});
 
-console.log(`Selected story: ${story.id} - ${story.title}`);
+console.log(
+  `Selected story: ${story.id} - ${story.title} [status=${normalizeStatus(story)}]`,
+);
 console.log(`Run directory: ${relativeRunDir}`);
 console.log(`Prompt file: ${path.relative(repoRoot, promptPath)}`);
+console.log(`Last run file: ${path.relative(repoRoot, lastRunPath)}`);
 
 if (args.dryRun || (!args.agent && !args.agentCommand)) {
   console.log("Dry run only. Inspect the generated prompt file and re-run with an agent.");
