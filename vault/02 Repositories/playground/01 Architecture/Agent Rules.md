@@ -6,6 +6,8 @@ summary: Shared cross-agent rules now keep AGENTS.md thin while Codex execpolicy
 keywords:
   - agents
   - rules
+  - skills
+  - commands
   - codex
   - claude code
   - policy
@@ -24,6 +26,11 @@ files that multiple agent runtimes can share.
 ## Layout
 
 - `.agents/rules/` contains shared markdown instruction rules.
+- `.agents/commands/` contains shared lifecycle prompts. Claude sees these as
+  commands through `.claude/commands`; Codex sees the same files through
+  `.codex/prompts`.
+- `.agents/skills/` contains shared skills. Claude, Codex, Copilot, and
+  OpenCode adapters point at this same source.
 - `.claude/rules` symlinks to `.agents/rules` so Claude-style rule loading uses
   the same source files.
 - `.codex/rules/playground.rules` contains Codex execpolicy rules for host
@@ -37,6 +44,17 @@ files that multiple agent runtimes can share.
 - `frontend.md`: path-scoped frontend and UI policy.
 - `agent-infrastructure.md`: path-scoped policy for hooks, skills, rules, and
   runtime adapters.
+
+## Workflow Skill
+
+`engineering-workflow` is a compact, cross-agent adaptation of the useful setup
+from `addyosmani/agent-skills`: define, plan, build, test, review, simplify, and
+ship. The repo deliberately imports the lifecycle shape and command prompts, not
+the Claude plugin wrapper or runtime-specific install state.
+
+`pnpm agents:check` now treats `.claude-plugin/` and root `plugins/` as forbidden
+paths so plugin-specific setup does not drift back into the shared adapter
+layout.
 
 ## Follow-Up
 

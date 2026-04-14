@@ -10,12 +10,19 @@ const requiredPaths = [
   "AGENTS.md",
   "CLAUDE.md",
   ".agents/hooks",
+  ".agents/commands",
   ".agents/rules",
   ".agents/skills",
+  ".agents/skills/engineering-workflow/SKILL.md",
   ".codex/rules/playground.rules",
   ".claude/settings.json",
   ".husky/post-commit",
   "codex/rules",
+];
+
+const forbiddenPaths = [
+  ".claude-plugin",
+  "plugins",
 ];
 
 const symlinks = new Map([
@@ -40,6 +47,12 @@ function fail(message) {
 for (const relativePath of requiredPaths) {
   if (!fs.existsSync(path.join(repoRoot, relativePath))) {
     fail(`missing ${relativePath}`);
+  }
+}
+
+for (const relativePath of forbiddenPaths) {
+  if (fs.existsSync(path.join(repoRoot, relativePath))) {
+    fail(`forbidden runtime-specific plugin path still exists: ${relativePath}`);
   }
 }
 

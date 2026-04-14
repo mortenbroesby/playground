@@ -16,6 +16,9 @@ paths:
 - Keep shared commands, hooks, skills, and instruction rules under `.agents/`.
 - Runtime-specific directories should be thin adapters or symlinks:
   `.claude/*`, `.codex/*`, `.github/skills`, and `.opencode/*`.
+- Put reusable lifecycle prompts in `.agents/commands/` and reusable skills in
+  `.agents/skills/`; do not import plugin-specific wrappers when shared files
+  can serve Codex and Claude.
 - Hook scripts should be focused, deterministic, fast, and single-purpose.
 - Validate hook stdin as untrusted input; resolve paths against the project root;
   redact secrets before logging.

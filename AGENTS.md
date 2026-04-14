@@ -26,6 +26,7 @@ Thin bootstrap for coding agents in this repo.
 
 ## Hooks And Rules
 
+- Shared command prompts live in [`.agents/commands/`](.agents/commands/).
 - Shared hooks live in [`.agents/hooks/`](.agents/hooks/).
 - Shared instruction rules live in [`.agents/rules/`](.agents/rules/).
 - Codex execution-policy rules live in [`.codex/rules/`](.codex/rules/), with
