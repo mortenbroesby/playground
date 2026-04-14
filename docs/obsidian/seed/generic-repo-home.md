@@ -54,15 +54,6 @@ SORT started_at DESC
 LIMIT 10
 ```
 
-## Open Questions
-
-```dataview
-TABLE opened_on, owner
-FROM "02 Repositories/__REPO_SLUG__/04 Questions"
-WHERE type = "repo-question" AND status != "closed"
-SORT opened_on DESC
-```
-
 ## Key Decisions
 
 ```dataview
@@ -76,7 +67,8 @@ SORT decided_on DESC
 
 - add a one-paragraph repo summary
 - replace placeholder architecture bullets with repo-specific notes
-- capture your first session under `03 Sessions/`
+- capture a session under `03 Sessions/` only when it leaves useful future context
+- keep inbox-style capture in the repo's scratch file, not in the vault
 
 ## Related Repo Files
 

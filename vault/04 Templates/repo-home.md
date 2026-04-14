@@ -30,7 +30,6 @@ Use one tight paragraph here. This is the highest-signal retrieval chunk for loc
 - `README.md`
 - `KANBAN.md`
 - `BRAINDUMP.md`
-- `docs/ideas/`
 
 Trim or replace this list so it matches the actual repo.
 
@@ -46,10 +45,6 @@ Trim or replace this list so it matches the actual repo.
 - currently risky area
 - what should be looked at first after time away
 
-## Open Questions
-
-- unresolved product or technical questions
-
 ## Key Decisions
 
 - links to decision notes under `02 Decisions/`
@@ -57,6 +52,7 @@ Trim or replace this list so it matches the actual repo.
 ## Next Actions
 
 - immediate next actions worth resuming
+- keep inbox-style capture in the repo's scratch file, not in the vault
 
 ## Related Repo Files
 

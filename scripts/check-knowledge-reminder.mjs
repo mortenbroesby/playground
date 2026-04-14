@@ -54,9 +54,10 @@ function changedLineCount(paths) {
 
 function isDocPath(filePath) {
   return (
-    /(^|\/)(README|AGENTS)\.md$/.test(filePath) ||
+    /(^|\/)(README|AGENTS|CLAUDE)\.md$/.test(filePath) ||
     filePath.startsWith("docs/") ||
     filePath.startsWith("vault/") ||
+    filePath.startsWith(".agents/rules/") ||
     filePath === ".github/copilot-instructions.md"
   );
 }
@@ -76,8 +77,12 @@ function isRelevantChange(filePath) {
 
   return (
     /\.(cjs|css|html|js|jsx|json|mdx|mjs|scss|ts|tsx|ya?ml)$/.test(filePath) ||
+    filePath.startsWith(".agents/hooks/") ||
+    filePath.startsWith(".agents/rules/") ||
+    filePath.startsWith(".codex/rules/") ||
+    filePath.startsWith(".claude/") ||
     filePath.startsWith(".husky/") ||
-    filePath.startsWith("tools/hooks/") ||
+    filePath.startsWith("codex/rules/") ||
     filePath === "pnpm-lock.yaml"
   );
 }
@@ -91,8 +96,13 @@ function isStructuralChange(filePath) {
     filePath === "pnpm-workspace.yaml" ||
     filePath === "turbo.json" ||
     filePath === "vercel.json" ||
+    filePath.startsWith(".agents/hooks/") ||
+    filePath.startsWith(".agents/rules/") ||
+    filePath.startsWith(".codex/rules/") ||
+    filePath.startsWith(".claude/") ||
     filePath.startsWith(".husky/") ||
-    filePath.startsWith("tools/hooks/")
+    filePath.startsWith("codex/rules/") ||
+    filePath === "CLAUDE.md"
   );
 }
 

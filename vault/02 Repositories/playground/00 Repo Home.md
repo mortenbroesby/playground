@@ -18,13 +18,14 @@ stack:
 owner: mortenbroesby
 source_of_truth:
   - AGENTS.md
+  - CLAUDE.md
   - README.md
   - KANBAN.md
   - BRAINDUMP.md
-  - docs/ideas/
-  - apps/host/AGENTS.md
-active_focus: personal-site host plus one deliberate injected remote, with an intentional drift toward separate personal and playground surface systems
-last_reviewed: 2026-04-11
+  - .agents/rules/
+  - .agents/hooks/
+active_focus: personal-site host, playground lab, and a thin shared agent setup with durable memory in this vault
+last_reviewed: 2026-04-14
 tags:
   - type/repo
   - state/active
@@ -41,11 +42,12 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 ## Source Of Truth
 
 - [AGENTS.md](file:///Users/macbook/personal/playground/AGENTS.md)
+- [CLAUDE.md](file:///Users/macbook/personal/playground/CLAUDE.md)
 - [README.md](file:///Users/macbook/personal/playground/README.md)
 - [KANBAN.md](file:///Users/macbook/personal/playground/KANBAN.md)
 - [BRAINDUMP.md](file:///Users/macbook/personal/playground/BRAINDUMP.md)
-- [docs/ideas/](file:///Users/macbook/personal/playground/docs/ideas)
-- [apps/host/AGENTS.md](file:///Users/macbook/personal/playground/apps/host/AGENTS.md)
+- [.agents/rules/](file:///Users/macbook/personal/playground/.agents/rules)
+- [.agents/hooks/](file:///Users/macbook/personal/playground/.agents/hooks)
 
 ## Current Architecture
 
@@ -62,6 +64,7 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - [[01 Architecture/Workspace Remote Composition|Workspace Remote Composition]]
 - [[01 Architecture/Shared Packages and Tooling|Shared Packages and Tooling]]
 - [[01 Architecture/Agent Hooks|Agent Hooks]]
+- [[01 Architecture/Agent Rules|Agent Rules]]
 - [[01 Architecture/Archived Specs|Archived Specs]]
 - [[01 Architecture/Kanban Archive|Kanban Archive]]
 - [[01 Architecture/Superpowers Archive|Superpowers Archive]]
@@ -74,7 +77,9 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 
 - Keep the host strong as a real personal site while preserving the playground as a distinct lab.
 - Keep the design-system split incremental: shared primitives for now, surface-specific systems later.
-- Keep the shared hook policy in sync between Codex and Claude Code.
+- Keep the shared hook and rule policy in sync between Codex and Claude Code.
+- Keep this vault optimized for agents: `00 Repo Home` as primer, `01 Architecture`,
+  `02 Decisions`, and `03 Sessions` as the active durable-memory buckets.
 - Keep completed `docs/superpowers` planning docs archived in the vault.
 - Keep `KANBAN.md` task-shaped and `BRAINDUMP.md` loose.
 - Keep the host-to-remote contract trustworthy while the host architecture evolves.
@@ -89,15 +94,6 @@ SORT started_at DESC
 LIMIT 10
 ```
 
-## Open Questions
-
-```dataview
-TABLE opened_on, owner
-FROM "02 Repositories/playground/04 Questions"
-WHERE type = "repo-question" AND status != "closed"
-SORT opened_on DESC
-```
-
 ## Key Decisions
 
 ```dataview
@@ -109,10 +105,12 @@ SORT decided_on DESC
 
 ## Next Actions
 
-- Log new sessions under `03 Sessions/` using the session template.
+- Keep this note short enough for agents to load first. Link out instead of duplicating repo docs.
+- Log session notes under `03 Sessions/` only when the session leaves useful future context.
 - Capture architecture or workflow decisions under `02 Decisions/` instead of hiding them inside
   long session notes.
-- Keep this note short and dashboard-shaped. Link out instead of duplicating repo docs.
+- Use `BRAINDUMP.md` for inbox-style capture; do not recreate a vault inbox unless it becomes part
+  of the agent workflow.
 
 ## Related Repo Files
 

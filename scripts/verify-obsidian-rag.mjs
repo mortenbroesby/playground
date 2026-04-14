@@ -45,13 +45,6 @@ function scoreDocument(query, doc) {
   }
 
   if (
-    normalizedQuery.includes("question") &&
-    doc.normalizedText.includes("type: repo-question")
-  ) {
-    score += 4;
-  }
-
-  if (
     normalizedQuery.includes("decision") &&
     doc.normalizedText.includes("type: repo-decision")
   ) {
@@ -171,12 +164,10 @@ playground surface because the extra mount indirection was not paying for itself
     },
     {
       relativePath:
-        "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
+        "02 Repositories/playground/01 Architecture/Rendering Strategy.md",
       content: `---
-type: repo-question
+type: repo-architecture
 repo: playground
-status: open
-opened_on: 2026-04-10
 summary: Evaluate SSR or pre-rendering for the public host to improve first load and crawler behavior.
 keywords:
   - SSR
@@ -185,15 +176,14 @@ keywords:
 related_paths:
   - apps/host
 tags:
-  - type/question
-  - state/active
+  - type/architecture
   - repo/playground
 ---
 
 # Rendering Strategy
 
-Open question: should the public host stay CSR, move to selective pre-rendering, or adopt fuller
-SSR for metadata and first load quality?`,
+Track whether the public host should stay CSR, move to selective pre-rendering, or adopt fuller SSR
+for metadata and first load quality. Capture a decision note once the direction changes.`,
     },
     {
       relativePath:
@@ -257,9 +247,9 @@ async function run() {
         "02 Repositories/playground/01 Architecture/Host Ownership.md",
     },
     {
-      query: "What open question exists about rendering strategy?",
+      query: "What context exists about rendering strategy?",
       expectedPath:
-        "02 Repositories/playground/04 Questions/2026-04-10 Rendering Strategy.md",
+        "02 Repositories/playground/01 Architecture/Rendering Strategy.md",
     },
     {
       query: "Where did route metadata work land?",
