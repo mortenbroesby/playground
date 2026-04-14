@@ -4,6 +4,10 @@ description: Collaboratively build a focused Ralph loop command for playground
 
 Use the `ralph-plan` skill to help the user create a copyable Ralph loop command for this repo.
 
+When the plan is complete, do not stop at the command alone. Also provide the
+matching `pnpm ralph:loop -- ...` invocation when possible and ask the user
+whether they want to run the loop now.
+
 The final output should include:
 
 - `<background>`

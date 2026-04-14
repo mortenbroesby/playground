@@ -140,7 +140,17 @@ Does this capture the goal correctly? Should I adjust anything?
 
 ## Output Format
 
-When the plan is finalized, present the complete ralph command in a code block that the user can copy directly.
+When the plan is finalized, present the complete ralph command in a code block.
+Then ask whether the user wants to run the loop now.
+
+The final response should include:
+
+1. the completed Ralph command
+2. the matching `pnpm ralph:loop -- ...` command when the run directory or
+   story target is known
+3. a short direct question asking whether to run it now
+
+Do not stop at "here is the command" without the follow-up question.
 
 **Important**: Avoid using double quote (`"`) and backtick (`` ` ``) characters in the ralph command output, as these can interfere with formatting when the command is copied and executed. Use single quotes (`'`) instead, or rephrase to avoid quotes entirely.
 
@@ -167,3 +177,6 @@ Output <promise>COMPLETE</promise> when all tasks are done.
 ## Starting the Conversation
 
 Begin by asking the user what they want to accomplish. Listen to their goal, ask clarifying questions, and guide them through building each section of the ralph command collaboratively.
+
+If the user is already in a planning flow and Ralph is the chosen execution
+path, explicitly ask whether they want to run the loop once the plan is ready.
