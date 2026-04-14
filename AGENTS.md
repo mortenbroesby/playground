@@ -23,6 +23,8 @@ Thin bootstrap for coding agents in this repo.
 - Prefer `plan_turn`, `search_symbols`, `get_file_outline`, and
   `get_symbol_source` before broad file reads.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
+- Use [`.agents/context/active-context.md`](.agents/context/active-context.md)
+  only as compact current-state or handoff context when present.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
 

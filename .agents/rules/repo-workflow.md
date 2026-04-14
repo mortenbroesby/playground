@@ -41,8 +41,17 @@ alwaysApply: true
 ## Memory
 
 - The repo-local Obsidian vault lives in `vault/`.
+- Treat the vault plus `obsidian-memory` as the only durable repo memory.
 - Before answering architecture, historical, or decision questions, query
   `obsidian-memory` when available.
+- Use `.agents/context/active-context.md` only as a compact active-task or
+  handoff layer when a short current-state summary will save tokens.
+- Keep active context small, disposable, and operational:
+  current task, branch, blockers, next step, and a few relevant file paths.
+- Do not store canonical decisions, architecture history, or long transcripts in
+  active context; move durable knowledge into `vault/` notes instead.
+- If `claudemem` is used in this repo, it should write or refresh shared active
+  context rather than create a separate source of truth.
 - After editing vault notes, run `pnpm rag:index` when fresh memory is needed
   before commit.
 
