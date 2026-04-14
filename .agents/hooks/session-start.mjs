@@ -64,7 +64,8 @@ export async function handleSessionStart(payload) {
   const dynamicContext = buildDynamicGitContext(cwd);
   const baseContext = [
     'Shared cross-agent hook policy is active for this session.',
-    'Use `rg` and jCodemunch for discovery, avoid ad hoc grep/find scans, and keep edits scoped.',
+    'Use jcodemunch first for code exploration. See `.agents/rules/repo-workflow.md` for tool selection and `AGENT_HOOKS.md` for hook behavior.',
+    'Avoid ad hoc grep/find/cat scans across code. Use direct `Read` only for exact edit context or non-code support files.',
     'Block destructive shell commands, force-pushes, piped shell downloads, writes outside the project root, secrets, and generated output.',
     `Current working directory: ${cwd}`,
     'See `AGENT_HOOKS.md` for the shared policy and runtime mapping.',

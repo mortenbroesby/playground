@@ -12,6 +12,15 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|Grep|Glob|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/jcodemunch-guard.mjs\""
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -42,6 +51,10 @@
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/jcodemunch-reindex.mjs\""
+          },
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/audit-edited-files.mjs\""
@@ -84,14 +97,5 @@
       }
     ]
   },
-  "enabledPlugins": {
-    "context7@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "agent-orchestration@claude-code-workflows": true,
-    "superpowers@claude-plugins-official": true,
-    "ralph-wiggum@claude-plugins-official": true,
-    "playground@playground-repo": true,
-    "context-mode@context-mode": true,
-    "agent-skills@addy-agent-skills": true
-  }
+  "enabledPlugins": {}
 }

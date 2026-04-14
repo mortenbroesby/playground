@@ -29,7 +29,6 @@ args = [
   "--watcher-extra-ignore",
   "README.md",
   "vault/",
-  "plugins/",
   "docs/superpowers/",
   ".rag/",
   "dist/",

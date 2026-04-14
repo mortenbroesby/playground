@@ -14,7 +14,7 @@ Keep this file loose:
 
 ## Current Inbox
 
-- Cut AGENTS.md to the bone. Do we need AGENT_HOOKS.md?
+- Pull in relevant setup from superpowers.
 
 - Add unit tests for our hooks.
 

@@ -6,3 +6,5 @@ Thin Claude Code adapter for this repo.
 - Load shared rules from [`.claude/rules`](.claude/rules), which points to
   [`.agents/rules`](.agents/rules).
 - Shared commands, hooks, and skills are exposed through `.claude/*` symlinks.
+- Use jcodemunch-first code exploration; Claude hooks will block broad code
+  scans through shell search tools.

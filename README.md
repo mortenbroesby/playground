@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/turborepo-2.x-EF4444?style=flat-square&logo=turborepo&logoColor=white" alt="Turborepo" />
   <img src="https://img.shields.io/badge/pnpm-9.x-F69220?style=flat-square&logo=pnpm&logoColor=white" alt="pnpm" />
   <img src="https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Node-24_LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/Node-24.x-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="MIT License" />
   <img src="https://img.shields.io/github/last-commit/mortenbroesby/playground?style=flat-square&logo=github" alt="Last Commit" />
 </p>
@@ -43,7 +43,6 @@ Current repo surfaces:
 - [Shared UI](./packages/ui) for reusable React components
 - [Shared types](./packages/types) for host and remote contracts
 - [Shared config](./packages/config) for TypeScript and ESLint setup
-- [`plugins/`](./plugins) for local plugin experiments and tooling content
 
 ## Contributing guidelines
 
@@ -65,6 +64,7 @@ This repo uses:
 
 ```bash
 corepack enable
+nvm use
 pnpm install
 pnpm turbo lint && pnpm lint:md
 pnpm turbo type-check
@@ -78,6 +78,11 @@ pnpm dev:web
 pnpm test
 pnpm test:integration
 ```
+
+Runtime expectations:
+
+- Node `24.x` via [`.nvmrc`](./.nvmrc)
+- pnpm `9.15.0` via the root `packageManager` field
 
 ## Documentation
 
@@ -156,7 +161,6 @@ packages/
 docs/
   ideas/                  Lightweight roadmap and parking-lot notes
   superpowers/            Separate planning and spec workstream
-plugins/                  Local plugin experiments and tooling content
 ```
 
 ## Adding a workspace
@@ -176,6 +180,13 @@ Add shared configs to the new workspace `package.json`:
   }
 }
 ```
+
+Workspace script baseline:
+
+- App and feature workspaces should expose `build` and `type-check`.
+- Add `lint` when the workspace has local ESLint wiring.
+- Add `test` when the workspace owns behavior worth verifying in isolation.
+- Config-only packages may omit runtime scripts when they only publish shared presets.
 
 ## How this is structured
 
