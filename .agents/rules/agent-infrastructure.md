@@ -12,6 +12,13 @@ paths:
 
 - Keep `AGENTS.md` thin. Durable policy belongs in `.agents/rules/`, executable
   policy in `.agents/hooks/`, and command escalation policy in `.codex/rules/`.
+- Treat `AGENTS.md` as a bootstrap, not a catalog:
+  keep it to a few short sections, prefer pointers over inventories, and avoid
+  repeating details that already live under `.agents/`.
+- Do not add long workflow explanations, change logs, skill inventories, or
+  adapter implementation details to `AGENTS.md`.
+- When `AGENTS.md` grows, compress it by replacing lists of subdirectories with
+  one pointer to the owning docs surface.
 - Keep `codex/rules` as a compatibility symlink to `.codex/rules`.
 - Keep shared commands, hooks, skills, and instruction rules under `.agents/`.
 - Keep compact shared checklists under `.agents/references/` when a skill needs

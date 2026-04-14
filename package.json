@@ -25,6 +25,8 @@
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
     "agents:check": "node tools/agent-setup-check.mjs",
+    "ralph:init": "node scripts/ralph/init.mjs",
+    "ralph:loop": "node scripts/ralph/loop.mjs",
     "prepare": "husky"
   },
   "devDependencies": {

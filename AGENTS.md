@@ -28,11 +28,7 @@ Thin bootstrap for coding agents in this repo.
 
 ## Hooks And Rules
 
-- Shared command prompts live in [`.agents/commands/`](.agents/commands/).
-- Shared hooks live in [`.agents/hooks/`](.agents/hooks/).
-- Shared instruction rules live in [`.agents/rules/`](.agents/rules/).
-- Shared lifecycle and support skills live in [`.agents/skills/`](.agents/skills/).
-- Shared reference checklists live in [`.agents/references/`](.agents/references/).
+- Shared agent docs live under [`.agents/`](.agents/).
 - Codex execution-policy rules live in [`.codex/rules/`](.codex/rules/), with
   [codex/rules](codex/rules) as a docs-path compatibility symlink.
 - Claude loads the same shared commands, skills, hooks, and rules through
