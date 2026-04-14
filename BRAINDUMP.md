@@ -12,12 +12,10 @@ Keep this file loose:
 
 - Add a tiny "new post" note on the home page when writing is updated.
 
-## Current Inbox
+## Braindump Inbox
 
 - Pull in relevant setup from superpowers.
-
-- Add unit tests for our hooks.
-
 - Figure out whether claudemem still has a place in our workflow.
+- Add unit tests for our hooks.
 
 - Revisit `How I Built This Website` as a reinvented post for the current site and stack, instead of keeping the older archived version live.
