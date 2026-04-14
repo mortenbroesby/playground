@@ -13,6 +13,7 @@ const requiredPaths = [
   ".agents/commands",
   ".agents/rules",
   ".agents/skills",
+  ".agents/references",
   ".agents/skills/engineering-workflow/SKILL.md",
   ".codex/rules/playground.rules",
   ".claude/settings.json",

@@ -18,4 +18,6 @@ Keep this file loose:
 
 - Add unit tests for our hooks.
 
+- Figure out whether claudemem still has a place in our workflow.
+
 - Revisit `How I Built This Website` as a reinvented post for the current site and stack, instead of keeping the older archived version live.

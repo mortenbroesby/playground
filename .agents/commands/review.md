@@ -2,7 +2,7 @@
 description: Review changes across correctness, readability, architecture, security, and performance
 ---
 
-Use the `engineering-workflow` skill.
+Use the `engineering-workflow` and `code-review-and-quality` skills.
 
 Review the current diff, staged changes, or named scope:
 
@@ -12,5 +12,8 @@ Review the current diff, staged changes, or named scope:
 4. Check architecture boundaries and whether abstractions pay for themselves.
 5. Check security and performance risks relevant to the changed surface.
 6. Call out missing tests or verification gaps.
+
+Use shared references in `.agents/references/` when they sharpen the review
+without inflating scope.
 
 Return findings first with file and line references where possible.

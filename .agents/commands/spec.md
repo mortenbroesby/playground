@@ -2,7 +2,7 @@
 description: Define what to build before coding
 ---
 
-Use the `engineering-workflow` skill.
+Use the `engineering-workflow` and `spec-driven-development` skills.
 
 Write or refine a compact spec before broad implementation:
 

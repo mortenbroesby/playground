@@ -88,6 +88,22 @@ Runtime expectations:
 
 The root README is the front door. The more detailed and more fluid thinking lives in `docs/`.
 
+## Agent workflow
+
+The shared agent surface under [`.agents/`](./.agents/) keeps a thin,
+repo-native adaptation of the lifecycle concepts from
+[`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills/tree/main).
+
+- shared lifecycle prompts live in [`.agents/commands/`](./.agents/commands/)
+- shared rules and hook policy live in [`.agents/rules/`](./.agents/rules/) and
+  [`.agents/hooks/`](./.agents/hooks/)
+- shared skills live in [`.agents/skills/`](./.agents/skills/)
+- compact reference checklists live in [`.agents/references/`](./.agents/references/)
+
+This repo intentionally does not import Addy's runtime-specific plugin
+scaffolding. Claude, Codex, Copilot, and OpenCode consume the same shared files
+through thin adapters and symlinks.
+
 ### Start here
 
 - [Docs index](./docs/README.md) for the docs map

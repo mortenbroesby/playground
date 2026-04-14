@@ -5,9 +5,9 @@ description: Use for spec, plan, build, test, review, simplify, or ship workflow
 
 # Engineering Workflow
 
-This skill adapts the useful lifecycle pattern from `addyosmani/agent-skills`
-for this repo's shared `.agents` setup. Use it as process guidance, not as a
-runtime-specific plugin.
+This skill is the umbrella lifecycle for this repo's shared `.agents` setup. It
+adapts the core flow from `addyosmani/agent-skills` while keeping runtime
+adapters thin and repo-native.
 
 ## Lifecycle
 
@@ -37,14 +37,19 @@ runtime-specific plugin.
 
 ## Command Mapping
 
-- `/spec` or `spec.md`: define what to build before coding.
-- `/plan` or `plan.md`: produce ordered tasks with acceptance criteria.
-- `/build` or `build.md`: implement the next slice and verify it.
-- `/test` or `test.md`: write or run proof for behavior.
-- `/review` or `review.md`: review changes across quality axes.
-- `/code-simplify` or `code-simplify.md`: simplify while preserving behavior.
-- `/ship` or `ship.md`: run release readiness checks.
-- `ralph-plan.md`: use for interactive Ralph-loop command planning.
+- `/spec` or `spec.md`: `spec-driven-development`
+- `/plan` or `plan.md`: `planning-and-task-breakdown`
+- `/build` or `build.md`: `incremental-implementation`
+- `/test` or `test.md`: `test-driven-development`
+- `/review` or `review.md`: `code-review-and-quality`
+- `/code-simplify` or `code-simplify.md`: `code-simplification`
+- `/ship` or `ship.md`: `shipping-and-launch`
+- `ralph-plan.md`: use `ralph-plan` for interactive Ralph-loop planning
+
+Cross-cutting support skills:
+
+- `context-engineering` for task setup and context hygiene
+- `source-driven-development` for external docs and version-sensitive APIs
 
 ## Guardrails
 

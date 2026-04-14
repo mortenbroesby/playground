@@ -14,6 +14,8 @@ paths:
   policy in `.agents/hooks/`, and command escalation policy in `.codex/rules/`.
 - Keep `codex/rules` as a compatibility symlink to `.codex/rules`.
 - Keep shared commands, hooks, skills, and instruction rules under `.agents/`.
+- Keep compact shared checklists under `.agents/references/` when a skill needs
+  small supporting reference material.
 - Runtime-specific directories should be thin adapters or symlinks:
   `.claude/*`, `.codex/*`, `.github/skills`, and `.opencode/*`.
 - Put reusable lifecycle prompts in `.agents/commands/` and reusable skills in

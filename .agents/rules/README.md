@@ -10,9 +10,13 @@ Shared instruction rules for agents working in this repository.
 
 Shared lifecycle prompts live in `.agents/commands/` and are exposed to Claude
 as commands and to Codex as prompts through symlinks. The compact
-`engineering-workflow` skill adapts the useful define/plan/build/test/review/ship
-setup from `addyosmani/agent-skills` without importing Claude-specific plugin
-state.
+`engineering-workflow` skill is the umbrella lifecycle. Repo-native lifecycle
+skills under `.agents/skills/` adapt the compatible parts of
+`addyosmani/agent-skills` without importing Claude-specific plugin state or
+runtime-specific scaffolding.
+
+Compact reference checklists live in `.agents/references/` and are meant for
+progressive disclosure by skills rather than always-on loading.
 
 Codex execution permissions are not markdown rules. They live in
 `.codex/rules/*.rules` and follow OpenAI Codex execpolicy syntax. The

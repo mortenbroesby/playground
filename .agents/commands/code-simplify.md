@@ -2,7 +2,7 @@
 description: Simplify code while preserving exact behavior
 ---
 
-Use the `engineering-workflow` skill.
+Use the `engineering-workflow` and `code-simplification` skills.
 
 Simplify a specified scope or recent changes:
 

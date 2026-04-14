@@ -2,7 +2,7 @@
 description: Check release readiness before pushing live
 ---
 
-Use the `engineering-workflow` skill.
+Use the `engineering-workflow` and `shipping-and-launch` skills.
 
 Before shipping or deployment:
 

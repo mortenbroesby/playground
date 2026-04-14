@@ -2,7 +2,7 @@
 description: Prove behavior with focused tests or checks
 ---
 
-Use the `engineering-workflow` skill.
+Use the `engineering-workflow` and `test-driven-development` skills.
 
 For new behavior:
 
@@ -16,3 +16,6 @@ For bugs:
 2. Apply the fix.
 3. Confirm the reproduction now passes.
 4. Run regression checks appropriate to the affected surface.
+
+If the failure is user-facing in a browser, also use
+`browser-testing-with-devtools`.

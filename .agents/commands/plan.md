@@ -2,7 +2,7 @@
 description: Break work into small verifiable tasks
 ---
 
-Use the `engineering-workflow` skill.
+Use the `engineering-workflow` and `planning-and-task-breakdown` skills.
 
 Create an implementation plan:
 
