@@ -35,6 +35,7 @@ import type { KanbanPriority, KanbanSection, KanbanSectionName, KanbanTask } fro
 
 const priorityOrder: KanbanPriority[] = ['P0', 'P1', 'P2', 'P3'];
 const sectionOrder: KanbanSectionName[] = ['Backlog', 'Ready', 'In Progress', 'Done'];
+const taskBoardLabel = 'vault/00 Repositories/playground/04 Tasks/Task Board.md';
 
 const prioritySelectData = priorityOrder.map((priority) => ({
   label: priority,
@@ -595,7 +596,7 @@ export function App() {
               <Text className="eyebrow">ADMIN-01</Text>
               <Title order={1} className="page-title">Kanban</Title>
               <Text c="dimmed" size="xs">
-                Live editor for <code>KANBAN.md</code>.
+                Live editor for <code>{taskBoardLabel}</code>.
               </Text>
             </Box>
 
@@ -719,8 +720,8 @@ export function App() {
                 <Text className="eyebrow">Board controls</Text>
                 <Text c="dimmed" size="xs">
                   {isWritable
-                    ? 'Auto-saves to KANBAN.md while you work.'
-                    : 'Read-only fallback mode. Run the app in dev to write back to KANBAN.md.'}
+                    ? 'Auto-saves to the vault task board while you work.'
+                    : 'Read-only fallback mode. Run the app in dev to write back to the vault task board.'}
                 </Text>
               </Box>
               <Group gap="xs">

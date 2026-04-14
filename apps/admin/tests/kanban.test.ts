@@ -77,4 +77,59 @@ Intro copy.
     expect(next).toContain('  Why: good');
     expect(next).toContain('## Done');
   });
+
+  it('preserves non-lane sections before the task lanes', () => {
+    const source = `# Task Board
+
+Intro copy.
+
+## Scales
+
+Priority scale:
+
+- \`P0\` urgent
+
+## Ready
+
+- \`P1\` Add board
+`;
+
+    const document = parseKanbanDocument(source);
+    const next = serializeKanban(document.preamble, document.sections);
+
+    expect(next).toContain('## Scales');
+    expect(next).toContain('Priority scale:');
+    expect(next).toContain('## Ready');
+  });
+
+  it('preserves wrapped and unknown task detail blocks when serializing', () => {
+    const source = `# Task Board
+
+## Backlog
+
+- \`P1\` Big task
+  AI Appetite: 80%
+  Why: existing solutions are fragmented and the explanation
+  continues on the next line.
+  Outcome: ship a local replacement.
+  Scope:
+  - Parse files
+  - Index symbols
+  Constraints:
+  - Keep it local
+  Source: architecture review
+  Brainfart: maybe worth a Ralph loop.
+`;
+
+    const document = parseKanbanDocument(source);
+    const next = serializeKanban(document.preamble, document.sections);
+
+    expect(next).toContain('## Backlog');
+    expect(next).toContain('  Why: existing solutions are fragmented and the explanation');
+    expect(next).toContain('  continues on the next line.');
+    expect(next).toContain('  Scope:');
+    expect(next).toContain('  - Parse files');
+    expect(next).toContain('  Constraints:');
+    expect(next).toContain('  Brainfart: maybe worth a Ralph loop.');
+  });
 });

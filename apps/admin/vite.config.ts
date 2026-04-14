@@ -4,7 +4,10 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vitest/config';
 
 function kanbanApiPlugin(): Plugin {
-  const kanbanFile = path.resolve(__dirname, '../../KANBAN.md');
+  const kanbanFile = path.resolve(
+    __dirname,
+    '../../vault/00 Repositories/playground/04 Tasks/Task Board.md',
+  );
 
   return {
     name: 'kanban-api',
@@ -56,7 +59,10 @@ function kanbanApiPlugin(): Plugin {
               res.setHeader('Content-Type', 'application/json');
               res.end(
                 JSON.stringify({
-                  error: error instanceof Error ? error.message : 'Failed to save KANBAN.md',
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : 'Failed to save the vault task board',
                 }),
               );
             }
@@ -97,5 +103,6 @@ export default defineConfig({
     globals: true,
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     setupFiles: ['./tests/setup.ts'],
+    testTimeout: 15000,
   },
 });

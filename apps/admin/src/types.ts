@@ -7,11 +7,13 @@ export type KanbanTask = {
   title: string;
   priority: KanbanPriority;
   section: KanbanSectionName;
+  checked?: boolean;
   aiAppetite?: number;
   why?: string;
   outcome?: string;
   source?: string;
   isCustom?: boolean;
+  rawLines?: string[];
 };
 
 export type KanbanSection = {

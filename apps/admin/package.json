@@ -2,7 +2,7 @@
   "name": "@playground/admin",
   "version": "0.0.1",
   "private": true,
-  "description": "Admin board for visualizing KANBAN.md",
+  "description": "Admin board for visualizing the vault task board",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -80,7 +80,7 @@ describe('admin app integration', () => {
     await renderApp();
 
     await waitForText('First task');
-    await waitForText('Auto-saves to KANBAN.md while you work.');
+    await waitForText('Auto-saves to the vault task board while you work.');
 
     (globalThis as typeof globalThis & { __setAdminMarkdown: (value: string) => void }).__setAdminMarkdown(
       updatedMarkdown,
