@@ -63,7 +63,7 @@ function isDocPath(filePath) {
 }
 
 function isMemoryPath(filePath) {
-  return filePath.startsWith("vault/02 Repositories/");
+  return filePath.startsWith("vault/00 Repositories/");
 }
 
 function isGeneratedPath(filePath) {
@@ -137,7 +137,7 @@ if (!memoryUpdated && !memoryBypassed) {
 
   summary.push(
     "",
-    "Stage a vault note under vault/02 Repositories/ before committing.",
+    "Stage a vault note under vault/00 Repositories/ before committing.",
     `For an intentional no-memory commit, rerun with ${BYPASS_MEMORY_ENV}=1 git commit ...`,
   );
 

@@ -99,7 +99,12 @@ async function copyTemplaterHelper(vaultPath: string, force: boolean) {
     "templater",
     "repo_context.js",
   );
-  const targetPath = path.join(vaultPath, "05 Scripts", "repo_context.js");
+  const targetPath = path.join(
+    vaultPath,
+    "91 Scripts",
+    "templater",
+    "repo_context.js",
+  );
 
   if (!force && (await pathExists(targetPath))) {
     return "skipped";
@@ -137,7 +142,7 @@ async function main() {
 
   const helperStatus = await copyTemplaterHelper(vaultPath, options.force);
   console.log(
-    `Templater helper at 05 Scripts/repo_context.js: ${helperStatus}`,
+    `Templater helper at 91 Scripts/templater/repo_context.js: ${helperStatus}`,
   );
 
   if (options.skipHook) {

@@ -48,7 +48,7 @@ If you know the actual repo path, update `repo_path` and add direct file links h
 
 ```dataview
 TABLE started_at, goal, outcome, next_step
-FROM "02 Repositories/__REPO_SLUG__/03 Sessions"
+FROM "00 Repositories/__REPO_SLUG__/03 Sessions"
 WHERE type = "repo-session"
 SORT started_at DESC
 LIMIT 10
@@ -58,7 +58,7 @@ LIMIT 10
 
 ```dataview
 TABLE decision_id, status, decided_on
-FROM "02 Repositories/__REPO_SLUG__/02 Decisions"
+FROM "00 Repositories/__REPO_SLUG__/02 Decisions"
 WHERE type = "repo-decision"
 SORT decided_on DESC
 ```

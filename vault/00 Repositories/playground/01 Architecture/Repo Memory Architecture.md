@@ -12,7 +12,7 @@ keywords:
   - memory_unfold
   - knowledge check
 related_paths:
-  - vault/02 Repositories/playground
+  - vault/00 Repositories/playground
   - tools/rag-index.ts
   - tools/rag-mcp-server.mjs
   - scripts/check-knowledge-reminder.mjs
@@ -29,7 +29,7 @@ tags:
 
 ## Memory Source
 
-The repo's durable memory lives in Markdown notes under `vault/02 Repositories/playground/`.
+The repo's durable memory lives in Markdown notes under `vault/00 Repositories/playground/`.
 The vault is optimized for agents, not as a full personal Obsidian system.
 
 - `00 Repo Home.md` is the low-token primer agents should load first.
@@ -75,5 +75,5 @@ architecture, decisions, and session context rather than raw source-code indexin
 ## Forgetting Guard
 
 `pnpm knowledge:check` runs before commit through Husky. Large or structural staged changes must
-include a staged note under `vault/02 Repositories/`, which makes memory capture part of the commit
+include a staged note under `vault/00 Repositories/`, which makes memory capture part of the commit
 path instead of a separate afterthought.

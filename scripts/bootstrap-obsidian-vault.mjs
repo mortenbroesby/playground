@@ -151,7 +151,7 @@ async function main() {
   const owner = args.owner || (isCurrentRepo ? "mortenbroesby" : "unknown");
   const today = new Date().toISOString().slice(0, 10);
   const generatedOn = new Date().toISOString();
-  const repoHomeRelativePath = `02 Repositories/${repoSlug}/00 Repo Home`;
+  const repoHomeRelativePath = `00 Repositories/${repoSlug}/00 Repo Home`;
 
   const replacements = {
     __AGENTS_URI__: buildFileUri(path.join(repoRoot, "AGENTS.md")),
@@ -176,12 +176,12 @@ async function main() {
   };
 
   const vaultDirs = [
-    path.join("02 Repositories", repoSlug),
-    path.join("02 Repositories", repoSlug, "01 Architecture"),
-    path.join("02 Repositories", repoSlug, "02 Decisions"),
-    path.join("02 Repositories", repoSlug, "03 Sessions"),
-    "04 Templates",
-    path.join("05 Scripts", "templater"),
+    path.join("00 Repositories", repoSlug),
+    path.join("00 Repositories", repoSlug, "01 Architecture"),
+    path.join("00 Repositories", repoSlug, "02 Decisions"),
+    path.join("00 Repositories", repoSlug, "03 Sessions"),
+    "90 Templates",
+    path.join("91 Scripts", "templater"),
   ];
 
   await ensureDir(vaultPath);
@@ -193,29 +193,29 @@ async function main() {
   const copiedFiles = await Promise.all([
     copyPlainFile(
       path.join(assetsRoot, "templates", "repo-home.md"),
-      path.join(vaultPath, "04 Templates", "repo-home.md"),
+      path.join(vaultPath, "90 Templates", "repo-home.md"),
       args.force,
     ),
     copyPlainFile(
       path.join(assetsRoot, "templates", "repo-session.md"),
-      path.join(vaultPath, "04 Templates", "repo-session.md"),
+      path.join(vaultPath, "90 Templates", "repo-session.md"),
       args.force,
     ),
     copyPlainFile(
       path.join(assetsRoot, "templates", "repo-decision.md"),
-      path.join(vaultPath, "04 Templates", "repo-decision.md"),
+      path.join(vaultPath, "90 Templates", "repo-decision.md"),
       args.force,
     ),
     copyPlainFile(
       path.join(assetsRoot, "templater", "repo_context.js"),
-      path.join(vaultPath, "05 Scripts", "templater", "repo_context.js"),
+      path.join(vaultPath, "91 Scripts", "templater", "repo_context.js"),
       args.force,
     ),
   ]);
 
   const renderedFiles = await Promise.all([
     writeRenderedFile(
-      path.join(vaultPath, "02 Repositories", repoSlug, "00 Repo Home.md"),
+      path.join(vaultPath, "00 Repositories", repoSlug, "00 Repo Home.md"),
       path.join(
         assetsRoot,
         "seed",
@@ -236,7 +236,7 @@ async function main() {
     "- Keep 00 Repo Home as the agent primer; link out instead of duplicating context.",
   );
   console.log("- Use 01 Architecture, 02 Decisions, and 03 Sessions only.");
-  console.log("- Point Templater's script folder to 05 Scripts/templater.");
+  console.log("- Point Templater's script folder to 91 Scripts/templater.");
 }
 
 main().catch((error) => {

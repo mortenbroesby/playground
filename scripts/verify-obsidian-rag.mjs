@@ -114,7 +114,7 @@ async function seedVerificationNotes(vaultPath) {
   const notes = [
     {
       relativePath:
-        "02 Repositories/playground/01 Architecture/Host Ownership.md",
+        "00 Repositories/playground/01 Architecture/Host Ownership.md",
       content: `---
 type: repo-architecture
 repo: playground
@@ -137,7 +137,7 @@ defining the site shell or top-level navigation.`,
     },
     {
       relativePath:
-        "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
+        "00 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
       content: `---
 type: repo-decision
 repo: playground
@@ -164,7 +164,7 @@ playground surface because the extra mount indirection was not paying for itself
     },
     {
       relativePath:
-        "02 Repositories/playground/01 Architecture/Rendering Strategy.md",
+        "00 Repositories/playground/01 Architecture/Rendering Strategy.md",
       content: `---
 type: repo-architecture
 repo: playground
@@ -187,7 +187,7 @@ for metadata and first load quality. Capture a decision note once the direction 
     },
     {
       relativePath:
-        "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+        "00 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
       content: `---
 type: repo-session
 repo: playground
@@ -239,26 +239,26 @@ async function run() {
     {
       query: "Which remote is the sole live injected remote?",
       expectedPath:
-        "02 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
+        "00 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
     },
     {
       query: "Who owns routing and page composition?",
       expectedPath:
-        "02 Repositories/playground/01 Architecture/Host Ownership.md",
+        "00 Repositories/playground/01 Architecture/Host Ownership.md",
     },
     {
       query: "What context exists about rendering strategy?",
       expectedPath:
-        "02 Repositories/playground/01 Architecture/Rendering Strategy.md",
+        "00 Repositories/playground/01 Architecture/Rendering Strategy.md",
     },
     {
       query: "Where did route metadata work land?",
       expectedPath:
-        "02 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+        "00 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
     },
     {
       query: "active focus playground",
-      expectedPath: "02 Repositories/playground/00 Repo Home.md",
+      expectedPath: "00 Repositories/playground/00 Repo Home.md",
       expectedHeading: "Active Focus",
     },
   ];

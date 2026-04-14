@@ -12,9 +12,9 @@ keywords:
   - cleanup
 touched_paths:
   - KANBAN.md
-  - vault/02 Repositories/playground/01 Architecture/Archived Specs.md
-  - vault/02 Repositories/playground/01 Architecture/Kanban Archive.md
-  - vault/02 Repositories/playground/00 Repo Home.md
+  - vault/00 Repositories/playground/01 Architecture/Archived Specs.md
+  - vault/00 Repositories/playground/01 Architecture/Kanban Archive.md
+  - vault/00 Repositories/playground/00 Repo Home.md
 tags:
   - type/session
   - repo/playground

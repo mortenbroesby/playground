@@ -25,7 +25,7 @@ Large and structural code or configuration changes are easy to ship without upda
 memory. That leaves future agents dependent on source archaeology instead of explicit decisions.
 
 The pre-commit hook now runs `pnpm knowledge:check`. For larger staged changes, the check requires a
-staged note under `vault/02 Repositories/` before commit. The note can be a decision, session,
+staged note under `vault/00 Repositories/` before commit. The note can be a decision, session,
 architecture note, or open question, but it must live in the repo-brain vault path so `pnpm
 rag:index` can include it in the `obsidian-memory` corpus.
 

@@ -12,7 +12,7 @@ keywords:
   - obsidian-memory
 touched_paths:
   - AGENTS.md
-  - vault/02 Repositories/playground/01 Architecture/Repo Memory Architecture.md
+  - vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md
 tags:
   - type/session
   - repo/playground

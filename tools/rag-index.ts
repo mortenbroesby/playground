@@ -46,7 +46,7 @@ const corpusName = "obsidian-vault";
 const defaultVaultPath = path.join(repoRoot, "vault");
 const defaultOutputDir = path.join(repoRoot, ".rag");
 const skippedDirectoryNames = new Set([".obsidian", ".trash"]);
-const skippedRelativeDirectories = new Set(["04 Templates", "05 Scripts"]);
+const skippedRelativeDirectories = new Set(["90 Templates", "91 Scripts"]);
 
 function parseArgs(argv: string[]) {
   const options = {

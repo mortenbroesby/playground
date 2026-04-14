@@ -43,7 +43,7 @@ const toolDefinitions = [
         note_type: {
           type: "string",
           description:
-            "Optional note type filter, for example repo, repo-decision, or repo-question.",
+            "Optional note type filter, for example repo, repo-architecture, repo-decision, or repo-session.",
         },
       },
       required: ["query"],
@@ -60,12 +60,12 @@ const toolDefinitions = [
         source_path: {
           type: "string",
           description:
-            "Exact chunk path, for example vault/02 Repositories/playground/00 Repo Home.md § Active Focus.",
+            "Exact chunk path, for example vault/00 Repositories/playground/00 Repo Home.md § Active Focus.",
         },
         source_file: {
           type: "string",
           description:
-            "Source file path when looking up by heading, for example vault/02 Repositories/playground/00 Repo Home.md.",
+            "Source file path when looking up by heading, for example vault/00 Repositories/playground/00 Repo Home.md.",
         },
         heading: {
           type: "string",
@@ -181,13 +181,6 @@ function scoreChunk(query, chunk) {
 
   if (normalizedText.includes(normalizedQuery)) {
     score += 10;
-  }
-
-  if (
-    normalizedQuery.includes("question") &&
-    chunk.note_type === "repo-question"
-  ) {
-    score += 4;
   }
 
   if (
@@ -316,7 +309,7 @@ function contextMemory(args) {
         (chunk) =>
           chunk.repo_slug === repoSlug &&
           chunk.source_file.endsWith(
-            `02 Repositories/${repoSlug}/00 Repo Home.md`,
+            `00 Repositories/${repoSlug}/00 Repo Home.md`,
           ) &&
           chunk.heading === heading,
       ),

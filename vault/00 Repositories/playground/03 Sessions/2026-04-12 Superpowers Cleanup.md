@@ -11,8 +11,8 @@ keywords:
   - docs
   - vault
 touched_paths:
-  - vault/02 Repositories/playground/01 Architecture/Superpowers Archive.md
-  - vault/02 Repositories/playground/00 Repo Home.md
+  - vault/00 Repositories/playground/01 Architecture/Superpowers Archive.md
+  - vault/00 Repositories/playground/00 Repo Home.md
   - docs/superpowers/plans/2026-04-05-context-mode-setup.md
   - docs/superpowers/plans/2026-04-05-turborepo-monorepo.md
   - docs/superpowers/plans/2026-04-06-microfrontend-cleanup.md

@@ -10,8 +10,8 @@ keywords:
   - obsidian-memory
   - RAG indexing
 touched_paths:
-  - vault/02 Repositories/playground/01 Architecture
-  - vault/02 Repositories/playground/00 Repo Home.md
+  - vault/00 Repositories/playground/01 Architecture
+  - vault/00 Repositories/playground/00 Repo Home.md
 tags:
   - type/session
   - repo/playground
