@@ -36,10 +36,15 @@ The vault is optimized for agents, not as a full personal Obsidian system.
 - `01 Architecture/` holds durable maps, boundaries, and workflow policies.
 - `02 Decisions/` holds decision records when the "why" needs to survive.
 - `03 Sessions/` holds selected session summaries only when they add useful future context.
+- `04 Tasks/` holds the canonical repo task board and other durable task-state
+  notes if they are added later.
 
-Inbox-style capture belongs in `BRAINDUMP.md`, and task state belongs in `KANBAN.md`. The vault no
-longer keeps empty Inbox, Daily, Dashboard, Questions, Maps, Exports, or Archive folders because
-they add navigation surface without improving retrieval.
+Inbox-style capture belongs in `BRAINDUMP.md`, and task state now lives in
+`vault/00 Repositories/playground/04 Tasks/Task Board.md`. `KANBAN.md` is a
+thin pointer for human convenience, not a second task source of truth. The
+vault no longer keeps empty Inbox, Daily, Dashboard, Questions, Maps, Exports,
+or Archive folders because they add navigation surface without improving
+retrieval.
 
 The system does not learn from file access. Reading source files or READMEs does not update memory.
 Agents must write or update vault notes when the "why" of the repo changes.

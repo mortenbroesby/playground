@@ -20,8 +20,8 @@ source_of_truth:
   - AGENTS.md
   - CLAUDE.md
   - README.md
-  - KANBAN.md
   - BRAINDUMP.md
+  - vault/00 Repositories/playground/04 Tasks/Task Board.md
   - .agents/rules/
   - .agents/hooks/
 active_focus: personal-site host, playground lab, and a thin shared agent setup with durable memory in this vault
@@ -44,8 +44,8 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - [AGENTS.md](file:///Users/macbook/personal/playground/AGENTS.md)
 - [CLAUDE.md](file:///Users/macbook/personal/playground/CLAUDE.md)
 - [README.md](file:///Users/macbook/personal/playground/README.md)
-- [KANBAN.md](file:///Users/macbook/personal/playground/KANBAN.md)
 - [BRAINDUMP.md](file:///Users/macbook/personal/playground/BRAINDUMP.md)
+- [Task Board](file:///Users/macbook/personal/playground/vault/00%20Repositories/playground/04%20Tasks/Task%20Board.md)
 - [.agents/rules/](file:///Users/macbook/personal/playground/.agents/rules)
 - [.agents/hooks/](file:///Users/macbook/personal/playground/.agents/hooks)
 
@@ -72,6 +72,7 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - [[01 Architecture/Spotify Now Playing Boundary|Spotify Now Playing Boundary]]
 - [[01 Architecture/Verification Map|Verification Map]]
 - [[01 Architecture/Repo Memory Architecture|Repo Memory Architecture]]
+- [[04 Tasks/Task Board|Task Board]]
 
 ## Active Focus
 
@@ -79,9 +80,11 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - Keep the design-system split incremental: shared primitives for now, surface-specific systems later.
 - Keep the shared hook and rule policy in sync between Codex and Claude Code.
 - Keep this vault optimized for agents: `00 Repo Home` as primer, `01 Architecture`,
-  `02 Decisions`, and `03 Sessions` as the active durable-memory buckets.
+  `02 Decisions`, `03 Sessions`, and `04 Tasks` as the active durable-memory
+  buckets.
 - Keep completed `docs/superpowers` planning docs archived in the vault.
-- Keep `KANBAN.md` task-shaped and `BRAINDUMP.md` loose.
+- Keep the canonical task board in `04 Tasks/Task Board.md` and
+  `BRAINDUMP.md` loose.
 - Keep the host-to-remote contract trustworthy while the host architecture evolves.
 
 ## Recent Sessions
@@ -111,6 +114,8 @@ SORT decided_on DESC
   long session notes.
 - Use `BRAINDUMP.md` for inbox-style capture; do not recreate a vault inbox unless it becomes part
   of the agent workflow.
+- Keep `KANBAN.md` as a thin pointer to the vault-backed task board rather than
+  a second task system.
 
 ## Related Repo Files
 
