@@ -1,20 +1,15 @@
 const { spawn } = require("node:child_process");
 const {
   copyFile,
-  lstat,
   mkdir,
-  readlink,
   stat,
-  symlink,
-  unlink,
 } = require("node:fs/promises");
 const path = require("node:path");
 const process = require("node:process");
 
 const repoRoot = path.resolve(__dirname, "..");
 const defaultVaultPath = path.join(repoRoot, "vault");
-const postCommitHookPath = path.join(repoRoot, "tools", "hooks", "post-commit");
-const installedHookPath = path.join(repoRoot, ".git", "hooks", "post-commit");
+const postCommitHookPath = path.join(repoRoot, ".husky", "post-commit");
 
 function parseArgs(argv: string[]) {
   const options = {
@@ -116,37 +111,13 @@ async function copyTemplaterHelper(vaultPath: string, force: boolean) {
 }
 
 async function installPostCommitHook() {
-  await mkdir(path.dirname(installedHookPath), { recursive: true });
+  await runCommand("pnpm", ["exec", "husky"]);
 
-  const relativeTarget = path.relative(
-    path.dirname(installedHookPath),
-    postCommitHookPath,
-  );
-
-  try {
-    const hookStat = await lstat(installedHookPath);
-
-    if (hookStat.isSymbolicLink()) {
-      const existingTarget = await readlink(installedHookPath);
-
-      if (
-        existingTarget === relativeTarget ||
-        path.resolve(path.dirname(installedHookPath), existingTarget) ===
-          postCommitHookPath
-      ) {
-        return "already installed";
-      }
-
-      await unlink(installedHookPath);
-    } else {
-      return "skipped existing non-symlink .git/hooks/post-commit";
-    }
-  } catch {
-    // Missing hook is the common path.
+  if (await pathExists(postCommitHookPath)) {
+    return "managed by Husky";
   }
 
-  await symlink(relativeTarget, installedHookPath);
-  return "installed";
+  return "missing .husky/post-commit";
 }
 
 async function main() {

@@ -1,0 +1,36 @@
+# Prompt for commands that commonly need host access in this repo.
+prefix_rule(
+    pattern = ["pnpm", "exec", "husky"],
+    decision = "prompt",
+    justification = "Husky may update .git config while installing hooks.",
+    match = ["pnpm exec husky"],
+)
+
+prefix_rule(
+    pattern = ["git", "clone"],
+    decision = "prompt",
+    justification = "Cloning fetches external code and should be explicit.",
+    match = ["git clone https://github.com/example/repo.git /tmp/repo"],
+)
+
+prefix_rule(
+    pattern = ["git", "sparse-checkout", "set"],
+    decision = "prompt",
+    justification = "Sparse checkout may fetch additional content from a remote.",
+    match = ["git sparse-checkout set hooks rules"],
+)
+
+# Block destructive commands without asking.
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "Use git stash or git reset --soft; hard reset discards work.",
+    match = ["git reset --hard"],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", "-f"],
+    decision = "forbidden",
+    justification = "Use git clean -n first; force clean deletes untracked files.",
+    match = ["git clean -f"],
+)

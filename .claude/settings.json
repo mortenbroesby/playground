@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks/agent-hooks.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/notify.mjs\""
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks/agent-hooks.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/block-dangerous-commands.mjs\""
           }
         ]
       },
@@ -25,7 +25,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks/agent-hooks.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/protect-files.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/warn-large-files.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/scan-secrets.mjs\""
           }
         ]
       }
@@ -36,7 +44,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks/agent-hooks.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/audit-edited-files.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/log-event.mjs\""
           }
         ]
       }
@@ -46,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks/agent-hooks.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/log-event.mjs\""
           }
         ]
       }
@@ -56,7 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks/agent-hooks.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/session-start.mjs\""
           }
         ]
       }
@@ -66,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks/agent-hooks.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/check-prompt-secrets.mjs\""
           }
         ]
       }

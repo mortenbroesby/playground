@@ -14,4 +14,8 @@ Keep this file loose:
 
 ## Current Inbox
 
+- Cut AGENTS.md to the bone. Do we need AGENT_HOOKS.md?
+
+- Add unit tests for our hooks.
+
 - Revisit `How I Built This Website` as a reinvented post for the current site and stack, instead of keeping the older archived version live.
