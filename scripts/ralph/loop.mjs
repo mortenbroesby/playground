@@ -405,6 +405,24 @@ console.log(
 console.log(`Run directory: ${relativeRunDir}`);
 console.log(`Prompt file: ${path.relative(repoRoot, promptPath)}`);
 console.log(`Last run file: ${path.relative(repoRoot, lastRunPath)}`);
+console.log(`Last message file: ${path.relative(repoRoot, lastMessagePath)}`);
+
+function exitWithAgentResult(result, agentLabel) {
+  const status = result.status ?? 1;
+
+  if (status !== 0) {
+    console.error(
+      [
+        `${agentLabel} exited with status ${status}.`,
+        `Inspect ${path.relative(repoRoot, promptPath)} for the generated prompt.`,
+        `Inspect ${path.relative(repoRoot, lastRunPath)} for run metadata.`,
+        `Inspect ${path.relative(repoRoot, lastMessagePath)} if the agent wrote a final message.`,
+      ].join("\n"),
+    );
+  }
+
+  process.exit(status);
+}
 
 if (args.dryRun || (!args.agent && !args.agentCommand)) {
   console.log("Dry run only. Inspect the generated prompt file and re-run with an agent.");
@@ -420,7 +438,7 @@ if (args.agentCommand) {
     encoding: "utf8",
   });
 
-  process.exit(result.status ?? 1);
+  exitWithAgentResult(result, "Custom agent command");
 }
 
 if (args.agent === "codex") {
@@ -446,7 +464,7 @@ if (args.agent === "codex") {
     encoding: "utf8",
   });
 
-  process.exit(result.status ?? 1);
+  exitWithAgentResult(result, "Codex");
 }
 
 if (args.agent === "claude") {
@@ -467,7 +485,7 @@ if (args.agent === "claude") {
     encoding: "utf8",
   });
 
-  process.exit(result.status ?? 1);
+  exitWithAgentResult(result, "Claude");
 }
 
 fail(`Unsupported agent: ${args.agent}`);
