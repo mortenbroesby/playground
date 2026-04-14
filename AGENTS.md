@@ -25,6 +25,8 @@ Thin bootstrap for coding agents in this repo.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - Use [`.agents/context/active-context.md`](.agents/context/active-context.md)
   only as compact current-state or handoff context when present.
+- If you use `claude-mem`, its repo-local bridge lives in
+  `.agents/context/claude-mem-context.local.md` after `pnpm claude-mem:sync`.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
 
