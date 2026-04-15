@@ -48,3 +48,5 @@ __screenshots__/
 
 # Ralph loop working files
 .ralph/
+.codeintel/
+.ai-context-engine/
