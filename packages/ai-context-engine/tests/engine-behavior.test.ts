@@ -76,6 +76,91 @@ describe("ai-context-engine behavior", () => {
     expect(suggestions[0]).toContain("Greeter");
   });
 
+  it("prefers leading doc comments for symbol summaries by default", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const mathOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+    expect(mathOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "area",
+          summary: "Calculate the circle area label.",
+          summarySource: "doc-comment",
+        }),
+      ]),
+    );
+
+    const stringsOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/strings.ts",
+    });
+    expect(stringsOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "formatLabel",
+          summary: "Format an area label for display.",
+          summarySource: "doc-comment",
+        }),
+        expect.objectContaining({
+          name: "Greeter",
+          summary: "Friendly greeter for string output.",
+          summarySource: "doc-comment",
+        }),
+        expect.objectContaining({
+          name: "greet",
+          summary: "Return a greeting for the provided name.",
+          summarySource: "doc-comment",
+        }),
+      ]),
+    );
+
+    const health = await diagnostics({ repoRoot });
+    expect(health).toMatchObject({
+      summaryStrategy: "doc-comments-first",
+      summarySources: {
+        "doc-comment": 4,
+        signature: 1,
+      },
+    });
+  });
+
+  it("can fall back to signature-derived summaries when configured", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({
+      repoRoot,
+      summaryStrategy: "signature-only",
+    });
+
+    const mathOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+    expect(mathOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "area",
+          summary:
+            "export function area(radius: number): string { const value = PI * radius * radius; return formatLabel(value); }",
+          summarySource: "signature",
+        }),
+      ]),
+    );
+
+    const health = await diagnostics({ repoRoot });
+    expect(health).toMatchObject({
+      summaryStrategy: "signature-only",
+      summarySources: {
+        signature: 5,
+      },
+    });
+  });
+
   it("respects .gitignore entries during indexing", async () => {
     const repoRoot = await createFixtureRepo({ includeIgnoredFile: true });
 
@@ -306,7 +391,7 @@ export function circumference(radius: number): string {
 `,
       );
 
-      await waitFor(() => reindexEvents.length >= 1);
+      await waitFor(() => reindexEvents.length >= 1, 4000);
 
       const symbolMatches = await searchSymbols({
         repoRoot,

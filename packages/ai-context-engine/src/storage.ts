@@ -21,6 +21,8 @@ import type {
   SearchTextMatch,
   SymbolSourceResult,
   SymbolSummary,
+  SummarySource,
+  SummaryStrategy,
   SupportedLanguage,
   WatchEvent,
   WatchHandle,
@@ -38,6 +40,7 @@ interface DbSymbolRow {
   file_path: string;
   signature: string;
   summary: string;
+  summary_source: SummarySource;
   start_line: number;
   end_line: number;
   start_byte: number;
@@ -53,6 +56,7 @@ interface RepoMetaRecord {
   indexedSnapshotHash: string;
   storageMode: string;
   staleStatus: "fresh" | "stale" | "unknown";
+  summaryStrategy?: SummaryStrategy;
 }
 
 interface SnapshotEntry {
@@ -85,6 +89,7 @@ function mapSymbolRow(row: DbSymbolRow): SymbolSummary {
     filePath: row.file_path,
     signature: row.signature,
     summary: row.summary,
+    summarySource: row.summary_source,
     startLine: row.start_line,
     endLine: row.end_line,
     exported: Boolean(row.exported),
@@ -132,6 +137,7 @@ function openDatabase(databasePath: string): import("node:sqlite").DatabaseSync 
       kind TEXT NOT NULL,
       signature TEXT NOT NULL,
       summary TEXT NOT NULL,
+      summary_source TEXT NOT NULL DEFAULT 'signature',
       start_line INTEGER NOT NULL,
       end_line INTEGER NOT NULL,
       start_byte INTEGER NOT NULL,
@@ -154,11 +160,20 @@ function openDatabase(databasePath: string): import("node:sqlite").DatabaseSync 
     CREATE INDEX IF NOT EXISTS idx_symbols_file_path ON symbols(file_path);
   `);
 
+  const symbolColumns = typedAll<{ name: string }>(
+    db.prepare("PRAGMA table_info(symbols)"),
+  );
+  if (!symbolColumns.some((column) => column.name === "summary_source")) {
+    db.exec(
+      "ALTER TABLE symbols ADD COLUMN summary_source TEXT NOT NULL DEFAULT 'signature'",
+    );
+  }
+
   return db;
 }
 
-async function ensureStorage(repoRoot: string) {
-  const config = createDefaultEngineConfig({ repoRoot });
+async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy) {
+  const config = createDefaultEngineConfig({ repoRoot, summaryStrategy });
   await mkdir(config.paths.storageDir, { recursive: true });
   await mkdir(config.paths.rawCacheDir, { recursive: true });
   return config;
@@ -232,16 +247,21 @@ async function writeSidecars(input: {
   totalSymbols: number;
   indexedSnapshotHash: string;
   staleStatus: "fresh" | "stale" | "unknown";
+  summaryStrategy: SummaryStrategy;
 }) {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = createDefaultEngineConfig({
+    repoRoot: input.repoRoot,
+    summaryStrategy: input.summaryStrategy,
+  });
   const meta = {
     repoRoot: input.repoRoot,
     indexedAt: input.indexedAt,
     indexedFiles: input.indexedFiles,
-    totalSymbols: input.totalSymbols,
+    indexedSymbols: input.totalSymbols,
     indexedSnapshotHash: input.indexedSnapshotHash,
     staleStatus: input.staleStatus,
     storageMode: config.storageMode,
+    summaryStrategy: input.summaryStrategy,
   };
   const metaJson = JSON.stringify(meta, null, 2);
   await writeFile(config.paths.repoMetaPath, metaJson);
@@ -415,6 +435,7 @@ function rowText(row: DbSymbolRow): string {
     row.qualified_name ?? "",
     row.signature,
     row.summary,
+    row.summary_source,
     row.file_path,
     row.kind,
   ]
@@ -493,6 +514,7 @@ function loadSymbolRows(
           `
             SELECT
               id, name, qualified_name, kind, file_path, signature, summary,
+              summary_source,
               start_line, end_line, start_byte, end_byte, exported
             FROM symbols
             WHERE kind = ?
@@ -505,6 +527,7 @@ function loadSymbolRows(
           `
             SELECT
               id, name, qualified_name, kind, file_path, signature, summary,
+              summary_source,
               start_line, end_line, start_byte, end_byte, exported
             FROM symbols
           `,
@@ -523,8 +546,9 @@ function loadSymbolSourceRow(
       `
         SELECT
           symbols.id, symbols.name, symbols.qualified_name, symbols.kind, symbols.file_path,
-          symbols.signature, symbols.summary, symbols.start_line, symbols.end_line,
-          symbols.start_byte, symbols.end_byte, symbols.exported,
+          symbols.signature, symbols.summary, symbols.summary_source,
+          symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
+          symbols.exported,
           files.content_hash, content_blobs.content
         FROM symbols
         INNER JOIN files ON files.id = symbols.file_id
@@ -623,6 +647,7 @@ function pickDependencyRows(
             `
               SELECT
                 id, name, qualified_name, kind, file_path, signature, summary,
+                summary_source,
                 start_line, end_line, start_byte, end_byte, exported
               FROM symbols
               WHERE file_path = ? AND (name = ? OR qualified_name = ?)
@@ -645,6 +670,7 @@ function pickDependencyRows(
             `
               SELECT
                 id, name, qualified_name, kind, file_path, signature, summary,
+                summary_source,
                 start_line, end_line, start_byte, end_byte, exported
               FROM symbols
               WHERE file_path = ?
@@ -693,18 +719,21 @@ function makeContextBundleItem(
 async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
   repoRoot: string;
   filePath: string;
+  summaryStrategy?: SummaryStrategy;
+  forceRefresh?: boolean;
 }) {
   const file = await readRepoFile(input.repoRoot, input.filePath);
   const parsed = parseSourceFile({
     relativePath: file.relativePath,
     content: file.content,
     language: file.language,
+    summaryStrategy: input.summaryStrategy,
   });
   const existing = db
     .prepare("SELECT id, content_hash FROM files WHERE path = ?")
     .get(file.relativePath) as { id: number; content_hash: string } | undefined;
 
-  if (existing?.content_hash === parsed.contentHash) {
+  if (!input.forceRefresh && existing?.content_hash === parsed.contentHash) {
     const countRow = typedGet<{ count: number }>(
       db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
       existing.id,
@@ -758,8 +787,8 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
   const insertSymbol = db.prepare(`
     INSERT INTO symbols (
       id, file_id, file_path, name, qualified_name, kind, signature, summary,
-      start_line, end_line, start_byte, end_byte, exported
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      summary_source, start_line, end_line, start_byte, end_byte, exported
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const symbol of parsed.symbols) {
     insertSymbol.run(
@@ -771,6 +800,7 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
       symbol.kind,
       symbol.signature,
       symbol.summary,
+      symbol.summarySource,
       symbol.startLine,
       symbol.endLine,
       symbol.startByte,
@@ -800,6 +830,7 @@ async function finalizeIndex(
   db: import("node:sqlite").DatabaseSync,
   repoRoot: string,
   indexedAt: string,
+  summaryStrategy: SummaryStrategy,
 ) {
   const totalFiles = countRows(db, "SELECT COUNT(*) AS count FROM files");
   const totalSymbols = countRows(db, "SELECT COUNT(*) AS count FROM symbols");
@@ -814,14 +845,20 @@ async function finalizeIndex(
     totalSymbols,
     indexedSnapshotHash,
     staleStatus: "fresh",
+    summaryStrategy,
   });
 }
 
-export async function indexFolder(input: { repoRoot: string }): Promise<IndexSummary> {
-  const config = await ensureStorage(input.repoRoot);
+export async function indexFolder(input: {
+  repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
+}): Promise<IndexSummary> {
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
   const db = openDatabase(config.paths.databasePath);
 
   try {
+    const meta = await readRepoMeta(config.paths.repoMetaPath);
+    const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
     const supportedFiles = await listSupportedFiles(input.repoRoot);
     const tracked = db.prepare("SELECT path FROM files").all() as Array<{ path: string }>;
     const trackedPaths = new Set(tracked.map((row) => row.path));
@@ -839,6 +876,8 @@ export async function indexFolder(input: { repoRoot: string }): Promise<IndexSum
       const result = await upsertFileIndex(db, {
         repoRoot: input.repoRoot,
         filePath,
+        summaryStrategy: config.summaryStrategy,
+        forceRefresh,
       });
       if (result.indexed) {
         indexedFiles += 1;
@@ -847,7 +886,7 @@ export async function indexFolder(input: { repoRoot: string }): Promise<IndexSum
     }
 
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, input.repoRoot, indexedAt);
+    await finalizeIndex(db, input.repoRoot, indexedAt, config.summaryStrategy);
 
     return {
       indexedFiles,
@@ -886,14 +925,20 @@ async function countSkippedFiles(repoRoot: string): Promise<number> {
 export async function indexFile(input: {
   repoRoot: string;
   filePath: string;
+  summaryStrategy?: SummaryStrategy;
 }): Promise<IndexSummary> {
-  const config = await ensureStorage(input.repoRoot);
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
   const db = openDatabase(config.paths.databasePath);
 
   try {
-    const result = await upsertFileIndex(db, input);
+    const meta = await readRepoMeta(config.paths.repoMetaPath);
+    const result = await upsertFileIndex(db, {
+      ...input,
+      summaryStrategy: config.summaryStrategy,
+      forceRefresh: meta?.summaryStrategy !== config.summaryStrategy,
+    });
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, input.repoRoot, indexedAt);
+    await finalizeIndex(db, input.repoRoot, indexedAt, config.summaryStrategy);
 
     return {
       indexedFiles: result.indexed ? 1 : 0,
@@ -939,7 +984,10 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
 
     activeFlush = (async () => {
       try {
-        const summary = await indexFolder({ repoRoot });
+        const summary = await indexFolder({
+          repoRoot,
+          summaryStrategy: input.summaryStrategy,
+        });
         await emitWatchEvent(input.onEvent, {
           type: "reindex",
           changedPaths,
@@ -968,7 +1016,10 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     await activeFlush;
   };
 
-  const initialSummary = await indexFolder({ repoRoot });
+  const initialSummary = await indexFolder({
+    repoRoot,
+    summaryStrategy: input.summaryStrategy,
+  });
   await emitWatchEvent(input.onEvent, {
     type: "ready",
     changedPaths: [],
@@ -1089,6 +1140,7 @@ export async function getFileOutline(input: {
       `
         SELECT
           id, name, qualified_name, kind, file_path, signature, summary,
+          summary_source,
           start_line, end_line, start_byte, end_byte, exported
         FROM symbols
         WHERE file_path = ?
@@ -1379,8 +1431,9 @@ export async function getSymbolSource(input: {
       `
         SELECT
           symbols.id, symbols.name, symbols.qualified_name, symbols.kind, symbols.file_path,
-          symbols.signature, symbols.summary, symbols.start_line, symbols.end_line,
-          symbols.start_byte, symbols.end_byte, symbols.exported,
+          symbols.signature, symbols.summary, symbols.summary_source,
+          symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
+          symbols.exported,
           files.content_hash, content_blobs.content
         FROM symbols
         INNER JOIN files ON files.id = symbols.file_id
@@ -1441,12 +1494,25 @@ export async function diagnostics(input: {
 
     const staleStatus: DiagnosticsResult["staleStatus"] =
       meta && staleReasons.length === 0 ? "fresh" : meta ? "stale" : "unknown";
+    const summarySources = Object.fromEntries(
+      typedAll<{ summary_source: SummarySource; count: number }>(
+        db.prepare(
+          `
+            SELECT summary_source, COUNT(*) AS count
+            FROM symbols
+            GROUP BY summary_source
+          `,
+        ),
+      ).map((row) => [row.summary_source, row.count]),
+    ) as DiagnosticsResult["summarySources"];
 
     return {
       storageDir: config.paths.storageDir,
       databasePath: config.paths.databasePath,
       storageMode: config.storageMode,
       staleStatus,
+      summaryStrategy: meta?.summaryStrategy ?? config.summaryStrategy,
+      summarySources,
       indexedAt,
       indexAgeMs,
       indexedFiles: meta?.indexedFiles ?? drift.indexedFiles,

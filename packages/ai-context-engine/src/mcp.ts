@@ -48,10 +48,12 @@ interface McpTool {
 const toolDefinitions: McpTool[] = [
   tool("index_folder", "Index all supported files under a repository root.", {
     repoRoot: stringProp("Repository root path"),
+    summaryStrategy: stringProp("Optional summary strategy override"),
   }, ["repoRoot"]),
   tool("index_file", "Refresh a single supported file within a repository.", {
     repoRoot: stringProp("Repository root path"),
     filePath: stringProp("Path relative to the repository root"),
+    summaryStrategy: stringProp("Optional summary strategy override"),
   }, ["repoRoot", "filePath"]),
   tool("get_repo_outline", "Return file and symbol counts grouped by language.", {
     repoRoot: stringProp("Repository root path"),
@@ -159,11 +161,21 @@ function requireString(params: Record<string, unknown>, key: string): string {
 async function dispatchTool(name: string, args: Record<string, unknown>) {
   switch (name) {
     case "index_folder":
-      return indexFolder({ repoRoot: requireString(args, "repoRoot") });
+      return indexFolder({
+        repoRoot: requireString(args, "repoRoot"),
+        summaryStrategy:
+          typeof args.summaryStrategy === "string"
+            ? args.summaryStrategy as Parameters<typeof indexFolder>[0]["summaryStrategy"]
+            : undefined,
+      });
     case "index_file":
       return indexFile({
         repoRoot: requireString(args, "repoRoot"),
         filePath: requireString(args, "filePath"),
+        summaryStrategy:
+          typeof args.summaryStrategy === "string"
+            ? args.summaryStrategy as Parameters<typeof indexFile>[0]["summaryStrategy"]
+            : undefined,
       });
     case "get_repo_outline":
       return getRepoOutline({ repoRoot: requireString(args, "repoRoot") });

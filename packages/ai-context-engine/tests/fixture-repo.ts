@@ -20,6 +20,7 @@ export async function createFixtureRepo(options: {
 
 export const PI = 3.14;
 
+/** Calculate the circle area label. */
 export function area(radius: number): string {
   const value = PI * radius * radius;
   return formatLabel(value);
@@ -29,11 +30,14 @@ export function area(radius: number): string {
 
   await writeFile(
     path.join(repoRoot, "src", "strings.ts"),
-    `export function formatLabel(value: number): string {
+    `// Format an area label for display.
+export function formatLabel(value: number): string {
   return \`Area: \${value.toFixed(2)}\`;
 }
 
+/** Friendly greeter for string output. */
 export class Greeter {
+  // Return a greeting for the provided name.
   greet(name: string): string {
     return "Hello " + name;
   }

@@ -53,12 +53,25 @@ describe("ai-context-engine interfaces", () => {
       kind: "class",
     });
 
+    const signatureOnlyStdout = await handleCli([
+      "index-folder",
+      "--repo",
+      repoRoot,
+      "--summary-strategy",
+      "signature-only",
+    ]);
+    expect(JSON.parse(signatureOnlyStdout)).toMatchObject({
+      staleStatus: "fresh",
+    });
+
     const watchPromise = handleCli([
       "watch",
       "--repo",
       repoRoot,
       "--debounce-ms",
       "50",
+      "--summary-strategy",
+      "signature-only",
       "--timeout-ms",
       "250",
     ]);
@@ -87,6 +100,18 @@ export function circumference(radius: number): string {
     });
     expect(JSON.parse(watchStdout).lastSummary).toMatchObject({
       staleStatus: "fresh",
+    });
+
+    const signatureDiagnosticsStdout = await handleCli([
+      "diagnostics",
+      "--repo",
+      repoRoot,
+    ]);
+    expect(JSON.parse(signatureDiagnosticsStdout)).toMatchObject({
+      summaryStrategy: "signature-only",
+      summarySources: {
+        signature: 5,
+      },
     });
   });
 
@@ -120,6 +145,7 @@ export function circumference(radius: number): string {
         name: "index_folder",
         arguments: {
           repoRoot,
+          summaryStrategy: "signature-only",
         },
       },
     });
@@ -150,6 +176,7 @@ export function circumference(radius: number): string {
       name: "Greeter",
       kind: "class",
       filePath: "src/strings.ts",
+      summarySource: "signature",
     });
 
     const bundleResponse = await server.handleMessage({

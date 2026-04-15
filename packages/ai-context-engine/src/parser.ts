@@ -5,7 +5,12 @@ import Parser from "tree-sitter";
 import javascript from "tree-sitter-javascript";
 import tsLanguages from "tree-sitter-typescript";
 
-import type { SupportedLanguage, SymbolKind } from "./types.ts";
+import type {
+  SummarySource,
+  SummaryStrategy,
+  SupportedLanguage,
+  SymbolKind,
+} from "./types.ts";
 
 interface ParsedImport {
   source: string;
@@ -19,6 +24,7 @@ interface ParsedSymbol {
   kind: SymbolKind;
   signature: string;
   summary: string;
+  summarySource: SummarySource;
   startLine: number;
   endLine: number;
   startByte: number;
@@ -59,6 +65,74 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function parseCommentSummary(comment: string): string | null {
+  const normalized = comment.startsWith("/*")
+    ? comment
+        .replace(/^\/\*+\s?/, "")
+        .replace(/\*\/$/, "")
+        .split("\n")
+        .map((line) => line.replace(/^\s*\*\s?/, "").trim())
+        .filter(Boolean)
+    : comment
+        .split("\n")
+        .map((line) => line.replace(/^\s*\/\/+\s?/, "").trim())
+        .filter(Boolean);
+
+  const firstLine = normalized[0];
+  return firstLine ? normalizeWhitespace(firstLine) : null;
+}
+
+function extractLeadingCommentSummary(
+  node: Parser.SyntaxNode,
+  sourceText: string,
+): string | null {
+  const prefix = sourceText.slice(0, node.startIndex);
+  const match = prefix.match(
+    /(?:\/\*[\s\S]*?\*\/|\/\/[^\n]*(?:\n[ \t]*\/\/[^\n]*)*)[ \t\r\n]*$/u,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const trailingWhitespaceMatch = match[0].match(/[ \t\r\n]*$/u);
+  const trailingWhitespaceLength = trailingWhitespaceMatch?.[0].length ?? 0;
+  const comment = match[0].slice(0, match[0].length - trailingWhitespaceLength).trim();
+  const beforeComment = prefix.slice(0, prefix.length - match[0].length);
+  const lastNewline = beforeComment.lastIndexOf("\n");
+  const separator = beforeComment.slice(lastNewline + 1);
+  if (separator.trim().length > 0) {
+    return null;
+  }
+
+  return parseCommentSummary(comment);
+}
+
+function resolveSummary(input: {
+  node: Parser.SyntaxNode;
+  sourceText: string;
+  signature: string;
+  summaryStrategy: SummaryStrategy;
+}): {
+  summary: string;
+  summarySource: SummarySource;
+} {
+  if (input.summaryStrategy === "doc-comments-first") {
+    const commentSummary = extractLeadingCommentSummary(input.node, input.sourceText);
+    if (commentSummary) {
+      return {
+        summary: commentSummary,
+        summarySource: "doc-comment",
+      };
+    }
+  }
+
+  return {
+    summary: input.signature,
+    summarySource: "signature",
+  };
+}
+
 function extractIdentifierName(node: Parser.SyntaxNode, sourceText: string): string | null {
   const nameNode =
     node.childForFieldName("name") ??
@@ -93,6 +167,7 @@ function createSymbol(
   relativePath: string,
   kind: SymbolKind,
   exported: boolean,
+  summaryStrategy: SummaryStrategy,
   parentName?: string,
   rangeNode: Parser.SyntaxNode = node,
 ): ParsedSymbol | null {
@@ -104,6 +179,12 @@ function createSymbol(
   const signature = normalizeWhitespace(
     nodeText(sourceText, rangeNode.startIndex, rangeNode.endIndex),
   );
+  const { summary, summarySource } = resolveSummary({
+    node: rangeNode,
+    sourceText,
+    signature,
+    summaryStrategy,
+  });
   const qualifiedName = parentName ? `${parentName}.${name}` : name;
 
   return {
@@ -112,7 +193,8 @@ function createSymbol(
     qualifiedName,
     kind,
     signature,
-    summary: signature,
+    summary,
+    summarySource,
     startLine: rangeNode.startPosition.row + 1,
     endLine: rangeNode.endPosition.row + 1,
     startByte: rangeNode.startIndex,
@@ -173,6 +255,7 @@ function pushVariableSymbols(
   sourceText: string,
   relativePath: string,
   exported: boolean,
+  summaryStrategy: SummaryStrategy,
   symbols: ParsedSymbol[],
   rangeNode: Parser.SyntaxNode = node,
 ) {
@@ -185,6 +268,7 @@ function pushVariableSymbols(
       relativePath,
       "constant",
       exported,
+      summaryStrategy,
       undefined,
       rangeNode,
     );
@@ -199,6 +283,7 @@ function pushClassMembers(
   sourceText: string,
   relativePath: string,
   className: string,
+  summaryStrategy: SummaryStrategy,
   symbols: ParsedSymbol[],
 ) {
   const body = node.childForFieldName("body");
@@ -214,6 +299,7 @@ function pushClassMembers(
         relativePath,
         "method",
         false,
+        summaryStrategy,
         className,
       );
       if (symbol) {
@@ -228,6 +314,7 @@ function visitDeclarationNode(
   sourceText: string,
   relativePath: string,
   exported: boolean,
+  summaryStrategy: SummaryStrategy,
   symbols: ParsedSymbol[],
   imports: ParsedImport[],
   rangeNode: Parser.SyntaxNode = node,
@@ -240,6 +327,7 @@ function visitDeclarationNode(
         relativePath,
         "function",
         exported,
+        summaryStrategy,
         undefined,
         rangeNode,
       );
@@ -255,6 +343,7 @@ function visitDeclarationNode(
         relativePath,
         "class",
         exported,
+        summaryStrategy,
         undefined,
         rangeNode,
       );
@@ -265,6 +354,7 @@ function visitDeclarationNode(
           sourceText,
           relativePath,
           symbol.name,
+          summaryStrategy,
           symbols,
         );
       }
@@ -279,6 +369,7 @@ function visitDeclarationNode(
         relativePath,
         "type",
         exported,
+        summaryStrategy,
         undefined,
         rangeNode,
       );
@@ -294,6 +385,7 @@ function visitDeclarationNode(
         sourceText,
         relativePath,
         exported,
+        summaryStrategy,
         symbols,
         rangeNode,
       );
@@ -316,6 +408,7 @@ function visitNode(
   sourceText: string,
   relativePath: string,
   exported: boolean,
+  summaryStrategy: SummaryStrategy,
   symbols: ParsedSymbol[],
   imports: ParsedImport[],
 ) {
@@ -327,6 +420,7 @@ function visitNode(
           sourceText,
           relativePath,
           true,
+          summaryStrategy,
           symbols,
           imports,
           node,
@@ -340,6 +434,7 @@ function visitNode(
         sourceText,
         relativePath,
         exported,
+        summaryStrategy,
         symbols,
         imports,
       );
@@ -366,14 +461,24 @@ export function parseSourceFile(input: {
   relativePath: string;
   content: string;
   language: SupportedLanguage;
+  summaryStrategy?: SummaryStrategy;
 }): ParsedFile {
   parser.setLanguage(languageFor(input.language));
   const tree = parser.parse(input.content);
   const symbols: ParsedSymbol[] = [];
   const imports: ParsedImport[] = [];
+  const summaryStrategy = input.summaryStrategy ?? "doc-comments-first";
 
   for (const child of tree.rootNode.namedChildren) {
-    visitNode(child, input.content, input.relativePath, false, symbols, imports);
+    visitNode(
+      child,
+      input.content,
+      input.relativePath,
+      false,
+      summaryStrategy,
+      symbols,
+      imports,
+    );
   }
 
   return {

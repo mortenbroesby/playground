@@ -1,10 +1,16 @@
 import path from "node:path";
 
-import type { EngineConfig, EnginePaths, EnginePhase1ToolName } from "./types.ts";
+import type {
+  EngineConfig,
+  EnginePaths,
+  EnginePhase1ToolName,
+  SummaryStrategy,
+} from "./types.ts";
 
 const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
 
 export const ENGINE_STORAGE_DIRNAME = ".ai-context-engine";
+export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
 
 export const ENGINE_PHASE_1_TOOLS: EnginePhase1ToolName[] = [
   "init",
@@ -36,6 +42,7 @@ export function resolveEnginePaths(repoRoot: string): EnginePaths {
 
 export function createDefaultEngineConfig(input: {
   repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
 }): EngineConfig {
   return {
     repoRoot: input.repoRoot,
@@ -43,6 +50,7 @@ export function createDefaultEngineConfig(input: {
     respectGitIgnore: true,
     storageMode: "wal",
     staleStatus: "unknown",
+    summaryStrategy: input.summaryStrategy ?? DEFAULT_SUMMARY_STRATEGY,
     paths: resolveEnginePaths(input.repoRoot),
   };
 }

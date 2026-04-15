@@ -1,5 +1,6 @@
 export {
   createDefaultEngineConfig,
+  DEFAULT_SUMMARY_STRATEGY,
   ENGINE_PHASE_1_TOOLS,
   ENGINE_STORAGE_DIRNAME,
   resolveEnginePaths,
@@ -40,6 +41,8 @@ export type {
   SymbolKind,
   SymbolSourceResult,
   SymbolSummary,
+  SummarySource,
+  SummaryStrategy,
   SupportedLanguage,
   WatchEvent,
   WatchHandle,

@@ -10,12 +10,12 @@ Implemented now:
 - repo/file discovery tools, symbol/text search, exact source retrieval, context bundles, CLI, and MCP
 - single-file refresh plus freshness diagnostics and stale-index reporting
 - debounced watch mode for live index refresh via the engine API and CLI
+- configurable doc-comment-first summaries with signature-only fallback and diagnostics metadata
 
 Still future:
 - worktree-aware indexing
 - richer relationship and impact tools
 - fuzzy, centrality-aware, and semantic ranking
-- optional summarization backends beyond signature fallback
 
 ## 1. Purpose
 
@@ -291,14 +291,23 @@ Summaries improve navigation and ranking.
 They are not the source of truth.
 
 ### 11.2 Fallback chain
-Current implementation uses signature-derived summaries only.
+Current implementation uses a configurable local fallback chain:
+doc-comment → signature fallback
+
+Available strategies now:
+- `doc-comments-first`
+- `signature-only`
 
 Future target:
-docstring → generated summary → signature fallback
+doc-comment → generated summary → signature fallback
 
 ### 11.3 Provider model
 Allow optional summarization backends, including local-compatible backends.
 The system must still work without them.
+
+Implemented now:
+- local doc-comment extraction
+- explicit signature-only fallback mode
 
 ### 11.4 Performance model
 If summaries are expensive, allow deferred or background summarization so indexing remains usable immediately.
@@ -374,9 +383,10 @@ Implemented now:
 - stale/fresh status
 - indexed and current file counts
 - snapshot hashes and drift reasons
+- active summary strategy
+- summary-source counts
 
 Still future:
-- active summarizer
 - transport mode
 - privacy settings
 - watcher health
@@ -474,7 +484,7 @@ Status: implemented.
 - basic CLI diagnostics
 
 ### Phase 2
-Status: partially implemented.
+Status: implemented.
 
 Implemented now:
 - get_context_bundle
@@ -483,9 +493,7 @@ Implemented now:
 - stale metadata
 - query suggestion
 - debounced watch mode via API and CLI
-
-Still future:
-- optional summaries beyond signature fallback
+- configurable doc-comment-first summaries with signature-only override
 
 ### Phase 3
 Status: not implemented yet.

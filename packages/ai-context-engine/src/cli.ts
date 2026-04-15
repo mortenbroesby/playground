@@ -24,11 +24,20 @@ type CliHandler = (args: Record<string, string>) => Promise<unknown>;
 
 const commands: Record<string, CliHandler> = {
   init: async (args) => diagnostics({ repoRoot: required(args, "repo") }),
-  "index-folder": async (args) => indexFolder({ repoRoot: required(args, "repo") }),
+  "index-folder": async (args) =>
+    indexFolder({
+      repoRoot: required(args, "repo"),
+      summaryStrategy: optional(args, "summary-strategy") as
+        | Parameters<typeof indexFolder>[0]["summaryStrategy"]
+        | undefined,
+    }),
   "index-file": async (args) =>
     indexFile({
       repoRoot: required(args, "repo"),
       filePath: required(args, "file"),
+      summaryStrategy: optional(args, "summary-strategy") as
+        | Parameters<typeof indexFile>[0]["summaryStrategy"]
+        | undefined,
     }),
   watch: async (args) => runWatchCommand(args),
   "get-repo-outline": async (args) =>
@@ -149,6 +158,9 @@ async function runWatchCommand(args: Record<string, string>) {
   const watcher = await watchFolder({
     repoRoot,
     debounceMs,
+    summaryStrategy: optional(args, "summary-strategy") as
+      | Parameters<typeof watchFolder>[0]["summaryStrategy"]
+      | undefined,
     onEvent(event) {
       if (event.type === "ready" && event.summary) {
         initialSummary = event.summary;
