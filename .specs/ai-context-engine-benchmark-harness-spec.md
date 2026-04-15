@@ -286,7 +286,7 @@ This slice is implemented when the following checks pass:
 3. benchmark corpus loader test passes against the fixture corpus
 4. benchmark report writer test passes against a synthetic result object
 5. benchmark runner smoke test passes for one task and one workflow
-6. a manual benchmark run against the current repo snapshot writes `results.json` and `report.md` to `.benchmarks/ai-context-engine/<run-id>/`
+6. a manual benchmark run against the current repo snapshot writes `results.json`, `report.md`, and `corpus.lock.json` to the caller-provided output directory, with the CLI defaulting to `.benchmarks/ai-context-engine/latest`
 
 Current repo status:
 - the automated tests prove this flow against fixture repos
