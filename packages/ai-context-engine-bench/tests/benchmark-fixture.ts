@@ -1,4 +1,5 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ export const workspaceRoot = [
 export interface BenchmarkFixtureRepo {
   repoRoot: string;
   corpusPath: string;
+  repoSha: string;
 }
 
 export function createBenchmarkFixtureRepo(): BenchmarkFixtureRepo {
@@ -35,6 +37,92 @@ export function createBenchmarkFixtureRepo(): BenchmarkFixtureRepo {
 }
 `,
   );
+  execFileSync("git", ["init"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  execFileSync("git", ["config", "user.email", "bench@example.com"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  execFileSync("git", ["config", "user.name", "Benchmark Fixture"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  execFileSync("git", ["add", "."], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  execFileSync("git", ["commit", "-m", "fixture"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const repoSha = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+  const manifest = JSON.parse(readFileSync(path.join(
+    repoRoot,
+    ".specs",
+    "benchmarks",
+    "ai-context-engine-benchmark-corpus.json",
+  ), "utf8")) as { repoSha: string };
+  manifest.repoSha = repoSha;
+  writeFileSync(
+    path.join(
+      repoRoot,
+      ".specs",
+      "benchmarks",
+      "ai-context-engine-benchmark-corpus.json",
+    ),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  execFileSync("git", ["add", ".specs/benchmarks/ai-context-engine-benchmark-corpus.json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  execFileSync("git", ["commit", "--amend", "--no-edit"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const amendedRepoSha = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+  manifest.repoSha = amendedRepoSha;
+  writeFileSync(
+    path.join(
+      repoRoot,
+      ".specs",
+      "benchmarks",
+      "ai-context-engine-benchmark-corpus.json",
+    ),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  execFileSync("git", ["add", ".specs/benchmarks/ai-context-engine-benchmark-corpus.json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  execFileSync("git", ["commit", "--amend", "--no-edit"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const finalRepoSha = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
 
   return {
     repoRoot,
@@ -44,5 +132,6 @@ export function createBenchmarkFixtureRepo(): BenchmarkFixtureRepo {
       "benchmarks",
       "ai-context-engine-benchmark-corpus.json",
     ),
+    repoSha: finalRepoSha,
   };
 }

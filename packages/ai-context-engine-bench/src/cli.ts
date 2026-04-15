@@ -40,6 +40,7 @@ async function main() {
     repoRoot,
     taskId: args.task,
     workflowId: args.workflow,
+    strict: args.strict === "true",
   });
 
   process.stdout.write(`${JSON.stringify(outcome.artifacts, null, 2)}\n`);

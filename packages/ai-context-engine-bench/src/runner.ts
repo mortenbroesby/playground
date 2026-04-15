@@ -1,7 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 
 import { indexFolder } from "@playground/ai-context-engine";
 
@@ -11,21 +10,10 @@ import {
   renderBenchmarkReportMarkdown,
   serializeBenchmarkResults,
 } from "./report.ts";
+import { assertStrictSnapshot, getRepoSnapshot } from "./snapshot.ts";
 import { BENCHMARK_TOKENIZER } from "./tokenizer.ts";
 import { computeBaselineForTask, getWorkflowDefinition, runWorkflowTask } from "./workflows.ts";
 import type { BenchmarkRunOptions, BenchmarkRunOutcome } from "./types.ts";
-
-function currentRepoSha(repoRoot: string): string | null {
-  try {
-    return execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: repoRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return null;
-  }
-}
 
 function makeRunId(repoSha: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -36,7 +24,13 @@ export async function runBenchmark(
   options: BenchmarkRunOptions,
 ): Promise<BenchmarkRunOutcome> {
   const corpus = loadBenchmarkCorpus(options.corpusPath);
-  const repoSha = currentRepoSha(options.repoRoot) ?? corpus.manifest.repoSha;
+  const snapshot = getRepoSnapshot(options.repoRoot);
+
+  if (options.strict) {
+    assertStrictSnapshot(snapshot, corpus.manifest.repoSha);
+  }
+
+  const repoSha = snapshot.repoSha ?? corpus.manifest.repoSha;
   const tasks = corpus.tasks.filter((task) =>
     (!options.taskId || task.manifest.id === options.taskId) &&
     (!options.workflowId || task.manifest.workflows.includes(options.workflowId))
@@ -127,11 +121,20 @@ export async function runBenchmark(
 
   const resultsPath = path.join(runDir, "results.json");
   const reportPath = path.join(runDir, "report.md");
+  const corpusLockPath = path.join(runDir, "corpus.lock.json");
   await writeFile(resultsPath, `${serializeBenchmarkResults(results)}\n`);
   await writeFile(reportPath, renderBenchmarkReportMarkdown(results));
   await writeFile(
-    path.join(runDir, "corpus.lock.json"),
-    `${JSON.stringify(corpus.manifest, null, 2)}\n`,
+    corpusLockPath,
+    `${JSON.stringify(
+      {
+        manifest: corpus.manifest,
+        snapshot,
+        strict: options.strict ?? false,
+      },
+      null,
+      2,
+    )}\n`,
   );
 
   return {
@@ -139,6 +142,7 @@ export async function runBenchmark(
     artifacts: {
       resultsPath,
       reportPath,
+      corpusLockPath,
     },
   };
 }

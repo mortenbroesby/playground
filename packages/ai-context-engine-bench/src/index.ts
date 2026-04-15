@@ -15,6 +15,10 @@ export {
   countTokens,
   disposeTokenizer,
 } from "./tokenizer.ts";
+export {
+  assertStrictSnapshot,
+  getRepoSnapshot,
+} from "./snapshot.ts";
 
 export type {
   BenchmarkCorpus,

@@ -15,6 +15,12 @@ export interface BenchmarkCorpusMetadata {
   taskCount: number;
 }
 
+export interface BenchmarkRepoSnapshot {
+  repoSha: string | null;
+  isDirty: boolean;
+  statusLines: string[];
+}
+
 export interface BenchmarkCorpusMetadataInput
   extends Omit<BenchmarkCorpusMetadata, "taskCount"> {
   taskCount?: number;
@@ -144,11 +150,13 @@ export interface BenchmarkRunOptions {
   repoRoot: string;
   taskId?: string;
   workflowId?: string;
+  strict?: boolean;
 }
 
 export interface BenchmarkRunArtifacts {
   resultsPath: string;
   reportPath: string;
+  corpusLockPath: string;
 }
 
 export interface BenchmarkRunOutcome {

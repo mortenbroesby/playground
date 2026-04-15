@@ -1,4 +1,4 @@
-import { readFileSync, rmSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -22,8 +22,12 @@ describe("benchmark runner", () => {
       });
 
       const results = JSON.parse(readFileSync(outcome.artifacts.resultsPath, "utf8"));
+      const corpusLock = JSON.parse(
+        readFileSync(outcome.artifacts.corpusLockPath, "utf8"),
+      );
       expect(results.tasks).toHaveLength(1);
       expect(results.tokenizer).toBe("cl100k_base");
+      expect(corpusLock.snapshot.repoSha).toBe(fixture.repoSha);
       expect(results.tasks[0]).toMatchObject({
         taskId: "task-corpus-loader",
         workflowId: "symbol-first",
@@ -32,6 +36,29 @@ describe("benchmark runner", () => {
       expect(readFileSync(outcome.artifacts.reportPath, "utf8")).toContain(
         "# ai-context-engine Benchmark Report",
       );
+    } finally {
+      rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails strict mode on a dirty checkout", async () => {
+    const fixture = createBenchmarkFixtureRepo();
+
+    try {
+      appendFileSync(
+        path.join(fixture.repoRoot, "packages", "ai-context-engine-bench", "src", "corpus.ts"),
+        "\nexport const dirty = true;\n",
+      );
+      await expect(
+        runBenchmark({
+          repoRoot: fixture.repoRoot,
+          corpusPath: fixture.corpusPath,
+          outputDir: path.join(fixture.repoRoot, ".benchmarks", "strict-run"),
+          taskId: "task-corpus-loader",
+          workflowId: "symbol-first",
+          strict: true,
+        }),
+      ).rejects.toThrow(/clean checkout/i);
     } finally {
       rmSync(fixture.repoRoot, { recursive: true, force: true });
     }

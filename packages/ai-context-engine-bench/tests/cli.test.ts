@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, rmSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -52,6 +52,50 @@ describe("benchmark cli", () => {
         workflowId: "symbol-first",
         success: true,
       });
+    } finally {
+      rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails strict mode on a dirty checkout", () => {
+    const fixture = createBenchmarkFixtureRepo();
+    const cliPath = path.resolve(
+      workspaceRoot,
+      "packages",
+      "ai-context-engine-bench",
+      "src",
+      "cli.ts",
+    );
+
+    try {
+      appendFileSync(
+        path.join(fixture.repoRoot, "packages", "ai-context-engine-bench", "src", "corpus.ts"),
+        "\nexport const dirty = true;\n",
+      );
+      expect(() =>
+        execFileSync(
+          process.execPath,
+          [
+            "--experimental-strip-types",
+            cliPath,
+            "--repo-root",
+            fixture.repoRoot,
+            "--corpus",
+            ".specs/benchmarks/ai-context-engine-benchmark-corpus.json",
+            "--output",
+            ".benchmarks/cli-run",
+            "--task",
+            "task-corpus-loader",
+            "--workflow",
+            "symbol-first",
+            "--strict",
+          ],
+          {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "pipe"],
+          },
+        ),
+      ).toThrow(/clean checkout/i);
     } finally {
       rmSync(fixture.repoRoot, { recursive: true, force: true });
     }
