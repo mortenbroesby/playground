@@ -5,6 +5,10 @@ import path from "node:path";
 
 import { runBenchmark } from "./runner.ts";
 
+function resolvePathFromRepoRoot(repoRoot: string, input: string): string {
+  return path.isAbsolute(input) ? input : path.resolve(repoRoot, input);
+}
+
 function parseArgs(argv: string[]) {
   const args: Record<string, string> = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -21,10 +25,12 @@ function parseArgs(argv: string[]) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const repoRoot = path.resolve(args["repo-root"] ?? process.cwd());
-  const corpusPath = path.resolve(
+  const corpusPath = resolvePathFromRepoRoot(
+    repoRoot,
     args.corpus ?? ".specs/benchmarks/ai-context-engine-benchmark-corpus.json",
   );
-  const outputDir = path.resolve(
+  const outputDir = resolvePathFromRepoRoot(
+    repoRoot,
     args.output ?? ".benchmarks/ai-context-engine/latest",
   );
 

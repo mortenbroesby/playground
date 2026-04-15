@@ -8,6 +8,14 @@ import {
   loadBenchmarkCorpus,
   loadBenchmarkTaskCard,
 } from "../src/index.ts";
+import { workspaceRoot } from "./benchmark-fixture.ts";
+
+const checkedInCorpusPath = path.resolve(
+  workspaceRoot,
+  ".specs",
+  "benchmarks",
+  "ai-context-engine-benchmark-corpus.json",
+);
 
 function makeFixtureCorpus() {
   const root = mkdtempSync(path.join(os.tmpdir(), "aice-bench-"));
@@ -118,6 +126,18 @@ Beta task body.
 }
 
 describe("ai-context-engine-bench corpus loader", () => {
+  it("loads the checked-in benchmark corpus", () => {
+    const corpus = loadBenchmarkCorpus(checkedInCorpusPath);
+
+    expect(corpus.manifest.repoSha).toBe(
+      "97d82c70eec5af8e9c391fc9208d6ac9536af04f",
+    );
+    expect(corpus.manifest.tasks).toHaveLength(1);
+    expect(corpus.tasks).toHaveLength(1);
+    expect(corpus.tasks[0].frontmatter.id).toBe("task-corpus-loader");
+    expect(corpus.tasks[0].frontmatter.query).toBe("loadBenchmarkCorpus");
+  });
+
   it("loads the manifest and task cards in manifest order", () => {
     const fixture = makeFixtureCorpus();
 
