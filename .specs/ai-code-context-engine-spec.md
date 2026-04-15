@@ -399,6 +399,18 @@ Document an agent policy that encourages:
 
 Do not rely on policy alone for correctness, but make the intended workflow explicit.
 
+### 13.5 Build and packaging
+Implemented now:
+- native TypeScript execution for local CLI and MCP entry points via Node strip-types mode
+- no checked-in build artifacts for the private in-repo workspace packages
+
+Still future:
+- adopting `tsup` or an equivalent packager if these packages need published artifacts, faster cold starts from bundled entry points, or a stable `dist/` contract outside the workspace
+
+Current decision:
+- keep the engine and benchmark packages on native TypeScript execution for now
+- do not add a bundler until there is a concrete packaging requirement, because the current private-workspace setup already type-checks, tests, and runs without a separate build step
+
 ---
 
 ## 14. Security and safety
