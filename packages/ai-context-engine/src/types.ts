@@ -121,6 +121,17 @@ export interface DiagnosticsResult {
   databasePath: string;
   storageMode: StorageMode;
   staleStatus: StaleStatus;
+  indexedAt: string | null;
+  indexAgeMs: number | null;
+  indexedFiles: number;
+  indexedSymbols: number;
+  currentFiles: number;
+  missingFiles: number;
+  changedFiles: number;
+  extraFiles: number;
+  indexedSnapshotHash: string | null;
+  currentSnapshotHash: string | null;
+  staleReasons: string[];
 }
 
 export type EnginePhase1ToolName =

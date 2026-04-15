@@ -258,6 +258,12 @@ Rules:
 2. all workflows use the same path exclusions
 3. all workflows use the same success criteria
 4. no workflow may receive extra oracle context unless the task explicitly allows it
+
+## 11. Harness Implementation Spec
+
+The concrete next-step harness plan lives in [`ai-context-engine-benchmark-harness-spec.md`](./ai-context-engine-benchmark-harness-spec.md).
+
+Use that file as the implementation-facing plan for the next coding slice; keep this benchmark policy doc as the higher-level contract and evaluation frame.
 5. no manual cherry-picking after seeing results
 6. do not compare a workflow that can use a feature another workflow does not have
 7. do not count static prompts or shared schema overhead when comparing retrieval efficiency
@@ -288,4 +294,3 @@ That means:
 5. the report format is fixed
 6. reproducibility and fairness rules are explicit
 7. unresolved engine capabilities are called out instead of assumed
-

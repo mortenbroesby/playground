@@ -186,4 +186,49 @@ export function circumference(radius: number): string {
     expect(health.storageMode).toBe("wal");
     expect(health.staleStatus).toBe("fresh");
   });
+
+  it("surfaces live freshness drift after the repository changes", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const initialHealth = await diagnostics({ repoRoot });
+    expect(initialHealth).toMatchObject({
+      staleStatus: "fresh",
+      indexedFiles: 2,
+      currentFiles: 2,
+      missingFiles: 0,
+      changedFiles: 0,
+      extraFiles: 0,
+    });
+    expect(initialHealth.indexedAt).not.toBeNull();
+    expect(initialHealth.indexAgeMs).not.toBeNull();
+    expect(initialHealth.currentSnapshotHash).toBe(initialHealth.indexedSnapshotHash);
+
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function area(radius: number): string {
+  return "changed";
+}
+`,
+    );
+
+    const staleHealth = await diagnostics({ repoRoot });
+    expect(staleHealth).toMatchObject({
+      staleStatus: "stale",
+      indexedFiles: 2,
+      currentFiles: 2,
+      missingFiles: 0,
+      changedFiles: 1,
+      extraFiles: 0,
+    });
+    expect(staleHealth.currentSnapshotHash).not.toBe(
+      staleHealth.indexedSnapshotHash,
+    );
+    expect(staleHealth.staleReasons).toContain("content drift");
+  });
 });

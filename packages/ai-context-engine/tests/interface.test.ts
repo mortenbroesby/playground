@@ -19,6 +19,13 @@ describe("ai-context-engine interfaces", () => {
       totalFiles: 2,
       totalSymbols: 5,
     });
+
+    const diagnosticsStdout = await handleCli(["diagnostics", "--repo", repoRoot]);
+    expect(JSON.parse(diagnosticsStdout)).toMatchObject({
+      staleStatus: "fresh",
+      indexedFiles: 2,
+      currentFiles: 2,
+    });
   });
 
   it("exposes spec-aligned MCP tools", async () => {
@@ -41,6 +48,7 @@ describe("ai-context-engine interfaces", () => {
       "get_symbol_source",
     );
     expect(tools.map((tool) => tool.name)).toContain("get_context_bundle");
+    expect(tools.map((tool) => tool.name)).toContain("diagnostics");
 
     await server.handleMessage({
       jsonrpc: "2.0",

@@ -32,12 +32,15 @@ The implemented slice now includes:
 - `get_context_bundle` for bounded, query-driven context assembly
 - `get_file_content`, `get_symbol_source`, and `diagnostics`
 - fixture-backed tests proving indexing and exact retrieval
+- diagnostics now includes indexed timestamps, snapshot hashes, and live drift
+  counts so stale metadata can be distinguished from a fresh index
 
 ## Commands
 
 - `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
+- `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine mcp`
 
 The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with
@@ -45,7 +48,6 @@ MCP-style `tools/list` and `tools/call` routing.
 
 Next slices should add:
 
-- stale metadata beyond the current fresh/unknown baseline
 - richer ranking and query suggestion quality
 - bounded context bundles and ranked context assembly
 - watch mode and single-file fast paths beyond the current direct reindex call

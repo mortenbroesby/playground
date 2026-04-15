@@ -41,6 +41,21 @@ interface DbSymbolRow {
   exported: number;
 }
 
+interface RepoMetaRecord {
+  repoRoot: string;
+  indexedAt: string;
+  indexedFiles: number;
+  indexedSymbols: number;
+  indexedSnapshotHash: string;
+  storageMode: string;
+  staleStatus: "fresh" | "stale" | "unknown";
+}
+
+interface SnapshotEntry {
+  path: string;
+  contentHash: string;
+}
+
 const SKIP_SEGMENTS = new Set([
   ".git",
   ".next",
@@ -147,22 +162,97 @@ async function ensureStorage(repoRoot: string) {
 
 async function writeSidecars(input: {
   repoRoot: string;
+  indexedAt: string;
   indexedFiles: number;
   totalSymbols: number;
+  indexedSnapshotHash: string;
   staleStatus: "fresh" | "stale" | "unknown";
 }) {
   const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
   const meta = {
     repoRoot: input.repoRoot,
+    indexedAt: input.indexedAt,
     indexedFiles: input.indexedFiles,
     totalSymbols: input.totalSymbols,
+    indexedSnapshotHash: input.indexedSnapshotHash,
     staleStatus: input.staleStatus,
     storageMode: config.storageMode,
-    updatedAt: new Date().toISOString(),
   };
   const metaJson = JSON.stringify(meta, null, 2);
   await writeFile(config.paths.repoMetaPath, metaJson);
   await writeFile(config.paths.integrityPath, sha256(metaJson));
+}
+
+async function readRepoMeta(
+  repoMetaPath: string,
+): Promise<RepoMetaRecord | null> {
+  try {
+    const content = await readFile(repoMetaPath, "utf8");
+    return JSON.parse(content) as RepoMetaRecord;
+  } catch {
+    return null;
+  }
+}
+
+function snapshotHash(entries: SnapshotEntry[]): string {
+  return sha256(
+    entries
+      .slice()
+      .sort((left, right) => left.path.localeCompare(right.path))
+      .map((entry) => `${entry.path}:${entry.contentHash}`)
+      .join("\n"),
+  );
+}
+
+async function loadFilesystemSnapshot(
+  repoRoot: string,
+): Promise<SnapshotEntry[]> {
+  const files = await listSupportedFiles(repoRoot);
+  const entries: SnapshotEntry[] = [];
+
+  for (const filePath of files) {
+    const content = await readFile(path.join(repoRoot, filePath), "utf8");
+    entries.push({
+      path: filePath,
+      contentHash: sha256(content),
+    });
+  }
+
+  return entries;
+}
+
+function loadIndexedSnapshot(
+  db: import("node:sqlite").DatabaseSync,
+): SnapshotEntry[] {
+  return typedAll<SnapshotEntry>(
+    db.prepare(
+      "SELECT path, content_hash AS contentHash FROM files ORDER BY path ASC",
+    ),
+  );
+}
+
+function compareSnapshots(
+  indexedEntries: SnapshotEntry[],
+  currentEntries: SnapshotEntry[],
+) {
+  const indexedMap = new Map(indexedEntries.map((entry) => [entry.path, entry]));
+  const currentMap = new Map(currentEntries.map((entry) => [entry.path, entry]));
+  const missingFiles = indexedEntries.filter((entry) => !currentMap.has(entry.path));
+  const extraFiles = currentEntries.filter((entry) => !indexedMap.has(entry.path));
+  const changedFiles = indexedEntries.filter((entry) => {
+    const currentEntry = currentMap.get(entry.path);
+    return Boolean(currentEntry && currentEntry.contentHash !== entry.contentHash);
+  });
+
+  return {
+    indexedFiles: indexedEntries.length,
+    currentFiles: currentEntries.length,
+    missingFiles: missingFiles.length,
+    changedFiles: changedFiles.length,
+    extraFiles: extraFiles.length,
+    indexedSnapshotHash: snapshotHash(indexedEntries),
+    currentSnapshotHash: snapshotHash(currentEntries),
+  };
 }
 
 async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promise<string[]> {
@@ -619,16 +709,23 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
   };
 }
 
-async function finalizeIndex(db: import("node:sqlite").DatabaseSync, repoRoot: string) {
+async function finalizeIndex(
+  db: import("node:sqlite").DatabaseSync,
+  repoRoot: string,
+  indexedAt: string,
+) {
   const totalFiles = countRows(db, "SELECT COUNT(*) AS count FROM files");
   const totalSymbols = countRows(db, "SELECT COUNT(*) AS count FROM symbols");
+  const indexedSnapshotHash = snapshotHash(loadIndexedSnapshot(db));
   db.prepare(
     "INSERT INTO meta (key, value) VALUES ('staleStatus', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
   ).run("fresh");
   await writeSidecars({
     repoRoot,
+    indexedAt,
     indexedFiles: totalFiles,
     totalSymbols,
+    indexedSnapshotHash,
     staleStatus: "fresh",
   });
 }
@@ -662,7 +759,8 @@ export async function indexFolder(input: { repoRoot: string }): Promise<IndexSum
       }
     }
 
-    await finalizeIndex(db, input.repoRoot);
+    const indexedAt = new Date().toISOString();
+    await finalizeIndex(db, input.repoRoot, indexedAt);
 
     return {
       indexedFiles,
@@ -707,7 +805,8 @@ export async function indexFile(input: {
 
   try {
     const result = await upsertFileIndex(db, input);
-    await finalizeIndex(db, input.repoRoot);
+    const indexedAt = new Date().toISOString();
+    await finalizeIndex(db, input.repoRoot, indexedAt);
 
     return {
       indexedFiles: result.indexed ? 1 : 0,
@@ -1107,15 +1206,50 @@ export async function diagnostics(input: {
   const db = openDatabase(config.paths.databasePath);
 
   try {
-    const row = db.prepare(
-      "SELECT value FROM meta WHERE key = 'staleStatus'",
-    ).get() as { value: DiagnosticsResult["staleStatus"] } | undefined;
+    const meta = await readRepoMeta(config.paths.repoMetaPath);
+    const indexedEntries = loadIndexedSnapshot(db);
+    const currentEntries = await loadFilesystemSnapshot(input.repoRoot);
+    const drift = compareSnapshots(indexedEntries, currentEntries);
+    const indexedAt = meta?.indexedAt ?? null;
+    const indexAgeMs =
+      indexedAt !== null ? Math.max(0, Date.now() - Date.parse(indexedAt)) : null;
+    const staleReasons: string[] = [];
+
+    if (!meta) {
+      staleReasons.push("index metadata missing");
+    }
+    if (drift.missingFiles > 0) {
+      staleReasons.push("missing files");
+    }
+    if (drift.changedFiles > 0) {
+      staleReasons.push("content drift");
+    }
+    if (drift.extraFiles > 0) {
+      staleReasons.push("new files");
+    }
+
+    const staleStatus: DiagnosticsResult["staleStatus"] =
+      meta && staleReasons.length === 0 ? "fresh" : meta ? "stale" : "unknown";
 
     return {
       storageDir: config.paths.storageDir,
       databasePath: config.paths.databasePath,
       storageMode: config.storageMode,
-      staleStatus: row?.value ?? "unknown",
+      staleStatus,
+      indexedAt,
+      indexAgeMs,
+      indexedFiles: meta?.indexedFiles ?? drift.indexedFiles,
+      indexedSymbols:
+        meta?.indexedSymbols ??
+        countRows(db, "SELECT COUNT(*) AS count FROM symbols"),
+      currentFiles: drift.currentFiles,
+      missingFiles: drift.missingFiles,
+      changedFiles: drift.changedFiles,
+      extraFiles: drift.extraFiles,
+      indexedSnapshotHash:
+        meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? drift.indexedSnapshotHash : null),
+      currentSnapshotHash: drift.currentSnapshotHash,
+      staleReasons,
     };
   } finally {
     db.close();
