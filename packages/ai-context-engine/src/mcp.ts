@@ -2,6 +2,7 @@
 
 import process from "node:process";
 
+import { parseSummaryStrategy } from "./config.ts";
 import {
   diagnostics,
   getFileContent,
@@ -165,7 +166,7 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
         repoRoot: requireString(args, "repoRoot"),
         summaryStrategy:
           typeof args.summaryStrategy === "string"
-            ? args.summaryStrategy as Parameters<typeof indexFolder>[0]["summaryStrategy"]
+            ? parseSummaryStrategy(args.summaryStrategy, "summaryStrategy")
             : undefined,
       });
     case "index_file":
@@ -174,7 +175,7 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
         filePath: requireString(args, "filePath"),
         summaryStrategy:
           typeof args.summaryStrategy === "string"
-            ? args.summaryStrategy as Parameters<typeof indexFile>[0]["summaryStrategy"]
+            ? parseSummaryStrategy(args.summaryStrategy, "summaryStrategy")
             : undefined,
       });
     case "get_repo_outline":

@@ -2,6 +2,7 @@
 
 import process from "node:process";
 
+import { parseSummaryStrategy } from "./config.ts";
 import {
   diagnostics,
   getFileContent,
@@ -27,17 +28,13 @@ const commands: Record<string, CliHandler> = {
   "index-folder": async (args) =>
     indexFolder({
       repoRoot: required(args, "repo"),
-      summaryStrategy: optional(args, "summary-strategy") as
-        | Parameters<typeof indexFolder>[0]["summaryStrategy"]
-        | undefined,
+      summaryStrategy: optionalSummaryStrategy(args, "summary-strategy"),
     }),
   "index-file": async (args) =>
     indexFile({
       repoRoot: required(args, "repo"),
       filePath: required(args, "file"),
-      summaryStrategy: optional(args, "summary-strategy") as
-        | Parameters<typeof indexFile>[0]["summaryStrategy"]
-        | undefined,
+      summaryStrategy: optionalSummaryStrategy(args, "summary-strategy"),
     }),
   watch: async (args) => runWatchCommand(args),
   "get-repo-outline": async (args) =>
@@ -113,6 +110,14 @@ function optionalNumber(
   return value ? Number(value) : undefined;
 }
 
+function optionalSummaryStrategy(
+  args: Record<string, string>,
+  key: string,
+): Parameters<typeof indexFolder>[0]["summaryStrategy"] | undefined {
+  const value = optional(args, key);
+  return value ? parseSummaryStrategy(value, `--${key}`) : undefined;
+}
+
 function parseArgs(argv: string[]): { command: string; args: Record<string, string> } {
   const [command, ...rest] = argv;
   if (!command) {
@@ -158,9 +163,7 @@ async function runWatchCommand(args: Record<string, string>) {
   const watcher = await watchFolder({
     repoRoot,
     debounceMs,
-    summaryStrategy: optional(args, "summary-strategy") as
-      | Parameters<typeof watchFolder>[0]["summaryStrategy"]
-      | undefined,
+    summaryStrategy: optionalSummaryStrategy(args, "summary-strategy"),
     onEvent(event) {
       if (event.type === "ready" && event.summary) {
         initialSummary = event.summary;

@@ -3,6 +3,9 @@ export {
   DEFAULT_SUMMARY_STRATEGY,
   ENGINE_PHASE_1_TOOLS,
   ENGINE_STORAGE_DIRNAME,
+  isSummaryStrategy,
+  normalizeSummaryStrategy,
+  parseSummaryStrategy,
   resolveEnginePaths,
 } from "./config.ts";
 export {

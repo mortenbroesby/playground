@@ -2,8 +2,9 @@ import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { indexFolder } from "@playground/ai-context-engine";
 
-import { runBenchmark } from "../src/index.ts";
+import { runBenchmark, runWorkflowTask, loadBenchmarkCorpus } from "../src/index.ts";
 import { createBenchmarkFixtureRepo } from "./benchmark-fixture.ts";
 
 describe("benchmark runner", () => {
@@ -62,6 +63,43 @@ describe("benchmark runner", () => {
           strict: true,
         }),
       ).rejects.toThrow(/clean checkout/i);
+    } finally {
+      rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps workflow evidence inside the allowed task paths", async () => {
+    const fixture = createBenchmarkFixtureRepo({
+      includeOutOfScopeDuplicate: true,
+    });
+
+    try {
+      const corpus = loadBenchmarkCorpus(fixture.corpusPath);
+      await indexFolder({ repoRoot: fixture.repoRoot });
+      const task = corpus.tasks[0];
+      if (!task) {
+        throw new Error("Expected checked-in benchmark task");
+      }
+
+      const symbolFirst = await runWorkflowTask({
+        repoRoot: fixture.repoRoot,
+        task,
+        workflowId: "symbol-first",
+      });
+      expect(symbolFirst.success).toBe(true);
+      expect(
+        symbolFirst.evidence.some((item) => item.includes("a-outside.ts")),
+      ).toBe(false);
+
+      const bundle = await runWorkflowTask({
+        repoRoot: fixture.repoRoot,
+        task,
+        workflowId: "bundle",
+      });
+      expect(bundle.success).toBe(true);
+      expect(
+        bundle.evidence.some((item) => item.includes("a-outside.ts")),
+      ).toBe(false);
     } finally {
       rmSync(fixture.repoRoot, { recursive: true, force: true });
     }

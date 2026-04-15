@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { handleCli } from "../src/cli.ts";
 import { createMcpServer } from "../src/mcp.ts";
+import { indexFolder } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
 afterEach(async () => {
@@ -207,5 +208,42 @@ export function circumference(radius: number): string {
         name: "Greeter",
       },
     });
+  });
+
+  it("rejects unsupported summary strategies at runtime boundaries", async () => {
+    const repoRoot = await createFixtureRepo();
+    const server = createMcpServer();
+
+    await expect(
+      indexFolder({
+        repoRoot,
+        summaryStrategy: "bogus" as "signature-only",
+      }),
+    ).rejects.toThrow(/unsupported summaryStrategy/i);
+
+    await expect(
+      handleCli([
+        "index-folder",
+        "--repo",
+        repoRoot,
+        "--summary-strategy",
+        "bogus",
+      ]),
+    ).rejects.toThrow(/unsupported --summary-strategy/i);
+
+    const response = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "index_folder",
+        arguments: {
+          repoRoot,
+          summaryStrategy: "bogus",
+        },
+      },
+    });
+
+    expect(response.error?.message).toMatch(/unsupported summaryStrategy/i);
   });
 });

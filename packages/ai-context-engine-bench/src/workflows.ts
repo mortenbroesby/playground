@@ -41,6 +41,16 @@ function matchesAllowedPath(filePath: string, allowedPaths: readonly string[]): 
   });
 }
 
+function filterEvidenceToAllowedPaths(
+  evidence: readonly string[],
+  allowedPaths: readonly string[],
+): string[] {
+  return evidence.filter((item) => {
+    const pathPrefix = item.split(":", 1)[0] ?? item;
+    return matchesAllowedPath(pathPrefix, allowedPaths);
+  });
+}
+
 async function computeBaselineTokens(repoRoot: string, task: BenchmarkCorpusTask) {
   const fileTree = await getFileTree({ repoRoot });
   const relevantFiles = fileTree.filter((file) =>
@@ -87,9 +97,12 @@ const baselineWorkflow: WorkflowDefinition = {
     return {
       retrievedTokens: tokenCount,
       toolCalls: 1,
-      evidence,
+      evidence: filterEvidenceToAllowedPaths(evidence, task.manifest.allowedPaths),
       notes: ["baseline read-all slice"],
-      success: successForTask(task, evidence),
+      success: successForTask(
+        task,
+        filterEvidenceToAllowedPaths(evidence, task.manifest.allowedPaths),
+      ),
     };
   },
 };
@@ -104,15 +117,21 @@ const symbolFirstWorkflow: WorkflowDefinition = {
       query: task.frontmatter.query,
       limit: 3,
     });
-    let retrievedTokens = countTokens(JSON.stringify(matches));
-    const evidence: string[] = matches.map((item) => item.name);
+    const allowedMatches = matches.filter((item) =>
+      matchesAllowedPath(item.filePath, task.manifest.allowedPaths),
+    );
+    let retrievedTokens = countTokens(JSON.stringify(allowedMatches));
+    const evidence: string[] = allowedMatches.flatMap((item) => [
+      item.name,
+      item.filePath,
+    ]);
     const notes: string[] = [];
     let toolCalls = 1;
 
-    if (matches[0]) {
+    if (allowedMatches[0]) {
       const source = await getSymbolSource({
         repoRoot,
-        symbolId: matches[0].id,
+        symbolId: allowedMatches[0].id,
         verify: true,
       });
       retrievedTokens += countTokens(source.source);
@@ -141,15 +160,18 @@ const textFirstWorkflow: WorkflowDefinition = {
       repoRoot,
       query: task.frontmatter.query,
     });
-    let retrievedTokens = countTokens(JSON.stringify(matches));
-    const evidence = matches.map((item) => `${item.filePath}:${item.line}`);
+    const allowedMatches = matches.filter((item) =>
+      matchesAllowedPath(item.filePath, task.manifest.allowedPaths),
+    );
+    let retrievedTokens = countTokens(JSON.stringify(allowedMatches));
+    const evidence = allowedMatches.map((item) => `${item.filePath}:${item.line}`);
     const notes: string[] = [];
     let toolCalls = 1;
 
-    if (matches[0]) {
+    if (allowedMatches[0]) {
       const file = await getFileContent({
         repoRoot,
-        filePath: matches[0].filePath,
+        filePath: allowedMatches[0].filePath,
       });
       retrievedTokens += countTokens(file.content);
       evidence.push(file.filePath, file.content);
@@ -217,17 +239,23 @@ const bundleWorkflow: WorkflowDefinition = {
       query: task.frontmatter.query,
       tokenBudget: 400,
     });
+    const allowedItems = bundle.items.filter((item) =>
+      matchesAllowedPath(item.symbol.filePath, task.manifest.allowedPaths),
+    );
     return {
-      retrievedTokens: bundle.usedTokens,
+      retrievedTokens: allowedItems.reduce((total, item) => total + item.tokenCount, 0),
       toolCalls: 1,
-      evidence: bundle.items.flatMap((item) => [
+      evidence: allowedItems.flatMap((item) => [
         item.symbol.name,
         item.symbol.filePath,
       ]),
-      notes: bundle.truncated ? ["bundle truncated"] : [],
+      notes: [
+        ...(bundle.truncated ? ["bundle truncated"] : []),
+        ...(allowedItems.length < bundle.items.length ? ["filtered to allowed paths"] : []),
+      ],
       success: successForTask(
         task,
-        bundle.items.map((item) => item.symbol.name),
+        allowedItems.flatMap((item) => [item.symbol.name, item.symbol.filePath]),
       ),
     };
   },

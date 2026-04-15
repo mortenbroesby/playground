@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/pro
 import path from "node:path";
 import { createRequire } from "node:module";
 
-import { createDefaultEngineConfig } from "./config.ts";
+import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
 import type {
   DiagnosticsResult,
@@ -273,7 +273,11 @@ async function readRepoMeta(
 ): Promise<RepoMetaRecord | null> {
   try {
     const content = await readFile(repoMetaPath, "utf8");
-    return JSON.parse(content) as RepoMetaRecord;
+    const parsed = JSON.parse(content) as RepoMetaRecord;
+    return {
+      ...parsed,
+      summaryStrategy: normalizeSummaryStrategy(parsed.summaryStrategy),
+    };
   } catch {
     return null;
   }
