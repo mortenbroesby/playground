@@ -250,7 +250,7 @@ Current report contents:
 2. repo SHA
 3. engine version
 4. tokenizer used
-5. corpus size and slice breakdown
+5. corpus metadata and task count
 6. workflow definitions
 7. per-task table
 8. per-workflow summary table

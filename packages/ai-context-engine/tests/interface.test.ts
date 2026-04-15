@@ -1,3 +1,7 @@
+import path from "node:path";
+import { writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { handleCli } from "../src/cli.ts";
@@ -47,6 +51,42 @@ describe("ai-context-engine interfaces", () => {
     expect(JSON.parse(filteredStdout)[0]).toMatchObject({
       name: "Greeter",
       kind: "class",
+    });
+
+    const watchPromise = handleCli([
+      "watch",
+      "--repo",
+      repoRoot,
+      "--debounce-ms",
+      "50",
+      "--timeout-ms",
+      "250",
+    ]);
+
+    await delay(75);
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+    );
+
+    const watchStdout = await watchPromise;
+    expect(JSON.parse(watchStdout)).toMatchObject({
+      debounceMs: 50,
+      stopReason: "timeout",
+    });
+    expect(JSON.parse(watchStdout).reindexCount).toBeGreaterThanOrEqual(0);
+    expect(JSON.parse(watchStdout).initialSummary).toMatchObject({
+      staleStatus: "fresh",
+    });
+    expect(JSON.parse(watchStdout).lastSummary).toMatchObject({
+      staleStatus: "fresh",
     });
   });
 

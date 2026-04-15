@@ -35,6 +35,23 @@ export interface IndexSummary {
   staleStatus: StaleStatus;
 }
 
+export interface WatchEvent {
+  type: "ready" | "reindex" | "error" | "close";
+  changedPaths: string[];
+  summary?: IndexSummary;
+  message?: string;
+}
+
+export interface WatchOptions {
+  repoRoot: string;
+  debounceMs?: number;
+  onEvent?: (event: WatchEvent) => void | Promise<void>;
+}
+
+export interface WatchHandle {
+  close(): Promise<void>;
+}
+
 export interface RepoOutline {
   totalFiles: number;
   totalSymbols: number;

@@ -71,6 +71,10 @@ These files now exist:
 1. `packages/ai-context-engine-bench/tests/corpus.test.ts`
 2. `packages/ai-context-engine-bench/tests/report.test.ts`
 3. `packages/ai-context-engine-bench/tests/runner.test.ts`
+4. `packages/ai-context-engine-bench/tests/cli.test.ts`
+5. `packages/ai-context-engine-bench/tests/snapshot.test.ts`
+6. `packages/ai-context-engine-bench/tests/tokenizer.test.ts`
+7. `packages/ai-context-engine-bench/tests/scaffold.test.ts`
 
 ### 4.3 Package script
 
@@ -189,13 +193,12 @@ The runner currently writes each benchmark run to a repo-local output directory:
 
 1. `.benchmarks/ai-context-engine/<run-id>/results.json`
 2. `.benchmarks/ai-context-engine/<run-id>/report.md`
-3. `.benchmarks/ai-context-engine/<run-id>/traces/*.jsonl`
-4. `.benchmarks/ai-context-engine/<run-id>/corpus.lock.json`
+3. `.benchmarks/ai-context-engine/<run-id>/corpus.lock.json`
 
 `<run-id>` should include the repo SHA and timestamp so runs are naturally sortable.
 
 Current limitation:
-- the `traces/` directory is created and `tracePath` values are recorded, but trace files are not written yet
+- ordered trace artifacts are not emitted yet
 
 ### 6.1 `results.json`
 
@@ -228,7 +231,6 @@ Each task result should include:
 10. `success`
 11. `evidence`
 12. `notes`
-13. `tracePath`
 
 ### 6.2 `report.md`
 

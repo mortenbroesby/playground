@@ -22,6 +22,9 @@ import type {
   SymbolSourceResult,
   SymbolSummary,
   SupportedLanguage,
+  WatchEvent,
+  WatchHandle,
+  WatchOptions,
 } from "./types.ts";
 
 const require = createRequire(import.meta.url);
@@ -307,6 +310,9 @@ function compareSnapshots(
   });
 
   return {
+    missingPaths: missingFiles.map((entry) => entry.path),
+    extraPaths: extraFiles.map((entry) => entry.path),
+    changedPaths: changedFiles.map((entry) => entry.path),
     indexedFiles: indexedEntries.length,
     currentFiles: currentEntries.length,
     missingFiles: missingFiles.length,
@@ -349,6 +355,13 @@ async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promis
   }
 
   return results.sort();
+}
+
+async function emitWatchEvent(
+  onEvent: WatchOptions["onEvent"],
+  event: WatchEvent,
+): Promise<void> {
+  await onEvent?.(event);
 }
 
 async function readRepoFile(repoRoot: string, filePath: string) {
@@ -891,6 +904,131 @@ export async function indexFile(input: {
   } finally {
     db.close();
   }
+}
+
+export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
+  const debounceMs = input.debounceMs ?? 100;
+  const repoRoot = path.resolve(input.repoRoot);
+  const pollMs = Math.max(50, Math.min(debounceMs, 250));
+  const pendingPaths = new Set<string>();
+  let closed = false;
+  let debounceTimer: NodeJS.Timeout | null = null;
+  let activeFlush: Promise<void> | null = null;
+  let pollInFlight = false;
+
+  const scheduleFlush = (paths: string[]) => {
+    for (const filePath of paths) {
+      pendingPaths.add(filePath);
+    }
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      void flush();
+    }, debounceMs);
+  };
+
+  const flush = async () => {
+    if (closed || activeFlush) {
+      return;
+    }
+
+    const changedPaths = [...pendingPaths].sort();
+    pendingPaths.clear();
+
+    activeFlush = (async () => {
+      try {
+        const summary = await indexFolder({ repoRoot });
+        await emitWatchEvent(input.onEvent, {
+          type: "reindex",
+          changedPaths,
+          summary,
+        });
+      } catch (error) {
+        await emitWatchEvent(input.onEvent, {
+          type: "error",
+          changedPaths,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        activeFlush = null;
+        if (!closed && pendingPaths.size > 0) {
+          if (debounceTimer) {
+            clearTimeout(debounceTimer);
+          }
+          debounceTimer = setTimeout(() => {
+            debounceTimer = null;
+            void flush();
+          }, debounceMs);
+        }
+      }
+    })();
+
+    await activeFlush;
+  };
+
+  const initialSummary = await indexFolder({ repoRoot });
+  await emitWatchEvent(input.onEvent, {
+    type: "ready",
+    changedPaths: [],
+    summary: initialSummary,
+  });
+
+  const interval = setInterval(async () => {
+    if (closed || pollInFlight) {
+      return;
+    }
+
+    pollInFlight = true;
+    try {
+      const config = await ensureStorage(repoRoot);
+      const db = openDatabase(config.paths.databasePath);
+      try {
+        const comparison = compareSnapshots(
+          loadIndexedSnapshot(db),
+          await loadFilesystemSnapshot(repoRoot),
+        );
+        const changedPaths = [
+          ...comparison.changedPaths,
+          ...comparison.extraPaths,
+          ...comparison.missingPaths,
+        ].sort();
+        if (changedPaths.length > 0) {
+          scheduleFlush(changedPaths);
+        }
+      } finally {
+        db.close();
+      }
+    } catch (error) {
+      await emitWatchEvent(input.onEvent, {
+        type: "error",
+        changedPaths: [],
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      pollInFlight = false;
+    }
+  }, pollMs);
+
+  return {
+    async close() {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+      clearInterval(interval);
+      await activeFlush;
+      await emitWatchEvent(input.onEvent, {
+        type: "close",
+        changedPaths: [],
+      });
+    },
+  };
 }
 
 export async function getRepoOutline(input: { repoRoot: string }): Promise<RepoOutline> {

@@ -9,9 +9,10 @@ Implemented now:
 - Tree-sitter parsing for `ts`, `tsx`, `js`, and `jsx`
 - repo/file discovery tools, symbol/text search, exact source retrieval, context bundles, CLI, and MCP
 - single-file refresh plus freshness diagnostics and stale-index reporting
+- debounced watch mode for live index refresh via the engine API and CLI
 
 Still future:
-- watch mode and worktree-aware indexing
+- worktree-aware indexing
 - richer relationship and impact tools
 - fuzzy, centrality-aware, and semantic ranking
 - optional summarization backends beyond signature fallback
@@ -316,17 +317,22 @@ Support:
 Implemented now:
 - file hashes
 - stale-index reporting in metadata
+- debounced watch refresh that keeps the index current during local edits
 
 Still future:
 - modification time shortcuts
 - optional git tree SHA shortcuts
 
 ### 12.3 Watch mode
-Not implemented yet.
+Partially implemented.
 
-Target state:
-- watch daemon with debounce
-- changed-file fast paths
+Implemented now:
+- debounced watch loop
+- changed-path detection
+- CLI and library watch entry points
+
+Still future:
+- changed-file fast paths that avoid full `index_folder` refreshes
 
 ### 12.4 Worktree awareness
 Not implemented yet.
@@ -347,9 +353,9 @@ Implemented now:
 - `index folder`
 - `index file`
 - `diagnostics`
+- `watch`
 
 Still future:
-- `watch`
 - richer `config` commands
 
 ### 13.3 Diagnostics
@@ -381,11 +387,11 @@ Do not rely on policy alone for correctness, but make the intended workflow expl
 ### 14.1 Required controls
 Implemented now:
 - common generated/dependency directory exclusion
-- optional `.gitignore` intent in config
-
-Still future or only partially addressed:
+- `.gitignore` enforcement during indexing
 - explicit path traversal prevention
 - symlink escape protection
+
+Still future or only partially addressed:
 - binary file exclusion
 - safe encoding handling beyond UTF-8 source reads
 - safe handling of configurable external endpoints
@@ -440,7 +446,7 @@ Use checksum validation for persisted artifacts where practical.
 - retrieval avoids reparsing
 - incremental refresh is materially faster than full reindex
 - watch mode supports live development without blocking reads
-  Current status: the first two are implemented; watch mode is still future work.
+  Current status: the first two are implemented, and watch mode now exists with a debounced polling loop; changed-file fast paths are still future work.
 
 ---
 
@@ -467,9 +473,9 @@ Implemented now:
 - verification with content hash
 - stale metadata
 - query suggestion
+- debounced watch mode via API and CLI
 
 Still future:
-- watch mode with debounce
 - optional summaries beyond signature fallback
 
 ### Phase 3

@@ -17,6 +17,7 @@ export {
   searchSymbols,
   searchText,
   suggestInitialQueries,
+  watchFolder,
 } from "./storage.ts";
 
 export type {
@@ -40,4 +41,7 @@ export type {
   SymbolSourceResult,
   SymbolSummary,
   SupportedLanguage,
+  WatchEvent,
+  WatchHandle,
+  WatchOptions,
 } from "./types.ts";

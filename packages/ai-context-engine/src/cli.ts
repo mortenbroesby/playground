@@ -15,7 +15,10 @@ import {
   searchSymbols,
   searchText,
   suggestInitialQueries,
+  watchFolder,
 } from "./index.ts";
+
+type StopReason = "timeout" | "signal" | "closed";
 
 type CliHandler = (args: Record<string, string>) => Promise<unknown>;
 
@@ -27,6 +30,7 @@ const commands: Record<string, CliHandler> = {
       repoRoot: required(args, "repo"),
       filePath: required(args, "file"),
     }),
+  watch: async (args) => runWatchCommand(args),
   "get-repo-outline": async (args) =>
     getRepoOutline({ repoRoot: required(args, "repo") }),
   "get-file-tree": async (args) =>
@@ -119,6 +123,74 @@ function parseArgs(argv: string[]): { command: string; args: Record<string, stri
   return {
     command,
     args,
+  };
+}
+
+async function runWatchCommand(args: Record<string, string>) {
+  const repoRoot = required(args, "repo");
+  const debounceMs = optionalNumber(args, "debounce-ms") ?? 100;
+  const timeoutMs = optionalNumber(args, "timeout-ms");
+  let stopReason: StopReason = "closed";
+  let initialSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
+  let lastSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
+  let reindexCount = 0;
+  let lastError: string | null = null;
+
+  let resolveStop!: () => void;
+  const stopPromise = new Promise<void>((resolve) => {
+    resolveStop = resolve;
+  });
+
+  const stopFromSignal = () => {
+    stopReason = "signal";
+    resolveStop();
+  };
+
+  const watcher = await watchFolder({
+    repoRoot,
+    debounceMs,
+    onEvent(event) {
+      if (event.type === "ready" && event.summary) {
+        initialSummary = event.summary;
+        lastSummary = event.summary;
+      }
+      if (event.type === "reindex" && event.summary) {
+        reindexCount += 1;
+        lastSummary = event.summary;
+      }
+      if (event.type === "error") {
+        lastError = event.message ?? "Unknown watch error";
+      }
+    },
+  });
+
+  process.once("SIGINT", stopFromSignal);
+  process.once("SIGTERM", stopFromSignal);
+
+  const timeout = timeoutMs
+    ? setTimeout(() => {
+        stopReason = "timeout";
+        resolveStop();
+      }, timeoutMs)
+    : null;
+
+  await stopPromise;
+
+  if (timeout) {
+    clearTimeout(timeout);
+  }
+  process.off("SIGINT", stopFromSignal);
+  process.off("SIGTERM", stopFromSignal);
+  await watcher.close();
+
+  return {
+    repoRoot,
+    debounceMs,
+    stopReason,
+    reindexCount,
+    initialSummary,
+    lastSummary,
+    lastError,
   };
 }
 

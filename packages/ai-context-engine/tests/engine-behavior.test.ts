@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -16,6 +17,7 @@ import {
   searchSymbols,
   searchText,
   suggestInitialQueries,
+  watchFolder,
 } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
@@ -24,6 +26,19 @@ afterEach(async () => {
 });
 
 describe("ai-context-engine behavior", () => {
+  async function waitFor(
+    predicate: () => boolean,
+    timeoutMs = 2000,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate()) {
+      if (Date.now() > deadline) {
+        throw new Error("Timed out waiting for condition");
+      }
+      await delay(20);
+    }
+  }
+
   it("indexes a folder and exposes discovery-first queries", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -249,6 +264,61 @@ export function circumference(radius: number): string {
     const health = await diagnostics({ repoRoot });
     expect(health.storageMode).toBe("wal");
     expect(health.staleStatus).toBe("fresh");
+  });
+
+  it("supports debounced watch mode for live index refresh", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[] }> = [];
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+      );
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius + 1);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1);
+
+      const symbolMatches = await searchSymbols({
+        repoRoot,
+        query: "circumference",
+      });
+
+      expect(symbolMatches[0]?.name).toBe("circumference");
+      expect(reindexEvents).toHaveLength(1);
+      expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
+    } finally {
+      await watcher.close();
+    }
   });
 
   it("surfaces live freshness drift after the repository changes", async () => {
