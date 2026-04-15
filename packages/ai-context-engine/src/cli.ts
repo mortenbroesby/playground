@@ -8,6 +8,7 @@ import {
   getFileOutline,
   getFileTree,
   getRepoOutline,
+  getContextBundle,
   getSymbolSource,
   indexFile,
   indexFolder,
@@ -47,6 +48,13 @@ const commands: Record<string, CliHandler> = {
       repoRoot: required(args, "repo"),
       query: required(args, "query"),
     }),
+  "get-context-bundle": async (args) =>
+    getContextBundle({
+      repoRoot: required(args, "repo"),
+      query: optional(args, "query"),
+      symbolIds: optionalList(args, "symbols"),
+      tokenBudget: optionalNumber(args, "budget"),
+    }),
   "get-file-content": async (args) =>
     getFileContent({
       repoRoot: required(args, "repo"),
@@ -67,6 +75,27 @@ function required(args: Record<string, string>, key: string): string {
     throw new Error(`Missing required argument --${key}`);
   }
   return value;
+}
+
+function optional(args: Record<string, string>, key: string): string | undefined {
+  const value = args[key];
+  return value && value.length > 0 ? value : undefined;
+}
+
+function optionalList(
+  args: Record<string, string>,
+  key: string,
+): string[] | undefined {
+  const value = optional(args, key);
+  return value ? value.split(",").map((entry) => entry.trim()).filter(Boolean) : undefined;
+}
+
+function optionalNumber(
+  args: Record<string, string>,
+  key: string,
+): number | undefined {
+  const value = optional(args, key);
+  return value ? Number(value) : undefined;
 }
 
 function parseArgs(argv: string[]): { command: string; args: Record<string, string> } {

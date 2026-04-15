@@ -89,6 +89,33 @@ export interface SymbolSourceResult {
   verified: boolean;
 }
 
+export type ContextBundleItemRole = "target" | "dependency";
+
+export interface ContextBundleItem {
+  role: ContextBundleItemRole;
+  reason: string;
+  symbol: SymbolSummary;
+  source: string;
+  tokenCount: number;
+}
+
+export interface ContextBundle {
+  repoRoot: string;
+  query: string | null;
+  tokenBudget: number;
+  estimatedTokens: number;
+  usedTokens: number;
+  truncated: boolean;
+  items: ContextBundleItem[];
+}
+
+export interface ContextBundleOptions {
+  repoRoot: string;
+  query?: string;
+  symbolIds?: string[];
+  tokenBudget?: number;
+}
+
 export interface DiagnosticsResult {
   storageDir: string;
   databasePath: string;
@@ -106,6 +133,7 @@ export type EnginePhase1ToolName =
   | "suggest_initial_queries"
   | "search_symbols"
   | "search_text"
+  | "get_context_bundle"
   | "get_file_content"
   | "get_symbol_source"
   | "diagnostics";

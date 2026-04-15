@@ -29,6 +29,7 @@ The implemented slice now includes:
 - `index_folder` and `index_file`
 - `get_repo_outline`, `get_file_tree`, and `get_file_outline`
 - `search_symbols` and `search_text`
+- `get_context_bundle` for bounded, query-driven context assembly
 - `get_file_content`, `get_symbol_source`, and `diagnostics`
 - fixture-backed tests proving indexing and exact retrieval
 
@@ -36,6 +37,7 @@ The implemented slice now includes:
 
 - `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
+- `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine mcp`
 
 The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with

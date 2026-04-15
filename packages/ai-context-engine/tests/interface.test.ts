@@ -40,6 +40,7 @@ describe("ai-context-engine interfaces", () => {
     expect(tools.map((tool) => tool.name)).toContain(
       "get_symbol_source",
     );
+    expect(tools.map((tool) => tool.name)).toContain("get_context_bundle");
 
     await server.handleMessage({
       jsonrpc: "2.0",
@@ -75,6 +76,35 @@ describe("ai-context-engine interfaces", () => {
     expect(JSON.parse(content.text)[0]).toMatchObject({
       name: "Greeter",
       filePath: "src/strings.ts",
+    });
+
+    const bundleResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "get_context_bundle",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          tokenBudget: 120,
+        },
+      },
+    });
+
+    const bundleContent = (
+      bundleResponse.result as {
+        content: Array<{ type: string; text: string }>;
+      }
+    ).content[0];
+    expect(bundleContent.type).toBe("text");
+    expect(JSON.parse(bundleContent.text)).toMatchObject({
+      query: "Greeter",
+    });
+    expect(JSON.parse(bundleContent.text).items[0]).toMatchObject({
+      symbol: {
+        name: "Greeter",
+      },
     });
   });
 });

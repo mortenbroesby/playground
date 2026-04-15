@@ -46,6 +46,7 @@ describe("ai-context-engine phase 1 contract", () => {
       "suggest_initial_queries",
       "search_symbols",
       "search_text",
+      "get_context_bundle",
       "get_file_content",
       "get_symbol_source",
       "diagnostics",

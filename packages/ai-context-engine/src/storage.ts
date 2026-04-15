@@ -7,6 +7,10 @@ import { createDefaultEngineConfig } from "./config.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
 import type {
   DiagnosticsResult,
+  ContextBundle,
+  ContextBundleItem,
+  ContextBundleItemRole,
+  ContextBundleOptions,
   FileContentResult,
   FileOutline,
   FileTreeEntry,
@@ -208,6 +212,305 @@ async function readRepoFile(repoRoot: string, filePath: string) {
 function countRows(db: import("node:sqlite").DatabaseSync, sql: string): number {
   const row = db.prepare(sql).get() as { count: number };
   return row.count;
+}
+
+function normalizeQuery(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function queryTokens(value: string): string[] {
+  return normalizeQuery(value)
+    .split(/[^a-z0-9_]+/g)
+    .filter(Boolean);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function estimateTokens(value: string): number {
+  return Math.max(1, Math.ceil(value.length / 4));
+}
+
+function rowText(row: DbSymbolRow): string {
+  return [
+    row.name,
+    row.qualified_name ?? "",
+    row.signature,
+    row.summary,
+    row.file_path,
+    row.kind,
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function scoreSymbolRow(row: DbSymbolRow, query: string): number {
+  const normalized = normalizeQuery(query);
+  if (!normalized) {
+    return 0;
+  }
+
+  const name = row.name.toLowerCase();
+  const qualifiedName = row.qualified_name?.toLowerCase() ?? "";
+  const signature = row.signature.toLowerCase();
+  const summary = row.summary.toLowerCase();
+  const filePath = row.file_path.toLowerCase();
+  const haystack = rowText(row);
+  const tokens = queryTokens(query);
+  let score = 0;
+
+  if (name === normalized) {
+    score += 1000;
+  }
+  if (qualifiedName === normalized) {
+    score += 900;
+  }
+  if (name.startsWith(normalized)) {
+    score += 700;
+  }
+  if (qualifiedName.startsWith(normalized)) {
+    score += 650;
+  }
+  if (name.includes(normalized)) {
+    score += 500;
+  }
+  if (qualifiedName.includes(normalized)) {
+    score += 450;
+  }
+  if (signature.includes(normalized)) {
+    score += 250;
+  }
+  if (summary.includes(normalized)) {
+    score += 200;
+  }
+  if (filePath.includes(normalized)) {
+    score += 120;
+  }
+
+  const exactWord = new RegExp(`\\b${escapeRegExp(normalized)}\\b`, "i");
+  if (exactWord.test(rowText(row))) {
+    score += 180;
+  }
+
+  for (const token of tokens) {
+    if (haystack.includes(token)) {
+      score += 70;
+    }
+  }
+
+  if (row.exported) {
+    score += 20;
+  }
+
+  return score;
+}
+
+function loadSymbolRows(
+  db: import("node:sqlite").DatabaseSync,
+  input: { kind?: SearchSymbolsOptions["kind"] } = {},
+): DbSymbolRow[] {
+  const rows = input.kind
+    ? typedAll<DbSymbolRow>(
+        db.prepare(
+          `
+            SELECT
+              id, name, qualified_name, kind, file_path, signature, summary,
+              start_line, end_line, start_byte, end_byte, exported
+            FROM symbols
+            WHERE kind = ?
+          `,
+        ),
+        input.kind,
+      )
+    : typedAll<DbSymbolRow>(
+        db.prepare(
+          `
+            SELECT
+              id, name, qualified_name, kind, file_path, signature, summary,
+              start_line, end_line, start_byte, end_byte, exported
+            FROM symbols
+          `,
+        ),
+      );
+
+  return rows;
+}
+
+function loadSymbolSourceRow(
+  db: import("node:sqlite").DatabaseSync,
+  symbolId: string,
+) {
+  return typedGet<DbSymbolRow & { content_hash: string; content: string }>(
+    db.prepare(
+      `
+        SELECT
+          symbols.id, symbols.name, symbols.qualified_name, symbols.kind, symbols.file_path,
+          symbols.signature, symbols.summary, symbols.start_line, symbols.end_line,
+          symbols.start_byte, symbols.end_byte, symbols.exported,
+          files.content_hash, content_blobs.content
+        FROM symbols
+        INNER JOIN files ON files.id = symbols.file_id
+        INNER JOIN content_blobs ON content_blobs.file_id = files.id
+        WHERE symbols.id = ?
+      `,
+    ),
+    symbolId,
+  );
+}
+
+function resolveImportedFilePaths(
+  db: import("node:sqlite").DatabaseSync,
+  sourceFilePath: string,
+  importSource: string,
+): string[] {
+  const source = importSource.trim();
+  if (!source.startsWith(".") && !source.startsWith("/")) {
+    return [];
+  }
+
+  const basePath = source.startsWith("/")
+    ? path.normalize(source)
+    : path.normalize(path.join(path.dirname(sourceFilePath), source));
+  const withoutExtension = basePath.replace(/\.[^.\\/]+$/u, "");
+  const candidates = [
+    basePath,
+    withoutExtension,
+    `${withoutExtension}.ts`,
+    `${withoutExtension}.tsx`,
+    `${withoutExtension}.js`,
+    `${withoutExtension}.jsx`,
+    path.join(withoutExtension, "index.ts"),
+    path.join(withoutExtension, "index.tsx"),
+    path.join(withoutExtension, "index.js"),
+    path.join(withoutExtension, "index.jsx"),
+  ];
+
+  for (const candidate of [...new Set(candidates)]) {
+    const row = typedGet<{ path: string }>(
+      db.prepare("SELECT path FROM files WHERE path = ?"),
+      candidate,
+    );
+    if (row) {
+      return [row.path];
+    }
+  }
+
+  return [];
+}
+
+function pickDependencyRows(
+  db: import("node:sqlite").DatabaseSync,
+  seedRow: DbSymbolRow,
+): Array<{ row: DbSymbolRow; reason: string }> {
+  const fileRow = typedGet<{ id: number }>(
+    db.prepare("SELECT id FROM files WHERE path = ?"),
+    seedRow.file_path,
+  );
+  if (!fileRow) {
+    return [];
+  }
+
+  const imports = typedAll<{
+    source: string;
+    specifiers: string;
+  }>(
+    db.prepare(
+      `
+        SELECT source, specifiers
+        FROM imports
+        WHERE file_id = ?
+        ORDER BY source ASC
+      `,
+    ),
+    fileRow.id,
+  );
+
+  const matches: Array<{ row: DbSymbolRow; reason: string }> = [];
+  const seen = new Set<string>();
+
+  for (const importRow of imports) {
+    const targets = resolveImportedFilePaths(
+      db,
+      seedRow.file_path,
+      importRow.source,
+    );
+    const specifiers = JSON.parse(importRow.specifiers) as string[];
+
+    for (const targetPath of targets) {
+      const picked: DbSymbolRow[] = [];
+
+      for (const specifier of specifiers) {
+        const row = typedGet<DbSymbolRow>(
+          db.prepare(
+            `
+              SELECT
+                id, name, qualified_name, kind, file_path, signature, summary,
+                start_line, end_line, start_byte, end_byte, exported
+              FROM symbols
+              WHERE file_path = ? AND (name = ? OR qualified_name = ?)
+              ORDER BY exported DESC, start_line ASC
+              LIMIT 1
+            `,
+          ),
+          targetPath,
+          specifier,
+          specifier,
+        );
+        if (row) {
+          picked.push(row);
+        }
+      }
+
+      if (picked.length === 0) {
+        const row = typedGet<DbSymbolRow>(
+          db.prepare(
+            `
+              SELECT
+                id, name, qualified_name, kind, file_path, signature, summary,
+                start_line, end_line, start_byte, end_byte, exported
+              FROM symbols
+              WHERE file_path = ?
+              ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
+              LIMIT 1
+            `,
+          ),
+          targetPath,
+        );
+        if (row) {
+          picked.push(row);
+        }
+      }
+
+      for (const row of picked) {
+        if (seen.has(row.id)) {
+          continue;
+        }
+        seen.add(row.id);
+        matches.push({
+          row,
+          reason: `import ${importRow.source}`,
+        });
+      }
+    }
+  }
+
+  return matches;
+}
+
+function makeContextBundleItem(
+  row: DbSymbolRow,
+  source: string,
+  role: ContextBundleItemRole,
+  reason: string,
+): ContextBundleItem {
+  return {
+    role,
+    reason,
+    symbol: mapSymbolRow(row),
+    source,
+    tokenCount: estimateTokens(source) + 8,
+  };
 }
 
 async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
@@ -526,35 +829,23 @@ export async function searchSymbols(
   const db = openDatabase(config.paths.databasePath);
 
   try {
-    const rows = typedAll<DbSymbolRow>(db.prepare(
-      `
-        SELECT
-          id, name, qualified_name, kind, file_path, signature, summary,
-          start_line, end_line, start_byte, end_byte, exported
-        FROM symbols
-        ${input.kind ? "WHERE kind = ?" : ""}
-      `,
-    ), ...(input.kind ? [input.kind] : []));
-    const lowerQuery = input.query.toLowerCase();
+    const rows = loadSymbolRows(db, { kind: input.kind });
+    const normalizedQuery = normalizeQuery(input.query);
 
     return rows
-      .map((row) => {
-        const haystack = `${row.name} ${row.qualified_name ?? ""} ${row.signature}`.toLowerCase();
-        const score =
-          row.name.toLowerCase() === lowerQuery
-            ? 100
-            : row.name.toLowerCase().includes(lowerQuery)
-              ? 80
-              : haystack.includes(lowerQuery)
-                ? 50
-                : 0;
-        return {
-          row,
-          score,
-        };
-      })
+      .map((row) => ({
+        row,
+        score: scoreSymbolRow(row, normalizedQuery),
+      }))
       .filter((entry) => entry.score > 0)
-      .sort((left, right) => right.score - left.score || left.row.name.localeCompare(right.row.name))
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          Number(right.row.exported) - Number(left.row.exported) ||
+          left.row.file_path.localeCompare(right.row.file_path) ||
+          left.row.start_line - right.row.start_line ||
+          left.row.name.localeCompare(right.row.name),
+      )
       .slice(0, input.limit ?? 20)
       .map((entry) => mapSymbolRow(entry.row));
   } finally {
@@ -595,6 +886,141 @@ export async function searchText(input: {
     }
 
     return matches;
+  } finally {
+    db.close();
+  }
+}
+
+export async function getContextBundle(
+  input: ContextBundleOptions,
+): Promise<ContextBundle> {
+  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const db = openDatabase(config.paths.databasePath);
+
+  try {
+    const tokenBudget = input.tokenBudget ?? 1200;
+    const seedRows = input.symbolIds?.length
+      ? input.symbolIds
+          .map((symbolId) => loadSymbolSourceRow(db, symbolId))
+          .filter(
+            (row): row is DbSymbolRow & { content_hash: string; content: string } =>
+              Boolean(row),
+          )
+          .map((row) => ({
+            row,
+            reason: "explicit symbol id",
+          }))
+      : input.query
+        ? loadSymbolRows(db)
+            .map((row) => ({
+              row,
+              score: scoreSymbolRow(row, input.query ?? ""),
+            }))
+            .filter((entry) => entry.score > 0)
+            .sort(
+              (left, right) =>
+                right.score - left.score ||
+                Number(right.row.exported) - Number(left.row.exported) ||
+                left.row.file_path.localeCompare(right.row.file_path) ||
+                left.row.start_line - right.row.start_line ||
+                left.row.name.localeCompare(right.row.name),
+            )
+            .slice(0, 3)
+            .map((entry) => ({
+              row: loadSymbolSourceRow(db, entry.row.id),
+              reason: `matched query "${input.query}"`,
+            }))
+            .filter(
+              (
+                row,
+              ): row is {
+                row: DbSymbolRow & { content_hash: string; content: string };
+                reason: string;
+              } => Boolean(row.row),
+            )
+        : [];
+
+    const seedCandidates: Array<{
+      row: DbSymbolRow & { content_hash: string; content: string };
+      reason: string;
+    }> = seedRows
+      .filter(
+        (
+          entry,
+        ): entry is {
+          row: DbSymbolRow & { content_hash: string; content: string };
+          reason: string;
+        } => Boolean(entry.row),
+      );
+
+    const bundleCandidates: Array<ContextBundleItem> = [];
+    const seen = new Set<string>();
+
+    for (const seed of seedCandidates) {
+      if (seen.has(seed.row.id)) {
+        continue;
+      }
+      seen.add(seed.row.id);
+      bundleCandidates.push(
+        makeContextBundleItem(
+          seed.row,
+          seed.row.content.slice(seed.row.start_byte, seed.row.end_byte),
+          "target",
+          seed.reason,
+        ),
+      );
+    }
+
+    for (const seed of seedCandidates) {
+      const dependencyRows = pickDependencyRows(db, seed.row);
+      for (const dependency of dependencyRows) {
+        if (seen.has(dependency.row.id)) {
+          continue;
+        }
+        seen.add(dependency.row.id);
+        const sourceRow = loadSymbolSourceRow(db, dependency.row.id);
+        if (!sourceRow) {
+          continue;
+        }
+        bundleCandidates.push(
+          makeContextBundleItem(
+            dependency.row,
+            sourceRow.content.slice(sourceRow.start_byte, sourceRow.end_byte),
+            "dependency",
+            dependency.reason,
+          ),
+        );
+      }
+    }
+
+    const estimatedTokens = bundleCandidates.reduce(
+      (total, item) => total + item.tokenCount,
+      0,
+    );
+    const items: ContextBundleItem[] = [];
+    let usedTokens = 0;
+
+    for (const item of bundleCandidates) {
+      const wouldExceed = usedTokens + item.tokenCount > tokenBudget;
+      if (items.length > 0 && wouldExceed) {
+        break;
+      }
+      items.push(item);
+      usedTokens += item.tokenCount;
+      if (wouldExceed) {
+        break;
+      }
+    }
+
+    return {
+      repoRoot: input.repoRoot,
+      query: input.query ?? null,
+      tokenBudget,
+      estimatedTokens,
+      usedTokens,
+      truncated: estimatedTokens > tokenBudget,
+      items,
+    };
   } finally {
     db.close();
   }

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   diagnostics,
+  getContextBundle,
   getFileContent,
   getFileOutline,
   getFileTree,
@@ -97,6 +98,54 @@ describe("ai-context-engine behavior", () => {
     expect(textMatches[0]).toMatchObject({
       filePath: "src/strings.ts",
     });
+  });
+
+  it("assembles bounded context bundles from persisted indexed content", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const bundle = await getContextBundle({
+      repoRoot,
+      query: "area",
+      tokenBudget: 120,
+    });
+
+    expect(bundle.items[0]).toMatchObject({
+      role: "target",
+      symbol: {
+        name: "area",
+        filePath: "src/math.ts",
+      },
+    });
+    expect(bundle.items.some((item) => item.symbol.name === "formatLabel")).toBe(
+      true,
+    );
+    expect(bundle.items[0].source).toContain("return formatLabel(value);");
+    expect(bundle.truncated).toBe(false);
+
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function area(radius: number): string {
+  return "changed";
+}
+`,
+    );
+
+    const persistedBundle = await getContextBundle({
+      repoRoot,
+      query: "area",
+      tokenBudget: 120,
+    });
+
+    expect(persistedBundle.items[0].source).toContain(
+      "return formatLabel(value);",
+    );
+    expect(persistedBundle.items[0].source).not.toContain("changed");
   });
 
   it("can refresh a single file without a full rebuild", async () => {

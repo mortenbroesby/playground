@@ -16,6 +16,7 @@ export const ENGINE_PHASE_1_TOOLS: EnginePhase1ToolName[] = [
   "suggest_initial_queries",
   "search_symbols",
   "search_text",
+  "get_context_bundle",
   "get_file_content",
   "get_symbol_source",
   "diagnostics",

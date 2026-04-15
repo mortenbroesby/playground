@@ -8,6 +8,7 @@ import {
   getFileOutline,
   getFileTree,
   getRepoOutline,
+  getContextBundle,
   getSymbolSource,
   indexFile,
   indexFolder,
@@ -73,6 +74,22 @@ const toolDefinitions: McpTool[] = [
     repoRoot: stringProp("Repository root path"),
     query: stringProp("Search query"),
   }, ["repoRoot", "query"]),
+  tool("get_context_bundle", "Assemble bounded context from ranked symbols and dependencies.", {
+    repoRoot: stringProp("Repository root path"),
+    query: {
+      type: "string",
+      description: "Optional search query to seed the bundle",
+    },
+    symbolIds: {
+      type: "array",
+      items: stringProp("Indexed symbol id"),
+      description: "Optional explicit seed symbol ids",
+    },
+    tokenBudget: {
+      type: "number",
+      description: "Token budget for the returned bundle",
+    },
+  }, ["repoRoot"]),
   tool("get_file_content", "Fetch full indexed file content from the raw cache.", {
     repoRoot: stringProp("Repository root path"),
     filePath: stringProp("Path relative to the repository root"),
@@ -160,6 +177,21 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
       return searchText({
         repoRoot: requireString(args, "repoRoot"),
         query: requireString(args, "query"),
+      });
+    case "get_context_bundle":
+      return getContextBundle({
+        repoRoot: requireString(args, "repoRoot"),
+        query:
+          typeof args.query === "string" && args.query.length > 0
+            ? args.query
+            : undefined,
+        symbolIds: Array.isArray(args.symbolIds)
+          ? args.symbolIds.filter(
+              (value): value is string => typeof value === "string" && value.length > 0,
+            )
+          : undefined,
+        tokenBudget:
+          typeof args.tokenBudget === "number" ? args.tokenBudget : undefined,
       });
     case "get_file_content":
       return getFileContent({
