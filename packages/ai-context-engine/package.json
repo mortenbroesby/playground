@@ -11,6 +11,8 @@
     }
   },
   "scripts": {
+    "cli": "node --experimental-strip-types ./src/cli.ts",
+    "mcp": "node --experimental-strip-types ./src/mcp.ts",
     "type-check": "tsc --noEmit",
     "test": "vitest run"
   },

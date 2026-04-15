@@ -49,12 +49,28 @@ as the source spec.
 - `pnpm --filter @playground/ai-context-engine type-check`
 - `pnpm lint:md`
 
+## Implemented In This Slice
+
+- SQLite schema and repo-local path bootstrap
+- Tree-sitter TypeScript-family parsing
+- `index_folder` and `index_file`
+- discovery queries:
+  - `get_repo_outline`
+  - `get_file_tree`
+  - `get_file_outline`
+  - `suggest_initial_queries`
+- exact retrieval and diagnostics:
+  - `search_symbols`
+  - `search_text`
+  - `get_file_content`
+  - `get_symbol_source`
+  - `diagnostics`
+- fixture-backed tests proving indexing, search, and exact source retrieval
+
 ## Next Build Slice
 
-Implement real Phase 1 behavior with tests first:
-
-1. SQLite schema and repo-local path bootstrap
-2. Tree-sitter TypeScript-family parsing
-3. `index_folder` and `index_file`
-4. discovery queries before retrieval
-5. exact symbol and file-content retrieval from cached source
+1. tighten symbol summaries and ranking quality
+2. add stale metadata and richer freshness reporting
+3. add bounded context bundles and ranked context assembly
+4. add watch mode and changed-file fast paths
+5. add CLI and MCP surfaces on top of the library core
