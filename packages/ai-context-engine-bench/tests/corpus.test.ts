@@ -216,4 +216,46 @@ Beta task body.
       rmSync(fixture.root, { recursive: true, force: true });
     }
   });
+
+  it("rejects task paths that escape the corpus root", () => {
+    const fixture = makeFixtureCorpus();
+    writeFileSync(
+      fixture.manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          benchmark: "ai-context-engine",
+          repo: "playground",
+          repoSha: "abc123",
+          tokenizer: "cl100k_base",
+          tasks: [
+            {
+              id: "beta",
+              path: "../escape.md",
+              slice: "packages/ai-context-engine",
+              workflows: ["symbol-first"],
+              allowedPaths: ["packages/ai-context-engine/**"],
+              targets: [
+                {
+                  kind: "symbol",
+                  value: "searchSymbols",
+                  mode: "exact",
+                },
+              ],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    try {
+      expect(() => loadBenchmarkCorpus(fixture.manifestPath)).toThrow(
+        /escapes the corpus root/i,
+      );
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true });
+    }
+  });
 });

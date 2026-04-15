@@ -56,7 +56,9 @@ async function computeBaselineTokens(repoRoot: string, task: BenchmarkCorpusTask
 
 function successForTask(task: BenchmarkCorpusTask, evidence: readonly string[]): boolean {
   return task.manifest.targets.some((target) =>
-    evidence.some((item) => item.includes(target.value)),
+    evidence.some((item) =>
+      target.mode === "exact" ? item === target.value : item.includes(target.value),
+    ),
   );
 }
 
@@ -65,14 +67,29 @@ const baselineWorkflow: WorkflowDefinition = {
   label: "Baseline",
   description: "Read all eligible files in the allowed task slice.",
   async run({ repoRoot, task }) {
-    const tokenCount = await computeBaselineTokens(repoRoot, task);
-    const evidence = task.manifest.targets.map((target) => target.value);
+    const fileTree = await getFileTree({ repoRoot });
+    const relevantFiles = fileTree.filter((file) =>
+      matchesAllowedPath(file.path, task.manifest.allowedPaths),
+    );
+    let tokenCount = 0;
+    const evidence: string[] = [];
+
+    for (const file of relevantFiles) {
+      const content = await readFile(path.join(repoRoot, file.path), "utf8");
+      tokenCount += countTokens(content);
+      for (const target of task.manifest.targets) {
+        if (content.includes(target.value)) {
+          evidence.push(file.path, target.value);
+        }
+      }
+    }
+
     return {
       retrievedTokens: tokenCount,
       toolCalls: 1,
       evidence,
       notes: ["baseline read-all slice"],
-      success: true,
+      success: successForTask(task, evidence),
     };
   },
 };
@@ -135,7 +152,7 @@ const textFirstWorkflow: WorkflowDefinition = {
         filePath: matches[0].filePath,
       });
       retrievedTokens += countTokens(file.content);
-      evidence.push(file.filePath);
+      evidence.push(file.filePath, file.content);
       toolCalls += 1;
     } else {
       notes.push("no text match");
@@ -171,7 +188,10 @@ const discoveryFirstWorkflow: WorkflowDefinition = {
         filePath: relevantFiles[0].path,
       });
       retrievedTokens += countTokens(JSON.stringify(outline));
-      evidence.push(...outline.symbols.map((symbol) => symbol.name));
+      evidence.push(
+        relevantFiles[0].path,
+        ...outline.symbols.map((symbol) => symbol.name),
+      );
       toolCalls += 1;
     } else {
       notes.push("no relevant files");

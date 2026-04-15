@@ -51,7 +51,6 @@ export interface BenchmarkTaskResult {
   success: boolean;
   evidence: string[];
   notes: string[];
-  tracePath: string;
 }
 
 export interface BenchmarkSummary {

@@ -107,7 +107,6 @@ export function createBenchmarkResultsArtifact(
       success: task.success,
       evidence: [...task.evidence],
       notes: [...task.notes],
-      tracePath: task.tracePath,
     })),
     summary: {
       taskCount: summary.taskCount,

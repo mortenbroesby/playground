@@ -414,6 +414,14 @@ export function loadBenchmarkCorpus(manifestPath: string): BenchmarkCorpus {
     manifest,
     tasks: manifest.tasks.map((manifestTask) => {
       const taskPath = path.resolve(manifestDir, manifestTask.path);
+      const relativeTaskPath = path.relative(manifestDir, taskPath);
+      if (
+        relativeTaskPath === ".." ||
+        relativeTaskPath.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(relativeTaskPath)
+      ) {
+        throw new Error(`Task "${manifestTask.id}" path escapes the corpus root`);
+      }
       const taskCard = loadBenchmarkTaskCard(taskPath);
       return validateTaskAgainstManifest(manifestTask, taskCard);
     }),

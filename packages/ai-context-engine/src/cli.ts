@@ -42,6 +42,8 @@ const commands: Record<string, CliHandler> = {
     searchSymbols({
       repoRoot: required(args, "repo"),
       query: required(args, "query"),
+      kind: optional(args, "kind") as Parameters<typeof searchSymbols>[0]["kind"],
+      limit: optionalNumber(args, "limit"),
     }),
   "search-text": async (args) =>
     searchText({

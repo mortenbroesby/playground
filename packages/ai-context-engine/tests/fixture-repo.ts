@@ -1,10 +1,13 @@
+import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 const createdDirs: string[] = [];
 
-export async function createFixtureRepo(): Promise<string> {
+export async function createFixtureRepo(options: {
+  includeIgnoredFile?: boolean;
+} = {}): Promise<string> {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "ai-context-engine-"));
   createdDirs.push(repoRoot);
 
@@ -42,6 +45,19 @@ export class Greeter {
     path.join(repoRoot, "scripts", "ignored.txt"),
     "not code",
   );
+
+  if (options.includeIgnoredFile) {
+    await writeFile(path.join(repoRoot, ".gitignore"), "src/ignored.ts\n");
+    await writeFile(
+      path.join(repoRoot, "src", "ignored.ts"),
+      "export const ignored = true;\n",
+    );
+  }
+
+  execFileSync("git", ["init"], {
+    cwd: repoRoot,
+    stdio: ["ignore", "ignore", "ignore"],
+  });
 
   return repoRoot;
 }

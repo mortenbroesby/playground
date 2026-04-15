@@ -69,6 +69,14 @@ const toolDefinitions: McpTool[] = [
   tool("search_symbols", "Search indexed symbols by name and signature.", {
     repoRoot: stringProp("Repository root path"),
     query: stringProp("Search query"),
+    kind: {
+      type: "string",
+      description: "Optional symbol kind filter",
+    },
+    limit: {
+      type: "number",
+      description: "Optional maximum number of results",
+    },
   }, ["repoRoot", "query"]),
   tool("search_text", "Search indexed raw source text.", {
     repoRoot: stringProp("Repository root path"),
@@ -172,6 +180,11 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
       return searchSymbols({
         repoRoot: requireString(args, "repoRoot"),
         query: requireString(args, "query"),
+        kind:
+          typeof args.kind === "string"
+            ? args.kind as Parameters<typeof searchSymbols>[0]["kind"]
+            : undefined,
+        limit: typeof args.limit === "number" ? args.limit : undefined,
       });
     case "search_text":
       return searchText({

@@ -144,7 +144,22 @@ function parseImport(
     .flatMap((child) =>
       child.namedChildren.length > 0 ? child.namedChildren : [child],
     )
-    .map((child) => nodeText(sourceText, child.startIndex, child.endIndex))
+    .flatMap((child) =>
+      nodeText(sourceText, child.startIndex, child.endIndex)
+        .replace(/[{}]/g, "")
+        .split(",")
+        .map((entry) => entry.trim()),
+    )
+    .map((raw) => {
+      if (!raw) {
+        return raw;
+      }
+      if (raw.startsWith("* as ")) {
+        return raw.slice(5).trim();
+      }
+      const aliasIndex = raw.indexOf(" as ");
+      return aliasIndex >= 0 ? raw.slice(0, aliasIndex).trim() : raw;
+    })
     .filter(Boolean);
 
   return {

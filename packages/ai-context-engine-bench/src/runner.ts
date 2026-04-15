@@ -30,7 +30,7 @@ export async function runBenchmark(
     assertStrictSnapshot(snapshot, corpus.manifest.repoSha);
   }
 
-  const repoSha = snapshot.repoSha ?? corpus.manifest.repoSha;
+  const repoSha = snapshot.repoSha ?? "unknown";
   const tasks = corpus.tasks.filter((task) =>
     (!options.taskId || task.manifest.id === options.taskId) &&
     (!options.workflowId || task.manifest.workflows.includes(options.workflowId))
@@ -76,7 +76,6 @@ export async function runBenchmark(
         success: result.success,
         evidence: result.evidence,
         notes: result.notes,
-        tracePath: path.join("traces", `${task.manifest.id}-${workflowId}.jsonl`),
       });
     }
   }
@@ -102,7 +101,7 @@ export async function runBenchmark(
       repo: corpus.manifest.repo,
       repoSha: corpus.manifest.repoSha,
       tokenizer: corpus.manifest.tokenizer,
-      taskCount: taskResults.length,
+      taskCount: corpus.manifest.tasks.length,
     },
     workflows: [...workflowIds].map((workflowId) => {
       const workflow = getWorkflowDefinition(workflowId);
@@ -117,11 +116,9 @@ export async function runBenchmark(
 
   const runDir = path.resolve(options.outputDir);
   await mkdir(runDir, { recursive: true });
-  await mkdir(path.join(runDir, "traces"), { recursive: true });
-
-  const resultsPath = path.join(runDir, "results.json");
-  const reportPath = path.join(runDir, "report.md");
-  const corpusLockPath = path.join(runDir, "corpus.lock.json");
+  const resultsPath = `${runDir}/results.json`;
+  const reportPath = `${runDir}/report.md`;
+  const corpusLockPath = `${runDir}/corpus.lock.json`;
   await writeFile(resultsPath, `${serializeBenchmarkResults(results)}\n`);
   await writeFile(reportPath, renderBenchmarkReportMarkdown(results));
   await writeFile(

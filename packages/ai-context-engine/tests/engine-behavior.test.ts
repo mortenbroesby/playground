@@ -61,6 +61,16 @@ describe("ai-context-engine behavior", () => {
     expect(suggestions[0]).toContain("Greeter");
   });
 
+  it("respects .gitignore entries during indexing", async () => {
+    const repoRoot = await createFixtureRepo({ includeIgnoredFile: true });
+
+    const summary = await indexFolder({ repoRoot });
+    const fileTree = await getFileTree({ repoRoot });
+
+    expect(summary.indexedFiles).toBe(2);
+    expect(fileTree.map((file) => file.path)).not.toContain("src/ignored.ts");
+  });
+
   it("supports symbol and text search plus exact retrieval", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -148,6 +158,60 @@ export function area(radius: number): string {
     expect(persistedBundle.items[0].source).not.toContain("changed");
   });
 
+  it("keeps context bundles inside the declared token budget", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const bundle = await getContextBundle({
+      repoRoot,
+      query: "area",
+      tokenBudget: 10,
+    });
+
+    expect(bundle.usedTokens).toBeLessThanOrEqual(bundle.tokenBudget);
+  });
+
+  it("resolves aliased named imports to the correct dependency symbol", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+
+export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter as format } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return format(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const bundle = await getContextBundle({
+      repoRoot,
+      query: "renderValue",
+      tokenBudget: 200,
+    });
+
+    expect(bundle.items.some((item) => item.symbol.name === "bestFormatter")).toBe(
+      true,
+    );
+    expect(bundle.items.some((item) => item.symbol.name === "firstFormatter")).toBe(
+      false,
+    );
+  });
+
   it("can refresh a single file without a full rebuild", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -230,5 +294,32 @@ export function area(radius: number): string {
       staleHealth.indexedSnapshotHash,
     );
     expect(staleHealth.staleReasons).toContain("content drift");
+  });
+
+  it("rejects file paths that escape the repository root", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    await expect(
+      indexFile({
+        repoRoot,
+        filePath: "../outside.ts",
+      }),
+    ).rejects.toThrow(/escapes repository root/i);
+
+    await expect(
+      getFileContent({
+        repoRoot,
+        filePath: "../outside.ts",
+      }),
+    ).rejects.toThrow(/escapes repository root/i);
+
+    await expect(
+      getFileOutline({
+        repoRoot,
+        filePath: "../outside.ts",
+      }),
+    ).rejects.toThrow(/escapes repository root/i);
   });
 });

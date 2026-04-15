@@ -54,7 +54,6 @@ function createSyntheticResults() {
         success: true,
         evidence: ["packages/ai-context-engine/src/index.ts"],
         notes: ["found by exact symbol lookup"],
-        tracePath: ".benchmarks/ai-context-engine/run-1/traces/task-1.jsonl",
       },
       {
         taskId: "task-2",
@@ -73,7 +72,6 @@ function createSyntheticResults() {
         success: false,
         evidence: ["missing symbol"],
         notes: ["fallback search only"],
-        tracePath: ".benchmarks/ai-context-engine/run-1/traces/task-2.jsonl",
       },
     ],
   });
@@ -136,8 +134,7 @@ describe("benchmark reporting", () => {
       ],
       "notes": [
         "found by exact symbol lookup"
-      ],
-      "tracePath": ".benchmarks/ai-context-engine/run-1/traces/task-1.jsonl"
+      ]
     },
     {
       "taskId": "task-2",
@@ -161,8 +158,7 @@ describe("benchmark reporting", () => {
       ],
       "notes": [
         "fallback search only"
-      ],
-      "tracePath": ".benchmarks/ai-context-engine/run-1/traces/task-2.jsonl"
+      ]
     }
   ],
   "summary": {

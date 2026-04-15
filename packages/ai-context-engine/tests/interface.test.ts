@@ -12,6 +12,11 @@ describe("ai-context-engine interfaces", () => {
   it("serves JSON CLI commands over the library surface", async () => {
     const repoRoot = await createFixtureRepo();
 
+    const initStdout = await handleCli(["init", "--repo", repoRoot]);
+    expect(JSON.parse(initStdout)).toMatchObject({
+      staleStatus: "unknown",
+    });
+
     await handleCli(["index-folder", "--repo", repoRoot]);
     const stdout = await handleCli(["get-repo-outline", "--repo", repoRoot]);
 
@@ -25,6 +30,23 @@ describe("ai-context-engine interfaces", () => {
       staleStatus: "fresh",
       indexedFiles: 2,
       currentFiles: 2,
+    });
+
+    const filteredStdout = await handleCli([
+      "search-symbols",
+      "--repo",
+      repoRoot,
+      "--query",
+      "Greeter",
+      "--kind",
+      "class",
+      "--limit",
+      "1",
+    ]);
+    expect(JSON.parse(filteredStdout)).toHaveLength(1);
+    expect(JSON.parse(filteredStdout)[0]).toMatchObject({
+      name: "Greeter",
+      kind: "class",
     });
   });
 
@@ -71,6 +93,8 @@ describe("ai-context-engine interfaces", () => {
         arguments: {
           repoRoot,
           query: "Greeter",
+          kind: "class",
+          limit: 1,
         },
       },
     });
@@ -81,8 +105,10 @@ describe("ai-context-engine interfaces", () => {
       }
     ).content[0];
     expect(content.type).toBe("text");
+    expect(JSON.parse(content.text)).toHaveLength(1);
     expect(JSON.parse(content.text)[0]).toMatchObject({
       name: "Greeter",
+      kind: "class",
       filePath: "src/strings.ts",
     });
 

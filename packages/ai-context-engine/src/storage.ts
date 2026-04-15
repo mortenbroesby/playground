@@ -1,5 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 
@@ -160,6 +161,67 @@ async function ensureStorage(repoRoot: string) {
   return config;
 }
 
+function normalizeRepoRelativePath(repoRoot: string, filePath: string) {
+  if (!filePath || filePath.trim().length === 0) {
+    throw new Error("File path is required");
+  }
+
+  const normalizedPath = path.normalize(filePath);
+  if (
+    path.isAbsolute(filePath) ||
+    normalizedPath === ".." ||
+    normalizedPath.startsWith(`..${path.sep}`)
+  ) {
+    throw new Error(`File path escapes repository root: ${filePath}`);
+  }
+
+  const absolutePath = path.resolve(repoRoot, normalizedPath);
+  const relativePath = path.relative(repoRoot, absolutePath);
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error(`File path escapes repository root: ${filePath}`);
+  }
+
+  return {
+    absolutePath,
+    relativePath,
+  };
+}
+
+async function assertInsideRepoRoot(repoRoot: string, absolutePath: string) {
+  const resolvedRepoRoot = await realpath(repoRoot);
+  const resolvedPath = await realpath(absolutePath);
+  const relativePath = path.relative(resolvedRepoRoot, resolvedPath);
+
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error(`File path escapes repository root: ${absolutePath}`);
+  }
+}
+
+function isGitIgnored(repoRoot: string, filePath: string): boolean {
+  try {
+    execFileSync("git", ["check-ignore", "--quiet", filePath], {
+      cwd: repoRoot,
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch (error) {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      (error as { status?: unknown }).status === 0
+    );
+  }
+}
+
 async function writeSidecars(input: {
   repoRoot: string;
   indexedAt: string;
@@ -258,8 +320,12 @@ function compareSnapshots(
 async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promise<string[]> {
   const entries = await readdir(currentDir, { withFileTypes: true });
   const results: string[] = [];
+  const config = createDefaultEngineConfig({ repoRoot: rootDir });
 
   for (const entry of entries) {
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
     const absolutePath = path.join(currentDir, entry.name);
     const relativePath = path.relative(rootDir, absolutePath);
 
@@ -275,6 +341,9 @@ async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promis
     if (!language) {
       continue;
     }
+    if (config.respectGitIgnore && isGitIgnored(rootDir, relativePath)) {
+      continue;
+    }
 
     results.push(relativePath);
   }
@@ -283,16 +352,21 @@ async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promis
 }
 
 async function readRepoFile(repoRoot: string, filePath: string) {
-  const absolutePath = path.join(repoRoot, filePath);
-  const language = supportedLanguageForFile(filePath);
+  const { absolutePath, relativePath } = normalizeRepoRelativePath(repoRoot, filePath);
+  const language = supportedLanguageForFile(relativePath);
   if (!language) {
     throw new Error(`Unsupported source file: ${filePath}`);
   }
+  if (isGitIgnored(repoRoot, relativePath)) {
+    throw new Error(`Ignored source file: ${relativePath}`);
+  }
+  await assertInsideRepoRoot(repoRoot, absolutePath);
 
   const content = await readFile(absolutePath, "utf8");
   const fileStat = await stat(absolutePath);
   return {
     absolutePath,
+    relativePath,
     language,
     content,
     mtimeMs: fileStat.mtimeMs,
@@ -389,7 +463,7 @@ function scoreSymbolRow(row: DbSymbolRow, query: string): number {
     }
   }
 
-  if (row.exported) {
+  if (score > 0 && row.exported) {
     score += 20;
   }
 
@@ -609,13 +683,13 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
 }) {
   const file = await readRepoFile(input.repoRoot, input.filePath);
   const parsed = parseSourceFile({
-    relativePath: input.filePath,
+    relativePath: file.relativePath,
     content: file.content,
     language: file.language,
   });
   const existing = db
     .prepare("SELECT id, content_hash FROM files WHERE path = ?")
-    .get(input.filePath) as { id: number; content_hash: string } | undefined;
+    .get(file.relativePath) as { id: number; content_hash: string } | undefined;
 
   if (existing?.content_hash === parsed.contentHash) {
     const countRow = typedGet<{ count: number }>(
@@ -652,7 +726,7 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
         VALUES (?, ?, ?, ?, ?)
       `,
     ).run(
-      input.filePath,
+      file.relativePath,
       parsed.language,
       parsed.contentHash,
       parsed.symbols.length,
@@ -662,7 +736,7 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
 
   const fileRow = db
     .prepare("SELECT id FROM files WHERE path = ?")
-    .get(input.filePath) as { id: number };
+    .get(file.relativePath) as { id: number };
 
   db.prepare(
     "INSERT INTO content_blobs (file_id, content) VALUES (?, ?)",
@@ -678,7 +752,7 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
     insertSymbol.run(
       symbol.id,
       fileRow.id,
-      input.filePath,
+      file.relativePath,
       symbol.name,
       symbol.qualifiedName,
       symbol.kind,
@@ -870,6 +944,7 @@ export async function getFileOutline(input: {
 }): Promise<FileOutline> {
   const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
   const db = openDatabase(config.paths.databasePath);
+  const { relativePath } = normalizeRepoRelativePath(input.repoRoot, input.filePath);
 
   try {
     const rows = typedAll<DbSymbolRow>(db.prepare(
@@ -881,10 +956,10 @@ export async function getFileOutline(input: {
         WHERE file_path = ?
         ORDER BY start_line ASC
       `,
-    ), input.filePath);
+    ), relativePath);
 
     return {
-      filePath: input.filePath,
+      filePath: relativePath,
       symbols: rows.map(mapSymbolRow),
     };
   } finally {
@@ -1101,14 +1176,11 @@ export async function getContextBundle(
 
     for (const item of bundleCandidates) {
       const wouldExceed = usedTokens + item.tokenCount > tokenBudget;
-      if (items.length > 0 && wouldExceed) {
+      if (wouldExceed) {
         break;
       }
       items.push(item);
       usedTokens += item.tokenCount;
-      if (wouldExceed) {
-        break;
-      }
     }
 
     return {
@@ -1131,6 +1203,7 @@ export async function getFileContent(input: {
 }): Promise<FileContentResult> {
   const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
   const db = openDatabase(config.paths.databasePath);
+  const { relativePath } = normalizeRepoRelativePath(input.repoRoot, input.filePath);
 
   try {
     const row = db.prepare(
@@ -1140,14 +1213,14 @@ export async function getFileContent(input: {
         INNER JOIN files ON files.id = content_blobs.file_id
         WHERE files.path = ?
       `,
-    ).get(input.filePath) as { content: string } | undefined;
+    ).get(relativePath) as { content: string } | undefined;
 
     if (!row) {
-      throw new Error(`File not indexed: ${input.filePath}`);
+      throw new Error(`File not indexed: ${relativePath}`);
     }
 
     return {
-      filePath: input.filePath,
+      filePath: relativePath,
       content: row.content,
     };
   } finally {
@@ -1202,7 +1275,7 @@ export async function getSymbolSource(input: {
 export async function diagnostics(input: {
   repoRoot: string;
 }): Promise<DiagnosticsResult> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
