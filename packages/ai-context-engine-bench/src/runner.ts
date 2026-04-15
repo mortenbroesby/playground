@@ -11,6 +11,7 @@ import {
   renderBenchmarkReportMarkdown,
   serializeBenchmarkResults,
 } from "./report.ts";
+import { BENCHMARK_TOKENIZER } from "./tokenizer.ts";
 import { computeBaselineForTask, getWorkflowDefinition, runWorkflowTask } from "./workflows.ts";
 import type { BenchmarkRunOptions, BenchmarkRunOutcome } from "./types.ts";
 
@@ -92,7 +93,7 @@ export async function runBenchmark(
     benchmarkVersion: "0.0.1",
     repoSha,
     engineVersion: "0.0.1",
-    tokenizer: "approx_char4",
+    tokenizer: BENCHMARK_TOKENIZER,
     runId,
     machine: {
       hostname: os.hostname(),

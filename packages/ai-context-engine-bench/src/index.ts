@@ -10,6 +10,11 @@ export {
   getWorkflowDefinition,
   runWorkflowTask,
 } from "./workflows.ts";
+export {
+  BENCHMARK_TOKENIZER,
+  countTokens,
+  disposeTokenizer,
+} from "./tokenizer.ts";
 
 export type {
   BenchmarkCorpus,

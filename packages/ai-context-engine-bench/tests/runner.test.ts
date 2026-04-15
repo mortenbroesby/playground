@@ -90,6 +90,7 @@ describe("benchmark runner", () => {
 
       const results = JSON.parse(readFileSync(outcome.artifacts.resultsPath, "utf8"));
       expect(results.tasks).toHaveLength(1);
+      expect(results.tokenizer).toBe("cl100k_base");
       expect(results.tasks[0]).toMatchObject({
         taskId: "task-area",
         workflowId: "symbol-first",

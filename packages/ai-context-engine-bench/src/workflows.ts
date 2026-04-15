@@ -11,7 +11,7 @@ import {
   searchText,
 } from "@playground/ai-context-engine";
 
-import { estimateTokens } from "./tokenizer.ts";
+import { countTokens } from "./tokenizer.ts";
 import type { BenchmarkCorpusTask } from "./types.ts";
 
 export interface WorkflowExecutionResult {
@@ -49,7 +49,7 @@ async function computeBaselineTokens(repoRoot: string, task: BenchmarkCorpusTask
   let total = 0;
   for (const file of relevantFiles) {
     const content = await readFile(path.join(repoRoot, file.path), "utf8");
-    total += estimateTokens(content);
+    total += countTokens(content);
   }
   return total;
 }
@@ -87,7 +87,7 @@ const symbolFirstWorkflow: WorkflowDefinition = {
       query: task.frontmatter.query,
       limit: 3,
     });
-    let retrievedTokens = estimateTokens(JSON.stringify(matches));
+    let retrievedTokens = countTokens(JSON.stringify(matches));
     const evidence: string[] = matches.map((item) => item.name);
     const notes: string[] = [];
     let toolCalls = 1;
@@ -98,7 +98,7 @@ const symbolFirstWorkflow: WorkflowDefinition = {
         symbolId: matches[0].id,
         verify: true,
       });
-      retrievedTokens += estimateTokens(source.source);
+      retrievedTokens += countTokens(source.source);
       evidence.push(source.symbol.name, source.symbol.filePath);
       toolCalls += 1;
     } else {
@@ -124,7 +124,7 @@ const textFirstWorkflow: WorkflowDefinition = {
       repoRoot,
       query: task.frontmatter.query,
     });
-    let retrievedTokens = estimateTokens(JSON.stringify(matches));
+    let retrievedTokens = countTokens(JSON.stringify(matches));
     const evidence = matches.map((item) => `${item.filePath}:${item.line}`);
     const notes: string[] = [];
     let toolCalls = 1;
@@ -134,7 +134,7 @@ const textFirstWorkflow: WorkflowDefinition = {
         repoRoot,
         filePath: matches[0].filePath,
       });
-      retrievedTokens += estimateTokens(file.content);
+      retrievedTokens += countTokens(file.content);
       evidence.push(file.filePath);
       toolCalls += 1;
     } else {
@@ -160,7 +160,7 @@ const discoveryFirstWorkflow: WorkflowDefinition = {
     const relevantFiles = fileTree.filter((file) =>
       matchesAllowedPath(file.path, task.manifest.allowedPaths),
     );
-    let retrievedTokens = estimateTokens(JSON.stringify(relevantFiles));
+    let retrievedTokens = countTokens(JSON.stringify(relevantFiles));
     const evidence = relevantFiles.map((file) => file.path);
     const notes: string[] = [];
     let toolCalls = 1;
@@ -170,7 +170,7 @@ const discoveryFirstWorkflow: WorkflowDefinition = {
         repoRoot,
         filePath: relevantFiles[0].path,
       });
-      retrievedTokens += estimateTokens(JSON.stringify(outline));
+      retrievedTokens += countTokens(JSON.stringify(outline));
       evidence.push(...outline.symbols.map((symbol) => symbol.name));
       toolCalls += 1;
     } else {

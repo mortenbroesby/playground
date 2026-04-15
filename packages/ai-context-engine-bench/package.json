@@ -16,7 +16,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@playground/ai-context-engine": "workspace:*"
+    "@playground/ai-context-engine": "workspace:*",
+    "tiktoken": "^1.0.22"
   },
   "devDependencies": {
     "@playground/tsconfig": "workspace:*",
