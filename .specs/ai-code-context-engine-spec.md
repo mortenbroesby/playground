@@ -348,10 +348,19 @@ Target state:
 The main interface should be an MCP server exposing capability-oriented tools.
 
 ### 13.2 CLI support
-Implemented now:
+Implemented core commands now:
 - `init`
-- `index folder`
-- `index file`
+- `index-folder`
+- `index-file`
+- `get-repo-outline`
+- `get-file-tree`
+- `get-file-outline`
+- `suggest-initial-queries`
+- `search-symbols`
+- `search-text`
+- `get-context-bundle`
+- `get-file-content`
+- `get-symbol-source`
 - `diagnostics`
 - `watch`
 
@@ -389,7 +398,7 @@ Implemented now:
 - common generated/dependency directory exclusion
 - `.gitignore` enforcement during indexing
 - explicit path traversal prevention
-- symlink escape protection
+- repo-root confinement for user-supplied file paths, including post-realpath validation to block symlink escapes
 
 Still future or only partially addressed:
 - binary file exclusion

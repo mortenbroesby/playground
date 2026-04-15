@@ -184,18 +184,16 @@ Why this task exists:
 2. The corpus manifest is the source of truth for run ordering.
 3. Task cards are immutable once a benchmark run starts.
 4. The harness must refuse to run if the manifest and task files disagree.
-5. The harness must record the manifest copy used for the run in the result artifact.
+5. The harness must record the manifest copy, repo snapshot, and strict-mode setting for the run in `corpus.lock.json`.
 6. Task `path` values are resolved relative to the manifest file location.
 
 ## 6. Result Artifact Format
 
-The runner currently writes each benchmark run to a repo-local output directory:
+The runner writes each benchmark run to the caller-provided output directory. The CLI default is `.benchmarks/ai-context-engine/latest`, and each `results.json` artifact includes a generated `runId` containing the repo SHA prefix and timestamp.
 
-1. `.benchmarks/ai-context-engine/<run-id>/results.json`
-2. `.benchmarks/ai-context-engine/<run-id>/report.md`
-3. `.benchmarks/ai-context-engine/<run-id>/corpus.lock.json`
-
-`<run-id>` should include the repo SHA and timestamp so runs are naturally sortable.
+1. `<output-dir>/results.json`
+2. `<output-dir>/report.md`
+3. `<output-dir>/corpus.lock.json`
 
 Current limitation:
 - ordered trace artifacts are not emitted yet
@@ -242,7 +240,10 @@ The markdown report should be generated from `results.json` and include:
 4. per-task table
 5. per-workflow summary table
 6. grand-total summary
-7. failure notes and ambiguous cases
+7. failure notes
+
+Still future:
+- ambiguity classification in the markdown report
 
 The report should not require manually maintained prose beyond a small header.
 
