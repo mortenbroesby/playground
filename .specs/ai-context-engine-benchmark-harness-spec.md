@@ -1,10 +1,24 @@
 # ai-context-engine-benchmark-harness-spec.md
 
+## Status
+
+Last checked against the repo on 2026-04-15.
+
+Implemented now:
+- separate workspace package at `packages/ai-context-engine-bench`
+- CLI, runner, corpus loader, tokenizer, report writer, snapshot checks, and workflow adapters
+- tests for scaffold, corpus loading, reporting, tokenizer, snapshot handling, runner flow, and CLI
+
+Still future:
+- emitting ordered `.jsonl` trace files
+- a broader real-repo corpus and checked-in benchmark run artifacts
+- richer bundle evaluation and reporting depth
+
 ## 1. Purpose
 
 Turn the benchmark policy in [`ai-context-engine-benchmark-spec.md`](./ai-context-engine-benchmark-spec.md) into a buildable harness plan for `@playground/ai-context-engine`.
 
-This spec defines the next implementation slice: a deterministic local benchmark runner that can execute fixed task cards against a frozen `playground` snapshot, compare retrieval workflows, and emit stable JSON plus markdown artifacts.
+This spec now describes the first implemented harness slice: a deterministic local benchmark runner that can execute fixed task cards against a frozen `playground` snapshot, compare retrieval workflows, and emit stable JSON plus markdown artifacts.
 
 The harness is for measurement and regression detection, not model evaluation and not interactive chat.
 
@@ -27,9 +41,9 @@ This slice does not need to:
 4. support arbitrary user-authored ad hoc prompts
 5. solve freshness/watch mode beyond reporting whether the snapshot was clean
 
-## 4. Proposed Harness Shape
+## 4. Harness Shape
 
-Build the harness as a separate workspace package:
+Implemented package shape:
 
 - package path: `packages/ai-context-engine-bench`
 - package name: `@playground/ai-context-engine-bench`
@@ -39,9 +53,9 @@ This keeps the engine package focused on retrieval/runtime behavior while the
 benchmark package owns evaluation, corpus loading, token accounting, and report
 generation.
 
-### 4.1 Proposed source files
+### 4.1 Checked-in source files
 
-Create these files next:
+These files now exist:
 
 1. `packages/ai-context-engine-bench/src/cli.ts`
 2. `packages/ai-context-engine-bench/src/runner.ts`
@@ -52,7 +66,7 @@ Create these files next:
 7. `packages/ai-context-engine-bench/src/snapshot.ts`
 8. `packages/ai-context-engine-bench/src/types.ts`
 
-### 4.2 Proposed test files
+### 4.2 Checked-in test files
 
 1. `packages/ai-context-engine-bench/tests/corpus.test.ts`
 2. `packages/ai-context-engine-bench/tests/report.test.ts`
@@ -70,12 +84,12 @@ Add a dedicated script in `packages/ai-context-engine-bench/package.json`:
 }
 ```
 
-That keeps benchmark execution separate from the normal engine CLI and MCP
+This keeps benchmark execution separate from the normal engine CLI and MCP
 server, and avoids bundling benchmark-only dependencies into the engine package.
 
 ## 5. Corpus Format
 
-Use a hybrid corpus format so the benchmark is both human-reviewable and machine-loadable.
+The current harness uses a hybrid corpus format so the benchmark is both human-reviewable and machine-loadable.
 
 ### 5.1 Canonical corpus files
 
@@ -171,7 +185,7 @@ Why this task exists:
 
 ## 6. Result Artifact Format
 
-Write each benchmark run to a repo-local output directory:
+The runner currently writes each benchmark run to a repo-local output directory:
 
 1. `.benchmarks/ai-context-engine/<run-id>/results.json`
 2. `.benchmarks/ai-context-engine/<run-id>/report.md`
@@ -179,6 +193,9 @@ Write each benchmark run to a repo-local output directory:
 4. `.benchmarks/ai-context-engine/<run-id>/corpus.lock.json`
 
 `<run-id>` should include the repo SHA and timestamp so runs are naturally sortable.
+
+Current limitation:
+- the `traces/` directory is created and `tracePath` values are recorded, but trace files are not written yet
 
 ### 6.1 `results.json`
 
@@ -229,7 +246,9 @@ The report should not require manually maintained prose beyond a small header.
 
 ### 6.3 Trace files
 
-Each workflow execution should emit a trace file with ordered events:
+This is still future work.
+
+Target behavior:
 
 1. input request
 2. tool calls and responses
@@ -240,7 +259,7 @@ The trace format should be line-delimited JSON so diffs stay readable and append
 
 ## 7. Commands
 
-The next implementation slice should support these commands:
+The implemented harness supports these commands:
 
 1. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --output .benchmarks/ai-context-engine/latest`
 2. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --task task-id`
@@ -257,7 +276,7 @@ Required CLI flags:
 
 ## 8. Verification Flow
 
-This slice is done when the following checks pass:
+This slice is implemented when the following checks pass:
 
 1. `pnpm --filter @playground/ai-context-engine-bench type-check`
 2. `pnpm --filter @playground/ai-context-engine-bench test`
@@ -266,13 +285,17 @@ This slice is done when the following checks pass:
 5. benchmark runner smoke test passes for one task and one workflow
 6. a manual benchmark run against the current repo snapshot writes `results.json` and `report.md` to `.benchmarks/ai-context-engine/<run-id>/`
 
-The first coding slice should use the fixture corpus for fast feedback, then add the real `playground` corpus once the harness is stable.
+Current repo status:
+- the automated tests prove this flow against fixture repos
+- there is no checked-in real-repo run artifact yet
+
+The first coding slice uses the fixture corpus for fast feedback. The next step is to expand the real `playground` corpus once the harness is stable enough to justify broader comparisons.
 
 ## 9. Implementation Slices
 
 ### 9.1 Slice 1: corpus loader and schema
 
-Implement the manifest loader, task-card parser, schema validation, and run-order resolution.
+Status: implemented.
 
 Acceptance criteria:
 
@@ -283,17 +306,25 @@ Acceptance criteria:
 
 ### 9.2 Slice 2: runner and workflow adapter
 
-Implement the benchmark runner, workflow dispatch, and trace capture.
+Status: partially implemented.
+
+Implemented now:
+- benchmark runner
+- workflow dispatch
+
+Still future:
+- trace capture
 
 Acceptance criteria:
 
 1. one task can run through one workflow end-to-end
 2. tool-call events are recorded in order
 3. success and miss are derived from explicit evidence rules
+4. trace capture remains pending
 
 ### 9.3 Slice 3: token accounting and reports
 
-Implement tokenizer selection, baseline token counting, result aggregation, and markdown rendering.
+Status: implemented for the current report shape.
 
 Acceptance criteria:
 
@@ -303,7 +334,15 @@ Acceptance criteria:
 
 ### 9.4 Slice 4: real-corpus run
 
-Run the harness against the pinned `playground` corpus and record the first comparable benchmark set.
+Status: partially implemented.
+
+Implemented now:
+- the checked-in corpus is pinned and runnable
+- fixture-based smoke runs are covered by tests
+
+Still future:
+- broader real-repo corpus coverage
+- recording the first comparable checked-in benchmark set
 
 Acceptance criteria:
 

@@ -1,5 +1,19 @@
 # ai-context-engine-benchmark-spec.md
 
+## Status
+
+Last checked against the repo on 2026-04-15.
+
+Implemented now:
+- local benchmark package at `packages/ai-context-engine-bench`
+- fixed workflows for `baseline`, `discovery-first`, `symbol-first`, `text-first`, and an experimental `bundle` path
+- deterministic corpus loading, strict snapshot checks, token accounting with `tiktoken`, and markdown/JSON reporting
+
+Still future:
+- a broader multi-slice corpus across the repo
+- richer trace output and bundle-quality metrics
+- higher-order ranking and correctness metrics such as `precision@k`
+
 ## 1. Purpose
 
 Define a local benchmark for `@playground/ai-context-engine` that measures how efficiently the engine can help an agent find the right code, structure, and context in the `playground` repo.
@@ -16,14 +30,17 @@ The benchmark should answer three questions:
 
 The benchmark covers local, deterministic workflows for the `playground` repo only.
 
-In scope:
+In scope now:
 
 1. repo outline and file-tree discovery
 2. file outline and symbol search
 3. exact symbol and file retrieval
 4. text search for literals, config, and comments
-5. bounded context assembly once that capability is implemented
-6. freshness and incremental refresh once those capabilities are implemented
+5. bounded context assembly through an experimental bundle workflow
+6. strict snapshot cleanliness and pinned-SHA validation
+
+Still future:
+- broader freshness and incremental-refresh benchmarking beyond snapshot validation
 
 Out of scope:
 
@@ -36,8 +53,9 @@ Out of scope:
 ## 3. Corpus
 
 The benchmark corpus should be a frozen snapshot of the `playground` repo at a pinned git SHA.
+That mechanism is implemented today; the checked-in corpus manifest records a pinned SHA.
 
-The corpus should cover representative code-navigation tasks from these slices:
+Longer term, the corpus should cover representative code-navigation tasks from these slices:
 
 1. `apps/host`
 2. `packages/remotes/todo-app`
@@ -66,7 +84,9 @@ Recommended task categories:
 5. text-only lookup for literals, flags, or comments
 6. multi-symbol context assembly
 
-The initial corpus should be small enough to run frequently, but broad enough to catch regressions in:
+The current corpus is intentionally tiny: one self-hosted task for the benchmark package.
+
+The next corpus expansion should still stay small enough to run frequently, but broad enough to catch regressions in:
 
 1. parser coverage
 2. ranking quality
@@ -103,7 +123,12 @@ Read all eligible files for the task slice.
 
 ### 5.2 Discovery-first workflow
 
-Recommended sequence:
+Current minimal sequence:
+
+1. `get_file_tree`
+2. `get_file_outline`
+
+Target fuller sequence:
 
 1. `get_repo_outline`
 2. `get_file_tree`
@@ -133,7 +158,11 @@ This covers string literals, config values, comments, and other cases where symb
 
 ### 5.5 Context-bundle workflow
 
-Use `get_context_bundle` once it exists and is stable enough to benchmark.
+Use `get_context_bundle`.
+
+Current status:
+- implemented as an experimental workflow in the harness
+- useful for smoke coverage, but not yet rich enough for full bundle-quality evaluation
 
 This workflow should be treated as a later phase until the engine can reliably:
 
@@ -171,6 +200,17 @@ For workflows that return code snippets or bundles:
 
 ### 6.4 Aggregate reporting
 
+Implemented report summary:
+
+1. per-task metrics
+2. per-workflow averages
+3. grand total across the corpus
+
+Still future:
+
+1. per-slice averages once the corpus spans multiple slices
+2. richer ambiguity and miss classification
+
 Report at least:
 
 1. per-task metrics
@@ -180,7 +220,7 @@ Report at least:
 
 ## 7. Methodology
 
-The benchmark harness should be deterministic.
+The benchmark harness is deterministic in its current slice.
 
 Required methodology:
 
@@ -190,8 +230,11 @@ Required methodology:
 4. use the same corpus and task ordering for all runs
 5. serialize request and response payloads deterministically before tokenization
 6. exclude index build time from retrieval-only comparisons
-7. run the same task against every workflow
-8. record the exact engine version, repo SHA, machine profile, and timestamp
+7. run the same task against every selected workflow
+8. record the repo SHA, machine profile, and run id
+
+Current limitation:
+- engine and benchmark versions are still hardcoded to `0.0.1`
 
 The benchmark should not depend on network access after the repo snapshot is prepared.
 
@@ -201,7 +244,7 @@ If the benchmark includes an indexing phase, report it separately from retrieval
 
 The benchmark should produce a markdown report and a machine-readable artifact.
 
-Minimum report contents:
+Current report contents:
 
 1. benchmark name and version
 2. repo SHA
@@ -212,7 +255,10 @@ Minimum report contents:
 7. per-task table
 8. per-workflow summary table
 9. grand total summary
-10. notes on failures, misses, or ambiguous tasks
+10. failure notes
+
+Still future:
+- richer ambiguity handling
 
 Recommended per-task table columns:
 
@@ -234,7 +280,7 @@ Recommended machine-readable artifact:
 
 ## 9. Reproducibility
 
-The benchmark must be repeatable by another developer without hidden state.
+The benchmark is repeatable by another developer without hidden state within the current narrow corpus.
 
 Required reproducibility rules:
 
@@ -261,18 +307,23 @@ Rules:
 
 ## 11. Harness Implementation Spec
 
-The concrete next-step harness plan lives in [`ai-context-engine-benchmark-harness-spec.md`](./ai-context-engine-benchmark-harness-spec.md).
+The concrete harness plan lives in [`ai-context-engine-benchmark-harness-spec.md`](./ai-context-engine-benchmark-harness-spec.md).
 
-Use that file as the implementation-facing plan for the next coding slice; keep this benchmark policy doc as the higher-level contract and evaluation frame.
+Use that file as the implementation-facing reference for the current harness slice; keep this benchmark policy doc as the higher-level contract and evaluation frame.
 5. no manual cherry-picking after seeing results
 6. do not compare a workflow that can use a feature another workflow does not have
 7. do not count static prompts or shared schema overhead when comparing retrieval efficiency
 
 If a capability is not implemented yet, the benchmark should mark it as `future` or `na` rather than silently substituting a different workflow.
 
+That rule still applies to:
+- richer bundle evaluation
+- broader freshness benchmarking
+- expanded corpus slices
+
 ## 11. Open Questions
 
-These are intentionally unresolved until the engine reaches the next phase.
+These remain intentionally unresolved after the first harness slice.
 
 1. Should `get_context_bundle` be part of the first released benchmark, or only a future suite?
 2. Should freshness and watch-mode behavior be benchmarked separately from retrieval?

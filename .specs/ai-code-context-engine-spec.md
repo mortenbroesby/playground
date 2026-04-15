@@ -1,4 +1,20 @@
-# code-intelligence-spec.md
+# ai-code-context-engine-spec.md
+
+## Status
+
+Last checked against the repo on 2026-04-15.
+
+Implemented now:
+- repo-local SQLite storage in WAL mode with sidecars and persisted content blobs
+- Tree-sitter parsing for `ts`, `tsx`, `js`, and `jsx`
+- repo/file discovery tools, symbol/text search, exact source retrieval, context bundles, CLI, and MCP
+- single-file refresh plus freshness diagnostics and stale-index reporting
+
+Still future:
+- watch mode and worktree-aware indexing
+- richer relationship and impact tools
+- fuzzy, centrality-aware, and semantic ranking
+- optional summarization backends beyond signature fallback
 
 ## 1. Purpose
 
@@ -171,17 +187,21 @@ These tools are for cold-start navigation in unfamiliar repositories and should 
 - column-oriented / structured search if useful
 
 ### 8.2 Symbol search filters
-Support filtering by:
+Implemented now:
 - symbol kind
-- language
-- file pattern
 - result count
 
+Still future:
+- language
+- file pattern
+
 ### 8.3 Ranking strategy
-Search should not be naive substring-only matching.
-Ranking should support:
+Search is not naive substring-only matching.
+Implemented now:
 - lexical relevance
 - metadata signals
+
+Still future:
 - fuzzy fallback
 - centrality-aware ranking
 - optional hybrid semantic ranking
@@ -212,12 +232,16 @@ Support:
 
 ### 9.3 Context bundles
 Provide a bounded contextual package around one or more symbols.
-This should include:
+
+Implemented now:
 - target symbol
-- related imports
+- related imports via dependency selection
 - deduplicated dependencies
-- optional callers or related symbols
-- optional token budget report
+- top-level budget counters (`tokenBudget`, `estimatedTokens`, `usedTokens`, `truncated`)
+
+Still future:
+- callers or richer related-symbol expansion
+- a dedicated budget report object
 
 ### 9.4 Ranked context assembly
 Allow query-driven context assembly under a token budget.
@@ -266,7 +290,9 @@ Summaries improve navigation and ranking.
 They are not the source of truth.
 
 ### 11.2 Fallback chain
-Use a summary fallback model such as:
+Current implementation uses signature-derived summaries only.
+
+Future target:
 docstring → generated summary → signature fallback
 
 ### 11.3 Provider model
@@ -287,17 +313,26 @@ Support:
 - incremental folder indexing
 
 ### 12.2 Freshness mechanisms
-Use:
+Implemented now:
 - file hashes
-- modification time shortcuts
-- optional git tree SHA shortcuts
 - stale-index reporting in metadata
 
+Still future:
+- modification time shortcuts
+- optional git tree SHA shortcuts
+
 ### 12.3 Watch mode
-Provide a watch daemon with debounce and changed-file fast paths.
+Not implemented yet.
+
+Target state:
+- watch daemon with debounce
+- changed-file fast paths
 
 ### 12.4 Worktree awareness
-Design for multi-worktree development environments so indexes can follow agent-created worktrees cleanly.
+Not implemented yet.
+
+Target state:
+- indexes can follow multi-worktree environments cleanly
 
 ---
 
@@ -307,20 +342,29 @@ Design for multi-worktree development environments so indexes can follow agent-c
 The main interface should be an MCP server exposing capability-oriented tools.
 
 ### 13.2 CLI support
-Provide CLI support for:
-- init
-- index folder
-- index file
-- watch
-- config / diagnostics
+Implemented now:
+- `init`
+- `index folder`
+- `index file`
+- `diagnostics`
+
+Still future:
+- `watch`
+- richer `config` commands
 
 ### 13.3 Diagnostics
-Add a config/health command that reports:
+Implemented now:
 - storage path
+- storage mode
+- stale/fresh status
+- indexed and current file counts
+- snapshot hashes and drift reasons
+
+Still future:
 - active summarizer
 - transport mode
 - privacy settings
-- watcher/index health
+- watcher health
 
 ### 13.4 Policy support
 Document an agent policy that encourages:
@@ -335,11 +379,15 @@ Do not rely on policy alone for correctness, but make the intended workflow expl
 ## 14. Security and safety
 
 ### 14.1 Required controls
-- path traversal prevention
+Implemented now:
+- common generated/dependency directory exclusion
+- optional `.gitignore` intent in config
+
+Still future or only partially addressed:
+- explicit path traversal prevention
 - symlink escape protection
 - binary file exclusion
-- safe encoding handling
-- optional .gitignore respect
+- safe encoding handling beyond UTF-8 source reads
 - safe handling of configurable external endpoints
 - optional source-root redaction
 
@@ -392,12 +440,15 @@ Use checksum validation for persisted artifacts where practical.
 - retrieval avoids reparsing
 - incremental refresh is materially faster than full reindex
 - watch mode supports live development without blocking reads
+  Current status: the first two are implemented; watch mode is still future work.
 
 ---
 
 ## 18. Implementation phases
 
 ### Phase 1
+Status: implemented.
+
 - Tree-sitter parser
 - SQLite storage in WAL mode
 - symbols/files/imports/raw cache tables
@@ -408,15 +459,22 @@ Use checksum validation for persisted artifacts where practical.
 - basic CLI diagnostics
 
 ### Phase 2
+Status: partially implemented.
+
+Implemented now:
 - get_context_bundle
-- ranked context assembly
+- query-driven ranked context assembly
 - verification with content hash
 - stale metadata
-- watch mode with debounce
 - query suggestion
-- optional summaries
+
+Still future:
+- watch mode with debounce
+- optional summaries beyond signature fallback
 
 ### Phase 3
+Status: not implemented yet.
+
 - relationship and impact tools
 - fuzzy and centrality-aware ranking
 - optional semantic search
