@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "ai-context-engine",
+  "repo": "playground",
+  "repoSha": "97d82c70eec5af8e9c391fc9208d6ac9536af04f",
+  "tokenizer": "cl100k_base",
+  "tasks": [
+    {
+      "id": "task-corpus-loader",
+      "path": "tasks/task-corpus-loader.md",
+      "slice": "packages/ai-context-engine-bench",
+      "workflows": ["baseline", "discovery-first", "symbol-first", "bundle"],
+      "allowedPaths": ["packages/ai-context-engine-bench/src/corpus.ts"],
+      "targets": [
+        {
+          "kind": "symbol",
+          "value": "loadBenchmarkCorpus",
+          "mode": "exact"
+        }
+      ]
+    }
+  ]
+}

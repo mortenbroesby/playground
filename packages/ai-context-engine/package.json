@@ -1,0 +1,30 @@
+{
+  "name": "@playground/ai-context-engine",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Local deterministic context engine for AI-assisted code exploration",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "cli": "node --experimental-strip-types ./src/cli.ts",
+    "mcp": "node --experimental-strip-types ./src/mcp.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@playground/tsconfig": "workspace:*",
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "tree-sitter": "0.21.1",
+    "tree-sitter-javascript": "0.23.1",
+    "tree-sitter-typescript": "0.23.2"
+  }
+}
