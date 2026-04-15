@@ -1,0 +1,27 @@
+{
+  "name": "@playground/ai-context-engine-bench",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Benchmark harness for @playground/ai-context-engine",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "benchmark": "node --experimental-strip-types ./src/cli.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@playground/ai-context-engine": "workspace:*"
+  },
+  "devDependencies": {
+    "@playground/tsconfig": "workspace:*",
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
+  }
+}

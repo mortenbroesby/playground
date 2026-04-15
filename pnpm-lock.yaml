@@ -228,6 +228,25 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.17)(@vitest/browser@2.1.9)(happy-dom@20.8.9)(jsdom@29.0.1)(msw@2.13.0(@types/node@22.19.17)(typescript@5.9.3))
 
+  packages/ai-context-engine-bench:
+    dependencies:
+      '@playground/ai-context-engine':
+        specifier: workspace:*
+        version: link:../ai-context-engine
+    devDependencies:
+      '@playground/tsconfig':
+        specifier: workspace:*
+        version: link:../config/tsconfig
+      '@types/node':
+        specifier: ^22.10.1
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.17)(@vitest/browser@2.1.9)(happy-dom@20.8.9)(jsdom@29.0.1)(msw@2.13.0(@types/node@22.19.17)(typescript@5.9.3))
+
   packages/config: {}
 
   packages/config/eslint:

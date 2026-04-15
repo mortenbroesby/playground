@@ -1,0 +1,21 @@
+# `@playground/ai-context-engine-bench`
+
+Benchmark harness package for [`@playground/ai-context-engine`](../ai-context-engine/README.md).
+
+## Why this is separate
+
+The engine package is the product/runtime surface. The benchmark harness is
+evaluation tooling with its own CLI, corpus loading, token accounting, and
+reporting concerns.
+
+Keeping the harness in a separate workspace package:
+
+- avoids mixing benchmark-only dependencies into the engine package
+- keeps package ownership clearer
+- makes it easier to evolve benchmark workflows without expanding the runtime
+  API surface
+
+## Current state
+
+This package is scaffolded only. The build plan lives in
+[`/.specs/ai-context-engine-benchmark-harness-spec.md`](../../.specs/ai-context-engine-benchmark-harness-spec.md).

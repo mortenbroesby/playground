@@ -29,40 +29,49 @@ This slice does not need to:
 
 ## 4. Proposed Harness Shape
 
-Build the harness as a package-local benchmark subsystem inside `packages/ai-context-engine`.
+Build the harness as a separate workspace package:
+
+- package path: `packages/ai-context-engine-bench`
+- package name: `@playground/ai-context-engine-bench`
+- runtime dependency: `@playground/ai-context-engine`
+
+This keeps the engine package focused on retrieval/runtime behavior while the
+benchmark package owns evaluation, corpus loading, token accounting, and report
+generation.
 
 ### 4.1 Proposed source files
 
 Create these files next:
 
-1. `packages/ai-context-engine/src/benchmark/cli.ts`
-2. `packages/ai-context-engine/src/benchmark/runner.ts`
-3. `packages/ai-context-engine/src/benchmark/corpus.ts`
-4. `packages/ai-context-engine/src/benchmark/workflows.ts`
-5. `packages/ai-context-engine/src/benchmark/tokenizer.ts`
-6. `packages/ai-context-engine/src/benchmark/report.ts`
-7. `packages/ai-context-engine/src/benchmark/snapshot.ts`
-8. `packages/ai-context-engine/src/benchmark/types.ts`
+1. `packages/ai-context-engine-bench/src/cli.ts`
+2. `packages/ai-context-engine-bench/src/runner.ts`
+3. `packages/ai-context-engine-bench/src/corpus.ts`
+4. `packages/ai-context-engine-bench/src/workflows.ts`
+5. `packages/ai-context-engine-bench/src/tokenizer.ts`
+6. `packages/ai-context-engine-bench/src/report.ts`
+7. `packages/ai-context-engine-bench/src/snapshot.ts`
+8. `packages/ai-context-engine-bench/src/types.ts`
 
 ### 4.2 Proposed test files
 
-1. `packages/ai-context-engine/tests/benchmark/corpus.test.ts`
-2. `packages/ai-context-engine/tests/benchmark/report.test.ts`
-3. `packages/ai-context-engine/tests/benchmark/runner.test.ts`
+1. `packages/ai-context-engine-bench/tests/corpus.test.ts`
+2. `packages/ai-context-engine-bench/tests/report.test.ts`
+3. `packages/ai-context-engine-bench/tests/runner.test.ts`
 
 ### 4.3 Package script
 
-Add a dedicated script in `packages/ai-context-engine/package.json`:
+Add a dedicated script in `packages/ai-context-engine-bench/package.json`:
 
 ```json
 {
   "scripts": {
-    "benchmark": "node --experimental-strip-types ./src/benchmark/cli.ts"
+    "benchmark": "node --experimental-strip-types ./src/cli.ts"
   }
 }
 ```
 
-That keeps benchmark execution separate from the normal engine CLI and MCP server.
+That keeps benchmark execution separate from the normal engine CLI and MCP
+server, and avoids bundling benchmark-only dependencies into the engine package.
 
 ## 5. Corpus Format
 
@@ -233,9 +242,9 @@ The trace format should be line-delimited JSON so diffs stay readable and append
 
 The next implementation slice should support these commands:
 
-1. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --output .benchmarks/ai-context-engine/latest`
-2. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --task task-id`
-3. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --workflow symbol-first`
+1. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --output .benchmarks/ai-context-engine/latest`
+2. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --task task-id`
+3. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --workflow symbol-first`
 
 Required CLI flags:
 
@@ -250,8 +259,8 @@ Required CLI flags:
 
 This slice is done when the following checks pass:
 
-1. `pnpm --filter @playground/ai-context-engine type-check`
-2. `pnpm --filter @playground/ai-context-engine test`
+1. `pnpm --filter @playground/ai-context-engine-bench type-check`
+2. `pnpm --filter @playground/ai-context-engine-bench test`
 3. benchmark corpus loader test passes against the fixture corpus
 4. benchmark report writer test passes against a synthetic result object
 5. benchmark runner smoke test passes for one task and one workflow
@@ -270,6 +279,7 @@ Acceptance criteria:
 1. manifest and task files load deterministically
 2. disagreement between manifest and task cards fails fast
 3. task ordering is stable and explicit
+4. the benchmark package can read the engine package without circular ownership
 
 ### 9.2 Slice 2: runner and workflow adapter
 
