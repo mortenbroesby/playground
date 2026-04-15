@@ -3,6 +3,13 @@ export {
   loadBenchmarkCorpusManifest,
   loadBenchmarkTaskCard,
 } from "./corpus.ts";
+export { runBenchmark } from "./runner.ts";
+export {
+  WORKFLOWS,
+  computeBaselineForTask,
+  getWorkflowDefinition,
+  runWorkflowTask,
+} from "./workflows.ts";
 
 export type {
   BenchmarkCorpus,
@@ -12,6 +19,8 @@ export type {
   BenchmarkTarget,
   BenchmarkTaskCard,
   BenchmarkTaskCardFrontmatter,
+  BenchmarkRunOptions,
+  BenchmarkRunOutcome,
 } from "./types.ts";
 
 export * from "./report.ts";

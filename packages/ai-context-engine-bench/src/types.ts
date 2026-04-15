@@ -137,3 +137,21 @@ export interface BenchmarkCorpus {
   manifest: BenchmarkCorpusManifest;
   tasks: readonly BenchmarkCorpusTask[];
 }
+
+export interface BenchmarkRunOptions {
+  corpusPath: string;
+  outputDir: string;
+  repoRoot: string;
+  taskId?: string;
+  workflowId?: string;
+}
+
+export interface BenchmarkRunArtifacts {
+  resultsPath: string;
+  reportPath: string;
+}
+
+export interface BenchmarkRunOutcome {
+  results: BenchmarkResults;
+  artifacts: BenchmarkRunArtifacts;
+}
