@@ -29,8 +29,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { kanbanSource } from './lib/kanban-source';
-import { countByPriority, parseKanbanDocument, serializeKanban } from './lib/kanban';
+import { kanbanSourceDocument } from './lib/kanban-source';
+import { countByPriority } from './lib/kanban';
 import type { KanbanPriority, KanbanSection, KanbanSectionName, KanbanTask } from './types';
 
 const priorityOrder: KanbanPriority[] = ['P0', 'P1', 'P2', 'P3'];
@@ -116,7 +116,10 @@ function taskMatches(task: KanbanTask, query: string, priorities: Set<KanbanPrio
     return true;
   }
 
-  const haystack = [task.title, task.why, task.outcome, task.source].filter(Boolean).join(' ').toLowerCase();
+  const haystack = [task.title, task.why, task.outcome, task.source, task.details]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
   return haystack.includes(query.toLowerCase());
 }
 
@@ -285,7 +288,6 @@ export function App() {
   const [draftOutcome, setDraftOutcome] = useState('');
   const [draftPriority, setDraftPriority] = useState<KanbanPriority>('P2');
   const [draftSection, setDraftSection] = useState<KanbanSectionName>('Ready');
-  const [preamble, setPreamble] = useState('');
   const [sections, setSections] = useState<KanbanSection[]>(() => createEmptySections());
   const [isWritable, setIsWritable] = useState(false);
   const [loadState, setLoadState] = useState<'loading' | 'ready'>('loading');
@@ -296,7 +298,7 @@ export function App() {
   const [activePriorities, setActivePriorities] = useState<Set<KanbanPriority>>(
     () => new Set(priorityOrder),
   );
-  const lastPersistedMarkdownRef = useRef<string | null>(null);
+  const lastPersistedSnapshotRef = useRef<string | null>(null);
   const saveStateResetRef = useRef<number | null>(null);
   const draftTitleInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -308,30 +310,28 @@ export function App() {
         throw new Error(`Failed to load kanban: ${response.status}`);
       }
 
-      const data = (await response.json()) as { markdown?: string };
+      const data = (await response.json()) as {
+        document?: { sections?: KanbanSection[] };
+      };
 
-      if (typeof data.markdown !== 'string') {
-        throw new Error('Missing markdown payload');
+      if (!Array.isArray(data.document?.sections)) {
+        throw new Error('Missing document payload');
       }
 
-      const document = parseKanbanDocument(data.markdown);
-      lastPersistedMarkdownRef.current = data.markdown;
-      setPreamble(document.preamble);
-      setSections(document.sections);
+      lastPersistedSnapshotRef.current = JSON.stringify(data.document.sections);
+      setSections(data.document.sections);
       setIsWritable(true);
       setLoadState('ready');
     } catch {
-      const document = parseKanbanDocument(kanbanSource);
-      lastPersistedMarkdownRef.current = serializeKanban(document.preamble, document.sections);
-      setPreamble(document.preamble);
-      setSections(document.sections);
+      lastPersistedSnapshotRef.current = JSON.stringify(kanbanSourceDocument.sections);
+      setSections(kanbanSourceDocument.sections);
       setIsWritable(false);
       setLoadState('ready');
     }
   }, []);
 
   const persistDocument = useCallback(
-    async (markdown: string) => {
+    async (nextSections: KanbanSection[]) => {
       if (!isWritable) {
         return;
       }
@@ -344,14 +344,18 @@ export function App() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ markdown }),
+          body: JSON.stringify({
+            document: {
+              sections: nextSections,
+            },
+          }),
         });
 
         if (!response.ok) {
           throw new Error(`Failed to save kanban: ${response.status}`);
         }
 
-        lastPersistedMarkdownRef.current = markdown;
+        lastPersistedSnapshotRef.current = JSON.stringify(nextSections);
         setSaveState('saved');
 
         if (saveStateResetRef.current) {
@@ -404,14 +408,14 @@ export function App() {
       return;
     }
 
-    const markdown = serializeKanban(preamble, sections);
+    const snapshot = JSON.stringify(sections);
 
-    if (markdown === lastPersistedMarkdownRef.current) {
+    if (snapshot === lastPersistedSnapshotRef.current) {
       return;
     }
 
-    void persistDocument(markdown);
-  }, [isWritable, loadState, persistDocument, preamble, sections]);
+    void persistDocument(sections);
+  }, [isWritable, loadState, persistDocument, sections]);
 
   useEffect(() => {
     return () => {
@@ -499,6 +503,13 @@ export function App() {
     updateTask(task.id, (current) => ({ ...current, source: source.trim() ? source : undefined }));
   }
 
+  function handleDetailsChange(task: KanbanTask, details: string) {
+    updateTask(task.id, (current) => ({
+      ...current,
+      details: details.trim() ? details : undefined,
+    }));
+  }
+
   function moveTask(taskId: string, nextSection: KanbanSectionName) {
     setSections((current) => {
       let movedTask: KanbanTask | null = null;
@@ -560,6 +571,7 @@ export function App() {
       why: draftWhy.trim() || undefined,
       outcome: draftOutcome.trim() || undefined,
       source: 'Admin app',
+      taskFile: undefined,
       isCustom: true,
     };
 
@@ -720,7 +732,7 @@ export function App() {
                 <Text className="eyebrow">Board controls</Text>
                 <Text c="dimmed" size="xs">
                   {isWritable
-                    ? 'Auto-saves to the vault task board while you work.'
+                    ? 'Auto-saves the board index and linked task notes while you work.'
                     : 'Read-only fallback mode. Run the app in dev to write back to the vault task board.'}
                 </Text>
               </Box>
@@ -883,6 +895,19 @@ export function App() {
                 label="Source"
                 value={selectedTask.source ?? ''}
                 onChange={(event) => handleSourceChange(selectedTask, event.target.value)}
+              />
+
+              <Textarea
+                label="Details"
+                description={
+                  selectedTask.taskFile
+                    ? `Stored in ${selectedTask.taskFile}`
+                    : 'A task note file will be created on save.'
+                }
+                autosize
+                minRows={6}
+                value={selectedTask.details ?? ''}
+                onChange={(event) => handleDetailsChange(selectedTask, event.target.value)}
               />
               {selectedTask.isCustom ? (
                 <Group gap="xs">

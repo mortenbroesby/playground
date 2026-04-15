@@ -2,7 +2,6 @@ import type { KanbanPriority, KanbanSection, KanbanSectionName, KanbanTask } fro
 
 const SECTION_NAMES: KanbanSectionName[] = ['Backlog', 'Ready', 'In Progress', 'Done'];
 const CANONICAL_SECTION_PATTERN = /^##\s+(Backlog|Ready|In Progress|Done)\s*$/m;
-const DETAIL_HEADING_PATTERN = /^\s{2}[A-Z][A-Za-z -]*:/;
 
 function isSectionName(value: string): value is KanbanSectionName {
   return SECTION_NAMES.includes(value as KanbanSectionName);
@@ -12,137 +11,258 @@ function slugify(value: string) {
   return value
     .toLowerCase()
     .replace(/[`'"“”‘’().,:/]/g, '')
-    .replace(/\s+/g, '-');
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
-function parseWrappedValue(lines: string[], startIndex: number) {
-  const firstLine = lines[startIndex];
-  const firstLineMatch = firstLine.match(/^\s{2}[A-Za-z][A-Za-z -]*:\s*(.*)$/);
-  const values = [firstLineMatch?.[1]?.trim() ?? ''];
-  let endIndex = startIndex;
+function trimBlock(value: string) {
+  return value.replace(/^\s+|\s+$/g, '');
+}
 
-  for (let index = startIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-
-    if (!line.startsWith('  ') || DETAIL_HEADING_PATTERN.test(line)) {
-      break;
-    }
-
-    values.push(line.trim());
-    endIndex = index;
+function createTaskId(taskFile: string | undefined, title: string, section: KanbanSectionName) {
+  if (taskFile) {
+    return taskFile.replace(/^tasks\//, '').replace(/\.md$/i, '');
   }
 
+  return `${section.toLowerCase()}-${slugify(title)}`;
+}
+
+type TaskNote = Partial<
+  Pick<
+    KanbanTask,
+    'title' | 'priority' | 'section' | 'aiAppetite' | 'why' | 'outcome' | 'source' | 'details'
+  >
+>;
+
+function parseScalarValue(rawValue: string) {
+  const value = rawValue.trim();
+
+  if (!value) {
+    return '';
+  }
+
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value.slice(1, -1);
+    }
+  }
+
+  if (/^\d+$/.test(value)) {
+    return Number(value);
+  }
+
+  return value;
+}
+
+function parseFrontmatter(markdown: string) {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+
+  if (!match) {
+    return null;
+  }
+
+  const data = Object.fromEntries(
+    match[1]
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => {
+        const separatorIndex = line.indexOf(':');
+        const key = line.slice(0, separatorIndex).trim();
+        const rawValue = separatorIndex === -1 ? '' : line.slice(separatorIndex + 1);
+        return [key, parseScalarValue(rawValue)];
+      }),
+  );
+
   return {
-    endIndex,
-    value: values.filter(Boolean).join(' ').trim(),
+    data,
+    body: markdown.slice(match[0].length),
   };
 }
 
-function parseTaskMetadata(rawLines: string[]) {
-  const metadata: Pick<KanbanTask, 'aiAppetite' | 'why' | 'outcome' | 'source'> = {};
-
-  for (let index = 1; index < rawLines.length; index += 1) {
-    const line = rawLines[index];
-    const aiAppetiteMatch = line.match(/^\s+AI Appetite:\s*(\d{1,3})%$/);
-
-    if (aiAppetiteMatch) {
-      const appetite = Number(aiAppetiteMatch[1]);
-      metadata.aiAppetite = Math.max(0, Math.min(100, appetite));
-      continue;
-    }
-
-    if (line.startsWith('  Why:')) {
-      const block = parseWrappedValue(rawLines, index);
-      metadata.why = block.value;
-      index = block.endIndex;
-      continue;
-    }
-
-    if (line.startsWith('  Outcome:')) {
-      const block = parseWrappedValue(rawLines, index);
-      metadata.outcome = block.value;
-      index = block.endIndex;
-      continue;
-    }
-
-    if (line.startsWith('  Source:')) {
-      const block = parseWrappedValue(rawLines, index);
-      metadata.source = block.value;
-      index = block.endIndex;
-    }
-  }
-
-  return metadata;
-}
-
-function hydrateTaskFields(task: KanbanTask) {
-  Object.assign(task, parseTaskMetadata(task.rawLines ?? []));
-}
-
-export function parseKanban(markdown: string): KanbanSection[] {
+function parseTaskBody(markdown: string) {
   const lines = markdown.split(/\r?\n/);
-  const sections = new Map<KanbanSectionName, KanbanSection>();
-
-  let activeSection: KanbanSectionName | null = null;
-  let activeTask: KanbanTask | null = null;
+  let title = '';
+  const why: string[] = [];
+  const outcome: string[] = [];
+  const details: string[] = [];
+  let mode: 'body' | 'why' | 'outcome' | 'details' = 'body';
 
   for (const line of lines) {
-    const sectionMatch = line.match(/^##\s+(.+)$/);
-    if (sectionMatch) {
-      const sectionName = sectionMatch[1].trim();
+    const titleMatch = !title ? line.match(/^#\s+(.+)$/) : null;
+    if (titleMatch) {
+      title = titleMatch[1].trim();
+      continue;
+    }
 
-      if (isSectionName(sectionName)) {
-        activeSection = sectionName;
-        if (!sections.has(sectionName)) {
-          sections.set(sectionName, { name: sectionName, tasks: [] });
-        }
-      } else {
-        activeSection = null;
+    const headingMatch = line.match(/^##\s+(.+)$/);
+    if (headingMatch) {
+      const heading = headingMatch[1].trim();
+
+      if (heading === 'Why') {
+        mode = 'why';
+        continue;
       }
 
-      activeTask = null;
+      if (heading === 'Outcome') {
+        mode = 'outcome';
+        continue;
+      }
+
+      if (heading === 'Details') {
+        mode = 'details';
+        continue;
+      }
+
+      mode = 'details';
+      details.push(line);
       continue;
     }
 
-    if (!activeSection) {
+    if (mode === 'why') {
+      why.push(line);
       continue;
     }
 
-    const taskMatch = line.match(/^- (?:\[(?<checked> |x)\]\s+)?`(?<priority>P[0-3])` (?<title>.+)$/);
-    if (taskMatch?.groups) {
-      const priority = taskMatch.groups.priority as KanbanPriority;
-      const title = taskMatch.groups.title.trim();
-
-      activeTask = {
-        id: `${activeSection.toLowerCase()}-${slugify(title)}`,
-        title,
-        priority,
-        section: activeSection,
-        checked: taskMatch.groups.checked === 'x',
-        rawLines: [line],
-      };
-
-      sections.get(activeSection)!.tasks.push(activeTask);
+    if (mode === 'outcome') {
+      outcome.push(line);
       continue;
     }
 
-    if (!activeTask) {
-      continue;
-    }
-
-    activeTask.rawLines?.push(line);
+    details.push(line);
   }
 
-  for (const section of sections.values()) {
-    for (const task of section.tasks) {
-      hydrateTaskFields(task);
-    }
-  }
-
-  return SECTION_NAMES.map((name) => sections.get(name) ?? { name, tasks: [] });
+  return {
+    title,
+    why: trimBlock(why.join('\n')) || undefined,
+    outcome: trimBlock(outcome.join('\n')) || undefined,
+    details: trimBlock(details.join('\n')) || undefined,
+  };
 }
 
-export function parseKanbanDocument(markdown: string) {
+function parseLegacyTaskNote(markdown: string): TaskNote {
+  const lines = markdown.split(/\r?\n/);
+  const metadata: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (index === 0 && line.startsWith('# ')) {
+      continue;
+    }
+
+    if (line.startsWith('## ')) {
+      break;
+    }
+
+    metadata.push(line);
+  }
+
+  let priority: KanbanPriority | undefined;
+  let section: KanbanSectionName | undefined;
+  let aiAppetite: number | undefined;
+  let source: string | undefined;
+
+  for (const line of metadata) {
+    const priorityMatch = line.match(/^Priority:\s*`(P[0-3])`\s*$/);
+    if (priorityMatch) {
+      priority = priorityMatch[1] as KanbanPriority;
+      continue;
+    }
+
+    const sectionMatch = line.match(/^Status:\s*`(.+)`\s*$/);
+    if (sectionMatch && isSectionName(sectionMatch[1].trim())) {
+      section = sectionMatch[1].trim() as KanbanSectionName;
+      continue;
+    }
+
+    const appetiteMatch = line.match(/^AI Appetite:\s*(\d{1,3})%\s*$/);
+    if (appetiteMatch) {
+      aiAppetite = Math.max(0, Math.min(100, Number(appetiteMatch[1])));
+      continue;
+    }
+
+    const sourceMatch = line.match(/^Source:\s*(.+)\s*$/);
+    if (sourceMatch) {
+      source = sourceMatch[1].trim();
+    }
+  }
+
+  return {
+    ...parseTaskBody(markdown),
+    priority,
+    section,
+    aiAppetite,
+    source,
+  };
+}
+
+export function parseTaskNote(markdown: string): TaskNote {
+  const frontmatter = parseFrontmatter(markdown);
+
+  if (!frontmatter) {
+    return parseLegacyTaskNote(markdown);
+  }
+
+  const title = frontmatter.body.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  const body = parseTaskBody(frontmatter.body);
+  const priority = typeof frontmatter.data.priority === 'string' ? frontmatter.data.priority : undefined;
+  const status = typeof frontmatter.data.status === 'string' ? frontmatter.data.status : undefined;
+  const aiAppetite =
+    typeof frontmatter.data.ai_appetite === 'number' ? frontmatter.data.ai_appetite : undefined;
+  const source =
+    typeof frontmatter.data.source === 'string' ? frontmatter.data.source.trim() || undefined : undefined;
+
+  return {
+    ...body,
+    title,
+    priority: priority && /^P[0-3]$/.test(priority) ? (priority as KanbanPriority) : undefined,
+    section: status && isSectionName(status) ? status : undefined,
+    aiAppetite,
+    source,
+  };
+}
+
+export function parseKanban(taskNotes: Record<string, string> = {}): KanbanSection[] {
+  const sections = new Map<KanbanSectionName, KanbanTask[]>();
+
+  for (const [taskFile, markdown] of Object.entries(taskNotes)) {
+    const parsedNote = parseTaskNote(markdown);
+
+    if (!parsedNote.title || !parsedNote.priority || !parsedNote.section) {
+      continue;
+    }
+
+    const task: KanbanTask = {
+      id: createTaskId(taskFile, parsedNote.title, parsedNote.section),
+      title: parsedNote.title.trim(),
+      priority: parsedNote.priority,
+      section: parsedNote.section,
+      aiAppetite: parsedNote.aiAppetite,
+      why: parsedNote.why,
+      outcome: parsedNote.outcome,
+      source: parsedNote.source,
+      details: parsedNote.details,
+      taskFile,
+    };
+
+    const sectionTasks = sections.get(task.section) ?? [];
+    sectionTasks.push(task);
+    sections.set(task.section, sectionTasks);
+  }
+
+  return SECTION_NAMES.map((name) => ({
+    name,
+    tasks: (sections.get(name) ?? []).sort((a, b) => a.title.localeCompare(b.title)),
+  }));
+}
+
+export function parseKanbanDocument(markdown: string, taskNotes: Record<string, string> = {}) {
   const firstSectionMatch = markdown.match(CANONICAL_SECTION_PATTERN);
   const firstSectionIndex = firstSectionMatch?.index ?? -1;
   const preamble =
@@ -150,150 +270,54 @@ export function parseKanbanDocument(markdown: string) {
 
   return {
     preamble,
-    sections: parseKanban(markdown),
+    sections: parseKanban(taskNotes),
   };
 }
 
-function makeTaskHeader(task: KanbanTask) {
-  const checkboxPrefix = task.checked ? '[x] ' : '';
-  return `- ${checkboxPrefix}\`${task.priority}\` ${task.title}`;
+export function serializeKanban(preamble: string, sections: KanbanSection[]) {
+  void sections;
+  return `${preamble.trimEnd()}\n`;
 }
 
-function findSingleLineIndex(lines: string[], prefix: string) {
-  return lines.findIndex((line, index) => index > 0 && line.startsWith(prefix));
+export function ensureTaskFile(task: KanbanTask) {
+  return task.taskFile?.trim() ? task.taskFile : `tasks/${slugify(task.title)}.md`;
 }
 
-function findWrappedBlock(lines: string[], label: string) {
-  const startIndex = lines.findIndex((line, index) => index > 0 && line.startsWith(`  ${label}:`));
-
-  if (startIndex === -1) {
-    return null;
-  }
-
-  let endIndex = startIndex;
-
-  for (let index = startIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-
-    if (!line.startsWith('  ') || DETAIL_HEADING_PATTERN.test(line)) {
-      break;
-    }
-
-    endIndex = index;
-  }
-
-  return { startIndex, endIndex };
-}
-
-function replaceLines(lines: string[], startIndex: number, endIndex: number, nextLines: string[]) {
-  lines.splice(startIndex, endIndex - startIndex + 1, ...nextLines);
-}
-
-function insertDetailLine(lines: string[], nextLine: string) {
-  const sourceBlock = findWrappedBlock(lines, 'Source');
-
-  if (sourceBlock) {
-    lines.splice(sourceBlock.startIndex, 0, nextLine);
-    return;
-  }
-
-  lines.push(nextLine);
-}
-
-function updateSingleLineField(
-  lines: string[],
-  prefix: string,
-  nextLine: string | null,
-) {
-  const index = findSingleLineIndex(lines, prefix);
-
-  if (index === -1) {
-    if (nextLine) {
-      insertDetailLine(lines, nextLine);
-    }
-    return;
-  }
-
-  if (!nextLine) {
-    lines.splice(index, 1);
-    return;
-  }
-
-  lines[index] = nextLine;
-}
-
-function updateWrappedField(
-  lines: string[],
-  label: 'Why' | 'Outcome' | 'Source',
-  value: string | undefined,
-) {
-  const block = findWrappedBlock(lines, label);
-  const nextLines = value?.trim() ? [`  ${label}: ${value.trim()}`] : [];
-
-  if (!block) {
-    if (nextLines.length > 0) {
-      insertDetailLine(lines, nextLines[0]);
-    }
-    return;
-  }
-
-  replaceLines(lines, block.startIndex, block.endIndex, nextLines);
-}
-
-function serializeTask(task: KanbanTask) {
-  if (task.rawLines && task.rawLines.length > 0 && !task.isCustom) {
-    const lines = [...task.rawLines];
-    const original = parseTaskMetadata(task.rawLines);
-    lines[0] = makeTaskHeader(task);
-
-    if (task.aiAppetite !== original.aiAppetite) {
-      updateSingleLineField(
-        lines,
-        '  AI Appetite:',
-        typeof task.aiAppetite === 'number' ? `  AI Appetite: ${task.aiAppetite}%` : null,
-      );
-    }
-    if (task.why !== original.why) {
-      updateWrappedField(lines, 'Why', task.why);
-    }
-    if (task.outcome !== original.outcome) {
-      updateWrappedField(lines, 'Outcome', task.outcome);
-    }
-    if (task.source !== original.source) {
-      updateWrappedField(lines, 'Source', task.source);
-    }
-
-    return lines.join('\n');
-  }
-
-  const lines = [makeTaskHeader(task)];
+export function serializeTaskNote(task: KanbanTask) {
+  const frontmatterLines = [
+    '---',
+    'type: repo-task',
+    'repo: playground',
+    `id: ${task.id}`,
+    `priority: ${task.priority}`,
+    `status: ${task.section}`,
+  ];
 
   if (typeof task.aiAppetite === 'number') {
-    lines.push(`  AI Appetite: ${task.aiAppetite}%`);
+    frontmatterLines.push(`ai_appetite: ${task.aiAppetite}`);
   }
 
-  if (task.why) {
-    lines.push(`  Why: ${task.why}`);
+  if (task.source?.trim()) {
+    frontmatterLines.push(`source: ${JSON.stringify(task.source.trim())}`);
   }
 
-  if (task.outcome) {
-    lines.push(`  Outcome: ${task.outcome}`);
+  frontmatterLines.push('---', '', `# ${task.title}`);
+
+  const lines = [...frontmatterLines];
+
+  if (task.why?.trim()) {
+    lines.push('', '## Why', '', task.why.trim());
   }
 
-  if (task.source) {
-    lines.push(`  Source: ${task.source}`);
+  if (task.outcome?.trim()) {
+    lines.push('', '## Outcome', '', task.outcome.trim());
   }
 
-  return lines.join('\n');
-}
+  if (task.details?.trim()) {
+    lines.push('', '## Details', '', task.details.trim());
+  }
 
-export function serializeKanban(preamble: string, sections: KanbanSection[]) {
-  const sectionBlocks = sections.map((section) => {
-    const tasks = section.tasks.map(serializeTask).join('\n\n');
-    return tasks ? `## ${section.name}\n\n${tasks}` : `## ${section.name}`;
-  });
-
-  return `${preamble.trimEnd()}\n\n${sectionBlocks.join('\n\n')}\n`;
+  return `${lines.join('\n').trimEnd()}\n`;
 }
 
 export function countByPriority(tasks: KanbanTask[]) {

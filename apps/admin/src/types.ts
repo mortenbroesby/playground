@@ -12,8 +12,9 @@ export type KanbanTask = {
   why?: string;
   outcome?: string;
   source?: string;
+  details?: string;
+  taskFile?: string;
   isCustom?: boolean;
-  rawLines?: string[];
 };
 
 export type KanbanSection = {

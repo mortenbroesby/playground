@@ -1,135 +1,147 @@
 import { describe, expect, it } from 'vitest';
-import { parseKanban, parseKanbanDocument, serializeKanban } from '../src/lib/kanban';
+import {
+  ensureTaskFile,
+  parseKanbanDocument,
+  parseTaskNote,
+  serializeKanban,
+  serializeTaskNote,
+} from '../src/lib/kanban';
 
-describe('parseKanban', () => {
-  it('parses sectioned tasks with metadata', () => {
-    const markdown = `# Kanban
-
-## In Progress
-
-- [ ] \`P0\` Ship the thing
-  AI Appetite: 80%
-  Why: it matters
-  Outcome: it lands
-  Source: test
-
-## Done
-
-- [x] \`P2\` Wrap up cleanup
-  AI Appetite: 55%
-  Why: less drift
-`;
-
-    const sections = parseKanban(markdown);
-
-    expect(sections[2].name).toBe('In Progress');
-    expect(sections[2].tasks).toHaveLength(1);
-    expect(sections[2].tasks[0]).toMatchObject({
-      title: 'Ship the thing',
-      priority: 'P0',
-      section: 'In Progress',
-      aiAppetite: 80,
-      why: 'it matters',
-      outcome: 'it lands',
-      source: 'test',
-    });
-
-    expect(sections[3].name).toBe('Done');
-    expect(sections[3].tasks[0]).toMatchObject({
-      title: 'Wrap up cleanup',
-      priority: 'P2',
-      aiAppetite: 55,
-      section: 'Done',
-    });
-  });
-
-  it('keeps the canonical section order even when a section has no tasks', () => {
-    const sections = parseKanban('## Ready\n\n- `P1` Add board');
-    expect(sections.map((section) => section.name)).toEqual([
-      'Backlog',
-      'Ready',
-      'In Progress',
-      'Done',
-    ]);
-    expect(sections[1].tasks).toHaveLength(1);
-    expect(sections[0].tasks).toHaveLength(0);
-  });
-
-  it('serializes sections back into the kanban markdown shape', () => {
-    const source = `# Kanban
-
-Intro copy.
-
-## Ready
-
-- [ ] \`P1\` Add board
-  AI Appetite: 70%
-  Why: good
-`;
-
-    const document = parseKanbanDocument(source);
-    const next = serializeKanban(document.preamble, document.sections);
-
-    expect(next).toContain('# Kanban');
-    expect(next).toContain('## Ready');
-    expect(next).toContain('- `P1` Add board');
-    expect(next).toContain('  AI Appetite: 70%');
-    expect(next).toContain('  Why: good');
-    expect(next).toContain('## Done');
-  });
-
-  it('preserves non-lane sections before the task lanes', () => {
-    const source = `# Task Board
-
-Intro copy.
+describe('task board parser', () => {
+  it('parses task-note details from the tasks folder and groups them by status', () => {
+    const board = `# Task Board
 
 ## Scales
 
-Priority scale:
-
-- \`P0\` urgent
-
-## Ready
-
-- \`P1\` Add board
+Priority scale.
 `;
 
-    const document = parseKanbanDocument(source);
+    const taskNotes = {
+      'tasks/add-board-index.md': `---
+type: repo-task
+repo: playground
+id: add-board-index
+priority: P1
+status: Ready
+ai_appetite: 70
+source: "seeded todo"
+---
+
+# Add board index
+
+## Why
+
+Keep the board lightweight.
+
+## Outcome
+
+Split summaries from rich notes.
+
+## Details
+
+### Scope
+
+- Preserve the scales section
+- Keep task details in note files
+`,
+    };
+
+    const document = parseKanbanDocument(board, taskNotes);
+    const task = document.sections[1].tasks[0];
+
+    expect(task).toMatchObject({
+      title: 'Add board index',
+      priority: 'P1',
+      section: 'Ready',
+      aiAppetite: 70,
+      taskFile: 'tasks/add-board-index.md',
+      why: 'Keep the board lightweight.',
+      outcome: 'Split summaries from rich notes.',
+      source: 'seeded todo',
+    });
+    expect(task.details).toContain('### Scope');
+  });
+
+  it('serializes the board without dropping non-lane sections', () => {
+    const board = `# Task Board
+
+## Scales
+
+Priority scale.
+`;
+
+    const document = parseKanbanDocument(board, {
+      'tasks/add-board-index.md': `# Add board index`,
+    });
     const next = serializeKanban(document.preamble, document.sections);
 
     expect(next).toContain('## Scales');
-    expect(next).toContain('Priority scale:');
-    expect(next).toContain('## Ready');
+    expect(next).not.toContain('Task: [Add board index](tasks/add-board-index.md)');
+    expect(next).not.toContain('## Done');
   });
 
-  it('preserves wrapped and unknown task detail blocks when serializing', () => {
-    const source = `# Task Board
+  it('serializes task notes with a freeform details section', () => {
+    const markdown = serializeTaskNote({
+      id: 'task-a',
+      title: 'Big task',
+      priority: 'P1',
+      section: 'Backlog',
+      aiAppetite: 80,
+      source: 'architecture review',
+      why: 'Because the current shape is lossy.',
+      outcome: 'Because the board becomes safe to edit.',
+      details: `Spec-driven reconstruction.
 
-## Backlog
+### Scope
 
-- \`P1\` Big task
-  AI Appetite: 80%
-  Why: existing solutions are fragmented and the explanation
-  continues on the next line.
-  Outcome: ship a local replacement.
-  Scope:
-  - Parse files
-  - Index symbols
-  Constraints:
-  - Keep it local
-  Source: architecture review
-  Brainfart: maybe worth a Ralph loop.
-`;
+- Parse the board
+- Persist task files`,
+      taskFile: 'tasks/big-task.md',
+    });
 
-    const document = parseKanbanDocument(source);
-    const next = serializeKanban(document.preamble, document.sections);
+    const parsed = parseTaskNote(markdown);
 
-    expect(next).toContain('## Backlog');
-    expect(next).toContain('  Why: existing solutions are fragmented and the explanation');
-    expect(next).toContain('  continues on the next line.');
-    expect(next).toContain('  Scope:');
-    expect(next).toContain('  - Parse files');
-    expect(next).toContain('  Constraints:');
-    expect(next).toContain('  Brainfart: maybe worth a Ralph loop.');
+    expect(parsed.why).toBe('Because the current shape is lossy.');
+    expect(parsed.outcome).toBe('Because the board becomes safe to edit.');
+    expect(parsed.details).toContain('### Scope');
+    expect(parsed.source).toBe('architecture review');
+    expect(markdown).toContain('type: repo-task');
+    expect(markdown).toContain('priority: P1');
+    expect(markdown).toContain('status: Backlog');
+    expect(markdown).toContain('ai_appetite: 80');
+  });
+
+  it('derives a task-file path when a new task does not have one yet', () => {
+    expect(
+      ensureTaskFile({
+        id: 'custom-1',
+        title: 'Fresh board idea',
+        priority: 'P2',
+        section: 'Ready',
+      }),
+    ).toBe('tasks/fresh-board-idea.md');
+  });
+
+  it('remains backward-compatible with legacy non-frontmatter task notes', () => {
+    const parsed = parseTaskNote(`# Legacy task
+
+Priority: \`P1\`
+Status: \`Ready\`
+AI Appetite: 60%
+Source: seeded todo
+
+## Why
+
+Keep older notes readable.
+`);
+
+    expect(parsed).toMatchObject({
+      title: 'Legacy task',
+      priority: 'P1',
+      section: 'Ready',
+      aiAppetite: 60,
+      source: 'seeded todo',
+      why: 'Keep older notes readable.',
+    });
   });
 });

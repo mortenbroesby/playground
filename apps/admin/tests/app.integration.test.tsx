@@ -2,47 +2,46 @@ import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { click, renderApp, typeInto, waitForText } from './test-utils';
 
-const initialMarkdown = `# Kanban
-
-Intro.
-
-## Backlog
-
-- [ ] \`P1\` First task
-  AI Appetite: 70%
-  Why: stay sharp
-
-## Ready
-
-- [ ] \`P2\` Second task
-  AI Appetite: 55%
-  Outcome: keep moving
-
-## In Progress
-
-## Done
-`;
-
-const updatedMarkdown = `# Kanban
-
-Intro.
-
-## In Progress
-
-- [ ] \`P0\` Incoming task
-  AI Appetite: 90%
-  Why: live reload
-
-## Ready
-
-## Backlog
-
-## Done
-`;
+function createDocument(title = 'First task') {
+  return {
+    sections: [
+      {
+        name: 'Backlog',
+        tasks: [
+          {
+            id: 'first-task',
+            title,
+            priority: 'P1',
+            section: 'Backlog',
+            aiAppetite: 70,
+            why: 'stay sharp',
+            taskFile: 'tasks/first-task.md',
+          },
+        ],
+      },
+      {
+        name: 'Ready',
+        tasks: [
+          {
+            id: 'second-task',
+            title: 'Second task',
+            priority: 'P2',
+            section: 'Ready',
+            aiAppetite: 55,
+            outcome: 'keep moving',
+            taskFile: 'tasks/second-task.md',
+          },
+        ],
+      },
+      { name: 'In Progress', tasks: [] },
+      { name: 'Done', tasks: [] },
+    ],
+  };
+}
 
 describe('admin app integration', () => {
   beforeEach(() => {
-    let currentMarkdown = initialMarkdown;
+    let currentDocument = createDocument();
 
     vi.stubGlobal(
       'fetch',
@@ -52,13 +51,13 @@ describe('admin app integration', () => {
         if (url === '/api/kanban' && (!init?.method || init.method === 'GET')) {
           return {
             ok: true,
-            json: async () => ({ markdown: currentMarkdown }),
+            json: async () => ({ document: currentDocument }),
           } as Response;
         }
 
         if (url === '/api/kanban' && init?.method === 'POST') {
-          const body = JSON.parse(String(init.body)) as { markdown: string };
-          currentMarkdown = body.markdown;
+          const body = JSON.parse(String(init.body)) as { document: typeof currentDocument };
+          currentDocument = body.document;
           return {
             ok: true,
             json: async () => ({ ok: true }),
@@ -70,8 +69,8 @@ describe('admin app integration', () => {
     );
 
     Object.assign(globalThis, {
-      __setAdminMarkdown(next: string) {
-        currentMarkdown = next;
+      __setAdminDocument(next: typeof currentDocument) {
+        currentDocument = next;
       },
     });
   });
@@ -80,11 +79,33 @@ describe('admin app integration', () => {
     await renderApp();
 
     await waitForText('First task');
-    await waitForText('Auto-saves to the vault task board while you work.');
+    await waitForText('Auto-saves the board index and linked task notes while you work.');
 
-    (globalThis as typeof globalThis & { __setAdminMarkdown: (value: string) => void }).__setAdminMarkdown(
-      updatedMarkdown,
-    );
+    (
+      globalThis as typeof globalThis & {
+        __setAdminDocument: (value: ReturnType<typeof createDocument>) => void;
+      }
+    ).__setAdminDocument({
+      sections: [
+        { name: 'Backlog', tasks: [] },
+        { name: 'Ready', tasks: [] },
+        {
+          name: 'In Progress',
+          tasks: [
+            {
+              id: 'incoming-task',
+              title: 'Incoming task',
+              priority: 'P0',
+              section: 'In Progress',
+              aiAppetite: 90,
+              why: 'live reload',
+              taskFile: 'tasks/incoming-task.md',
+            },
+          ],
+        },
+        { name: 'Done', tasks: [] },
+      ],
+    });
 
     await act(async () => {
       window.dispatchEvent(new Event('kanban:updated'));
@@ -123,10 +144,7 @@ describe('admin app integration', () => {
 
     expect(postCall).toBeTruthy();
     expect(String(postCall?.[1]?.body)).toContain('Fresh board idea');
-    expect(String(postCall?.[1]?.body)).toContain('`P2` Fresh board idea');
-    expect(String(postCall?.[1]?.body)).toContain('AI Appetite: 70%');
-    expect(String(postCall?.[1]?.body)).toContain('## Ready');
-    expect(String(postCall?.[1]?.body)).not.toContain('[ ] `P2` Fresh board idea');
+    expect(String(postCall?.[1]?.body)).toContain('"isCustom":true');
   });
 
   it('keeps add-task details collapsed until explicitly expanded', async () => {
@@ -189,12 +207,10 @@ describe('admin app integration', () => {
         .find(
           ([, init]) =>
             String(init?.body).includes('First task updated') &&
-            String(init?.body).includes('Why: clarified in drawer'),
+            String(init?.body).includes('clarified in drawer'),
         ),
     );
 
     expect(postCall).toBeTruthy();
-    expect(String(postCall?.[1]?.body)).toContain('First task updated');
-    expect(String(postCall?.[1]?.body)).toContain('Why: clarified in drawer');
   });
 });
