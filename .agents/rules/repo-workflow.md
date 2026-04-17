@@ -69,3 +69,14 @@ alwaysApply: true
 - For docs-only changes, run `pnpm lint:md` when verification is useful.
 - For user-facing behavior, run relevant tests and do a quick manual check when
   practical.
+
+## Final Stage
+
+- Once the task reaches the final stage, do not end on soft optional phrasing
+  such as "if you want, I can...".
+- Prefer taking the next concrete action immediately when it is already within
+  scope and permissions.
+- When confirmation is still needed, present one recommended concrete action as
+  a textual default where `y` or `Enter` means proceed.
+- Frame the next step around one recommended concrete action and one clear
+  escape hatch where `n` means stop or keep the safer local state.
