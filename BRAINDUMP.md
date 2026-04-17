@@ -20,5 +20,6 @@ Keep this file loose:
 - Consider how we could use https://github.com/tree-sitter/tree-sitter
 - Checkout https://github.com/GlitterKill/sdl-mcp -- compare with ai-context-engine
 - Look into https://stryker-mutator.io/docs/ Mutation testing.
+- https://github.com/AgentSeal/codeburn for checking token usage % analytics
 
 - Revisit `How I Built This Website` as a reinvented post for the current site and stack, instead of keeping the older archived version live.
