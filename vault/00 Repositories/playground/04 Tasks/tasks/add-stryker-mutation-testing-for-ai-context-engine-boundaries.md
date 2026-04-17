@@ -3,7 +3,7 @@ type: repo-task
 repo: playground
 id: add-stryker-mutation-testing-for-ai-context-engine-boundaries
 priority: P1
-status: Ready
+status: In Progress
 ai_appetite: 85
 source: "Follow-up from `packages/ai-context-engine` runtime-boundary review and StrykerJS docs."
 ---

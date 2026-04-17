@@ -46,6 +46,25 @@ The implemented slice now includes:
 The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with
 MCP-style `tools/list` and `tools/call` routing.
 
+## Mutation testing
+
+Early Stryker adoption is wired in two lanes:
+
+- `pnpm --filter @playground/ai-context-engine test:mutation`
+  is an informational opt-in gate. It does not run Stryker directly.
+- `pnpm --filter @playground/ai-context-engine test:mutation:full`
+  is the same gate for the broader profile.
+- `pnpm --filter @playground/ai-context-engine mutation:smoke`
+  runs the carved-down smoke profile against dedicated boundary tests only.
+- `pnpm --filter @playground/ai-context-engine mutation:full`
+  runs the broader boundary profile when you intentionally want a deeper
+  survivor hunt.
+
+Mutation testing is intentionally optional until the runtime story is better.
+The smoke profile is intentionally narrow so it can stay under about a minute in
+normal local use. The full profile is slower and is not intended for the tight
+inner loop. Plain `vitest` remains the normal fast feedback loop.
+
 Next slices should add:
 
 - richer ranking and query suggestion quality
