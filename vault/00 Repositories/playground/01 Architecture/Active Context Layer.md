@@ -36,8 +36,3 @@ The active-context layer must not become:
 
 Durable repo memory still belongs in `vault/00 Repositories/playground/` and is
 retrieved through `obsidian-memory`.
-
-## Claudemem Fit
-
-`claudemem` is acceptable only if it writes or refreshes the shared active
-context file instead of maintaining a separate durable memory surface.

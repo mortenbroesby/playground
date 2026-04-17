@@ -15,7 +15,6 @@ Keep this file loose:
 ## Braindump Inbox
 
 - Pull in relevant setup from superpowers.
-- Figure out whether claudemem still has a place in our workflow.
 - Add unit tests for our hooks.
 - Setup smth like https://github.com/cfngc4594/agent-notify
 - Consider how we could use https://github.com/tree-sitter/tree-sitter

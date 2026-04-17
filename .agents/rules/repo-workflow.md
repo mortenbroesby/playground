@@ -46,14 +46,10 @@ alwaysApply: true
   `obsidian-memory` when available.
 - Use `.agents/context/active-context.md` only as a compact active-task or
   handoff layer when a short current-state summary will save tokens.
-- If `claude-mem` is installed locally, you may sync its current repo context
-  into `.agents/context/claude-mem-context.local.md` for repo-local visibility.
 - Keep active context small, disposable, and operational:
   current task, branch, blockers, next step, and a few relevant file paths.
 - Do not store canonical decisions, architecture history, or long transcripts in
   active context; move durable knowledge into `vault/` notes instead.
-- If `claudemem` is used in this repo, it should write or refresh shared active
-  context rather than create a separate source of truth.
 - After editing vault notes, run `pnpm rag:index` when fresh memory is needed
   before commit.
 
