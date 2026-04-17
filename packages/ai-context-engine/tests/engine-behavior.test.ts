@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -351,9 +351,9 @@ export function circumference(radius: number): string {
     expect(health.staleStatus).toBe("fresh");
   });
 
-  it("supports debounced watch mode for live index refresh", async () => {
+  it("supports debounced watch mode with changed-file fast refresh", async () => {
     const repoRoot = await createFixtureRepo();
-    const reindexEvents: Array<{ changedPaths: string[] }> = [];
+    const reindexEvents: Array<{ changedPaths: string[]; summary?: { indexedFiles: number } }> = [];
 
     const watcher = await watchFolder({
       repoRoot,
@@ -362,6 +362,11 @@ export function circumference(radius: number): string {
         if (event.type === "reindex") {
           reindexEvents.push({
             changedPaths: event.changedPaths,
+            summary: event.summary
+              ? {
+                  indexedFiles: event.summary.indexedFiles,
+                }
+              : undefined,
           });
         }
       },
@@ -401,6 +406,57 @@ export function circumference(radius: number): string {
       expect(symbolMatches[0]?.name).toBe("circumference");
       expect(reindexEvents).toHaveLength(1);
       expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
+      expect(reindexEvents[0]?.summary).toMatchObject({
+        indexedFiles: 1,
+      });
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("removes deleted files during watch refresh without a full folder reindex", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; summary?: { indexedFiles: number } }> = [];
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            summary: event.summary
+              ? {
+                  indexedFiles: event.summary.indexedFiles,
+                }
+              : undefined,
+          });
+        }
+      },
+    });
+
+    try {
+      await rm(path.join(repoRoot, "src", "math.ts"));
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      const symbolMatches = await searchSymbols({
+        repoRoot,
+        query: "PI",
+      });
+      const health = await diagnostics({ repoRoot });
+
+      expect(symbolMatches).toHaveLength(0);
+      expect(health).toMatchObject({
+        indexedFiles: 1,
+        currentFiles: 1,
+        staleStatus: "fresh",
+      });
+      expect(reindexEvents).toHaveLength(1);
+      expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
+      expect(reindexEvents[0]?.summary).toMatchObject({
+        indexedFiles: 1,
+      });
     } finally {
       await watcher.close();
     }

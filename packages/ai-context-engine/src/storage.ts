@@ -830,6 +830,14 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
   };
 }
 
+function removeFileIndex(
+  db: import("node:sqlite").DatabaseSync,
+  filePath: string,
+): boolean {
+  const result = db.prepare("DELETE FROM files WHERE path = ?").run(filePath);
+  return Number(result.changes ?? 0) > 0;
+}
+
 async function finalizeIndex(
   db: import("node:sqlite").DatabaseSync,
   repoRoot: string,
@@ -988,15 +996,64 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
 
     activeFlush = (async () => {
       try {
-        const summary = await indexFolder({
-          repoRoot,
-          summaryStrategy: input.summaryStrategy,
-        });
-        await emitWatchEvent(input.onEvent, {
-          type: "reindex",
-          changedPaths,
-          summary,
-        });
+        const config = await ensureStorage(repoRoot, input.summaryStrategy);
+        const db = openDatabase(config.paths.databasePath);
+        const meta = await readRepoMeta(config.paths.repoMetaPath);
+        const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
+
+        let indexedFiles = 0;
+        let indexedSymbols = 0;
+
+        try {
+          for (const filePath of changedPaths) {
+            const absolutePath = path.join(repoRoot, filePath);
+            const fileExists = await stat(absolutePath)
+              .then((entry) => entry.isFile())
+              .catch(() => false);
+
+            if (!fileExists) {
+              if (removeFileIndex(db, filePath)) {
+                indexedFiles += 1;
+              }
+              continue;
+            }
+
+            if (!supportedLanguageForFile(filePath) || isGitIgnored(repoRoot, filePath)) {
+              if (removeFileIndex(db, filePath)) {
+                indexedFiles += 1;
+              }
+              continue;
+            }
+
+            const result = await upsertFileIndex(db, {
+              repoRoot,
+              filePath,
+              summaryStrategy: config.summaryStrategy,
+              forceRefresh,
+            });
+            if (result.indexed) {
+              indexedFiles += 1;
+              indexedSymbols += result.symbolCount;
+            }
+          }
+
+          const indexedAt = new Date().toISOString();
+          await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+
+          const summary = {
+            indexedFiles,
+            indexedSymbols,
+            skippedFiles: await countSkippedFiles(repoRoot),
+            staleStatus: "fresh" as const,
+          };
+          await emitWatchEvent(input.onEvent, {
+            type: "reindex",
+            changedPaths,
+            summary,
+          });
+        } finally {
+          db.close();
+        }
       } catch (error) {
         await emitWatchEvent(input.onEvent, {
           type: "error",

@@ -2,7 +2,7 @@
 
 import process from "node:process";
 
-import { parseSummaryStrategy } from "./config.ts";
+import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
 import {
   diagnostics,
   getFileContent,
@@ -22,6 +22,7 @@ import {
 type StopReason = "timeout" | "signal" | "closed";
 
 type CliHandler = (args: Record<string, string>) => Promise<unknown>;
+const BOOLEAN_FLAGS = new Set(["verify"]);
 
 const commands: Record<string, CliHandler> = {
   init: async (args) => diagnostics({ repoRoot: required(args, "repo") }),
@@ -52,7 +53,7 @@ const commands: Record<string, CliHandler> = {
     searchSymbols({
       repoRoot: required(args, "repo"),
       query: required(args, "query"),
-      kind: optional(args, "kind") as Parameters<typeof searchSymbols>[0]["kind"],
+      kind: optionalKind(args, "kind"),
       limit: optionalNumber(args, "limit"),
     }),
   "search-text": async (args) =>
@@ -107,7 +108,14 @@ function optionalNumber(
   key: string,
 ): number | undefined {
   const value = optional(args, key);
-  return value ? Number(value) : undefined;
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid numeric argument --${key}: ${value}`);
+  }
+  return parsed;
 }
 
 function optionalSummaryStrategy(
@@ -116,6 +124,14 @@ function optionalSummaryStrategy(
 ): Parameters<typeof indexFolder>[0]["summaryStrategy"] | undefined {
   const value = optional(args, key);
   return value ? parseSummaryStrategy(value, `--${key}`) : undefined;
+}
+
+function optionalKind(
+  args: Record<string, string>,
+  key: string,
+): Parameters<typeof searchSymbols>[0]["kind"] | undefined {
+  const value = optional(args, key);
+  return value ? parseSymbolKind(value, `--${key}`) : undefined;
 }
 
 function parseArgs(argv: string[]): { command: string; args: Record<string, string> } {
@@ -130,7 +146,16 @@ function parseArgs(argv: string[]): { command: string; args: Record<string, stri
     if (!token?.startsWith("--")) {
       continue;
     }
-    args[token.slice(2)] = rest[index + 1] ?? "true";
+    const key = token.slice(2);
+    const next = rest[index + 1];
+    if (!next || next.startsWith("--")) {
+      if (BOOLEAN_FLAGS.has(key)) {
+        args[key] = "true";
+        continue;
+      }
+      throw new Error(`Missing value for argument --${key}`);
+    }
+    args[key] = next;
     index += 1;
   }
 

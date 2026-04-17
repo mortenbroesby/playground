@@ -13,6 +13,7 @@ function createSyntheticResults() {
     repoSha: "abc123",
     engineVersion: "1.2.3",
     tokenizer: "cl100k_base",
+    approximateTokenizer: "tokenx",
     runId: "abc123-20260415T120000Z",
     machine: {
       hostname: "ci",
@@ -47,7 +48,9 @@ function createSyntheticResults() {
           mode: "exact",
         },
         baselineTokens: 120,
+        estimatedBaselineTokens: 126,
         retrievedTokens: 40,
+        estimatedRetrievedTokens: 44,
         tokenReductionPct: 66.7,
         toolCalls: 3,
         latencyMs: 21,
@@ -65,7 +68,9 @@ function createSyntheticResults() {
           mode: "exact",
         },
         baselineTokens: 80,
+        estimatedBaselineTokens: 82,
         retrievedTokens: 60,
+        estimatedRetrievedTokens: 61,
         tokenReductionPct: 25,
         toolCalls: 5,
         latencyMs: 32,
@@ -88,6 +93,7 @@ describe("benchmark reporting", () => {
   "repoSha": "abc123",
   "engineVersion": "1.2.3",
   "tokenizer": "cl100k_base",
+  "approximateTokenizer": "tokenx",
   "runId": "abc123-20260415T120000Z",
   "machine": {
     "hostname": "ci",
@@ -124,7 +130,9 @@ describe("benchmark reporting", () => {
         "mode": "exact"
       },
       "baselineTokens": 120,
+      "estimatedBaselineTokens": 126,
       "retrievedTokens": 40,
+      "estimatedRetrievedTokens": 44,
       "tokenReductionPct": 66.7,
       "toolCalls": 3,
       "latencyMs": 21,
@@ -148,7 +156,9 @@ describe("benchmark reporting", () => {
         "mode": "exact"
       },
       "baselineTokens": 80,
+      "estimatedBaselineTokens": 82,
       "retrievedTokens": 60,
+      "estimatedRetrievedTokens": 61,
       "tokenReductionPct": 25,
       "toolCalls": 5,
       "latencyMs": 32,
@@ -167,7 +177,9 @@ describe("benchmark reporting", () => {
     "successCount": 1,
     "failureCount": 1,
     "baselineTokens": 200,
+    "estimatedBaselineTokens": 208,
     "retrievedTokens": 100,
+    "estimatedRetrievedTokens": 105,
     "tokenReductionPct": 50
   }
 }`);
@@ -184,6 +196,7 @@ describe("benchmark reporting", () => {
 - Repo SHA: \`abc123\`
 - Engine Version: \`1.2.3\`
 - Tokenizer: \`cl100k_base\`
+- Approximate Estimator: \`tokenx\`
 - Run ID: \`abc123-20260415T120000Z\`
 
 ## Corpus Metadata
@@ -199,10 +212,10 @@ describe("benchmark reporting", () => {
 | symbol-first | Symbol First | Start from symbols before reading source. |
 
 ## Per-Task Results
-| Task ID | Workflow | Success | Baseline Tokens | Retrieved Tokens | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| task-1 | symbol-first | yes | 120 | 40 | 66.7% | 3 | 21 | packages/ai-context-engine/src/index.ts | found by exact symbol lookup |
-| task-2 | symbol-first | no | 80 | 60 | 25% | 5 | 32 | missing symbol | fallback search only |
+| Task ID | Workflow | Success | Baseline Tokens | Est. Baseline | Retrieved Tokens | Est. Retrieved | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| task-1 | symbol-first | yes | 120 | 126 | 40 | 44 | 66.7% | 3 | 21 | packages/ai-context-engine/src/index.ts | found by exact symbol lookup |
+| task-2 | symbol-first | no | 80 | 82 | 60 | 61 | 25% | 5 | 32 | missing symbol | fallback search only |
 
 ## Per-Workflow Summary
 | Workflow ID | Tasks | Success | Failures | Baseline Tokens | Retrieved Tokens | Reduction |
@@ -214,7 +227,9 @@ describe("benchmark reporting", () => {
 - Successes: \`1\`
 - Failures: \`1\`
 - Baseline Tokens: \`200\`
+- Estimated Baseline Tokens: \`208\`
 - Retrieved Tokens: \`100\`
+- Estimated Retrieved Tokens: \`105\`
 - Reduction: \`50%\`
 
 ## Failure Notes

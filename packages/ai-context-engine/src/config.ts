@@ -4,6 +4,7 @@ import type {
   EngineConfig,
   EnginePaths,
   EnginePhase1ToolName,
+  SymbolKind,
   SummaryStrategy,
 } from "./types.ts";
 
@@ -14,6 +15,13 @@ export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
 const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
   "doc-comments-first",
   "signature-only",
+]);
+const SYMBOL_KINDS = new Set<SymbolKind>([
+  "function",
+  "class",
+  "method",
+  "constant",
+  "type",
 ]);
 
 export const ENGINE_PHASE_1_TOOLS: EnginePhase1ToolName[] = [
@@ -63,6 +71,23 @@ export function parseSummaryStrategy(
 
 export function normalizeSummaryStrategy(value: unknown): SummaryStrategy {
   return isSummaryStrategy(value) ? value : DEFAULT_SUMMARY_STRATEGY;
+}
+
+export function isSymbolKind(value: unknown): value is SymbolKind {
+  return typeof value === "string" && SYMBOL_KINDS.has(value as SymbolKind);
+}
+
+export function parseSymbolKind(
+  value: unknown,
+  label = "kind",
+): SymbolKind {
+  if (!isSymbolKind(value)) {
+    throw new Error(
+      `Unsupported ${label}: ${String(value)}. Expected one of: ${[...SYMBOL_KINDS].join(", ")}`,
+    );
+  }
+
+  return value;
 }
 
 export function createDefaultEngineConfig(input: {

@@ -12,13 +12,15 @@ artifact surface accurately.
 - added a public `watchFolder` API that emits `ready`, `reindex`, `error`, and
   `close` events
 - added a `watch` CLI command with debounce and timeout controls
-- implemented polling-backed changed-path detection with debounced full reindex
+- implemented polling-backed changed-path detection with debounced changed-file
   refreshes for local development
 - added watch-mode regression coverage for both library and CLI entry points
 - updated the engine spec to document debounced watch support, current security
-  guarantees, and the remaining fast-path/worktree gaps
+  guarantees, and the remaining worktree-aware watching gap
 - updated the benchmark specs to remove stale trace artifact claims and list the
   full checked-in test surface
+- tightened engine CLI and MCP boundary validation so malformed numeric and kind
+  arguments fail fast instead of degrading into silent empty-result behavior
 
 ## Verification
 
@@ -29,6 +31,5 @@ artifact surface accurately.
 
 ## Follow-up
 
-- replace full-folder watch refreshes with changed-file fast paths
 - decide whether watch mode should eventually surface health/status through MCP
-- harden the benchmark harness CLI flag parsing and corpus realpath containment
+- worktree-aware watch detection beyond the current polling snapshot loop

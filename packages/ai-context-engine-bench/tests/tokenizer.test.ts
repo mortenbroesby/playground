@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  APPROXIMATE_BENCHMARK_TOKENIZER,
   BENCHMARK_TOKENIZER,
   countTokens,
   disposeTokenizer,
+  estimateTokens,
 } from "../src/index.ts";
 
 describe("benchmark tokenizer", () => {
@@ -20,5 +22,10 @@ describe("benchmark tokenizer", () => {
 }
 `),
     ).toBe(21);
+  });
+
+  it("exposes tokenx as an approximate sidecar estimator", () => {
+    expect(APPROXIMATE_BENCHMARK_TOKENIZER).toBe("tokenx");
+    expect(estimateTokens("hello world")).toBeGreaterThan(0);
   });
 });

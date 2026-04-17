@@ -28,6 +28,7 @@ describe("benchmark runner", () => {
       );
       expect(results.tasks).toHaveLength(1);
       expect(results.tokenizer).toBe("cl100k_base");
+      expect(results.approximateTokenizer).toBe("tokenx");
       expect(results.repoSha).toBe(fixture.repoSha);
       expect(results.corpus.taskCount).toBe(1);
       expect(corpusLock.snapshot.repoSha).toBe(fixture.repoSha);
@@ -36,6 +37,8 @@ describe("benchmark runner", () => {
         workflowId: "symbol-first",
         success: true,
       });
+      expect(results.tasks[0].estimatedBaselineTokens).toBeGreaterThan(0);
+      expect(results.tasks[0].estimatedRetrievedTokens).toBeGreaterThan(0);
       expect("tracePath" in results.tasks[0]).toBe(false);
       expect(readFileSync(outcome.artifacts.reportPath, "utf8")).toContain(
         "# ai-context-engine Benchmark Report",

@@ -2,7 +2,7 @@
 
 import process from "node:process";
 
-import { parseSummaryStrategy } from "./config.ts";
+import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
 import {
   diagnostics,
   getFileContent,
@@ -159,6 +159,17 @@ function requireString(params: Record<string, unknown>, key: string): string {
   return value;
 }
 
+function optionalNumber(params: Record<string, unknown>, key: string): number | undefined {
+  const value = params[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`Invalid numeric argument: ${key}`);
+  }
+  return value;
+}
+
 async function dispatchTool(name: string, args: Record<string, unknown>) {
   switch (name) {
     case "index_folder":
@@ -195,9 +206,9 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
         query: requireString(args, "query"),
         kind:
           typeof args.kind === "string"
-            ? args.kind as Parameters<typeof searchSymbols>[0]["kind"]
+            ? parseSymbolKind(args.kind, "kind")
             : undefined,
-        limit: typeof args.limit === "number" ? args.limit : undefined,
+        limit: optionalNumber(args, "limit"),
       });
     case "search_text":
       return searchText({
@@ -216,8 +227,7 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
               (value): value is string => typeof value === "string" && value.length > 0,
             )
           : undefined,
-        tokenBudget:
-          typeof args.tokenBudget === "number" ? args.tokenBudget : undefined,
+        tokenBudget: optionalNumber(args, "tokenBudget"),
       });
     case "get_file_content":
       return getFileContent({
@@ -331,22 +341,31 @@ function parseFrames(buffer: string) {
 async function main() {
   const server = createMcpServer();
   let buffer = "";
+  let queue = Promise.resolve();
 
   process.stdin.setEncoding("utf8");
-  process.stdin.on("data", async (chunk: string) => {
-    buffer += chunk;
-    const parsed = parseFrames(buffer);
-    buffer = parsed.remaining;
+  process.stdin.on("data", (chunk: string) => {
+    queue = queue
+      .then(async () => {
+        buffer += chunk;
+        const parsed = parseFrames(buffer);
+        buffer = parsed.remaining;
 
-    for (const message of parsed.messages) {
-      const response = await server.handleMessage(
-        JSON.parse(message) as JsonRpcRequest,
-      );
-      const payload = JSON.stringify(response);
-      process.stdout.write(
-        `Content-Length: ${Buffer.byteLength(payload, "utf8")}\r\n\r\n${payload}`,
-      );
-    }
+        for (const message of parsed.messages) {
+          const response = await server.handleMessage(
+            JSON.parse(message) as JsonRpcRequest,
+          );
+          const payload = JSON.stringify(response);
+          process.stdout.write(
+            `Content-Length: ${Buffer.byteLength(payload, "utf8")}\r\n\r\n${payload}`,
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`${message}\n`);
+        process.exitCode = 1;
+      });
   });
 }
 

@@ -477,7 +477,7 @@ Use checksum validation for persisted artifacts where practical.
 - retrieval avoids reparsing
 - incremental refresh is materially faster than full reindex
 - watch mode supports live development without blocking reads
-  Current status: the first two are implemented, and watch mode now exists with a debounced polling loop; changed-file fast paths are still future work.
+  Current status: all three are implemented for the current local-first slice, using a debounced polling loop with changed-file fast paths. Worktree-aware watching is still future work.
 
 ---
 
@@ -505,6 +505,7 @@ Implemented now:
 - stale metadata
 - query suggestion
 - debounced watch mode via API and CLI
+- changed-file fast refresh during watch maintenance
 - configurable doc-comment-first summaries with signature-only override
 
 ### Phase 3

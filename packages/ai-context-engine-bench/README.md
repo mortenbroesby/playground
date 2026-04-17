@@ -23,6 +23,8 @@ This package now has a runnable MVP harness with:
 - fixed workflow execution against `@playground/ai-context-engine`
 - deterministic JSON and markdown report output
 - real token accounting with `tiktoken` using `cl100k_base`
+- optional approximate sidecar estimates with `tokenx` for cheaper preflight
+  cost/budget comparisons without replacing the exact benchmark numbers
 
 The current build plan lives in
 [`/.specs/ai-context-engine-benchmark-harness-spec.md`](../../.specs/ai-context-engine-benchmark-harness-spec.md).

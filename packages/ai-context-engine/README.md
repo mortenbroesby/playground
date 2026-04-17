@@ -50,4 +50,4 @@ Next slices should add:
 
 - richer ranking and query suggestion quality
 - bounded context bundles and ranked context assembly
-- watch mode and single-file fast paths beyond the current direct reindex call
+- watch-mode health and status surfacing beyond the current CLI event stream

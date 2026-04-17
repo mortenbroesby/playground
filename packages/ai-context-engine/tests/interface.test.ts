@@ -246,4 +246,80 @@ export function circumference(radius: number): string {
 
     expect(response.error?.message).toMatch(/unsupported summaryStrategy/i);
   });
+
+  it("rejects malformed CLI arguments instead of silently coercing them", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await expect(
+      handleCli([
+        "search-symbols",
+        "--repo",
+        repoRoot,
+        "--query",
+        "Greeter",
+        "--kind",
+        "bogus",
+      ]),
+    ).rejects.toThrow(/unsupported --kind/i);
+
+    await expect(
+      handleCli([
+        "watch",
+        "--repo",
+        repoRoot,
+        "--debounce-ms",
+        "nope",
+        "--timeout-ms",
+        "50",
+      ]),
+    ).rejects.toThrow(/invalid numeric argument --debounce-ms/i);
+
+    await expect(
+      handleCli([
+        "search-symbols",
+        "--repo",
+        repoRoot,
+        "--query",
+        "Greeter",
+        "--limit",
+      ]),
+    ).rejects.toThrow(/missing value for argument --limit/i);
+  });
+
+  it("rejects malformed MCP arguments instead of treating them as empty filters", async () => {
+    const repoRoot = await createFixtureRepo();
+    const server = createMcpServer();
+
+    const invalidKindResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: {
+        name: "search_symbols",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          kind: "bogus",
+        },
+      },
+    });
+
+    expect(invalidKindResponse.error?.message).toMatch(/unsupported kind/i);
+
+    const invalidBudgetResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: {
+        name: "get_context_bundle",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          tokenBudget: "oops",
+        },
+      },
+    });
+
+    expect(invalidBudgetResponse.error?.message).toMatch(/invalid numeric argument: tokenBudget/i);
+  });
 });

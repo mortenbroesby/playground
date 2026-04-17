@@ -39,7 +39,15 @@ function compareWorkflowOrder(
 
 function summarizeTasks(tasks: readonly BenchmarkTaskResult[]) {
   const baselineTokens = tasks.reduce((sum, task) => sum + task.baselineTokens, 0);
+  const estimatedBaselineTokens = tasks.reduce(
+    (sum, task) => sum + (task.estimatedBaselineTokens ?? 0),
+    0,
+  );
   const retrievedTokens = tasks.reduce((sum, task) => sum + task.retrievedTokens, 0);
+  const estimatedRetrievedTokens = tasks.reduce(
+    (sum, task) => sum + (task.estimatedRetrievedTokens ?? 0),
+    0,
+  );
   const successCount = tasks.filter((task) => task.success).length;
   const failureCount = tasks.length - successCount;
   const tokenReductionPct =
@@ -52,7 +60,9 @@ function summarizeTasks(tasks: readonly BenchmarkTaskResult[]) {
     successCount,
     failureCount,
     baselineTokens,
+    estimatedBaselineTokens,
     retrievedTokens,
+    estimatedRetrievedTokens,
     tokenReductionPct,
   };
 }
@@ -69,6 +79,9 @@ export function createBenchmarkResultsArtifact(
     repoSha: input.repoSha,
     engineVersion: input.engineVersion,
     tokenizer: input.tokenizer,
+    ...(input.approximateTokenizer
+      ? { approximateTokenizer: input.approximateTokenizer }
+      : {}),
     runId: input.runId,
     machine: {
       hostname: input.machine.hostname,
@@ -100,7 +113,13 @@ export function createBenchmarkResultsArtifact(
         mode: task.target.mode,
       },
       baselineTokens: task.baselineTokens,
+      ...(typeof task.estimatedBaselineTokens === "number"
+        ? { estimatedBaselineTokens: task.estimatedBaselineTokens }
+        : {}),
       retrievedTokens: task.retrievedTokens,
+      ...(typeof task.estimatedRetrievedTokens === "number"
+        ? { estimatedRetrievedTokens: task.estimatedRetrievedTokens }
+        : {}),
       tokenReductionPct: task.tokenReductionPct,
       toolCalls: task.toolCalls,
       latencyMs: task.latencyMs,
@@ -114,7 +133,9 @@ export function createBenchmarkResultsArtifact(
       successCount: summary.successCount,
       failureCount: summary.failureCount,
       baselineTokens: summary.baselineTokens,
+      estimatedBaselineTokens: summary.estimatedBaselineTokens,
       retrievedTokens: summary.retrievedTokens,
+      estimatedRetrievedTokens: summary.estimatedRetrievedTokens,
       tokenReductionPct: summary.tokenReductionPct,
     },
   };
@@ -152,6 +173,9 @@ export function renderBenchmarkReportMarkdown(results: BenchmarkResults): string
     `- Repo SHA: \`${results.repoSha}\``,
     `- Engine Version: \`${results.engineVersion}\``,
     `- Tokenizer: \`${results.tokenizer}\``,
+    ...(results.approximateTokenizer
+      ? [`- Approximate Estimator: \`${results.approximateTokenizer}\``]
+      : []),
     `- Run ID: \`${results.runId}\``,
     "",
     "## Corpus Metadata",
@@ -170,13 +194,13 @@ export function renderBenchmarkReportMarkdown(results: BenchmarkResults): string
     ),
     "",
     "## Per-Task Results",
-    "| Task ID | Workflow | Success | Baseline Tokens | Retrieved Tokens | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Task ID | Workflow | Success | Baseline Tokens | Est. Baseline | Retrieved Tokens | Est. Retrieved | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...results.tasks.map(
       (task) =>
         `| ${escapeTableCell(task.taskId)} | ${escapeTableCell(task.workflowId)} | ${
           task.success ? "yes" : "no"
-        } | ${task.baselineTokens} | ${task.retrievedTokens} | ${normalizePercentage(task.tokenReductionPct)}% | ${task.toolCalls} | ${task.latencyMs} | ${joinCellValues(task.evidence)} | ${joinCellValues(task.notes)} |`,
+        } | ${task.baselineTokens} | ${task.estimatedBaselineTokens ?? "-"} | ${task.retrievedTokens} | ${task.estimatedRetrievedTokens ?? "-"} | ${normalizePercentage(task.tokenReductionPct)}% | ${task.toolCalls} | ${task.latencyMs} | ${joinCellValues(task.evidence)} | ${joinCellValues(task.notes)} |`,
     ),
     "",
     "## Per-Workflow Summary",
@@ -192,7 +216,9 @@ export function renderBenchmarkReportMarkdown(results: BenchmarkResults): string
     `- Successes: \`${results.summary.successCount}\``,
     `- Failures: \`${results.summary.failureCount}\``,
     `- Baseline Tokens: \`${results.summary.baselineTokens}\``,
+    `- Estimated Baseline Tokens: \`${results.summary.estimatedBaselineTokens ?? 0}\``,
     `- Retrieved Tokens: \`${results.summary.retrievedTokens}\``,
+    `- Estimated Retrieved Tokens: \`${results.summary.estimatedRetrievedTokens ?? 0}\``,
     `- Reduction: \`${normalizePercentage(results.summary.tokenReductionPct)}%\``,
     "",
     "## Failure Notes",

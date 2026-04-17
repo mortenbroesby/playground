@@ -3,8 +3,10 @@ export {
   DEFAULT_SUMMARY_STRATEGY,
   ENGINE_PHASE_1_TOOLS,
   ENGINE_STORAGE_DIRNAME,
+  isSymbolKind,
   isSummaryStrategy,
   normalizeSummaryStrategy,
+  parseSymbolKind,
   parseSummaryStrategy,
   resolveEnginePaths,
 } from "./config.ts";
