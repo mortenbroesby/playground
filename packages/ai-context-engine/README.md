@@ -55,6 +55,8 @@ The implemented slice now includes:
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo --scan-freshness`
 - `pnpm exec ai-context-engine mcp`
+- `pnpm --filter @playground/ai-context-engine bench:small`
+- `pnpm --filter @playground/ai-context-engine bench:cli`
 - `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
@@ -68,6 +70,10 @@ The implemented slice now includes:
 The shortest workspace-local entrypoint is `pnpm exec ai-context-engine ...`.
 The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with
 MCP-style `tools/list` and `tools/call` routing.
+
+`bench:cli` uses `hyperfine` and expects that binary to already be installed on
+the machine. If it is missing, the script fails with an install hint instead of
+silently skipping CLI benchmarks.
 
 ## Mutation testing
 
