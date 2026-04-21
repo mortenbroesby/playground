@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "description": "Repo-local Obsidian memory indexing and retrieval tools",
+  "dependencies": {
+    "workspace-tools": "^0.41.4"
+  },
   "scripts": {
     "obsidian:bootstrap": "node ./src/bootstrap-obsidian-vault.mjs",
     "rag:init": "node --experimental-strip-types ./src/rag-init.ts",

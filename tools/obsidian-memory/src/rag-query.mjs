@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { findProjectRoot } from "workspace-tools";
 
 import {
   assembleMemoryContext,
@@ -11,8 +12,7 @@ import {
   retrieveMemoryCandidates,
 } from "./obsidian-rag.mjs";
 
-const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const repoRoot = path.resolve(workspaceRoot, "..", "..");
+const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
 const defaultCorpusPath = path.join(repoRoot, ".rag", "obsidian-vault.corpus.json");
 
 function parseArgs(argv) {

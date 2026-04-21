@@ -5,12 +5,13 @@ import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findProjectRoot } from "workspace-tools";
 
 const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const workspaceRoot = path.resolve(packageRoot, "..", "..");
+const workspaceRoot = findProjectRoot(packageRoot, "pnpm");
 
 const EXCLUDED_SEGMENTS = new Set([
   ".ai-context-engine",

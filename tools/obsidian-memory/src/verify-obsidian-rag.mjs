@@ -5,6 +5,7 @@ import process from "node:process";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { findProjectRoot } from "workspace-tools";
 
 import {
   assembleMemoryContext,
@@ -14,7 +15,7 @@ import {
 
 const execFile = promisify(execFileCallback);
 const scriptPath = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(scriptPath), "..", "..", "..");
+const repoRoot = findProjectRoot(path.dirname(scriptPath), "pnpm");
 
 async function buildIndexedCorpus(vaultPath) {
   const outputDir = path.join(vaultPath, ".rag");

@@ -6,8 +6,9 @@ const {
 } = require("node:fs/promises");
 const path = require("node:path");
 const process = require("node:process");
+const { findProjectRoot } = require("workspace-tools");
 
-const repoRoot = path.resolve(__dirname, "..", "..", "..");
+const repoRoot = findProjectRoot(__dirname, "pnpm");
 const defaultVaultPath = path.join(repoRoot, "vault");
 const postCommitHookPath = path.join(repoRoot, ".husky", "post-commit");
 

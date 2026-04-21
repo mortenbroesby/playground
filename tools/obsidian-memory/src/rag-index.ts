@@ -8,6 +8,7 @@ const {
 } = require("node:fs/promises");
 const path = require("node:path");
 const process = require("node:process");
+const { findProjectRoot } = require("workspace-tools");
 
 type FrontmatterValue = string | string[] | boolean | number | null;
 
@@ -41,7 +42,7 @@ type Manifest = {
   files: Record<string, ManifestFile>;
 };
 
-const repoRoot = path.resolve(__dirname, "..", "..", "..");
+const repoRoot = findProjectRoot(__dirname, "pnpm");
 const corpusName = "obsidian-vault";
 const defaultVaultPath = path.join(repoRoot, "vault");
 const defaultOutputDir = path.join(repoRoot, ".rag");
