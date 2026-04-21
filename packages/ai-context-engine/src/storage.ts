@@ -16,6 +16,8 @@ import type {
   FileOutline,
   FileTreeEntry,
   IndexSummary,
+  RankedContextCandidate,
+  RankedContextResult,
   RepoOutline,
   SearchSymbolsOptions,
   SearchTextMatch,
@@ -807,6 +809,167 @@ function makeContextBundleItem(
   };
 }
 
+interface RankedSeedCandidate {
+  row: DbSymbolRow & { content_hash: string; content: string };
+  reason: string;
+  score: number;
+}
+
+function sortRankedSymbolEntries(
+  left: { row: DbSymbolRow; score: number },
+  right: { row: DbSymbolRow; score: number },
+) {
+  return (
+    right.score - left.score ||
+    Number(right.row.exported) - Number(left.row.exported) ||
+    left.row.file_path.localeCompare(right.row.file_path) ||
+    left.row.start_line - right.row.start_line ||
+    left.row.name.localeCompare(right.row.name)
+  );
+}
+
+function resolveRankedSeedCandidates(
+  db: import("node:sqlite").DatabaseSync,
+  input: ContextBundleOptions,
+): RankedSeedCandidate[] {
+  if (input.symbolIds?.length) {
+    return input.symbolIds
+      .map((symbolId) => loadSymbolSourceRow(db, symbolId))
+      .filter(
+        (row): row is DbSymbolRow & { content_hash: string; content: string } =>
+          Boolean(row),
+      )
+      .map((row, index) => ({
+        row,
+        reason: "explicit symbol id",
+        score: Math.max(1, input.symbolIds!.length - index),
+      }));
+  }
+
+  if (!input.query) {
+    return [];
+  }
+
+  return loadSymbolRows(db)
+    .map((row) => ({
+      row,
+      score: scoreSymbolRow(row, input.query ?? ""),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort(sortRankedSymbolEntries)
+    .slice(0, 5)
+    .map((entry) => ({
+      row: loadSymbolSourceRow(db, entry.row.id),
+      reason: `matched query "${input.query}"`,
+      score: entry.score,
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is RankedSeedCandidate => Boolean(entry.row),
+    );
+}
+
+function buildContextBundleFromSeeds(
+  db: import("node:sqlite").DatabaseSync,
+  input: ContextBundleOptions,
+  seedCandidates: RankedSeedCandidate[],
+): ContextBundle {
+  const bundleCandidates: Array<ContextBundleItem> = [];
+  const seen = new Set<string>();
+
+  for (const seed of seedCandidates) {
+    if (seen.has(seed.row.id)) {
+      continue;
+    }
+    seen.add(seed.row.id);
+    bundleCandidates.push(
+      makeContextBundleItem(
+        seed.row,
+        seed.row.content.slice(seed.row.start_byte, seed.row.end_byte),
+        "target",
+        seed.reason,
+      ),
+    );
+  }
+
+  for (const seed of seedCandidates) {
+    const dependencyRows = pickDependencyRows(db, seed.row);
+    for (const dependency of dependencyRows) {
+      if (seen.has(dependency.row.id)) {
+        continue;
+      }
+      seen.add(dependency.row.id);
+      const sourceRow = loadSymbolSourceRow(db, dependency.row.id);
+      if (!sourceRow) {
+        continue;
+      }
+      bundleCandidates.push(
+        makeContextBundleItem(
+          dependency.row,
+          sourceRow.content.slice(sourceRow.start_byte, sourceRow.end_byte),
+          "dependency",
+          dependency.reason,
+        ),
+      );
+    }
+  }
+
+  const tokenBudget = input.tokenBudget ?? 1200;
+  const estimatedTokens = bundleCandidates.reduce(
+    (total, item) => total + item.tokenCount,
+    0,
+  );
+  const items: ContextBundleItem[] = [];
+  let usedTokens = 0;
+
+  for (const item of bundleCandidates) {
+    if (usedTokens + item.tokenCount > tokenBudget) {
+      break;
+    }
+    items.push(item);
+    usedTokens += item.tokenCount;
+  }
+
+  return {
+    repoRoot: input.repoRoot,
+    query: input.query ?? null,
+    tokenBudget,
+    estimatedTokens,
+    usedTokens,
+    truncated: estimatedTokens > tokenBudget,
+    items,
+  };
+}
+
+function buildRankedContextResult(
+  input: ContextBundleOptions & { query: string },
+  seedCandidates: RankedSeedCandidate[],
+  bundle: ContextBundle,
+): RankedContextResult {
+  const selectedSeedIds = bundle.items
+    .filter((item) => item.role === "target")
+    .map((item) => item.symbol.id);
+
+  const candidates: RankedContextCandidate[] = seedCandidates.map((candidate, index) => ({
+    rank: index + 1,
+    score: candidate.score,
+    reason: candidate.reason,
+    symbol: mapSymbolRow(candidate.row),
+    selected: selectedSeedIds.includes(candidate.row.id),
+  }));
+
+  return {
+    repoRoot: input.repoRoot,
+    query: input.query,
+    tokenBudget: bundle.tokenBudget,
+    candidateCount: candidates.length,
+    selectedSeedIds,
+    candidates,
+    bundle,
+  };
+}
+
 async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
   repoRoot: string;
   filePath: string;
@@ -1458,126 +1621,25 @@ export async function getContextBundle(
   const db = openDatabase(config.paths.databasePath);
 
   try {
-    const tokenBudget = input.tokenBudget ?? 1200;
-    const seedRows = input.symbolIds?.length
-      ? input.symbolIds
-          .map((symbolId) => loadSymbolSourceRow(db, symbolId))
-          .filter(
-            (row): row is DbSymbolRow & { content_hash: string; content: string } =>
-              Boolean(row),
-          )
-          .map((row) => ({
-            row,
-            reason: "explicit symbol id",
-          }))
-      : input.query
-        ? loadSymbolRows(db)
-            .map((row) => ({
-              row,
-              score: scoreSymbolRow(row, input.query ?? ""),
-            }))
-            .filter((entry) => entry.score > 0)
-            .sort(
-              (left, right) =>
-                right.score - left.score ||
-                Number(right.row.exported) - Number(left.row.exported) ||
-                left.row.file_path.localeCompare(right.row.file_path) ||
-                left.row.start_line - right.row.start_line ||
-                left.row.name.localeCompare(right.row.name),
-            )
-            .slice(0, 3)
-            .map((entry) => ({
-              row: loadSymbolSourceRow(db, entry.row.id),
-              reason: `matched query "${input.query}"`,
-            }))
-            .filter(
-              (
-                row,
-              ): row is {
-                row: DbSymbolRow & { content_hash: string; content: string };
-                reason: string;
-              } => Boolean(row.row),
-            )
-        : [];
+    const seedCandidates = resolveRankedSeedCandidates(db, input).slice(0, 3);
+    return buildContextBundleFromSeeds(db, input, seedCandidates);
+  } finally {
+    db.close();
+  }
+}
 
-    const seedCandidates: Array<{
-      row: DbSymbolRow & { content_hash: string; content: string };
-      reason: string;
-    }> = seedRows
-      .filter(
-        (
-          entry,
-        ): entry is {
-          row: DbSymbolRow & { content_hash: string; content: string };
-          reason: string;
-        } => Boolean(entry.row),
-      );
+export async function getRankedContext(input: {
+  repoRoot: string;
+  query: string;
+  tokenBudget?: number;
+}): Promise<RankedContextResult> {
+  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const db = openDatabase(config.paths.databasePath);
 
-    const bundleCandidates: Array<ContextBundleItem> = [];
-    const seen = new Set<string>();
-
-    for (const seed of seedCandidates) {
-      if (seen.has(seed.row.id)) {
-        continue;
-      }
-      seen.add(seed.row.id);
-      bundleCandidates.push(
-        makeContextBundleItem(
-          seed.row,
-          seed.row.content.slice(seed.row.start_byte, seed.row.end_byte),
-          "target",
-          seed.reason,
-        ),
-      );
-    }
-
-    for (const seed of seedCandidates) {
-      const dependencyRows = pickDependencyRows(db, seed.row);
-      for (const dependency of dependencyRows) {
-        if (seen.has(dependency.row.id)) {
-          continue;
-        }
-        seen.add(dependency.row.id);
-        const sourceRow = loadSymbolSourceRow(db, dependency.row.id);
-        if (!sourceRow) {
-          continue;
-        }
-        bundleCandidates.push(
-          makeContextBundleItem(
-            dependency.row,
-            sourceRow.content.slice(sourceRow.start_byte, sourceRow.end_byte),
-            "dependency",
-            dependency.reason,
-          ),
-        );
-      }
-    }
-
-    const estimatedTokens = bundleCandidates.reduce(
-      (total, item) => total + item.tokenCount,
-      0,
-    );
-    const items: ContextBundleItem[] = [];
-    let usedTokens = 0;
-
-    for (const item of bundleCandidates) {
-      const wouldExceed = usedTokens + item.tokenCount > tokenBudget;
-      if (wouldExceed) {
-        break;
-      }
-      items.push(item);
-      usedTokens += item.tokenCount;
-    }
-
-    return {
-      repoRoot: input.repoRoot,
-      query: input.query ?? null,
-      tokenBudget,
-      estimatedTokens,
-      usedTokens,
-      truncated: estimatedTokens > tokenBudget,
-      items,
-    };
+  try {
+    const seedCandidates = resolveRankedSeedCandidates(db, input);
+    const bundle = buildContextBundleFromSeeds(db, input, seedCandidates.slice(0, 3));
+    return buildRankedContextResult(input, seedCandidates, bundle);
   } finally {
     db.close();
   }

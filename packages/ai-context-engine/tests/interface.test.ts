@@ -67,6 +67,28 @@ describe("ai-context-engine interfaces", () => {
       kind: "class",
     });
 
+    const rankedContextStdout = await handleCli([
+      "get-ranked-context",
+      "--repo",
+      repoRoot,
+      "--query",
+      "Greeter",
+      "--budget",
+      "120",
+    ]);
+    expect(JSON.parse(rankedContextStdout)).toMatchObject({
+      query: "Greeter",
+      bundle: {
+        tokenBudget: 120,
+      },
+    });
+    expect(JSON.parse(rankedContextStdout).candidates[0]).toMatchObject({
+      symbol: {
+        name: "Greeter",
+      },
+      selected: true,
+    });
+
     const signatureOnlyStdout = await handleCli([
       "index-folder",
       "--repo",
@@ -161,6 +183,7 @@ export function circumference(radius: number): string {
       "get_symbol_source",
     );
     expect(tools.map((tool) => tool.name)).toContain("get_context_bundle");
+    expect(tools.map((tool) => tool.name)).toContain("get_ranked_context");
     expect(tools.map((tool) => tool.name)).toContain("diagnostics");
 
     await server.handleMessage({
@@ -232,6 +255,39 @@ export function circumference(radius: number): string {
       symbol: {
         name: "Greeter",
       },
+    });
+
+    const rankedResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: {
+        name: "get_ranked_context",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          tokenBudget: 120,
+        },
+      },
+    });
+
+    const rankedContent = (
+      rankedResponse.result as {
+        content: Array<{ type: string; text: string }>;
+      }
+    ).content[0];
+    expect(rankedContent.type).toBe("text");
+    expect(JSON.parse(rankedContent.text)).toMatchObject({
+      query: "Greeter",
+      bundle: {
+        tokenBudget: 120,
+      },
+    });
+    expect(JSON.parse(rankedContent.text).candidates[0]).toMatchObject({
+      symbol: {
+        name: "Greeter",
+      },
+      selected: true,
     });
   });
 

@@ -153,6 +153,24 @@ export interface ContextBundleOptions {
   tokenBudget?: number;
 }
 
+export interface RankedContextCandidate {
+  rank: number;
+  score: number;
+  reason: string;
+  symbol: SymbolSummary;
+  selected: boolean;
+}
+
+export interface RankedContextResult {
+  repoRoot: string;
+  query: string;
+  tokenBudget: number;
+  candidateCount: number;
+  selectedSeedIds: string[];
+  candidates: RankedContextCandidate[];
+  bundle: ContextBundle;
+}
+
 export interface DiagnosticsResult {
   storageDir: string;
   databasePath: string;
@@ -185,6 +203,7 @@ export type EnginePhase1ToolName =
   | "search_symbols"
   | "search_text"
   | "get_context_bundle"
+  | "get_ranked_context"
   | "get_file_content"
   | "get_symbol_source"
   | "diagnostics";

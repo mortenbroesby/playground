@@ -10,6 +10,7 @@ import {
   getFileTree,
   getRepoOutline,
   getContextBundle,
+  getRankedContext,
   getSymbolSource,
   indexFile,
   indexFolder,
@@ -66,6 +67,12 @@ const commands: Record<string, CliHandler> = {
       repoRoot: required(args, "repo"),
       query: optional(args, "query"),
       symbolIds: optionalList(args, "symbols"),
+      tokenBudget: optionalNumber(args, "budget"),
+    }),
+  "get-ranked-context": async (args) =>
+    getRankedContext({
+      repoRoot: required(args, "repo"),
+      query: required(args, "query"),
       tokenBudget: optionalNumber(args, "budget"),
     }),
   "get-file-content": async (args) =>

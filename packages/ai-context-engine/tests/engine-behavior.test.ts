@@ -11,6 +11,7 @@ import {
   getFileOutline,
   getFileTree,
   getRepoOutline,
+  getRankedContext,
   getSymbolSource,
   indexFolder,
   indexFile,
@@ -275,6 +276,45 @@ export function area(radius: number): string {
     });
 
     expect(bundle.usedTokens).toBeLessThanOrEqual(bundle.tokenBudget);
+  });
+
+  it("returns ranked query context with visible candidate selection", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const rankedContext = await getRankedContext({
+      repoRoot,
+      query: "Greeter",
+      tokenBudget: 120,
+    });
+
+    expect(rankedContext).toMatchObject({
+      query: "Greeter",
+      candidateCount: expect.any(Number),
+      selectedSeedIds: expect.any(Array),
+      bundle: {
+        tokenBudget: 120,
+      },
+    });
+    expect(rankedContext.candidates[0]).toMatchObject({
+      rank: 1,
+      reason: 'matched query "Greeter"',
+      symbol: {
+        name: "Greeter",
+        filePath: "src/strings.ts",
+      },
+      selected: true,
+    });
+    expect(rankedContext.selectedSeedIds).toContain(
+      rankedContext.candidates[0]?.symbol.id,
+    );
+    expect(rankedContext.bundle.items[0]).toMatchObject({
+      role: "target",
+      symbol: {
+        name: "Greeter",
+      },
+    });
   });
 
   it("resolves aliased named imports to the correct dependency symbol", async () => {

@@ -10,6 +10,7 @@ import {
   getFileTree,
   getRepoOutline,
   getContextBundle,
+  getRankedContext,
   getSymbolSource,
   indexFile,
   indexFolder,
@@ -101,6 +102,14 @@ const toolDefinitions: McpTool[] = [
       description: "Token budget for the returned bundle",
     },
   }, ["repoRoot"]),
+  tool("get_ranked_context", "Return ranked query candidates plus the bounded context selected under budget.", {
+    repoRoot: stringProp("Repository root path"),
+    query: stringProp("Search query used to rank candidate symbols"),
+    tokenBudget: {
+      type: "number",
+      description: "Token budget for the returned bundle",
+    },
+  }, ["repoRoot", "query"]),
   tool("get_file_content", "Fetch full indexed file content from the raw cache.", {
     repoRoot: stringProp("Repository root path"),
     filePath: stringProp("Path relative to the repository root"),
@@ -227,6 +236,12 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
               (value): value is string => typeof value === "string" && value.length > 0,
             )
           : undefined,
+        tokenBudget: optionalNumber(args, "tokenBudget"),
+      });
+    case "get_ranked_context":
+      return getRankedContext({
+        repoRoot: requireString(args, "repoRoot"),
+        query: requireString(args, "query"),
         tokenBudget: optionalNumber(args, "tokenBudget"),
       });
     case "get_file_content":
