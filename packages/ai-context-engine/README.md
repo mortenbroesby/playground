@@ -31,23 +31,31 @@ The implemented slice now includes:
 - `search_symbols` and `search_text`
 - `get_context_bundle` for bounded, query-driven context assembly
 - `get_ranked_context` for inspectable query ranking plus bounded selection
-- `get_file_content`, `get_symbol_source`, and `diagnostics`
+- `get_file_content`, batched `get_symbol_source`, and `diagnostics`
 - fixture-backed tests proving indexing and exact retrieval
 - diagnostics now includes indexed timestamps, snapshot hashes, and live drift
   counts so stale metadata can be distinguished from a fresh index
 - diagnostics also persists the latest watch-session state so agents can inspect
   recent watch health without being attached to the live CLI event stream
+- symbol search now supports `language` and `filePattern` filters, and text
+  search supports `filePattern`
+- repo inputs anchored to any Git subdirectory resolve to the enclosing worktree
+  root for storage and indexing
 
 ## Commands
 
 - `pnpm exec ai-context-engine cli index-folder --repo /abs/repo`
 - `pnpm exec ai-context-engine cli get-repo-outline --repo /abs/repo`
+- `pnpm exec ai-context-engine cli search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
+- `pnpm exec ai-context-engine cli get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
 - `pnpm exec ai-context-engine cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
 - `pnpm exec ai-context-engine mcp`
 - `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
+- `pnpm --filter @playground/ai-context-engine cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
+- `pnpm --filter @playground/ai-context-engine cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
 - `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo`
@@ -79,5 +87,5 @@ inner loop. Plain `vitest` remains the normal fast feedback loop.
 Next slices should add:
 
 - richer ranking and query suggestion quality
-- bounded context bundles and ranked context assembly
-- worktree-aware indexing and richer relationship tools
+- richer relationship tools across imports and callers
+- narrower incremental indexing beyond current file and folder entrypoints

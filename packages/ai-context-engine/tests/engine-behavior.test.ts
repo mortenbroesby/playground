@@ -1,4 +1,4 @@
-import { rm, writeFile } from "node:fs/promises";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -177,6 +177,32 @@ describe("ai-context-engine behavior", () => {
     expect(fileTree.map((file) => file.path)).not.toContain("src/ignored.ts");
   });
 
+  it("anchors indexing and diagnostics to the enclosing git worktree root", async () => {
+    const repoRoot = await createFixtureRepo();
+    const canonicalRepoRoot = await realpath(repoRoot);
+    const nestedRepoRoot = path.join(repoRoot, "src");
+
+    const summary = await indexFolder({ repoRoot: nestedRepoRoot });
+    const repoOutline = await getRepoOutline({ repoRoot: nestedRepoRoot });
+    const health = await diagnostics({ repoRoot: nestedRepoRoot });
+
+    expect(summary).toMatchObject({
+      indexedFiles: 2,
+      indexedSymbols: 5,
+      staleStatus: "fresh",
+    });
+    expect(repoOutline).toMatchObject({
+      totalFiles: 2,
+      totalSymbols: 5,
+    });
+    expect(health.storageDir).toBe(
+      path.join(canonicalRepoRoot, ".ai-context-engine"),
+    );
+    expect(health.databasePath).toBe(
+      path.join(canonicalRepoRoot, ".ai-context-engine", "index.sqlite"),
+    );
+  });
+
   it("supports symbol and text search plus exact retrieval", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -214,6 +240,95 @@ describe("ai-context-engine behavior", () => {
     expect(textMatches[0]).toMatchObject({
       filePath: "src/strings.ts",
     });
+  });
+
+  it("supports language and file pattern filters in search", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "widget.jsx"),
+      `export function GreeterWidget() {
+  return <div>Hello widget</div>;
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const tsMatches = await searchSymbols({
+      repoRoot,
+      query: "Greeter",
+      language: "ts",
+      filePattern: "src/*.ts",
+    });
+    expect(tsMatches.every((entry) => entry.filePath.endsWith(".ts"))).toBe(true);
+    expect(tsMatches.some((entry) => entry.name === "Greeter")).toBe(true);
+    expect(tsMatches.some((entry) => entry.filePath.endsWith(".jsx"))).toBe(false);
+
+    const jsxMatches = await searchSymbols({
+      repoRoot,
+      query: "Greeter",
+      language: "jsx",
+      filePattern: "src/*.jsx",
+    });
+    expect(jsxMatches).toHaveLength(1);
+    expect(jsxMatches[0]).toMatchObject({
+      name: "GreeterWidget",
+      filePath: "src/widget.jsx",
+    });
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "Hello",
+      filePattern: "src/*.jsx",
+    });
+    expect(textMatches).toHaveLength(1);
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/widget.jsx",
+    });
+  });
+
+  it("supports batch symbol source retrieval with optional context lines", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "Greeter",
+    });
+    const greetMatches = await searchSymbols({
+      repoRoot,
+      query: "greet",
+    });
+
+    const symbolSource = await getSymbolSource({
+      repoRoot,
+      symbolIds: [symbolMatches[0].id, greetMatches[0].id],
+      contextLines: 1,
+      verify: true,
+    });
+
+    expect(symbolSource.requestedContextLines).toBe(1);
+    expect(symbolSource.items).toHaveLength(2);
+    expect(symbolSource.items[0]).toMatchObject({
+      symbol: {
+        name: "Greeter",
+      },
+      verified: true,
+    });
+    expect(symbolSource.items[0]?.source).toContain(
+      "/** Friendly greeter for string output. */",
+    );
+    expect(symbolSource.items[1]).toMatchObject({
+      symbol: {
+        name: "greet",
+      },
+      verified: true,
+    });
+    expect(symbolSource.items[1]?.source).toContain(
+      '// Return a greeting for the provided name.',
+    );
   });
 
   it("assembles bounded context bundles from persisted indexed content", async () => {

@@ -153,7 +153,6 @@ export function preToolDeny(reason) {
         permissionDecision: 'deny',
         permissionDecisionReason: reason,
       },
-      suppressOutput: true,
     }),
   };
 }
@@ -174,7 +173,6 @@ export function sessionContext(additionalContext) {
         hookEventName: 'SessionStart',
         additionalContext,
       },
-      suppressOutput: true,
     }),
   };
 }

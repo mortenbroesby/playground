@@ -1,6 +1,6 @@
 import path from "node:path";
 import { execFile } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { realpath, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -66,6 +66,32 @@ describe("ai-context-engine interfaces", () => {
       name: "Greeter",
       kind: "class",
     });
+    const filteredTextStdout = await handleCli([
+      "search-text",
+      "--repo",
+      repoRoot,
+      "--query",
+      "Hello",
+      "--file-pattern",
+      "src/*.ts",
+    ]);
+    expect(JSON.parse(filteredTextStdout)[0]).toMatchObject({
+      filePath: "src/strings.ts",
+    });
+    const greeterId = JSON.parse(filteredStdout)[0].id as string;
+
+    const greetStdout = await handleCli([
+      "search-symbols",
+      "--repo",
+      repoRoot,
+      "--query",
+      "greet",
+      "--kind",
+      "method",
+      "--limit",
+      "1",
+    ]);
+    const greetId = JSON.parse(greetStdout)[0].id as string;
 
     const rankedContextStdout = await handleCli([
       "get-ranked-context",
@@ -88,6 +114,20 @@ describe("ai-context-engine interfaces", () => {
       },
       selected: true,
     });
+
+    const symbolSourceStdout = await handleCli([
+      "get-symbol-source",
+      "--repo",
+      repoRoot,
+      "--symbols",
+      `${greeterId},${greetId}`,
+      "--context-lines",
+      "1",
+    ]);
+    expect(JSON.parse(symbolSourceStdout)).toMatchObject({
+      requestedContextLines: 1,
+    });
+    expect(JSON.parse(symbolSourceStdout).items).toHaveLength(2);
 
     const signatureOnlyStdout = await handleCli([
       "index-folder",
@@ -163,6 +203,35 @@ export function circumference(radius: number): string {
     expect(signatureDiagnostics.watch.reindexCount).toBeGreaterThanOrEqual(0);
   });
 
+  it("treats a subdirectory CLI repo path as the enclosing git worktree root", async () => {
+    const repoRoot = await createFixtureRepo();
+    const canonicalRepoRoot = await realpath(repoRoot);
+    const nestedRepoRoot = path.join(repoRoot, "src");
+
+    const summaryStdout = await handleCli([
+      "index-folder",
+      "--repo",
+      nestedRepoRoot,
+    ]);
+    expect(JSON.parse(summaryStdout)).toMatchObject({
+      indexedFiles: 2,
+      indexedSymbols: 5,
+      staleStatus: "fresh",
+    });
+
+    const diagnosticsStdout = await handleCli([
+      "diagnostics",
+      "--repo",
+      nestedRepoRoot,
+    ]);
+    expect(JSON.parse(diagnosticsStdout)).toMatchObject({
+      storageDir: path.join(canonicalRepoRoot, ".ai-context-engine"),
+      databasePath: path.join(canonicalRepoRoot, ".ai-context-engine", "index.sqlite"),
+      indexedFiles: 2,
+      currentFiles: 2,
+    });
+  });
+
   it("exposes spec-aligned MCP tools", async () => {
     const repoRoot = await createFixtureRepo();
     const server = createMcpServer();
@@ -228,6 +297,54 @@ export function circumference(radius: number): string {
       summarySource: "signature",
     });
 
+    const filteredSearchResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 31,
+      method: "tools/call",
+      params: {
+        name: "search_symbols",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          language: "ts",
+          filePattern: "src/*.ts",
+          limit: 5,
+        },
+      },
+    });
+
+    const filteredSearchContent = (
+      filteredSearchResponse.result as {
+        content: Array<{ type: string; text: string }>;
+      }
+    ).content[0];
+    expect(JSON.parse(filteredSearchContent.text).every((entry: { filePath: string }) =>
+      entry.filePath.endsWith(".ts"),
+    )).toBe(true);
+    const greeterToolId = JSON.parse(content.text)[0].id as string;
+
+    const greetResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 30,
+      method: "tools/call",
+      params: {
+        name: "search_symbols",
+        arguments: {
+          repoRoot,
+          query: "greet",
+          kind: "method",
+          limit: 1,
+        },
+      },
+    });
+
+    const greetContent = (
+      greetResponse.result as {
+        content: Array<{ type: string; text: string }>;
+      }
+    ).content[0];
+    const greetToolId = JSON.parse(greetContent.text)[0].id as string;
+
     const bundleResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 4,
@@ -289,6 +406,31 @@ export function circumference(radius: number): string {
       },
       selected: true,
     });
+
+    const symbolSourceResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 9,
+      method: "tools/call",
+      params: {
+        name: "get_symbol_source",
+        arguments: {
+          repoRoot,
+          symbolIds: [greeterToolId, greetToolId],
+          contextLines: 1,
+        },
+      },
+    });
+
+    const symbolSourceContent = (
+      symbolSourceResponse.result as {
+        content: Array<{ type: string; text: string }>;
+      }
+    ).content[0];
+    expect(symbolSourceContent.type).toBe("text");
+    expect(JSON.parse(symbolSourceContent.text)).toMatchObject({
+      requestedContextLines: 1,
+    });
+    expect(JSON.parse(symbolSourceContent.text).items).toHaveLength(2);
   });
 
   it("rejects unsupported summary strategies at runtime boundaries", async () => {

@@ -77,6 +77,14 @@ const toolDefinitions: McpTool[] = [
       type: "string",
       description: "Optional symbol kind filter",
     },
+    language: {
+      type: "string",
+      description: "Optional language filter (ts, tsx, js, jsx)",
+    },
+    filePattern: {
+      type: "string",
+      description: "Optional glob-like file path filter",
+    },
     limit: {
       type: "number",
       description: "Optional maximum number of results",
@@ -85,6 +93,10 @@ const toolDefinitions: McpTool[] = [
   tool("search_text", "Search indexed raw source text.", {
     repoRoot: stringProp("Repository root path"),
     query: stringProp("Search query"),
+    filePattern: {
+      type: "string",
+      description: "Optional glob-like file path filter",
+    },
   }, ["repoRoot", "query"]),
   tool("get_context_bundle", "Assemble bounded context from ranked symbols and dependencies.", {
     repoRoot: stringProp("Repository root path"),
@@ -117,8 +129,17 @@ const toolDefinitions: McpTool[] = [
   tool("get_symbol_source", "Fetch exact source for one indexed symbol.", {
     repoRoot: stringProp("Repository root path"),
     symbolId: stringProp("Indexed symbol id"),
+    symbolIds: {
+      type: "array",
+      items: stringProp("Indexed symbol id"),
+      description: "Optional batch of indexed symbol ids",
+    },
+    contextLines: {
+      type: "number",
+      description: "Optional surrounding context line count",
+    },
     verify: { type: "boolean", description: "Verify content hash before returning" },
-  }, ["repoRoot", "symbolId"]),
+  }, ["repoRoot"]),
   tool("diagnostics", "Report storage and freshness metadata.", {
     repoRoot: stringProp("Repository root path"),
   }, ["repoRoot"]),
@@ -217,12 +238,33 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
           typeof args.kind === "string"
             ? parseSymbolKind(args.kind, "kind")
             : undefined,
+        language:
+          args.language === "ts" ||
+          args.language === "tsx" ||
+          args.language === "js" ||
+          args.language === "jsx"
+            ? args.language
+            : typeof args.language === "string"
+              ? (() => {
+                  throw new Error(
+                    `Unsupported language: ${args.language}. Expected one of: ts, tsx, js, jsx`,
+                  );
+                })()
+              : undefined,
+        filePattern:
+          typeof args.filePattern === "string" && args.filePattern.length > 0
+            ? args.filePattern
+            : undefined,
         limit: optionalNumber(args, "limit"),
       });
     case "search_text":
       return searchText({
         repoRoot: requireString(args, "repoRoot"),
         query: requireString(args, "query"),
+        filePattern:
+          typeof args.filePattern === "string" && args.filePattern.length > 0
+            ? args.filePattern
+            : undefined,
       });
     case "get_context_bundle":
       return getContextBundle({
@@ -252,7 +294,16 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
     case "get_symbol_source":
       return getSymbolSource({
         repoRoot: requireString(args, "repoRoot"),
-        symbolId: requireString(args, "symbolId"),
+        symbolId:
+          typeof args.symbolId === "string" && args.symbolId.length > 0
+            ? args.symbolId
+            : undefined,
+        symbolIds: Array.isArray(args.symbolIds)
+          ? args.symbolIds.filter(
+              (value): value is string => typeof value === "string" && value.length > 0,
+            )
+          : undefined,
+        contextLines: optionalNumber(args, "contextLines"),
         verify: args.verify === true,
       });
     case "diagnostics":

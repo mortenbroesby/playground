@@ -106,6 +106,8 @@ export interface SearchSymbolsOptions {
   repoRoot: string;
   query: string;
   kind?: SymbolKind;
+  language?: SupportedLanguage;
+  filePattern?: string;
   limit?: number;
 }
 
@@ -115,15 +117,33 @@ export interface SearchTextMatch {
   preview: string;
 }
 
+export interface SearchTextOptions {
+  repoRoot: string;
+  query: string;
+  filePattern?: string;
+}
+
 export interface FileContentResult {
   filePath: string;
   content: string;
 }
 
-export interface SymbolSourceResult {
+export interface SymbolSourceItem {
   symbol: SymbolSummary;
   source: string;
   verified: boolean;
+  startLine: number;
+  endLine: number;
+}
+
+export interface SymbolSourceResult {
+  requestedContextLines: number;
+  items: SymbolSourceItem[];
+  symbol?: SymbolSummary;
+  source?: string;
+  verified?: boolean;
+  startLine?: number;
+  endLine?: number;
 }
 
 export type ContextBundleItemRole = "target" | "dependency";

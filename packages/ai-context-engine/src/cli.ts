@@ -55,12 +55,15 @@ const commands: Record<string, CliHandler> = {
       repoRoot: required(args, "repo"),
       query: required(args, "query"),
       kind: optionalKind(args, "kind"),
+      language: optionalLanguage(args, "language"),
+      filePattern: optional(args, "file-pattern"),
       limit: optionalNumber(args, "limit"),
     }),
   "search-text": async (args) =>
     searchText({
       repoRoot: required(args, "repo"),
       query: required(args, "query"),
+      filePattern: optional(args, "file-pattern"),
     }),
   "get-context-bundle": async (args) =>
     getContextBundle({
@@ -83,7 +86,9 @@ const commands: Record<string, CliHandler> = {
   "get-symbol-source": async (args) =>
     getSymbolSource({
       repoRoot: required(args, "repo"),
-      symbolId: required(args, "symbol"),
+      symbolId: optional(args, "symbol"),
+      symbolIds: optionalList(args, "symbols"),
+      contextLines: optionalNumber(args, "context-lines"),
       verify: args.verify === "true",
     }),
   diagnostics: async (args) => diagnostics({ repoRoot: required(args, "repo") }),
@@ -139,6 +144,20 @@ function optionalKind(
 ): Parameters<typeof searchSymbols>[0]["kind"] | undefined {
   const value = optional(args, key);
   return value ? parseSymbolKind(value, `--${key}`) : undefined;
+}
+
+function optionalLanguage(
+  args: Record<string, string>,
+  key: string,
+): Parameters<typeof searchSymbols>[0]["language"] | undefined {
+  const value = optional(args, key);
+  return value === "ts" || value === "tsx" || value === "js" || value === "jsx"
+    ? value
+    : value
+      ? (() => {
+          throw new Error(`Unsupported --${key}: ${value}. Expected one of: ts, tsx, js, jsx`);
+        })()
+      : undefined;
 }
 
 function parseArgs(argv: string[]): { command: string; args: Record<string, string> } {

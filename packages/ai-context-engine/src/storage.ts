@@ -20,8 +20,10 @@ import type {
   RankedContextResult,
   RepoOutline,
   SearchSymbolsOptions,
+  SearchTextOptions,
   SearchTextMatch,
   SymbolSourceResult,
+  SymbolSourceItem,
   SymbolSummary,
   SummarySource,
   SummaryStrategy,
@@ -176,8 +178,31 @@ function openDatabase(databasePath: string): import("node:sqlite").DatabaseSync 
   return db;
 }
 
+async function resolveRepoRoot(repoRoot: string): Promise<string> {
+  const absoluteRepoRoot = path.resolve(repoRoot);
+  const resolvedRepoRoot = await realpath(absoluteRepoRoot).catch(
+    () => absoluteRepoRoot,
+  );
+
+  try {
+    const worktreeRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: resolvedRepoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    return await realpath(worktreeRoot).catch(() => worktreeRoot);
+  } catch {
+    return resolvedRepoRoot;
+  }
+}
+
 async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy) {
-  const config = createDefaultEngineConfig({ repoRoot, summaryStrategy });
+  const resolvedRepoRoot = await resolveRepoRoot(repoRoot);
+  const config = createDefaultEngineConfig({
+    repoRoot: resolvedRepoRoot,
+    summaryStrategy,
+  });
   await mkdir(config.paths.storageDir, { recursive: true });
   await mkdir(config.paths.rawCacheDir, { recursive: true });
   return config;
@@ -518,6 +543,20 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function matchesFilePattern(filePath: string, pattern?: string): boolean {
+  if (!pattern) {
+    return true;
+  }
+
+  const normalizedPattern = pattern.replaceAll("\\", "/");
+  const regexPattern = escapeRegExp(normalizedPattern)
+    .replace(/\\\*\\\*/g, ".*")
+    .replace(/\\\*/g, "[^/]*")
+    .replace(/\\\?/g, "[^/]");
+
+  return new RegExp(`^${regexPattern}$`, "u").test(filePath);
+}
+
 function estimateTokens(value: string): number {
   return Math.max(1, Math.ceil(value.length / 4));
 }
@@ -599,7 +638,11 @@ function scoreSymbolRow(row: DbSymbolRow, query: string): number {
 
 function loadSymbolRows(
   db: import("node:sqlite").DatabaseSync,
-  input: { kind?: SearchSymbolsOptions["kind"] } = {},
+  input: {
+    kind?: SearchSymbolsOptions["kind"];
+    language?: SearchSymbolsOptions["language"];
+    filePattern?: SearchSymbolsOptions["filePattern"];
+  } = {},
 ): DbSymbolRow[] {
   const rows = input.kind
     ? typedAll<DbSymbolRow>(
@@ -627,7 +670,9 @@ function loadSymbolRows(
         ),
       );
 
-  return rows;
+  return rows
+    .filter((row) => !input.language || row.file_path.endsWith(`.${input.language}`))
+    .filter((row) => matchesFilePattern(row.file_path, input.filePattern));
 }
 
 function loadSymbolSourceRow(
@@ -806,6 +851,24 @@ function makeContextBundleItem(
     symbol: mapSymbolRow(row),
     source,
     tokenCount: estimateTokens(source) + 8,
+  };
+}
+
+function buildSymbolSourceItem(
+  row: DbSymbolRow & { content_hash: string; content: string },
+  verify: boolean,
+  contextLines = 0,
+): SymbolSourceItem {
+  const normalizedContextLines = Math.max(0, Math.floor(contextLines));
+  const lines = row.content.split("\n");
+  const startLine = Math.max(1, row.start_line - normalizedContextLines);
+  const endLine = Math.min(lines.length, row.end_line + normalizedContextLines);
+  return {
+    symbol: mapSymbolRow(row),
+    source: lines.slice(startLine - 1, endLine).join("\n"),
+    verified: verify ? sha256(row.content) === row.content_hash : false,
+    startLine,
+    endLine,
   };
 }
 
@@ -1117,11 +1180,12 @@ export async function indexFolder(input: {
 }): Promise<IndexSummary> {
   const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
   const db = openDatabase(config.paths.databasePath);
+  const repoRoot = config.repoRoot;
 
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
-    const supportedFiles = await listSupportedFiles(input.repoRoot);
+    const supportedFiles = await listSupportedFiles(repoRoot);
     const tracked = db.prepare("SELECT path FROM files").all() as Array<{ path: string }>;
     const trackedPaths = new Set(tracked.map((row) => row.path));
     const nextPaths = new Set(supportedFiles);
@@ -1136,7 +1200,7 @@ export async function indexFolder(input: {
     let indexedSymbols = 0;
     for (const filePath of supportedFiles) {
       const result = await upsertFileIndex(db, {
-        repoRoot: input.repoRoot,
+        repoRoot,
         filePath,
         summaryStrategy: config.summaryStrategy,
         forceRefresh,
@@ -1148,12 +1212,12 @@ export async function indexFolder(input: {
     }
 
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, input.repoRoot, indexedAt, config.summaryStrategy);
+    await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
     return {
       indexedFiles,
       indexedSymbols,
-      skippedFiles: await countSkippedFiles(input.repoRoot),
+      skippedFiles: await countSkippedFiles(repoRoot),
       staleStatus: "fresh",
     };
   } finally {
@@ -1191,16 +1255,18 @@ export async function indexFile(input: {
 }): Promise<IndexSummary> {
   const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
   const db = openDatabase(config.paths.databasePath);
+  const repoRoot = config.repoRoot;
 
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const result = await upsertFileIndex(db, {
-      ...input,
+      repoRoot,
+      filePath: input.filePath,
       summaryStrategy: config.summaryStrategy,
       forceRefresh: meta?.summaryStrategy !== config.summaryStrategy,
     });
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, input.repoRoot, indexedAt, config.summaryStrategy);
+    await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
     return {
       indexedFiles: result.indexed ? 1 : 0,
@@ -1215,7 +1281,7 @@ export async function indexFile(input: {
 
 export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   const debounceMs = input.debounceMs ?? 100;
-  const repoRoot = path.resolve(input.repoRoot);
+  const repoRoot = await resolveRepoRoot(input.repoRoot);
   const pollMs = Math.max(50, Math.min(debounceMs, 250));
   const pendingPaths = new Set<string>();
   let closed = false;
@@ -1442,7 +1508,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
 }
 
 export async function getRepoOutline(input: { repoRoot: string }): Promise<RepoOutline> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
@@ -1465,7 +1531,7 @@ export async function getRepoOutline(input: { repoRoot: string }): Promise<RepoO
 }
 
 export async function getFileTree(input: { repoRoot: string }): Promise<FileTreeEntry[]> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
@@ -1490,9 +1556,9 @@ export async function getFileOutline(input: {
   repoRoot: string;
   filePath: string;
 }): Promise<FileOutline> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
-  const { relativePath } = normalizeRepoRelativePath(input.repoRoot, input.filePath);
+  const { relativePath } = normalizeRepoRelativePath(config.repoRoot, input.filePath);
 
   try {
     const rows = typedAll<DbSymbolRow>(db.prepare(
@@ -1519,7 +1585,7 @@ export async function getFileOutline(input: {
 export async function suggestInitialQueries(input: {
   repoRoot: string;
 }): Promise<string[]> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
@@ -1548,11 +1614,15 @@ export async function suggestInitialQueries(input: {
 export async function searchSymbols(
   input: SearchSymbolsOptions,
 ): Promise<SymbolSummary[]> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
-    const rows = loadSymbolRows(db, { kind: input.kind });
+    const rows = loadSymbolRows(db, {
+      kind: input.kind,
+      language: input.language,
+      filePattern: input.filePattern,
+    });
     const normalizedQuery = normalizeQuery(input.query);
 
     return rows
@@ -1576,11 +1646,10 @@ export async function searchSymbols(
   }
 }
 
-export async function searchText(input: {
-  repoRoot: string;
-  query: string;
-}): Promise<SearchTextMatch[]> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+export async function searchText(
+  input: SearchTextOptions,
+): Promise<SearchTextMatch[]> {
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
@@ -1596,6 +1665,9 @@ export async function searchText(input: {
     const matches: SearchTextMatch[] = [];
 
     for (const row of rows) {
+      if (!matchesFilePattern(row.file_path, input.filePattern)) {
+        continue;
+      }
       const lines = row.content.split("\n");
       lines.forEach((line, index) => {
         if (line.toLowerCase().includes(lowerQuery)) {
@@ -1617,7 +1689,7 @@ export async function searchText(input: {
 export async function getContextBundle(
   input: ContextBundleOptions,
 ): Promise<ContextBundle> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
@@ -1633,7 +1705,7 @@ export async function getRankedContext(input: {
   query: string;
   tokenBudget?: number;
 }): Promise<RankedContextResult> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
@@ -1649,9 +1721,9 @@ export async function getFileContent(input: {
   repoRoot: string;
   filePath: string;
 }): Promise<FileContentResult> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
-  const { relativePath } = normalizeRepoRelativePath(input.repoRoot, input.filePath);
+  const { relativePath } = normalizeRepoRelativePath(config.repoRoot, input.filePath);
 
   try {
     const row = db.prepare(
@@ -1678,43 +1750,63 @@ export async function getFileContent(input: {
 
 export async function getSymbolSource(input: {
   repoRoot: string;
-  symbolId: string;
+  symbolId?: string;
+  symbolIds?: string[];
   verify?: boolean;
+  contextLines?: number;
 }): Promise<SymbolSourceResult> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
-    const row = db.prepare(
-      `
-        SELECT
-          symbols.id, symbols.name, symbols.qualified_name, symbols.kind, symbols.file_path,
-          symbols.signature, symbols.summary, symbols.summary_source,
-          symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
-          symbols.exported,
-          files.content_hash, content_blobs.content
-        FROM symbols
-        INNER JOIN files ON files.id = symbols.file_id
-        INNER JOIN content_blobs ON content_blobs.file_id = files.id
-        WHERE symbols.id = ?
-      `,
-    ).get(input.symbolId) as (DbSymbolRow & {
-      content_hash: string;
-      content: string;
-    }) | undefined;
+    const requestedIds = [
+      ...(input.symbolId ? [input.symbolId] : []),
+      ...(input.symbolIds ?? []),
+    ];
+    const symbolIds = [...new Set(requestedIds.filter(Boolean))];
 
-    if (!row) {
-      throw new Error(`Symbol not indexed: ${input.symbolId}`);
+    if (symbolIds.length === 0) {
+      throw new Error("At least one symbol id is required");
     }
 
-    const verified = input.verify
-      ? sha256(row.content) === row.content_hash
-      : false;
+    const rows = symbolIds.map((symbolId) => {
+      const row = db.prepare(
+        `
+          SELECT
+            symbols.id, symbols.name, symbols.qualified_name, symbols.kind, symbols.file_path,
+            symbols.signature, symbols.summary, symbols.summary_source,
+            symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
+            symbols.exported,
+            files.content_hash, content_blobs.content
+          FROM symbols
+          INNER JOIN files ON files.id = symbols.file_id
+          INNER JOIN content_blobs ON content_blobs.file_id = files.id
+          WHERE symbols.id = ?
+        `,
+      ).get(symbolId) as (DbSymbolRow & {
+        content_hash: string;
+        content: string;
+      }) | undefined;
+
+      if (!row) {
+        throw new Error(`Symbol not indexed: ${symbolId}`);
+      }
+      return row;
+    });
+
+    const items = rows.map((row) =>
+      buildSymbolSourceItem(row, input.verify === true, input.contextLines),
+    );
+    const first = items[0];
 
     return {
-      symbol: mapSymbolRow(row),
-      source: row.content.slice(row.start_byte, row.end_byte),
-      verified,
+      requestedContextLines: Math.max(0, Math.floor(input.contextLines ?? 0)),
+      items,
+      symbol: first?.symbol,
+      source: first?.source,
+      verified: first?.verified,
+      startLine: first?.startLine,
+      endLine: first?.endLine,
     };
   } finally {
     db.close();
@@ -1726,11 +1818,12 @@ export async function diagnostics(input: {
 }): Promise<DiagnosticsResult> {
   const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
+  const repoRoot = config.repoRoot;
 
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const indexedEntries = loadIndexedSnapshot(db);
-    const currentEntries = await loadFilesystemSnapshot(input.repoRoot);
+    const currentEntries = await loadFilesystemSnapshot(repoRoot);
     const drift = compareSnapshots(indexedEntries, currentEntries);
     const indexedAt = meta?.indexedAt ?? null;
     const indexAgeMs =
