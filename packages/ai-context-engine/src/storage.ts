@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
 import type {
+  DiagnosticsOptions,
   DiagnosticsResult,
   ContextBundle,
   ContextBundleItem,
@@ -1813,9 +1814,7 @@ export async function getSymbolSource(input: {
   }
 }
 
-export async function diagnostics(input: {
-  repoRoot: string;
-}): Promise<DiagnosticsResult> {
+export async function diagnostics(input: DiagnosticsOptions): Promise<DiagnosticsResult> {
   const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
   const repoRoot = config.repoRoot;
@@ -1823,8 +1822,23 @@ export async function diagnostics(input: {
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const indexedEntries = loadIndexedSnapshot(db);
-    const currentEntries = await loadFilesystemSnapshot(repoRoot);
-    const drift = compareSnapshots(indexedEntries, currentEntries);
+    const indexedSnapshotHash =
+      meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? snapshotHash(indexedEntries) : null);
+    const scanFreshness = input.scanFreshness === true;
+    const drift = scanFreshness
+      ? compareSnapshots(indexedEntries, await loadFilesystemSnapshot(repoRoot))
+      : {
+          missingPaths: [] as string[],
+          extraPaths: [] as string[],
+          changedPaths: [] as string[],
+          indexedFiles: indexedEntries.length,
+          currentFiles: meta?.indexedFiles ?? indexedEntries.length,
+          missingFiles: 0,
+          changedFiles: 0,
+          extraFiles: 0,
+          indexedSnapshotHash: indexedSnapshotHash ?? null,
+          currentSnapshotHash: indexedSnapshotHash ?? null,
+        };
     const indexedAt = meta?.indexedAt ?? null;
     const indexAgeMs =
       indexedAt !== null ? Math.max(0, Date.now() - Date.parse(indexedAt)) : null;
@@ -1833,18 +1847,26 @@ export async function diagnostics(input: {
     if (!meta) {
       staleReasons.push("index metadata missing");
     }
-    if (drift.missingFiles > 0) {
-      staleReasons.push("missing files");
-    }
-    if (drift.changedFiles > 0) {
-      staleReasons.push("content drift");
-    }
-    if (drift.extraFiles > 0) {
-      staleReasons.push("new files");
+    if (scanFreshness) {
+      if (drift.missingFiles > 0) {
+        staleReasons.push("missing files");
+      }
+      if (drift.changedFiles > 0) {
+        staleReasons.push("content drift");
+      }
+      if (drift.extraFiles > 0) {
+        staleReasons.push("new files");
+      }
     }
 
     const staleStatus: DiagnosticsResult["staleStatus"] =
-      meta && staleReasons.length === 0 ? "fresh" : meta ? "stale" : "unknown";
+      scanFreshness
+        ? meta && staleReasons.length === 0
+          ? "fresh"
+          : meta
+            ? "stale"
+            : "unknown"
+        : meta?.staleStatus ?? "unknown";
     const summarySources = Object.fromEntries(
       typedAll<{ summary_source: SummarySource; count: number }>(
         db.prepare(
@@ -1862,6 +1884,8 @@ export async function diagnostics(input: {
       databasePath: config.paths.databasePath,
       storageMode: config.storageMode,
       staleStatus,
+      freshnessMode: scanFreshness ? "scan" : "metadata",
+      freshnessScanned: scanFreshness,
       summaryStrategy: meta?.summaryStrategy ?? config.summaryStrategy,
       summarySources,
       indexedAt,
@@ -1874,8 +1898,7 @@ export async function diagnostics(input: {
       missingFiles: drift.missingFiles,
       changedFiles: drift.changedFiles,
       extraFiles: drift.extraFiles,
-      indexedSnapshotHash:
-        meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? drift.indexedSnapshotHash : null),
+      indexedSnapshotHash,
       currentSnapshotHash: drift.currentSnapshotHash,
       staleReasons,
       watch: meta?.watch ?? createDefaultWatchDiagnostics(),

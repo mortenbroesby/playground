@@ -33,7 +33,9 @@ The implemented slice now includes:
 - `get_ranked_context` for inspectable query ranking plus bounded selection
 - `get_file_content`, batched `get_symbol_source`, and `diagnostics`
 - fixture-backed tests proving indexing and exact retrieval
-- diagnostics now includes indexed timestamps, snapshot hashes, and live drift
+- diagnostics defaults to cheap metadata reads, with optional live drift
+  scanning when callers explicitly request freshness checks
+- diagnostics includes indexed timestamps, snapshot hashes, and live drift
   counts so stale metadata can be distinguished from a fresh index
 - diagnostics also persists the latest watch-session state so agents can inspect
   recent watch health without being attached to the live CLI event stream
@@ -51,6 +53,7 @@ The implemented slice now includes:
 - `pnpm exec ai-context-engine cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
+- `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo --scan-freshness`
 - `pnpm exec ai-context-engine mcp`
 - `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
@@ -59,6 +62,7 @@ The implemented slice now includes:
 - `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo`
+- `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo --scan-freshness`
 - `pnpm --filter @playground/ai-context-engine mcp`
 
 The shortest workspace-local entrypoint is `pnpm exec ai-context-engine ...`.

@@ -28,6 +28,7 @@ export {
 } from "./storage.ts";
 
 export type {
+  DiagnosticsOptions,
   DiagnosticsResult,
   EngineConfig,
   EnginePaths,

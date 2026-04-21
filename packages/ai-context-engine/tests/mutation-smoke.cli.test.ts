@@ -143,6 +143,8 @@ describe("mutation smoke cli boundaries", () => {
 
     expect(diagnosticsResult).toMatchObject({
       summaryStrategy: "signature-only",
+      freshnessMode: "metadata",
+      freshnessScanned: false,
     });
 
     const searchResult = JSON.parse(

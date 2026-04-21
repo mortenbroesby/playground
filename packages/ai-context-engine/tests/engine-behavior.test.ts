@@ -613,6 +613,10 @@ export function circumference(radius: number): string {
     const health = await diagnostics({ repoRoot });
     expect(health.storageMode).toBe("wal");
     expect(health.staleStatus).toBe("fresh");
+    expect(health).toMatchObject({
+      freshnessMode: "metadata",
+      freshnessScanned: false,
+    });
   });
 
   it("supports debounced watch mode with changed-file fast refresh", async () => {
@@ -753,9 +757,11 @@ export function circumference(radius: number): string {
 
     await indexFolder({ repoRoot });
 
-    const initialHealth = await diagnostics({ repoRoot });
+    const initialHealth = await diagnostics({ repoRoot, scanFreshness: true });
     expect(initialHealth).toMatchObject({
       staleStatus: "fresh",
+      freshnessMode: "scan",
+      freshnessScanned: true,
       indexedFiles: 2,
       currentFiles: 2,
       missingFiles: 0,
@@ -778,9 +784,11 @@ export function area(radius: number): string {
 `,
     );
 
-    const staleHealth = await diagnostics({ repoRoot });
+    const staleHealth = await diagnostics({ repoRoot, scanFreshness: true });
     expect(staleHealth).toMatchObject({
       staleStatus: "stale",
+      freshnessMode: "scan",
+      freshnessScanned: true,
       indexedFiles: 2,
       currentFiles: 2,
       missingFiles: 0,

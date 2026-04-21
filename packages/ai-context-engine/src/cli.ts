@@ -23,7 +23,7 @@ import {
 type StopReason = "timeout" | "signal" | "closed";
 
 type CliHandler = (args: Record<string, string>) => Promise<unknown>;
-const BOOLEAN_FLAGS = new Set(["verify"]);
+const BOOLEAN_FLAGS = new Set(["verify", "scan-freshness"]);
 
 const commands: Record<string, CliHandler> = {
   init: async (args) => diagnostics({ repoRoot: required(args, "repo") }),
@@ -91,7 +91,11 @@ const commands: Record<string, CliHandler> = {
       contextLines: optionalNumber(args, "context-lines"),
       verify: args.verify === "true",
     }),
-  diagnostics: async (args) => diagnostics({ repoRoot: required(args, "repo") }),
+  diagnostics: async (args) =>
+    diagnostics({
+      repoRoot: required(args, "repo"),
+      scanFreshness: args["scan-freshness"] === "true",
+    }),
 };
 
 function required(args: Record<string, string>, key: string): string {

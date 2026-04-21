@@ -142,6 +142,10 @@ const toolDefinitions: McpTool[] = [
   }, ["repoRoot"]),
   tool("diagnostics", "Report storage and freshness metadata.", {
     repoRoot: stringProp("Repository root path"),
+    scanFreshness: {
+      type: "boolean",
+      description: "When true, walk and hash the live repository to detect drift",
+    },
   }, ["repoRoot"]),
 ];
 
@@ -307,7 +311,10 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
         verify: args.verify === true,
       });
     case "diagnostics":
-      return diagnostics({ repoRoot: requireString(args, "repoRoot") });
+      return diagnostics({
+        repoRoot: requireString(args, "repoRoot"),
+        scanFreshness: args.scanFreshness === true,
+      });
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

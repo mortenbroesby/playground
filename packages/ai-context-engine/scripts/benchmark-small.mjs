@@ -266,6 +266,13 @@ async function benchmarkLibrarySurface(repoRoot) {
   });
   const diagnosticsDurationMs = performance.now() - diagnosticsStarted;
 
+  const diagnosticsScanStarted = performance.now();
+  const scannedDiagnostics = await diagnostics({
+    repoRoot: path.join(repoRoot, "src"),
+    scanFreshness: true,
+  });
+  const diagnosticsScanDurationMs = performance.now() - diagnosticsScanStarted;
+
   return {
     indexResults: {
       coldIndexFileTypes: {
@@ -319,10 +326,21 @@ async function benchmarkLibrarySurface(repoRoot) {
       },
       diagnosticsFromSubdir: {
         durationMs: round(diagnosticsDurationMs),
+        freshnessMode: repoDiagnostics.freshnessMode,
+        freshnessScanned: repoDiagnostics.freshnessScanned,
         staleStatus: repoDiagnostics.staleStatus,
         indexedFiles: repoDiagnostics.indexedFiles,
         indexedSymbols: repoDiagnostics.indexedSymbols,
         storageDir: repoDiagnostics.storageDir,
+      },
+      diagnosticsFromSubdirScan: {
+        durationMs: round(diagnosticsScanDurationMs),
+        freshnessMode: scannedDiagnostics.freshnessMode,
+        freshnessScanned: scannedDiagnostics.freshnessScanned,
+        staleStatus: scannedDiagnostics.staleStatus,
+        indexedFiles: scannedDiagnostics.indexedFiles,
+        indexedSymbols: scannedDiagnostics.indexedSymbols,
+        storageDir: scannedDiagnostics.storageDir,
       },
     },
   };

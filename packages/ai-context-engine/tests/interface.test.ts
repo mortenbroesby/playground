@@ -46,6 +46,8 @@ describe("ai-context-engine interfaces", () => {
     const diagnosticsStdout = await handleCli(["diagnostics", "--repo", repoRoot]);
     expect(JSON.parse(diagnosticsStdout)).toMatchObject({
       staleStatus: "fresh",
+      freshnessMode: "metadata",
+      freshnessScanned: false,
       indexedFiles: 2,
       currentFiles: 2,
     });

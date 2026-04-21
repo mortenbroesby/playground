@@ -191,11 +191,18 @@ export interface RankedContextResult {
   bundle: ContextBundle;
 }
 
+export interface DiagnosticsOptions {
+  repoRoot: string;
+  scanFreshness?: boolean;
+}
+
 export interface DiagnosticsResult {
   storageDir: string;
   databasePath: string;
   storageMode: StorageMode;
   staleStatus: StaleStatus;
+  freshnessMode: "metadata" | "scan";
+  freshnessScanned: boolean;
   summaryStrategy: SummaryStrategy;
   summarySources: Partial<Record<SummarySource, number>>;
   indexedAt: string | null;
