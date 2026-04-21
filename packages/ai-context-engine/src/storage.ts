@@ -77,6 +77,11 @@ interface FilesystemStateEntry {
   size: number;
 }
 
+interface DirectoryStateEntry {
+  path: string;
+  mtimeMs: number;
+}
+
 interface SupportedFileCandidate {
   absolutePath: string;
   relativePath: string;
@@ -520,11 +525,63 @@ async function scanSupportedFileCandidates(
   );
 }
 
-async function loadFilesystemStateSnapshot(
+async function scanDirectoryStateSnapshot(
   rootDir: string,
+  currentDir = rootDir,
+): Promise<DirectoryStateEntry[]> {
+  const currentStat = await stat(currentDir);
+  const results: DirectoryStateEntry[] = [
+    {
+      path: path.relative(rootDir, currentDir),
+      mtimeMs: currentStat.mtimeMs,
+    },
+  ];
+  const entries = await readdir(currentDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.isSymbolicLink() || !entry.isDirectory() || SKIP_SEGMENTS.has(entry.name)) {
+      continue;
+    }
+
+    results.push(
+      ...(await scanDirectoryStateSnapshot(rootDir, path.join(currentDir, entry.name))),
+    );
+  }
+
+  return results.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+async function loadKnownDirectoryStateSnapshot(
+  rootDir: string,
+  knownPaths: string[],
+): Promise<DirectoryStateEntry[]> {
+  const results: DirectoryStateEntry[] = [];
+
+  for (const knownPath of knownPaths) {
+    const absolutePath = knownPath ? path.join(rootDir, knownPath) : rootDir;
+    const directoryStat = await stat(absolutePath)
+      .then((entry) => (entry.isDirectory() ? entry : null))
+      .catch(() => null);
+    if (!directoryStat) {
+      continue;
+    }
+
+    results.push({
+      path: knownPath,
+      mtimeMs: directoryStat.mtimeMs,
+    });
+  }
+
+  return results.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+async function loadSupportedFileStatesForSubtree(
+  rootDir: string,
+  startRelativePath = "",
 ): Promise<FilesystemStateEntry[]> {
+  const startDir = startRelativePath ? path.join(rootDir, startRelativePath) : rootDir;
   const config = createDefaultEngineConfig({ repoRoot: rootDir });
-  const candidates = await scanSupportedFileCandidates(rootDir);
+  const candidates = await scanSupportedFileCandidates(rootDir, startDir);
   const ignoredPaths = config.respectGitIgnore
     ? resolveGitIgnoredPaths(
         rootDir,
@@ -547,6 +604,12 @@ async function loadFilesystemStateSnapshot(
   }
 
   return results.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+async function loadFilesystemStateSnapshot(
+  rootDir: string,
+): Promise<FilesystemStateEntry[]> {
+  return loadSupportedFileStatesForSubtree(rootDir);
 }
 
 function loadIndexedSnapshot(
@@ -586,27 +649,38 @@ function compareSnapshots(
   };
 }
 
-function compareFilesystemStates(
-  previousEntries: FilesystemStateEntry[],
-  currentEntries: FilesystemStateEntry[],
+function compareDirectoryStates(
+  previousEntries: DirectoryStateEntry[],
+  currentEntries: DirectoryStateEntry[],
 ) {
   const previousMap = new Map(previousEntries.map((entry) => [entry.path, entry]));
   const currentMap = new Map(currentEntries.map((entry) => [entry.path, entry]));
-  const missingFiles = previousEntries.filter((entry) => !currentMap.has(entry.path));
-  const extraFiles = currentEntries.filter((entry) => !previousMap.has(entry.path));
-  const changedFiles = currentEntries.filter((entry) => {
+  const missingDirectories = previousEntries.filter((entry) => !currentMap.has(entry.path));
+  const changedDirectories = currentEntries.filter((entry) => {
     const previousEntry = previousMap.get(entry.path);
-    return Boolean(
-      previousEntry &&
-      (previousEntry.mtimeMs !== entry.mtimeMs || previousEntry.size !== entry.size),
-    );
+    return Boolean(previousEntry && previousEntry.mtimeMs !== entry.mtimeMs);
   });
 
   return {
-    missingPaths: missingFiles.map((entry) => entry.path),
-    extraPaths: extraFiles.map((entry) => entry.path),
-    changedPaths: changedFiles.map((entry) => entry.path),
+    missingPaths: missingDirectories.map((entry) => entry.path),
+    changedPaths: changedDirectories.map((entry) => entry.path),
   };
+}
+
+function parentDirectoryPath(fileOrDirectoryPath: string): string {
+  const parent = path.dirname(fileOrDirectoryPath);
+  return parent === "." ? "" : parent;
+}
+
+function compactDirectoryRescanPaths(paths: string[]): string[] {
+  return [...new Set(paths)]
+    .sort((left, right) => left.length - right.length || left.localeCompare(right))
+    .filter((candidate, index, allPaths) =>
+      !allPaths.slice(0, index).some((parent) =>
+        candidate !== parent &&
+        candidate.startsWith(parent === "" ? "" : `${parent}${path.sep}`),
+      )
+    );
 }
 
 async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promise<string[]> {
@@ -1419,6 +1493,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let activeFlush: Promise<void> | null = null;
   let pollInFlight = false;
   let observedState: FilesystemStateEntry[] = [];
+  let observedDirectories: DirectoryStateEntry[] = [];
   const startedAt = new Date().toISOString();
   let reindexCount = 0;
   let lastSummary: IndexSummary | null = null;
@@ -1581,6 +1656,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   await persistWatchEvent(readyEvent);
   await emitWatchEvent(input.onEvent, readyEvent);
   observedState = await loadFilesystemStateSnapshot(repoRoot);
+  observedDirectories = await scanDirectoryStateSnapshot(repoRoot);
 
   const interval = setInterval(async () => {
     if (closed || pollInFlight) {
@@ -1589,16 +1665,71 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
 
     pollInFlight = true;
     try {
-      const currentState = await loadFilesystemStateSnapshot(repoRoot);
-      const comparison = compareFilesystemStates(observedState, currentState);
-      observedState = currentState;
-      const changedPaths = [
-        ...comparison.changedPaths,
-        ...comparison.extraPaths,
-        ...comparison.missingPaths,
-      ].sort();
-      if (changedPaths.length > 0) {
-        scheduleFlush(changedPaths);
+      const previousStateMap = new Map(
+        observedState.map((entry) => [entry.path, entry]),
+      );
+      const currentStateMap = new Map<string, FilesystemStateEntry>();
+      const changedPaths = new Set<string>();
+
+      for (const previousEntry of observedState) {
+        const absolutePath = path.join(repoRoot, previousEntry.path);
+        const fileStat = await stat(absolutePath)
+          .then((entry) => (entry.isFile() ? entry : null))
+          .catch(() => null);
+
+        if (!fileStat) {
+          changedPaths.add(previousEntry.path);
+          continue;
+        }
+
+        const currentEntry = {
+          path: previousEntry.path,
+          mtimeMs: fileStat.mtimeMs,
+          size: fileStat.size,
+        } satisfies FilesystemStateEntry;
+        currentStateMap.set(currentEntry.path, currentEntry);
+
+        if (
+          currentEntry.mtimeMs !== previousEntry.mtimeMs ||
+          currentEntry.size !== previousEntry.size
+        ) {
+          changedPaths.add(currentEntry.path);
+        }
+      }
+
+      const currentDirectories = await loadKnownDirectoryStateSnapshot(
+        repoRoot,
+        observedDirectories.map((entry) => entry.path),
+      );
+      const directoryComparison = compareDirectoryStates(
+        observedDirectories,
+        currentDirectories,
+      );
+      const directoriesToRescan = compactDirectoryRescanPaths([
+        ...directoryComparison.changedPaths,
+        ...directoryComparison.missingPaths.map((entry) => parentDirectoryPath(entry)),
+      ]);
+
+      for (const directoryPath of directoriesToRescan) {
+        const subtreeState = await loadSupportedFileStatesForSubtree(repoRoot, directoryPath);
+        for (const entry of subtreeState) {
+          currentStateMap.set(entry.path, entry);
+          if (!previousStateMap.has(entry.path)) {
+            changedPaths.add(entry.path);
+          }
+        }
+      }
+
+      observedState = [...currentStateMap.values()].sort((left, right) =>
+        left.path.localeCompare(right.path)
+      );
+      observedDirectories = directoriesToRescan.length > 0
+        ? await scanDirectoryStateSnapshot(repoRoot)
+        : currentDirectories;
+
+      const changedPathList = [...changedPaths].sort();
+      if (changedPathList.length > 0) {
+        scheduleFlush(changedPathList);
       }
     } catch (error) {
       const event = {
