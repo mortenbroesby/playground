@@ -56,6 +56,10 @@ const DANGEROUS_COMMAND_PATTERNS = [
   },
 ];
 
+function allowsDirectMainPush(command) {
+  return /\bCODEX_ALLOW_DIRECT_MAIN_PUSH=1\b/.test(command);
+}
+
 function getCurrentBranch() {
   const result = spawnSync('git', ['branch', '--show-current'], {
     encoding: 'utf8',
@@ -71,7 +75,10 @@ export function getDangerousCommandReason(command) {
   }
 
   if (/(^|[;&|()]\s*)git\s+push\b/i.test(command)) {
-    if (/\bgit\s+push\b.*(?:origin\s+|:)(?:main|master)\b/i.test(command)) {
+    if (
+      /\bgit\s+push\b.*(?:origin\s+|:)(?:main|master)\b/i.test(command) &&
+      !allowsDirectMainPush(command)
+    ) {
       return 'Pushing directly to main/master is blocked. Use a feature branch and create a PR.';
     }
 
@@ -81,7 +88,10 @@ export function getDangerousCommandReason(command) {
 
     if (/\bgit\s+push\s*(?:$|[;&|])/i.test(command)) {
       const branch = getCurrentBranch();
-      if (branch === 'main' || branch === 'master') {
+      if (
+        (branch === 'main' || branch === 'master') &&
+        !allowsDirectMainPush(command)
+      ) {
         return `Bare git push is blocked on ${branch}. Use a feature branch and create a PR.`;
       }
     }
