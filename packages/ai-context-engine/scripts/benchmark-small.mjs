@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
+import { Bench } from "tinybench";
 
 import {
   diagnostics,
@@ -40,14 +41,6 @@ const PARSE_TARGETS = [
 
 function round(value) {
   return Math.round(value * 10) / 10;
-}
-
-function median(values) {
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[middle];
 }
 
 function estimateTokens(value) {
@@ -90,6 +83,40 @@ function parseArgs(argv) {
   };
 }
 
+async function runTinybenchTask(name, iterations, task) {
+  let lastValue = null;
+  const bench = new Bench({
+    name,
+    iterations,
+    time: 1,
+    warmup: false,
+    throws: true,
+  });
+
+  bench.add(name, () => {
+    lastValue = task();
+  });
+
+  await bench.run();
+  const benchTask = bench.tasks[0];
+  const result = benchTask?.result;
+  if (!result || result.state !== "completed") {
+    throw new Error(`Tinybench task did not complete: ${name}`);
+  }
+
+  return {
+    lastValue,
+    stats: {
+      samples: result.latency.samplesCount,
+      meanMs: round(result.latency.mean),
+      medianMs: round(result.latency.p50),
+      minMs: round(result.latency.min),
+      maxMs: round(result.latency.max),
+      rme: round(result.latency.rme),
+    },
+  };
+}
+
 async function copyCleanRepo(sourceRoot) {
   const benchRoot = await mkdtemp(
     path.join(os.tmpdir(), "ai-context-engine-smallbench-"),
@@ -123,19 +150,17 @@ async function benchmarkParseTargets(runs) {
       throw new Error(`Unsupported benchmark language for ${relativePath}`);
     }
 
-    const timings = [];
-    let parseResult = null;
-
-    for (let iteration = 0; iteration < runs; iteration += 1) {
-      const started = performance.now();
-      parseResult = parseSourceFile({
-        relativePath,
-        content,
-        language,
-        summaryStrategy: "doc-comments-first",
-      });
-      timings.push(performance.now() - started);
-    }
+    const { lastValue: parseResult, stats } = await runTinybenchTask(
+      `parse:${relativePath}`,
+      runs,
+      () =>
+        parseSourceFile({
+          relativePath,
+          content,
+          language,
+          summaryStrategy: "doc-comments-first",
+        }),
+    );
 
     results[relativePath] = {
       bytes: content.length,
@@ -147,9 +172,8 @@ async function benchmarkParseTargets(runs) {
       fallbackLikely:
         (parseResult?.symbols.length ?? 0) === 0 &&
         (parseResult?.imports.length ?? 0) === 0,
-      medianMs: round(median(timings)),
-      minMs: round(Math.min(...timings)),
-      maxMs: round(Math.max(...timings)),
+      benchmarkTool: "tinybench",
+      ...stats,
     };
   }
 
