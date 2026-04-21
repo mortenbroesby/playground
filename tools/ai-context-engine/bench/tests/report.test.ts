@@ -41,7 +41,7 @@ function createSyntheticResults() {
       {
         taskId: "task-1",
         workflowId: "symbol-first",
-        allowedPaths: ["packages/ai-context-engine/**"],
+        allowedPaths: ["tools/ai-context-engine/**"],
         target: {
           kind: "symbol",
           value: "searchSymbols",
@@ -55,13 +55,13 @@ function createSyntheticResults() {
         toolCalls: 3,
         latencyMs: 21,
         success: true,
-        evidence: ["packages/ai-context-engine/src/index.ts"],
+        evidence: ["tools/ai-context-engine/src/index.ts"],
         notes: ["found by exact symbol lookup"],
       },
       {
         taskId: "task-2",
         workflowId: "symbol-first",
-        allowedPaths: ["packages/ai-context-engine/**"],
+        allowedPaths: ["tools/ai-context-engine/**"],
         target: {
           kind: "symbol",
           value: "getContextBundle",
@@ -122,7 +122,7 @@ describe("benchmark reporting", () => {
       "taskId": "task-1",
       "workflowId": "symbol-first",
       "allowedPaths": [
-        "packages/ai-context-engine/**"
+        "tools/ai-context-engine/**"
       ],
       "target": {
         "kind": "symbol",
@@ -138,7 +138,7 @@ describe("benchmark reporting", () => {
       "latencyMs": 21,
       "success": true,
       "evidence": [
-        "packages/ai-context-engine/src/index.ts"
+        "tools/ai-context-engine/src/index.ts"
       ],
       "notes": [
         "found by exact symbol lookup"
@@ -148,7 +148,7 @@ describe("benchmark reporting", () => {
       "taskId": "task-2",
       "workflowId": "symbol-first",
       "allowedPaths": [
-        "packages/ai-context-engine/**"
+        "tools/ai-context-engine/**"
       ],
       "target": {
         "kind": "symbol",
@@ -214,7 +214,7 @@ describe("benchmark reporting", () => {
 ## Per-Task Results
 | Task ID | Workflow | Success | Baseline Tokens | Est. Baseline | Retrieved Tokens | Est. Retrieved | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| task-1 | symbol-first | yes | 120 | 126 | 40 | 44 | 66.7% | 3 | 21 | packages/ai-context-engine/src/index.ts | found by exact symbol lookup |
+| task-1 | symbol-first | yes | 120 | 126 | 40 | 44 | 66.7% | 3 | 21 | tools/ai-context-engine/src/index.ts | found by exact symbol lookup |
 | task-2 | symbol-first | no | 80 | 82 | 60 | 61 | 25% | 5 | 32 | missing symbol | fallback search only |
 
 ## Per-Workflow Summary

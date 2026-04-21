@@ -1,5 +1,5 @@
 {
-  "extends": "@playground/tsconfig/base.json",
+  "extends": "../../packages/config/tsconfig/base.json",
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
@@ -9,6 +9,6 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src", "tests"],
+  "include": ["src", "tests", "bench/src", "bench/tests"],
   "exclude": ["node_modules", "dist"]
 }

@@ -20,7 +20,7 @@ later want to publish, bundle, or harden runtime startup behavior.
 ## Outcome
 
 A clear decision on whether `@playground/ai-context-engine` and
-`@playground/ai-context-engine-bench` should stay on native TypeScript
+`@playground/ai-context-engine` should stay on native TypeScript
 execution or move to `tsup` or an equivalent packaging step.
 
 ## Details

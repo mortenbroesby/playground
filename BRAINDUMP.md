@@ -21,6 +21,7 @@ Keep this file loose:
 - Checkout https://github.com/GlitterKill/sdl-mcp -- compare with ai-context-engine
 - Look into https://stryker-mutator.io/docs/ Mutation testing.
 - https://github.com/AgentSeal/codeburn for checking token usage % analytics
+- workspace-tools
 
 - Look at how they do RAG here.
 https://github.com/VoltAgent/voltagent

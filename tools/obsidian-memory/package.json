@@ -1,0 +1,15 @@
+{
+  "name": "@playground/obsidian-memory",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Repo-local Obsidian memory indexing and retrieval tools",
+  "scripts": {
+    "obsidian:bootstrap": "node ./src/bootstrap-obsidian-vault.mjs",
+    "rag:init": "node --experimental-strip-types ./src/rag-init.ts",
+    "rag:index": "node --experimental-strip-types ./src/rag-index.ts",
+    "rag:query": "node ./src/rag-query.mjs",
+    "rag:verify": "node ./src/verify-obsidian-rag.mjs",
+    "mcp": "node ./src/rag-mcp-server.mjs",
+    "test:retrieval": "node --test ./tests/obsidian-rag.test.mjs"
+  }
+}

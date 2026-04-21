@@ -1,10 +1,10 @@
 ---
 id: task-corpus-loader
-slice: packages/ai-context-engine-bench
+slice: tools/ai-context-engine/bench
 query: loadBenchmarkCorpus
 workflowSet: [baseline, discovery-first, symbol-first, bundle]
 allowedPaths:
-  - packages/ai-context-engine-bench/src/corpus.ts
+  - tools/ai-context-engine/bench/src/corpus.ts
 targets:
   - kind: symbol
     value: loadBenchmarkCorpus

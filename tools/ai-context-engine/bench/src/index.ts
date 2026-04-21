@@ -37,12 +37,12 @@ export type {
 export * from "./report.ts";
 export * from "./types.ts";
 
-export interface BenchmarkPackageScaffold {
-  packageName: "@playground/ai-context-engine-bench";
-  dependsOn: "@playground/ai-context-engine";
+export interface BenchmarkHarnessScaffold {
+  ownerPackage: "@playground/ai-context-engine";
+  workspacePath: "tools/ai-context-engine/bench";
 }
 
-export const BENCHMARK_PACKAGE_SCAFFOLD: BenchmarkPackageScaffold = {
-  packageName: "@playground/ai-context-engine-bench",
-  dependsOn: "@playground/ai-context-engine",
+export const BENCHMARK_HARNESS_SCAFFOLD: BenchmarkHarnessScaffold = {
+  ownerPackage: "@playground/ai-context-engine",
+  workspacePath: "tools/ai-context-engine/bench",
 };

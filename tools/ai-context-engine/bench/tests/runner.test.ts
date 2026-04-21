@@ -53,7 +53,7 @@ describe("benchmark runner", () => {
 
     try {
       appendFileSync(
-        path.join(fixture.repoRoot, "packages", "ai-context-engine-bench", "src", "corpus.ts"),
+        path.join(fixture.repoRoot, "tools", "ai-context-engine", "bench", "src", "corpus.ts"),
         "\nexport const dirty = true;\n",
       );
       await expect(

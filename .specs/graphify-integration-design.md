@@ -20,7 +20,7 @@ Current local systems in scope:
 - Obsidian repo-memory RAG:
   [tools/rag-index.ts](/Users/macbook/personal/playground/tools/rag-index.ts:1)
 - Code retrieval engine:
-  [packages/ai-context-engine](/Users/macbook/personal/playground/packages/ai-context-engine/README.md:1)
+  [tools/ai-context-engine](/Users/macbook/personal/playground/tools/ai-context-engine/README.md:1)
 
 ## 1. Executive Summary
 

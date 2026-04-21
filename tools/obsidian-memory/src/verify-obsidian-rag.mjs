@@ -10,19 +10,19 @@ import {
   assembleMemoryContext,
   loadMemoryCorpus,
   retrieveMemoryCandidates,
-} from "../tools/obsidian-rag.mjs";
+} from "./obsidian-rag.mjs";
 
 const execFile = promisify(execFileCallback);
 const scriptPath = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(scriptPath), "..");
+const repoRoot = path.resolve(path.dirname(scriptPath), "..", "..", "..");
 
 async function buildIndexedCorpus(vaultPath) {
   const outputDir = path.join(vaultPath, ".rag");
 
   await execFile(
-    "node",
-    [
-      "tools/rag-index.ts",
+      "node",
+      [
+      "tools/obsidian-memory/src/rag-index.ts",
       "--force",
       "--json",
       "--vault",
@@ -154,7 +154,12 @@ switchboard for public and playground composition.`,
 async function bootstrapVault(vaultPath) {
   await execFile(
     "node",
-    ["scripts/bootstrap-obsidian-vault.mjs", "--vault", vaultPath, "--force"],
+    [
+      "tools/obsidian-memory/src/bootstrap-obsidian-vault.mjs",
+      "--vault",
+      vaultPath,
+      "--force",
+    ],
     {
       cwd: repoRoot,
     },

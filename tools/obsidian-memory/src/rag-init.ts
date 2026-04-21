@@ -7,7 +7,7 @@ const {
 const path = require("node:path");
 const process = require("node:process");
 
-const repoRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const defaultVaultPath = path.join(repoRoot, "vault");
 const postCommitHookPath = path.join(repoRoot, ".husky", "post-commit");
 
@@ -129,7 +129,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const vaultPath = path.resolve(options.vaultPath);
   const bootstrapArgs = [
-    "scripts/bootstrap-obsidian-vault.mjs",
+    "tools/obsidian-memory/src/bootstrap-obsidian-vault.mjs",
     "--vault",
     vaultPath,
   ];

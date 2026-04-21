@@ -43,9 +43,9 @@ function makeFixtureCorpus() {
           {
             id: "beta",
             path: "tasks/beta.md",
-            slice: "packages/ai-context-engine",
+            slice: "tools/ai-context-engine",
             workflows: ["symbol-first", "text-first"],
-            allowedPaths: ["packages/ai-context-engine/**"],
+            allowedPaths: ["tools/ai-context-engine/**"],
             targets: [
               {
                 kind: "symbol",
@@ -57,9 +57,9 @@ function makeFixtureCorpus() {
           {
             id: "alpha",
             path: "tasks/alpha.md",
-            slice: "packages/ai-context-engine",
+            slice: "tools/ai-context-engine",
             workflows: ["baseline", "discovery-first"],
-            allowedPaths: ["packages/ai-context-engine/**"],
+            allowedPaths: ["tools/ai-context-engine/**"],
             targets: [
               {
                 kind: "symbol",
@@ -79,11 +79,11 @@ function makeFixtureCorpus() {
     taskAlphaPath,
     `---
 id: alpha
-slice: packages/ai-context-engine
+slice: tools/ai-context-engine
 query: Find the corpus loader
 workflowSet: [baseline, discovery-first]
 allowedPaths:
-  - packages/ai-context-engine/**
+  - tools/ai-context-engine/**
 targets:
   - kind: symbol
     value: loadBenchmarkCorpus
@@ -100,11 +100,11 @@ Alpha task body.
     taskBetaPath,
     `---
 id: beta
-slice: packages/ai-context-engine
+slice: tools/ai-context-engine
 query: Find the symbol search entrypoint
 workflowSet: [symbol-first, text-first]
 allowedPaths:
-  - packages/ai-context-engine/**
+  - tools/ai-context-engine/**
 targets:
   - kind: symbol
     value: searchSymbols
@@ -167,10 +167,10 @@ describe("ai-context-engine-bench corpus loader", () => {
 
       expect(taskCard.frontmatter).toEqual({
         id: "alpha",
-        slice: "packages/ai-context-engine",
+        slice: "tools/ai-context-engine",
         query: "Find the corpus loader",
         workflowSet: ["baseline", "discovery-first"],
-        allowedPaths: ["packages/ai-context-engine/**"],
+        allowedPaths: ["tools/ai-context-engine/**"],
         targets: [
           {
             kind: "symbol",
@@ -191,11 +191,11 @@ describe("ai-context-engine-bench corpus loader", () => {
       fixture.taskBetaPath,
       `---
 id: beta
-slice: packages/ai-context-engine
+slice: tools/ai-context-engine
 query: Find the symbol search entrypoint
 workflowSet: [symbol-first]
 allowedPaths:
-  - packages/ai-context-engine/**
+  - tools/ai-context-engine/**
 targets:
   - kind: symbol
     value: searchSymbols
@@ -232,9 +232,9 @@ Beta task body.
             {
               id: "beta",
               path: "../escape.md",
-              slice: "packages/ai-context-engine",
+              slice: "tools/ai-context-engine",
               workflows: ["symbol-first"],
-              allowedPaths: ["packages/ai-context-engine/**"],
+              allowedPaths: ["tools/ai-context-engine/**"],
               targets: [
                 {
                   kind: "symbol",

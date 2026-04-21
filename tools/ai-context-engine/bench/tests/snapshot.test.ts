@@ -27,7 +27,7 @@ describe("benchmark snapshot", () => {
 
     try {
       appendFileSync(
-        `${fixture.repoRoot}/packages/ai-context-engine-bench/src/corpus.ts`,
+        `${fixture.repoRoot}/tools/ai-context-engine/bench/src/corpus.ts`,
         "\nexport const dirty = true;\n",
       );
 

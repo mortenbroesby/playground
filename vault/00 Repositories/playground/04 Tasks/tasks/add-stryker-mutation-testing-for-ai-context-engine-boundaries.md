@@ -5,7 +5,7 @@ id: add-stryker-mutation-testing-for-ai-context-engine-boundaries
 priority: P1
 status: In Progress
 ai_appetite: 85
-source: "Follow-up from `packages/ai-context-engine` runtime-boundary review and StrykerJS docs."
+source: "Follow-up from `tools/ai-context-engine` runtime-boundary review and StrykerJS docs."
 ---
 
 # Add Stryker mutation testing for `ai-context-engine` boundaries
@@ -29,13 +29,13 @@ the tests fail when behavior is altered.
 
 ## Outcome
 
-A first StrykerJS setup exists for `packages/ai-context-engine`, runs against a
+A first StrykerJS setup exists for `tools/ai-context-engine`, runs against a
 small high-signal boundary slice, and produces a concrete list of surviving
 mutants that can drive immediate test hardening.
 
 ## Constraints
 
-- start with `packages/ai-context-engine` only
+- start with `tools/ai-context-engine` only
 - do not broaden to the whole monorepo in the first pass
 - keep the first mutate scope narrow and high-value
 - prefer `vitest` integration if supported cleanly by StrykerJS in this setup
@@ -44,7 +44,7 @@ mutants that can drive immediate test hardening.
 
 ## Acceptance Criteria
 
-- StrykerJS is installed and configured for `packages/ai-context-engine`
+- StrykerJS is installed and configured for `tools/ai-context-engine`
 - the initial mutate scope is limited to boundary-heavy source files:
   - `src/cli.ts`
   - `src/mcp.ts`

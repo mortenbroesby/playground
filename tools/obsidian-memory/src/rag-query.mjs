@@ -11,7 +11,8 @@ import {
   retrieveMemoryCandidates,
 } from "./obsidian-rag.mjs";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(workspaceRoot, "..", "..");
 const defaultCorpusPath = path.join(repoRoot, ".rag", "obsidian-vault.corpus.json");
 
 function parseArgs(argv) {

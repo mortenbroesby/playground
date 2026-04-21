@@ -15,10 +15,11 @@ import {
 } from "./obsidian-rag.mjs";
 
 const serverVersion = "1.0.0";
-const repoRoot = path.resolve(
+const workspaceRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+const repoRoot = path.resolve(workspaceRoot, "..", "..");
 const corpusPath = path.join(repoRoot, ".rag", "obsidian-vault.corpus.json");
 
 const toolDefinitions = [

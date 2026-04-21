@@ -5,7 +5,7 @@
 Last checked against the repo on 2026-04-15.
 
 Implemented now:
-- local benchmark package at `packages/ai-context-engine-bench`
+- local benchmark package at `tools/ai-context-engine/bench`
 - fixed workflows for `baseline`, `discovery-first`, `symbol-first`, `text-first`, and an experimental `bundle` path
 - deterministic corpus loading, strict snapshot checks, token accounting with `tiktoken`, and markdown/JSON reporting
 
@@ -63,7 +63,7 @@ Longer term, the corpus should cover representative code-navigation tasks from t
 4. `packages/ui`
 5. `packages/types`
 6. `packages/config`
-7. `packages/ai-context-engine`
+7. `tools/ai-context-engine`
 8. repo-level workflow and docs files where they affect agent behavior
 
 The corpus should contain task cards, not ad hoc prompts. Each task card should define:

@@ -41,7 +41,7 @@ type Manifest = {
   files: Record<string, ManifestFile>;
 };
 
-const repoRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const corpusName = "obsidian-vault";
 const defaultVaultPath = path.join(repoRoot, "vault");
 const defaultOutputDir = path.join(repoRoot, ".rag");

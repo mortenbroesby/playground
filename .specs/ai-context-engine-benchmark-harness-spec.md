@@ -5,7 +5,7 @@
 Last checked against the repo on 2026-04-15.
 
 Implemented now:
-- separate workspace package at `packages/ai-context-engine-bench`
+- separate workspace package at `tools/ai-context-engine/bench`
 - CLI, runner, corpus loader, tokenizer, report writer, snapshot checks, and workflow adapters
 - tests for scaffold, corpus loading, reporting, tokenizer, snapshot handling, runner flow, and CLI
 
@@ -45,8 +45,8 @@ This slice does not need to:
 
 Implemented package shape:
 
-- package path: `packages/ai-context-engine-bench`
-- package name: `@playground/ai-context-engine-bench`
+- package path: `tools/ai-context-engine/bench`
+- package name: `@playground/ai-context-engine`
 - runtime dependency: `@playground/ai-context-engine`
 
 This keeps the engine package focused on retrieval/runtime behavior while the
@@ -57,28 +57,28 @@ generation.
 
 These files now exist:
 
-1. `packages/ai-context-engine-bench/src/cli.ts`
-2. `packages/ai-context-engine-bench/src/runner.ts`
-3. `packages/ai-context-engine-bench/src/corpus.ts`
-4. `packages/ai-context-engine-bench/src/workflows.ts`
-5. `packages/ai-context-engine-bench/src/tokenizer.ts`
-6. `packages/ai-context-engine-bench/src/report.ts`
-7. `packages/ai-context-engine-bench/src/snapshot.ts`
-8. `packages/ai-context-engine-bench/src/types.ts`
+1. `tools/ai-context-engine/bench/src/cli.ts`
+2. `tools/ai-context-engine/bench/src/runner.ts`
+3. `tools/ai-context-engine/bench/src/corpus.ts`
+4. `tools/ai-context-engine/bench/src/workflows.ts`
+5. `tools/ai-context-engine/bench/src/tokenizer.ts`
+6. `tools/ai-context-engine/bench/src/report.ts`
+7. `tools/ai-context-engine/bench/src/snapshot.ts`
+8. `tools/ai-context-engine/bench/src/types.ts`
 
 ### 4.2 Checked-in test files
 
-1. `packages/ai-context-engine-bench/tests/corpus.test.ts`
-2. `packages/ai-context-engine-bench/tests/report.test.ts`
-3. `packages/ai-context-engine-bench/tests/runner.test.ts`
-4. `packages/ai-context-engine-bench/tests/cli.test.ts`
-5. `packages/ai-context-engine-bench/tests/snapshot.test.ts`
-6. `packages/ai-context-engine-bench/tests/tokenizer.test.ts`
-7. `packages/ai-context-engine-bench/tests/scaffold.test.ts`
+1. `tools/ai-context-engine/bench/tests/corpus.test.ts`
+2. `tools/ai-context-engine/bench/tests/report.test.ts`
+3. `tools/ai-context-engine/bench/tests/runner.test.ts`
+4. `tools/ai-context-engine/bench/tests/cli.test.ts`
+5. `tools/ai-context-engine/bench/tests/snapshot.test.ts`
+6. `tools/ai-context-engine/bench/tests/tokenizer.test.ts`
+7. `tools/ai-context-engine/bench/tests/scaffold.test.ts`
 
 ### 4.3 Package script
 
-Add a dedicated script in `packages/ai-context-engine-bench/package.json`:
+Add a dedicated script in `tools/ai-context-engine/bench/package.json`:
 
 ```json
 {
@@ -119,9 +119,9 @@ The JSON file is the manifest. The markdown files are the task cards.
     {
       "id": "task-id",
       "path": "tasks/task-id.md",
-      "slice": "packages/ai-context-engine",
+      "slice": "tools/ai-context-engine",
       "workflows": ["baseline", "discovery-first", "symbol-first", "text-first"],
-      "allowedPaths": ["packages/ai-context-engine/**"],
+      "allowedPaths": ["tools/ai-context-engine/**"],
       "targets": [
         {
           "kind": "symbol",
@@ -160,11 +160,11 @@ Example:
 ```md
 ---
 id: task-context-bundle-reads-greeter
-slice: packages/ai-context-engine
+slice: tools/ai-context-engine
 query: "Find the Greeter class and its related context"
 workflowSet: [discovery-first, symbol-first, text-first, bundle]
 allowedPaths:
-  - packages/ai-context-engine/**
+  - tools/ai-context-engine/**
 targets:
   - kind: symbol
     value: Greeter
@@ -264,9 +264,9 @@ The trace format should be line-delimited JSON so diffs stay readable and append
 
 The implemented harness supports these commands:
 
-1. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --output .benchmarks/ai-context-engine/latest`
-2. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --task task-id`
-3. `pnpm --filter @playground/ai-context-engine-bench benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --workflow symbol-first`
+1. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --output .benchmarks/ai-context-engine/latest`
+2. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --task task-id`
+3. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --workflow symbol-first`
 
 Required CLI flags:
 
@@ -281,8 +281,8 @@ Required CLI flags:
 
 This slice is implemented when the following checks pass:
 
-1. `pnpm --filter @playground/ai-context-engine-bench type-check`
-2. `pnpm --filter @playground/ai-context-engine-bench test`
+1. `pnpm --filter @playground/ai-context-engine type-check`
+2. `pnpm --filter @playground/ai-context-engine test`
 3. benchmark corpus loader test passes against the fixture corpus
 4. benchmark report writer test passes against a synthetic result object
 5. benchmark runner smoke test passes for one task and one workflow

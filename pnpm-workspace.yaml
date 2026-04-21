@@ -3,3 +3,4 @@ packages:
   - 'packages/*'
   - 'packages/remotes/*'
   - 'packages/config/*'
+  - 'tools/*'

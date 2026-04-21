@@ -29,11 +29,11 @@ export function createBenchmarkFixtureRepo(options: {
   const corpusTargetDir = path.join(repoRoot, ".specs", "benchmarks");
 
   cpSync(corpusSourceDir, corpusTargetDir, { recursive: true });
-  mkdirSync(path.join(repoRoot, "packages", "ai-context-engine-bench", "src"), {
+  mkdirSync(path.join(repoRoot, "tools", "ai-context-engine", "bench", "src"), {
     recursive: true,
   });
   writeFileSync(
-    path.join(repoRoot, "packages", "ai-context-engine-bench", "src", "corpus.ts"),
+    path.join(repoRoot, "tools", "ai-context-engine", "bench", "src", "corpus.ts"),
     `export function loadBenchmarkCorpus(): string {
   return "loaded";
 }
@@ -41,7 +41,7 @@ export function createBenchmarkFixtureRepo(options: {
   );
   if (options.includeOutOfScopeDuplicate) {
     writeFileSync(
-      path.join(repoRoot, "packages", "ai-context-engine-bench", "src", "a-outside.ts"),
+      path.join(repoRoot, "tools", "ai-context-engine", "bench", "src", "a-outside.ts"),
       `export function loadBenchmarkCorpus(): string {
   return "outside";
 }

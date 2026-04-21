@@ -2,27 +2,58 @@
 
 Local deterministic context engine for AI-assisted code exploration.
 
-## Why this name
+## What it does
 
-The current spec frames the product as an AI context engine, not generic code
-intelligence. The package name follows that framing so the contract, docs, and
-future MCP tools all describe the same thing.
+This package is the repo-owned code retrieval layer for agent workflows in this
+workspace.
 
-## Phase 1 contract
+In practice it helps an agent answer questions like:
 
-This workspace package currently establishes the Phase 1 contract from
-[`/.specs/ai-code-context-engine-spec.md`](../../.specs/ai-code-context-engine-spec.md):
+- "Where is this behavior implemented?"
+- "What symbols look relevant to this query?"
+- "Show me the exact source for these symbols."
+- "Give me a bounded bundle of the most relevant code under a token budget."
+- "Is the local index fresh, and is watch mode healthy?"
 
-- Tree-sitter as the parsing direction
-- SQLite in WAL mode
-- repo-local storage under `.ai-context-engine/`
-- discovery-first tools before broad retrieval
-- exact retrieval as the non-negotiable source of truth
+It does that by indexing a repo locally, storing symbol and file metadata in
+SQLite, and exposing retrieval surfaces over that index through a CLI, an MCP
+server, and a small TypeScript API.
 
-The implemented slice now includes:
+Current capabilities:
+
+- repo-local indexing under `.ai-context-engine/`
+- exact symbol and source retrieval as the truth layer
+- ranked, budgeted context assembly for agent use
+- CLI and stdio MCP entrypoints
+- local benchmark scripts for latency and token-savings measurement
+- watch-mode refresh with native filesystem watching and polling fallback
+
+The framing is intentionally "context engine", not generic code intelligence.
+The package exists to give agents the minimum high-signal code context they need
+without broad file reads.
+
+## How an agent uses it
+
+The typical flow is:
+
+1. index the repo with `index-folder`
+2. narrow the search with `get-repo-outline`, `get-file-tree`,
+   `get-file-outline`, `search-symbols`, or `search-text`
+3. pull exact code with `get-symbol-source` or `get-file-content`
+4. assemble bounded context with `get-context-bundle` or
+   `get-ranked-context`
+5. check freshness or watch status with `diagnostics`
+
+This keeps retrieval discovery-first and source-anchored instead of jumping
+straight to broad file reads.
+
+## Implementation highlights
+
+Current implementation includes:
 
 - package scaffold and storage/config contract
-- Tree-sitter parsing for `ts`, `tsx`, `js`, and `jsx`
+- Oxc as the primary parser for `ts`, `tsx`, `js`, and `jsx`
+- temporary Tree-sitter fallback contained behind the parser facade
 - SQLite-backed file, symbol, import, and content-blob storage in WAL mode
 - JSON CLI entrypoint in `src/cli.ts`
 - stdio MCP server in `src/mcp.ts`
@@ -32,6 +63,8 @@ The implemented slice now includes:
 - `get_context_bundle` for bounded, query-driven context assembly
 - `get_ranked_context` for inspectable query ranking plus bounded selection
 - `get_file_content`, batched `get_symbol_source`, and `diagnostics`
+- direct ranked candidate retrieval and bounded context benchmarking in
+  `bench:small`
 - fixture-backed tests proving indexing and exact retrieval
 - diagnostics defaults to cheap metadata reads, with optional live drift
   scanning when callers explicitly request freshness checks
@@ -45,6 +78,37 @@ The implemented slice now includes:
   search supports `filePattern`
 - repo inputs anchored to any Git subdirectory resolve to the enclosing worktree
   root for storage and indexing
+
+## Retrieval surfaces
+
+The main retrieval surfaces are:
+
+- `search_symbols`
+  discovery-first lookup for named code entities
+- `search_text`
+  fallback lookup for literals, comments, flags, and other non-symbol text
+- `get_symbol_source`
+  exact source retrieval for one or more symbols, with optional surrounding
+  context lines
+- `get_context_bundle`
+  bounded assembly of exact source snippets under a token budget
+- `get_ranked_context`
+  inspectable ranked candidates plus the bounded bundle selected from them
+- `diagnostics`
+  metadata-first health and freshness reporting, with optional full drift scan
+
+The package is optimized around exact retrieval first. Ranking and assembly sit
+on top of exact indexed source; they do not replace it.
+
+## Package interfaces
+
+You can use the engine through:
+
+- the library exports in `src/index.ts`
+- the JSON CLI in `src/cli.ts`
+- the stdio MCP server in `src/mcp.ts`
+
+The shortest local entrypoint is usually `pnpm exec ai-context-engine ...`.
 
 ## Commands
 
@@ -69,9 +133,21 @@ The implemented slice now includes:
 - `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo --scan-freshness`
 - `pnpm --filter @playground/ai-context-engine mcp`
 
-The shortest workspace-local entrypoint is `pnpm exec ai-context-engine ...`.
 The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with
 MCP-style `tools/list` and `tools/call` routing.
+
+## Benchmarks
+
+Two benchmark layers exist today:
+
+- `pnpm --filter @playground/ai-context-engine bench:small`
+  in-process engine benchmark with parser microbench, retrieval latency, token
+  savings, parser backend, and fallback metadata
+- `pnpm --filter @playground/ai-context-engine bench:cli`
+  command-level benchmark wrapper intended to run through `hyperfine`
+
+`bench:small` is the main product benchmark. It exists to measure retrieval
+value, not just raw parse speed.
 
 `bench:cli` uses `hyperfine` and expects that binary to already be installed on
 the machine. If it is missing, the script fails with an install hint instead of
@@ -96,8 +172,14 @@ The smoke profile is intentionally narrow so it can stay under about a minute in
 normal local use. The full profile is slower and is not intended for the tight
 inner loop. Plain `vitest` remains the normal fast feedback loop.
 
-Next slices should add:
+## Current limits
 
-- richer ranking and query suggestion quality
-- richer relationship tools across imports and callers
-- narrower incremental indexing beyond current file and folder entrypoints
+This package is not yet a full code intelligence platform.
+
+Current limits to keep in mind:
+
+- retrieval is still strongest on exact symbol and lexical paths
+- relationship traversal is narrower than it should be
+- ranking is useful but still relatively shallow
+- incremental indexing remains watch-, file-, and folder-oriented rather than
+  fully fine-grained

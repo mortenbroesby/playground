@@ -11,8 +11,9 @@ describe("benchmark cli", () => {
     const fixture = createBenchmarkFixtureRepo();
     const cliPath = path.resolve(
       workspaceRoot,
-      "packages",
-      "ai-context-engine-bench",
+      "tools",
+      "ai-context-engine",
+      "bench",
       "src",
       "cli.ts",
     );
@@ -61,15 +62,16 @@ describe("benchmark cli", () => {
     const fixture = createBenchmarkFixtureRepo();
     const cliPath = path.resolve(
       workspaceRoot,
-      "packages",
-      "ai-context-engine-bench",
+      "tools",
+      "ai-context-engine",
+      "bench",
       "src",
       "cli.ts",
     );
 
     try {
       appendFileSync(
-        path.join(fixture.repoRoot, "packages", "ai-context-engine-bench", "src", "corpus.ts"),
+        path.join(fixture.repoRoot, "tools", "ai-context-engine", "bench", "src", "corpus.ts"),
         "\nexport const dirty = true;\n",
       );
       expect(() =>

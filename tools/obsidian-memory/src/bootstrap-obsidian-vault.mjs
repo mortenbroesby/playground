@@ -4,7 +4,7 @@ import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const scriptPath = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(scriptPath), "..");
+const repoRoot = path.resolve(path.dirname(scriptPath), "..", "..", "..");
 const assetsRoot = path.join(repoRoot, "docs", "obsidian");
 
 function parseArgs(argv) {

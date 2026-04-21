@@ -146,15 +146,21 @@ const symbolFirstWorkflow: WorkflowDefinition = {
     const notes: string[] = [];
     let toolCalls = 1;
 
-    if (allowedMatches[0]) {
+    const firstMatch = allowedMatches[0];
+    if (firstMatch) {
       const source = await getSymbolSource({
         repoRoot,
-        symbolId: allowedMatches[0].id,
+        symbolId: firstMatch.id,
         verify: true,
       });
-      retrievedTokens += countTokens(source.source);
-      estimatedRetrievedTokens += estimateTokens(source.source);
-      evidence.push(source.symbol.name, source.symbol.filePath);
+      const sourceText = source.source ?? "";
+      retrievedTokens += countTokens(sourceText);
+      estimatedRetrievedTokens += estimateTokens(sourceText);
+      if (source.symbol?.name && source.symbol.filePath) {
+        evidence.push(source.symbol.name, source.symbol.filePath);
+      } else {
+        notes.push("symbol source returned without verified symbol metadata");
+      }
       toolCalls += 1;
     } else {
       notes.push("no symbol match");

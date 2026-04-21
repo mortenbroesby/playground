@@ -5,7 +5,7 @@ import {
   assembleMemoryContext,
   indexMemoryCorpus,
   retrieveMemoryCandidates,
-} from "./obsidian-rag.mjs";
+} from "../src/obsidian-rag.mjs";
 
 const indexedCorpus = indexMemoryCorpus({
   chunks: [
