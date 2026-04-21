@@ -30,6 +30,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@playground/ai-context-engine": "workspace:*",
     "husky": "^9.1.7",
     "markdownlint-cli2": "^0.17.0",
     "prettier": "^3.3.0",

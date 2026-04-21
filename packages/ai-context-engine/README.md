@@ -37,12 +37,18 @@ The implemented slice now includes:
 
 ## Commands
 
+- `pnpm exec ai-context-engine cli index-folder --repo /abs/repo`
+- `pnpm exec ai-context-engine cli get-repo-outline --repo /abs/repo`
+- `pnpm exec ai-context-engine cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
+- `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
+- `pnpm exec ai-context-engine mcp`
 - `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine mcp`
 
+The shortest workspace-local entrypoint is `pnpm exec ai-context-engine ...`.
 The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with
 MCP-style `tools/list` and `tools/call` routing.
 

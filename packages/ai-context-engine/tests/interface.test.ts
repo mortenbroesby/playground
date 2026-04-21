@@ -1,6 +1,9 @@
 import path from "node:path";
+import { execFile } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -8,6 +11,12 @@ import { handleCli } from "../src/cli.ts";
 import { createMcpServer } from "../src/mcp.ts";
 import { indexFolder } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
+
+const execFileAsync = promisify(execFile);
+const packageRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 
 afterEach(async () => {
   await cleanupFixtureRepos();
@@ -321,5 +330,22 @@ export function circumference(radius: number): string {
     });
 
     expect(invalidBudgetResponse.error?.message).toMatch(/invalid numeric argument: tokenBudget/i);
+  });
+
+  it("exposes a workspace bin wrapper for cli commands", async () => {
+    const repoRoot = await createFixtureRepo();
+    const binPath = path.join(packageRoot, "scripts", "ai-context-engine.mjs");
+
+    const { stdout } = await execFileAsync(process.execPath, [
+      binPath,
+      "cli",
+      "diagnostics",
+      "--repo",
+      repoRoot,
+    ]);
+
+    expect(JSON.parse(stdout)).toMatchObject({
+      storageMode: "wal",
+    });
   });
 });
