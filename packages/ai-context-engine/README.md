@@ -39,6 +39,8 @@ The implemented slice now includes:
   counts so stale metadata can be distinguished from a fresh index
 - diagnostics also persists the latest watch-session state so agents can inspect
   recent watch health without being attached to the live CLI event stream
+- watch mode now prefers a native filesystem watcher and falls back to the
+  internal polling detector when native watching is unavailable or errors
 - symbol search now supports `language` and `filePattern` filters, and text
   search supports `filePattern`
 - repo inputs anchored to any Git subdirectory resolve to the enclosing worktree

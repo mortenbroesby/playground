@@ -1,10 +1,24 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { watch as fsWatch } from "node:fs";
 import { mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 
 import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
+import {
+  compactDirectoryRescanPaths,
+  compareDirectoryStates,
+  isGitIgnored,
+  listSupportedFiles,
+  loadFilesystemSnapshot,
+  loadFilesystemStateSnapshot,
+  loadKnownDirectoryStateSnapshot,
+  loadSupportedFileStatesForSubtree,
+  parentDirectoryPath,
+  scanDirectoryStateSnapshot,
+  snapshotHash,
+} from "./filesystem-scan.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
 import type {
   DiagnosticsOptions,
@@ -34,6 +48,23 @@ import type {
   WatchHandle,
   WatchOptions,
 } from "./types.ts";
+import type {
+  DirectoryStateEntry,
+  FilesystemStateEntry,
+  SnapshotEntry,
+} from "./filesystem-scan.ts";
+
+const SKIP_SEGMENTS = new Set([
+  ".git",
+  ".next",
+  ".turbo",
+  ".vercel",
+  ".ai-context-engine",
+  ".codeintel",
+  "coverage",
+  "dist",
+  "node_modules",
+]);
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
@@ -65,39 +96,6 @@ interface RepoMetaRecord {
   summaryStrategy?: SummaryStrategy;
   watch?: WatchDiagnostics;
 }
-
-interface SnapshotEntry {
-  path: string;
-  contentHash: string;
-}
-
-interface FilesystemStateEntry {
-  path: string;
-  mtimeMs: number;
-  size: number;
-}
-
-interface DirectoryStateEntry {
-  path: string;
-  mtimeMs: number;
-}
-
-interface SupportedFileCandidate {
-  absolutePath: string;
-  relativePath: string;
-}
-
-const SKIP_SEGMENTS = new Set([
-  ".git",
-  ".next",
-  ".turbo",
-  ".vercel",
-  ".ai-context-engine",
-  ".codeintel",
-  "coverage",
-  "dist",
-  "node_modules",
-]);
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -269,69 +267,6 @@ async function assertInsideRepoRoot(repoRoot: string, absolutePath: string) {
   }
 }
 
-function isGitIgnored(repoRoot: string, filePath: string): boolean {
-  try {
-    execFileSync("git", ["check-ignore", "--quiet", filePath], {
-      cwd: repoRoot,
-      stdio: ["ignore", "ignore", "ignore"],
-    });
-    return true;
-  } catch (error) {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      (error as { status?: unknown }).status === 0
-    );
-  }
-}
-
-function resolveGitIgnoredPaths(
-  repoRoot: string,
-  filePaths: string[],
-): Set<string> {
-  if (filePaths.length === 0) {
-    return new Set();
-  }
-
-  const input = Buffer.from(
-    `${filePaths.join("\u0000")}\u0000`,
-    "utf8",
-  );
-  const result = spawnSync(
-    "git",
-    ["check-ignore", "--stdin", "-z", "-v", "-n"],
-    {
-      cwd: repoRoot,
-      input,
-      encoding: "buffer",
-      stdio: ["pipe", "pipe", "ignore"],
-    },
-  );
-
-  if (result.status !== 0) {
-    return new Set(filePaths.filter((filePath) => isGitIgnored(repoRoot, filePath)));
-  }
-
-  const fields = result.stdout.toString("utf8").split("\u0000");
-  const ignoredPaths = new Set<string>();
-
-  for (let index = 0; index + 3 < fields.length; index += 4) {
-    const source = fields[index];
-    const line = fields[index + 1];
-    const pattern = fields[index + 2];
-    const filePath = fields[index + 3];
-    if (!filePath) {
-      continue;
-    }
-    if (source || line || pattern) {
-      ignoredPaths.add(filePath);
-    }
-  }
-
-  return ignoredPaths;
-}
-
 async function writeSidecars(input: {
   repoRoot: string;
   indexedAt: string;
@@ -460,158 +395,6 @@ async function readRepoMeta(
   }
 }
 
-function snapshotHash(entries: SnapshotEntry[]): string {
-  return sha256(
-    entries
-      .slice()
-      .sort((left, right) => left.path.localeCompare(right.path))
-      .map((entry) => `${entry.path}:${entry.contentHash}`)
-      .join("\n"),
-  );
-}
-
-async function loadFilesystemSnapshot(
-  repoRoot: string,
-): Promise<SnapshotEntry[]> {
-  const files = await listSupportedFiles(repoRoot);
-  const entries: SnapshotEntry[] = [];
-
-  for (const filePath of files) {
-    const content = await readFile(path.join(repoRoot, filePath), "utf8");
-    entries.push({
-      path: filePath,
-      contentHash: sha256(content),
-    });
-  }
-
-  return entries;
-}
-
-async function scanSupportedFileCandidates(
-  rootDir: string,
-  currentDir = rootDir,
-): Promise<SupportedFileCandidate[]> {
-  const entries = await readdir(currentDir, { withFileTypes: true });
-  const results: SupportedFileCandidate[] = [];
-
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
-
-    const absolutePath = path.join(currentDir, entry.name);
-    const relativePath = path.relative(rootDir, absolutePath);
-
-    if (entry.isDirectory()) {
-      if (SKIP_SEGMENTS.has(entry.name)) {
-        continue;
-      }
-      results.push(...(await scanSupportedFileCandidates(rootDir, absolutePath)));
-      continue;
-    }
-
-    if (!supportedLanguageForFile(relativePath)) {
-      continue;
-    }
-
-    results.push({
-      absolutePath,
-      relativePath,
-    });
-  }
-
-  return results.sort((left, right) =>
-    left.relativePath.localeCompare(right.relativePath)
-  );
-}
-
-async function scanDirectoryStateSnapshot(
-  rootDir: string,
-  currentDir = rootDir,
-): Promise<DirectoryStateEntry[]> {
-  const currentStat = await stat(currentDir);
-  const results: DirectoryStateEntry[] = [
-    {
-      path: path.relative(rootDir, currentDir),
-      mtimeMs: currentStat.mtimeMs,
-    },
-  ];
-  const entries = await readdir(currentDir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isSymbolicLink() || !entry.isDirectory() || SKIP_SEGMENTS.has(entry.name)) {
-      continue;
-    }
-
-    results.push(
-      ...(await scanDirectoryStateSnapshot(rootDir, path.join(currentDir, entry.name))),
-    );
-  }
-
-  return results.sort((left, right) => left.path.localeCompare(right.path));
-}
-
-async function loadKnownDirectoryStateSnapshot(
-  rootDir: string,
-  knownPaths: string[],
-): Promise<DirectoryStateEntry[]> {
-  const results: DirectoryStateEntry[] = [];
-
-  for (const knownPath of knownPaths) {
-    const absolutePath = knownPath ? path.join(rootDir, knownPath) : rootDir;
-    const directoryStat = await stat(absolutePath)
-      .then((entry) => (entry.isDirectory() ? entry : null))
-      .catch(() => null);
-    if (!directoryStat) {
-      continue;
-    }
-
-    results.push({
-      path: knownPath,
-      mtimeMs: directoryStat.mtimeMs,
-    });
-  }
-
-  return results.sort((left, right) => left.path.localeCompare(right.path));
-}
-
-async function loadSupportedFileStatesForSubtree(
-  rootDir: string,
-  startRelativePath = "",
-): Promise<FilesystemStateEntry[]> {
-  const startDir = startRelativePath ? path.join(rootDir, startRelativePath) : rootDir;
-  const config = createDefaultEngineConfig({ repoRoot: rootDir });
-  const candidates = await scanSupportedFileCandidates(rootDir, startDir);
-  const ignoredPaths = config.respectGitIgnore
-    ? resolveGitIgnoredPaths(
-        rootDir,
-        candidates.map((candidate) => candidate.relativePath),
-      )
-    : new Set<string>();
-  const results: FilesystemStateEntry[] = [];
-
-  for (const candidate of candidates) {
-    if (ignoredPaths.has(candidate.relativePath)) {
-      continue;
-    }
-
-    const fileStat = await stat(candidate.absolutePath);
-    results.push({
-      path: candidate.relativePath,
-      mtimeMs: fileStat.mtimeMs,
-      size: fileStat.size,
-    });
-  }
-
-  return results.sort((left, right) => left.path.localeCompare(right.path));
-}
-
-async function loadFilesystemStateSnapshot(
-  rootDir: string,
-): Promise<FilesystemStateEntry[]> {
-  return loadSupportedFileStatesForSubtree(rootDir);
-}
-
 function loadIndexedSnapshot(
   db: import("node:sqlite").DatabaseSync,
 ): SnapshotEntry[] {
@@ -647,56 +430,6 @@ function compareSnapshots(
     indexedSnapshotHash: snapshotHash(indexedEntries),
     currentSnapshotHash: snapshotHash(currentEntries),
   };
-}
-
-function compareDirectoryStates(
-  previousEntries: DirectoryStateEntry[],
-  currentEntries: DirectoryStateEntry[],
-) {
-  const previousMap = new Map(previousEntries.map((entry) => [entry.path, entry]));
-  const currentMap = new Map(currentEntries.map((entry) => [entry.path, entry]));
-  const missingDirectories = previousEntries.filter((entry) => !currentMap.has(entry.path));
-  const changedDirectories = currentEntries.filter((entry) => {
-    const previousEntry = previousMap.get(entry.path);
-    return Boolean(previousEntry && previousEntry.mtimeMs !== entry.mtimeMs);
-  });
-
-  return {
-    missingPaths: missingDirectories.map((entry) => entry.path),
-    changedPaths: changedDirectories.map((entry) => entry.path),
-  };
-}
-
-function parentDirectoryPath(fileOrDirectoryPath: string): string {
-  const parent = path.dirname(fileOrDirectoryPath);
-  return parent === "." ? "" : parent;
-}
-
-function compactDirectoryRescanPaths(paths: string[]): string[] {
-  return [...new Set(paths)]
-    .sort((left, right) => left.length - right.length || left.localeCompare(right))
-    .filter((candidate, index, allPaths) =>
-      !allPaths.slice(0, index).some((parent) =>
-        candidate !== parent &&
-        candidate.startsWith(parent === "" ? "" : `${parent}${path.sep}`),
-      )
-    );
-}
-
-async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promise<string[]> {
-  const config = createDefaultEngineConfig({ repoRoot: rootDir });
-  const candidates = await scanSupportedFileCandidates(rootDir, currentDir);
-  if (!config.respectGitIgnore) {
-    return candidates.map((candidate) => candidate.relativePath);
-  }
-
-  const ignoredPaths = resolveGitIgnoredPaths(
-    rootDir,
-    candidates.map((candidate) => candidate.relativePath),
-  );
-  return candidates
-    .map((candidate) => candidate.relativePath)
-    .filter((relativePath) => !ignoredPaths.has(relativePath));
 }
 
 async function emitWatchEvent(
@@ -1492,6 +1225,10 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let debounceTimer: NodeJS.Timeout | null = null;
   let activeFlush: Promise<void> | null = null;
   let pollInFlight = false;
+  let pollInterval: NodeJS.Timeout | null = null;
+  let nativeWatchTimer: NodeJS.Timeout | null = null;
+  let nativeWatcher: import("node:fs").FSWatcher | null = null;
+  let usingPollingFallback = false;
   let observedState: FilesystemStateEntry[] = [];
   let observedDirectories: DirectoryStateEntry[] = [];
   const startedAt = new Date().toISOString();
@@ -1644,21 +1381,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     await activeFlush;
   };
 
-  const initialSummary = await indexFolder({
-    repoRoot,
-    summaryStrategy: input.summaryStrategy,
-  });
-  const readyEvent = {
-    type: "ready",
-    changedPaths: [],
-    summary: initialSummary,
-  } satisfies WatchEvent;
-  await persistWatchEvent(readyEvent);
-  await emitWatchEvent(input.onEvent, readyEvent);
-  observedState = await loadFilesystemStateSnapshot(repoRoot);
-  observedDirectories = await scanDirectoryStateSnapshot(repoRoot);
-
-  const interval = setInterval(async () => {
+  const runPollingSweep = async () => {
     if (closed || pollInFlight) {
       return;
     }
@@ -1742,7 +1465,57 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     } finally {
       pollInFlight = false;
     }
-  }, pollMs);
+  };
+
+  const scheduleNativeWatchSweep = () => {
+    if (closed || usingPollingFallback || nativeWatchTimer) {
+      return;
+    }
+    nativeWatchTimer = setTimeout(() => {
+      nativeWatchTimer = null;
+      void runPollingSweep();
+    }, 0);
+  };
+
+  const startPollingFallback = () => {
+    if (pollInterval || closed) {
+      return;
+    }
+    usingPollingFallback = true;
+    pollInterval = setInterval(() => {
+      void runPollingSweep();
+    }, pollMs);
+  };
+
+  const startNativeWatcher = () => {
+    try {
+      nativeWatcher = fsWatch(repoRoot, { recursive: true }, () => {
+        scheduleNativeWatchSweep();
+      });
+      nativeWatcher.on("error", () => {
+        nativeWatcher?.close();
+        nativeWatcher = null;
+        startPollingFallback();
+      });
+    } catch {
+      startPollingFallback();
+    }
+  };
+
+  const initialSummary = await indexFolder({
+    repoRoot,
+    summaryStrategy: input.summaryStrategy,
+  });
+  const readyEvent = {
+    type: "ready",
+    changedPaths: [],
+    summary: initialSummary,
+  } satisfies WatchEvent;
+  await persistWatchEvent(readyEvent);
+  await emitWatchEvent(input.onEvent, readyEvent);
+  observedState = await loadFilesystemStateSnapshot(repoRoot);
+  observedDirectories = await scanDirectoryStateSnapshot(repoRoot);
+  startNativeWatcher();
 
   return {
     async close() {
@@ -1754,7 +1527,16 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         clearTimeout(debounceTimer);
         debounceTimer = null;
       }
-      clearInterval(interval);
+      if (nativeWatchTimer) {
+        clearTimeout(nativeWatchTimer);
+        nativeWatchTimer = null;
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      nativeWatcher?.close();
+      nativeWatcher = null;
       await activeFlush;
       const event = {
         type: "close",
