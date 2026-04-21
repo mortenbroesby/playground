@@ -71,6 +71,12 @@ interface SnapshotEntry {
   contentHash: string;
 }
 
+interface FilesystemStateEntry {
+  path: string;
+  mtimeMs: number;
+  size: number;
+}
+
 const SKIP_SEGMENTS = new Set([
   ".git",
   ".next",
@@ -425,6 +431,51 @@ async function loadFilesystemSnapshot(
   return entries;
 }
 
+async function loadFilesystemStateSnapshot(
+  rootDir: string,
+  currentDir = rootDir,
+): Promise<FilesystemStateEntry[]> {
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  const results: FilesystemStateEntry[] = [];
+  const config = createDefaultEngineConfig({ repoRoot: rootDir });
+
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
+
+    const absolutePath = path.join(currentDir, entry.name);
+    const relativePath = path.relative(rootDir, absolutePath);
+
+    if (entry.isDirectory()) {
+      if (SKIP_SEGMENTS.has(entry.name)) {
+        continue;
+      }
+      results.push(
+        ...(await loadFilesystemStateSnapshot(rootDir, absolutePath)),
+      );
+      continue;
+    }
+
+    const language = supportedLanguageForFile(relativePath);
+    if (!language) {
+      continue;
+    }
+    if (config.respectGitIgnore && isGitIgnored(rootDir, relativePath)) {
+      continue;
+    }
+
+    const fileStat = await stat(absolutePath);
+    results.push({
+      path: relativePath,
+      mtimeMs: fileStat.mtimeMs,
+      size: fileStat.size,
+    });
+  }
+
+  return results.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 function loadIndexedSnapshot(
   db: import("node:sqlite").DatabaseSync,
 ): SnapshotEntry[] {
@@ -459,6 +510,29 @@ function compareSnapshots(
     extraFiles: extraFiles.length,
     indexedSnapshotHash: snapshotHash(indexedEntries),
     currentSnapshotHash: snapshotHash(currentEntries),
+  };
+}
+
+function compareFilesystemStates(
+  previousEntries: FilesystemStateEntry[],
+  currentEntries: FilesystemStateEntry[],
+) {
+  const previousMap = new Map(previousEntries.map((entry) => [entry.path, entry]));
+  const currentMap = new Map(currentEntries.map((entry) => [entry.path, entry]));
+  const missingFiles = previousEntries.filter((entry) => !currentMap.has(entry.path));
+  const extraFiles = currentEntries.filter((entry) => !previousMap.has(entry.path));
+  const changedFiles = currentEntries.filter((entry) => {
+    const previousEntry = previousMap.get(entry.path);
+    return Boolean(
+      previousEntry &&
+      (previousEntry.mtimeMs !== entry.mtimeMs || previousEntry.size !== entry.size),
+    );
+  });
+
+  return {
+    missingPaths: missingFiles.map((entry) => entry.path),
+    extraPaths: extraFiles.map((entry) => entry.path),
+    changedPaths: changedFiles.map((entry) => entry.path),
   };
 }
 
@@ -1289,6 +1363,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let debounceTimer: NodeJS.Timeout | null = null;
   let activeFlush: Promise<void> | null = null;
   let pollInFlight = false;
+  let observedState: FilesystemStateEntry[] = [];
   const startedAt = new Date().toISOString();
   let reindexCount = 0;
   let lastSummary: IndexSummary | null = null;
@@ -1412,6 +1487,9 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
           db.close();
         }
       } catch (error) {
+        for (const filePath of changedPaths) {
+          pendingPaths.add(filePath);
+        }
         const event = {
           type: "error",
           changedPaths,
@@ -1447,6 +1525,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   } satisfies WatchEvent;
   await persistWatchEvent(readyEvent);
   await emitWatchEvent(input.onEvent, readyEvent);
+  observedState = await loadFilesystemStateSnapshot(repoRoot);
 
   const interval = setInterval(async () => {
     if (closed || pollInFlight) {
@@ -1455,23 +1534,16 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
 
     pollInFlight = true;
     try {
-      const config = await ensureStorage(repoRoot);
-      const db = openDatabase(config.paths.databasePath);
-      try {
-        const comparison = compareSnapshots(
-          loadIndexedSnapshot(db),
-          await loadFilesystemSnapshot(repoRoot),
-        );
-        const changedPaths = [
-          ...comparison.changedPaths,
-          ...comparison.extraPaths,
-          ...comparison.missingPaths,
-        ].sort();
-        if (changedPaths.length > 0) {
-          scheduleFlush(changedPaths);
-        }
-      } finally {
-        db.close();
+      const currentState = await loadFilesystemStateSnapshot(repoRoot);
+      const comparison = compareFilesystemStates(observedState, currentState);
+      observedState = currentState;
+      const changedPaths = [
+        ...comparison.changedPaths,
+        ...comparison.extraPaths,
+        ...comparison.missingPaths,
+      ].sort();
+      if (changedPaths.length > 0) {
+        scheduleFlush(changedPaths);
       }
     } catch (error) {
       const event = {
