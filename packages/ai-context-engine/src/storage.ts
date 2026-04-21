@@ -24,6 +24,7 @@ import type {
   SummarySource,
   SummaryStrategy,
   SupportedLanguage,
+  WatchDiagnostics,
   WatchEvent,
   WatchHandle,
   WatchOptions,
@@ -57,6 +58,7 @@ interface RepoMetaRecord {
   storageMode: string;
   staleStatus: "fresh" | "stale" | "unknown";
   summaryStrategy?: SummaryStrategy;
+  watch?: WatchDiagnostics;
 }
 
 interface SnapshotEntry {
@@ -253,6 +255,7 @@ async function writeSidecars(input: {
     repoRoot: input.repoRoot,
     summaryStrategy: input.summaryStrategy,
   });
+  const existingMeta = await readRepoMeta(config.paths.repoMetaPath);
   const meta = {
     repoRoot: input.repoRoot,
     indexedAt: input.indexedAt,
@@ -262,10 +265,93 @@ async function writeSidecars(input: {
     staleStatus: input.staleStatus,
     storageMode: config.storageMode,
     summaryStrategy: input.summaryStrategy,
+    watch: existingMeta?.watch ?? createDefaultWatchDiagnostics(),
   };
+  await writeRepoMetaFiles(config.paths.repoMetaPath, config.paths.integrityPath, meta);
+}
+
+function createDefaultWatchDiagnostics(): WatchDiagnostics {
+  return {
+    status: "idle",
+    debounceMs: null,
+    pollMs: null,
+    startedAt: null,
+    lastEvent: null,
+    lastEventAt: null,
+    lastChangedPaths: [],
+    reindexCount: 0,
+    lastError: null,
+    lastSummary: null,
+  };
+}
+
+function normalizeWatchDiagnostics(value: unknown): WatchDiagnostics {
+  if (typeof value !== "object" || value === null) {
+    return createDefaultWatchDiagnostics();
+  }
+
+  const candidate = value as Partial<WatchDiagnostics>;
+  return {
+    status: candidate.status === "watching" ? "watching" : "idle",
+    debounceMs:
+      typeof candidate.debounceMs === "number" ? candidate.debounceMs : null,
+    pollMs: typeof candidate.pollMs === "number" ? candidate.pollMs : null,
+    startedAt: typeof candidate.startedAt === "string" ? candidate.startedAt : null,
+    lastEvent:
+      candidate.lastEvent === "ready" ||
+      candidate.lastEvent === "reindex" ||
+      candidate.lastEvent === "error" ||
+      candidate.lastEvent === "close"
+        ? candidate.lastEvent
+        : null,
+    lastEventAt:
+      typeof candidate.lastEventAt === "string" ? candidate.lastEventAt : null,
+    lastChangedPaths: Array.isArray(candidate.lastChangedPaths)
+      ? candidate.lastChangedPaths.filter(
+          (entry): entry is string => typeof entry === "string",
+        )
+      : [],
+    reindexCount:
+      typeof candidate.reindexCount === "number" ? candidate.reindexCount : 0,
+    lastError: typeof candidate.lastError === "string" ? candidate.lastError : null,
+    lastSummary:
+      typeof candidate.lastSummary === "object" &&
+      candidate.lastSummary !== null &&
+      typeof candidate.lastSummary.indexedFiles === "number" &&
+      typeof candidate.lastSummary.indexedSymbols === "number" &&
+      typeof candidate.lastSummary.skippedFiles === "number" &&
+      (candidate.lastSummary.staleStatus === "fresh" ||
+        candidate.lastSummary.staleStatus === "stale" ||
+        candidate.lastSummary.staleStatus === "unknown")
+        ? candidate.lastSummary
+        : null,
+  };
+}
+
+async function writeRepoMetaFiles(
+  repoMetaPath: string,
+  integrityPath: string,
+  meta: RepoMetaRecord,
+) {
   const metaJson = JSON.stringify(meta, null, 2);
-  await writeFile(config.paths.repoMetaPath, metaJson);
-  await writeFile(config.paths.integrityPath, sha256(metaJson));
+  await writeFile(repoMetaPath, metaJson);
+  await writeFile(integrityPath, sha256(metaJson));
+}
+
+async function writeWatchDiagnostics(input: {
+  repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
+  watch: WatchDiagnostics;
+}) {
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
+  const meta = await readRepoMeta(config.paths.repoMetaPath);
+  if (!meta) {
+    return;
+  }
+  await writeRepoMetaFiles(config.paths.repoMetaPath, config.paths.integrityPath, {
+    ...meta,
+    watch: input.watch,
+  });
 }
 
 async function readRepoMeta(
@@ -277,6 +363,7 @@ async function readRepoMeta(
     return {
       ...parsed,
       summaryStrategy: normalizeSummaryStrategy(parsed.summaryStrategy),
+      watch: normalizeWatchDiagnostics(parsed.watch),
     };
   } catch {
     return null;
@@ -972,6 +1059,44 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let debounceTimer: NodeJS.Timeout | null = null;
   let activeFlush: Promise<void> | null = null;
   let pollInFlight = false;
+  const startedAt = new Date().toISOString();
+  let reindexCount = 0;
+  let lastSummary: IndexSummary | null = null;
+  let lastError: string | null = null;
+
+  const persistWatchEvent = async (event: WatchEvent) => {
+    if (event.type === "ready") {
+      reindexCount = 0;
+      lastError = null;
+    }
+    if (event.type === "reindex") {
+      reindexCount += 1;
+      lastError = null;
+    }
+    if (event.type === "error") {
+      lastError = event.message ?? "Unknown watch error";
+    }
+    if (event.summary) {
+      lastSummary = event.summary;
+    }
+
+    await writeWatchDiagnostics({
+      repoRoot,
+      summaryStrategy: input.summaryStrategy,
+      watch: {
+        status: event.type === "close" ? "idle" : "watching",
+        debounceMs,
+        pollMs,
+        startedAt,
+        lastEvent: event.type,
+        lastEventAt: new Date().toISOString(),
+        lastChangedPaths: event.changedPaths,
+        reindexCount,
+        lastError,
+        lastSummary,
+      },
+    });
+  };
 
   const scheduleFlush = (paths: string[]) => {
     for (const filePath of paths) {
@@ -1046,20 +1171,24 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
             skippedFiles: await countSkippedFiles(repoRoot),
             staleStatus: "fresh" as const,
           };
-          await emitWatchEvent(input.onEvent, {
+          const event = {
             type: "reindex",
             changedPaths,
             summary,
-          });
+          } satisfies WatchEvent;
+          await persistWatchEvent(event);
+          await emitWatchEvent(input.onEvent, event);
         } finally {
           db.close();
         }
       } catch (error) {
-        await emitWatchEvent(input.onEvent, {
+        const event = {
           type: "error",
           changedPaths,
           message: error instanceof Error ? error.message : String(error),
-        });
+        } satisfies WatchEvent;
+        await persistWatchEvent(event);
+        await emitWatchEvent(input.onEvent, event);
       } finally {
         activeFlush = null;
         if (!closed && pendingPaths.size > 0) {
@@ -1081,11 +1210,13 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     repoRoot,
     summaryStrategy: input.summaryStrategy,
   });
-  await emitWatchEvent(input.onEvent, {
+  const readyEvent = {
     type: "ready",
     changedPaths: [],
     summary: initialSummary,
-  });
+  } satisfies WatchEvent;
+  await persistWatchEvent(readyEvent);
+  await emitWatchEvent(input.onEvent, readyEvent);
 
   const interval = setInterval(async () => {
     if (closed || pollInFlight) {
@@ -1113,11 +1244,13 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         db.close();
       }
     } catch (error) {
-      await emitWatchEvent(input.onEvent, {
+      const event = {
         type: "error",
         changedPaths: [],
         message: error instanceof Error ? error.message : String(error),
-      });
+      } satisfies WatchEvent;
+      await persistWatchEvent(event);
+      await emitWatchEvent(input.onEvent, event);
     } finally {
       pollInFlight = false;
     }
@@ -1135,10 +1268,12 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       }
       clearInterval(interval);
       await activeFlush;
-      await emitWatchEvent(input.onEvent, {
+      const event = {
         type: "close",
         changedPaths: [],
-      });
+      } satisfies WatchEvent;
+      await persistWatchEvent(event);
+      await emitWatchEvent(input.onEvent, event);
     },
   };
 }
@@ -1588,6 +1723,7 @@ export async function diagnostics(input: {
         meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? drift.indexedSnapshotHash : null),
       currentSnapshotHash: drift.currentSnapshotHash,
       staleReasons,
+      watch: meta?.watch ?? createDefaultWatchDiagnostics(),
     };
   } finally {
     db.close();

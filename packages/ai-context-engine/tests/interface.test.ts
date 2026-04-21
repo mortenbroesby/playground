@@ -29,6 +29,10 @@ describe("ai-context-engine interfaces", () => {
     const initStdout = await handleCli(["init", "--repo", repoRoot]);
     expect(JSON.parse(initStdout)).toMatchObject({
       staleStatus: "unknown",
+      watch: {
+        status: "idle",
+        lastEvent: null,
+      },
     });
 
     await handleCli(["index-folder", "--repo", repoRoot]);
@@ -117,12 +121,24 @@ export function circumference(radius: number): string {
       "--repo",
       repoRoot,
     ]);
-    expect(JSON.parse(signatureDiagnosticsStdout)).toMatchObject({
+    const signatureDiagnostics = JSON.parse(signatureDiagnosticsStdout);
+    expect(signatureDiagnostics).toMatchObject({
       summaryStrategy: "signature-only",
       summarySources: {
         signature: 5,
       },
+      watch: {
+        status: "idle",
+        debounceMs: 50,
+        pollMs: 50,
+        lastEvent: "close",
+        lastChangedPaths: [],
+        lastSummary: {
+          staleStatus: "fresh",
+        },
+      },
     });
+    expect(signatureDiagnostics.watch.reindexCount).toBeGreaterThanOrEqual(0);
   });
 
   it("exposes spec-aligned MCP tools", async () => {

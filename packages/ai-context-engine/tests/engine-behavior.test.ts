@@ -126,6 +126,11 @@ describe("ai-context-engine behavior", () => {
         "doc-comment": 4,
         signature: 1,
       },
+      watch: {
+        status: "idle",
+        lastEvent: null,
+        reindexCount: 0,
+      },
     });
   });
 
@@ -409,9 +414,31 @@ export function circumference(radius: number): string {
       expect(reindexEvents[0]?.summary).toMatchObject({
         indexedFiles: 1,
       });
+
+      const health = await diagnostics({ repoRoot });
+      expect(health.watch).toMatchObject({
+        status: "watching",
+        debounceMs: 50,
+        pollMs: 50,
+        lastEvent: "reindex",
+        lastChangedPaths: ["src/math.ts"],
+        reindexCount: 1,
+        lastError: null,
+        lastSummary: {
+          indexedFiles: 1,
+          staleStatus: "fresh",
+        },
+      });
     } finally {
       await watcher.close();
     }
+
+    const closedHealth = await diagnostics({ repoRoot });
+    expect(closedHealth.watch).toMatchObject({
+      status: "idle",
+      lastEvent: "close",
+    });
+    expect(closedHealth.watch.reindexCount).toBeGreaterThanOrEqual(1);
   });
 
   it("removes deleted files during watch refresh without a full folder reindex", async () => {

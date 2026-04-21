@@ -34,6 +34,8 @@ The implemented slice now includes:
 - fixture-backed tests proving indexing and exact retrieval
 - diagnostics now includes indexed timestamps, snapshot hashes, and live drift
   counts so stale metadata can be distinguished from a fresh index
+- diagnostics also persists the latest watch-session state so agents can inspect
+  recent watch health without being attached to the live CLI event stream
 
 ## Commands
 
@@ -75,4 +77,4 @@ Next slices should add:
 
 - richer ranking and query suggestion quality
 - bounded context bundles and ranked context assembly
-- watch-mode health and status surfacing beyond the current CLI event stream
+- worktree-aware indexing and richer relationship tools

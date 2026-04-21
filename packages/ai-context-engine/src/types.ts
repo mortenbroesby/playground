@@ -58,6 +58,19 @@ export interface WatchHandle {
   close(): Promise<void>;
 }
 
+export interface WatchDiagnostics {
+  status: "idle" | "watching";
+  debounceMs: number | null;
+  pollMs: number | null;
+  startedAt: string | null;
+  lastEvent: WatchEvent["type"] | null;
+  lastEventAt: string | null;
+  lastChangedPaths: string[];
+  reindexCount: number;
+  lastError: string | null;
+  lastSummary: IndexSummary | null;
+}
+
 export interface RepoOutline {
   totalFiles: number;
   totalSymbols: number;
@@ -158,6 +171,7 @@ export interface DiagnosticsResult {
   indexedSnapshotHash: string | null;
   currentSnapshotHash: string | null;
   staleReasons: string[];
+  watch: WatchDiagnostics;
 }
 
 export type EnginePhase1ToolName =

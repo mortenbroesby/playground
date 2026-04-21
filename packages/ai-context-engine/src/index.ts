@@ -50,6 +50,7 @@ export type {
   SummaryStrategy,
   SupportedLanguage,
   WatchEvent,
+  WatchDiagnostics,
   WatchHandle,
   WatchOptions,
 } from "./types.ts";
