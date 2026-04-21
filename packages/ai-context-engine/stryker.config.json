@@ -12,7 +12,6 @@
     "src/cli.ts:151-156",
     "src/config.ts:63-66",
     "src/config.ts:84-87",
-    "src/storage.ts:837-838",
     "src/storage.ts:1014-1018"
   ],
   "testFiles": [
