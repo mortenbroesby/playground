@@ -40,6 +40,27 @@ export interface ParsedFile {
 }
 
 const parser = new Parser();
+const MAX_PARSE_BYTES = 24_000;
+const TARGET_CHUNK_BYTES = 16_000;
+const CHUNK_OVERLAP_BYTES = 8_000;
+
+interface ParseOffset {
+  byte: number;
+  line: number;
+}
+
+interface OwnedLineRange {
+  start: number;
+  end: number;
+}
+
+interface SourceChunk extends ParseOffset, OwnedLineRange {
+  content: string;
+}
+
+function isRecoverableParseFailure(error: unknown): boolean {
+  return error instanceof Error && error.message === "Invalid argument";
+}
 
 function languageFor(language: SupportedLanguage) {
   switch (language) {
@@ -170,6 +191,7 @@ function createSymbol(
   summaryStrategy: SummaryStrategy,
   parentName?: string,
   rangeNode: Parser.SyntaxNode = node,
+  offset: ParseOffset = { byte: 0, line: 0 },
 ): ParsedSymbol | null {
   const name = extractIdentifierName(node, sourceText);
   if (!name) {
@@ -188,17 +210,17 @@ function createSymbol(
   const qualifiedName = parentName ? `${parentName}.${name}` : name;
 
   return {
-    id: buildSymbolId(relativePath, kind, qualifiedName, node.startIndex),
+    id: buildSymbolId(relativePath, kind, qualifiedName, offset.byte + node.startIndex),
     name,
     qualifiedName,
     kind,
     signature,
     summary,
     summarySource,
-    startLine: rangeNode.startPosition.row + 1,
-    endLine: rangeNode.endPosition.row + 1,
-    startByte: rangeNode.startIndex,
-    endByte: rangeNode.endIndex,
+    startLine: offset.line + rangeNode.startPosition.row + 1,
+    endLine: offset.line + rangeNode.endPosition.row + 1,
+    startByte: offset.byte + rangeNode.startIndex,
+    endByte: offset.byte + rangeNode.endIndex,
     exported,
   };
 }
@@ -250,6 +272,19 @@ function parseImport(
   };
 }
 
+function ownsNode(
+  node: Parser.SyntaxNode,
+  offset: ParseOffset,
+  ownedLines?: OwnedLineRange,
+): boolean {
+  if (!ownedLines) {
+    return true;
+  }
+
+  const startLine = offset.line + node.startPosition.row;
+  return startLine >= ownedLines.start && startLine < ownedLines.end;
+}
+
 function pushVariableSymbols(
   node: Parser.SyntaxNode,
   sourceText: string,
@@ -258,10 +293,15 @@ function pushVariableSymbols(
   summaryStrategy: SummaryStrategy,
   symbols: ParsedSymbol[],
   rangeNode: Parser.SyntaxNode = node,
+  offset: ParseOffset = { byte: 0, line: 0 },
+  ownedLines?: OwnedLineRange,
 ) {
   for (const declarator of node.namedChildren.filter(
     (child) => child.type === "variable_declarator",
   )) {
+    if (!ownsNode(declarator, offset, ownedLines)) {
+      continue;
+    }
     const symbol = createSymbol(
       declarator,
       sourceText,
@@ -271,6 +311,7 @@ function pushVariableSymbols(
       summaryStrategy,
       undefined,
       rangeNode,
+      offset,
     );
     if (symbol) {
       symbols.push(symbol);
@@ -285,6 +326,8 @@ function pushClassMembers(
   className: string,
   summaryStrategy: SummaryStrategy,
   symbols: ParsedSymbol[],
+  offset: ParseOffset = { byte: 0, line: 0 },
+  ownedLines?: OwnedLineRange,
 ) {
   const body = node.childForFieldName("body");
   if (!body) {
@@ -293,6 +336,9 @@ function pushClassMembers(
 
   for (const child of body.namedChildren) {
     if (child.type === "method_definition") {
+      if (!ownsNode(child, offset, ownedLines)) {
+        continue;
+      }
       const symbol = createSymbol(
         child,
         sourceText,
@@ -301,6 +347,8 @@ function pushClassMembers(
         false,
         summaryStrategy,
         className,
+        child,
+        offset,
       );
       if (symbol) {
         symbols.push(symbol);
@@ -318,9 +366,14 @@ function visitDeclarationNode(
   symbols: ParsedSymbol[],
   imports: ParsedImport[],
   rangeNode: Parser.SyntaxNode = node,
+  offset: ParseOffset = { byte: 0, line: 0 },
+  ownedLines?: OwnedLineRange,
 ) {
   switch (node.type) {
     case "function_declaration": {
+      if (!ownsNode(node, offset, ownedLines)) {
+        return;
+      }
       const symbol = createSymbol(
         node,
         sourceText,
@@ -330,6 +383,7 @@ function visitDeclarationNode(
         summaryStrategy,
         undefined,
         rangeNode,
+        offset,
       );
       if (symbol) {
         symbols.push(symbol);
@@ -337,6 +391,9 @@ function visitDeclarationNode(
       return;
     }
     case "class_declaration": {
+      if (!ownsNode(node, offset, ownedLines)) {
+        return;
+      }
       const symbol = createSymbol(
         node,
         sourceText,
@@ -346,6 +403,7 @@ function visitDeclarationNode(
         summaryStrategy,
         undefined,
         rangeNode,
+        offset,
       );
       if (symbol) {
         symbols.push(symbol);
@@ -356,6 +414,8 @@ function visitDeclarationNode(
           symbol.name,
           summaryStrategy,
           symbols,
+          offset,
+          ownedLines,
         );
       }
       return;
@@ -363,6 +423,9 @@ function visitDeclarationNode(
     case "interface_declaration":
     case "type_alias_declaration":
     case "enum_declaration": {
+      if (!ownsNode(node, offset, ownedLines)) {
+        return;
+      }
       const symbol = createSymbol(
         node,
         sourceText,
@@ -372,6 +435,7 @@ function visitDeclarationNode(
         summaryStrategy,
         undefined,
         rangeNode,
+        offset,
       );
       if (symbol) {
         symbols.push(symbol);
@@ -388,10 +452,15 @@ function visitDeclarationNode(
         summaryStrategy,
         symbols,
         rangeNode,
+        offset,
+        ownedLines,
       );
       return;
     }
     case "import_statement": {
+      if (!ownsNode(node, offset, ownedLines)) {
+        return;
+      }
       const parsedImport = parseImport(node, sourceText);
       if (parsedImport) {
         imports.push(parsedImport);
@@ -411,6 +480,8 @@ function visitNode(
   summaryStrategy: SummaryStrategy,
   symbols: ParsedSymbol[],
   imports: ParsedImport[],
+  offset: ParseOffset = { byte: 0, line: 0 },
+  ownedLines?: OwnedLineRange,
 ) {
   switch (node.type) {
     case "export_statement": {
@@ -424,6 +495,8 @@ function visitNode(
           symbols,
           imports,
           node,
+          offset,
+          ownedLines,
         );
       }
       return;
@@ -437,8 +510,89 @@ function visitNode(
         summaryStrategy,
         symbols,
         imports,
+        node,
+        offset,
+        ownedLines,
       );
   }
+}
+
+function splitSourceIntoChunks(sourceText: string): SourceChunk[] {
+  const lines = sourceText.split("\n");
+
+  if (sourceText.length <= MAX_PARSE_BYTES) {
+    return [
+      {
+        content: sourceText,
+        byte: 0,
+        line: 0,
+        start: 0,
+        end: lines.length,
+      },
+    ];
+  }
+
+  const lineOffsets: number[] = [];
+  let totalBytes = 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    lineOffsets.push(totalBytes);
+    totalBytes += lines[index].length + (index < lines.length - 1 ? 1 : 0);
+  }
+
+  const bytesBetween = (startLine: number, endLine: number) => {
+    if (startLine >= endLine) {
+      return 0;
+    }
+    const startByte = lineOffsets[startLine] ?? totalBytes;
+    const endByte = endLine < lines.length ? lineOffsets[endLine] : totalBytes;
+    return endByte - startByte;
+  };
+
+  const chunks: SourceChunk[] = [];
+  let ownedStart = 0;
+
+  while (ownedStart < lines.length) {
+    let ownedEnd = ownedStart + 1;
+    while (
+      ownedEnd < lines.length &&
+      bytesBetween(ownedStart, ownedEnd) < TARGET_CHUNK_BYTES
+    ) {
+      ownedEnd += 1;
+    }
+
+    let parseStart = ownedStart;
+    while (
+      parseStart > 0 &&
+      bytesBetween(parseStart - 1, ownedEnd) <= MAX_PARSE_BYTES &&
+      bytesBetween(parseStart - 1, ownedStart) <= CHUNK_OVERLAP_BYTES
+    ) {
+      parseStart -= 1;
+    }
+
+    let parseEnd = ownedEnd;
+    while (
+      parseEnd < lines.length &&
+      bytesBetween(parseStart, parseEnd + 1) <= MAX_PARSE_BYTES &&
+      bytesBetween(ownedEnd, parseEnd + 1) <= CHUNK_OVERLAP_BYTES
+    ) {
+      parseEnd += 1;
+    }
+
+    const content = lines.slice(parseStart, parseEnd).join("\n");
+    if (content.length > 0) {
+      chunks.push({
+        content,
+        byte: lineOffsets[parseStart] ?? 0,
+        line: parseStart,
+        start: ownedStart,
+        end: ownedEnd,
+      });
+    }
+
+    ownedStart = ownedEnd;
+  }
+
+  return chunks;
 }
 
 export function supportedLanguageForFile(filePath: string): SupportedLanguage | null {
@@ -464,21 +618,56 @@ export function parseSourceFile(input: {
   summaryStrategy?: SummaryStrategy;
 }): ParsedFile {
   parser.setLanguage(languageFor(input.language));
-  const tree = parser.parse(input.content);
   const symbols: ParsedSymbol[] = [];
   const imports: ParsedImport[] = [];
   const summaryStrategy = input.summaryStrategy ?? "doc-comments-first";
 
-  for (const child of tree.rootNode.namedChildren) {
-    visitNode(
-      child,
-      input.content,
-      input.relativePath,
-      false,
-      summaryStrategy,
-      symbols,
-      imports,
-    );
+  try {
+    const tree = parser.parse(input.content);
+    for (const child of tree.rootNode.namedChildren) {
+      visitNode(
+        child,
+        input.content,
+        input.relativePath,
+        false,
+        summaryStrategy,
+        symbols,
+        imports,
+      );
+    }
+  } catch (error) {
+    if (!isRecoverableParseFailure(error)) {
+      throw error;
+    }
+
+    for (const chunk of splitSourceIntoChunks(input.content)) {
+      try {
+        const tree = parser.parse(chunk.content);
+        for (const child of tree.rootNode.namedChildren) {
+          visitNode(
+            child,
+            chunk.content,
+            input.relativePath,
+            false,
+            summaryStrategy,
+            symbols,
+            imports,
+            {
+              byte: chunk.byte,
+              line: chunk.line,
+            },
+            {
+              start: chunk.start,
+              end: chunk.end,
+            },
+          );
+        }
+      } catch (chunkError) {
+        if (!isRecoverableParseFailure(chunkError)) {
+          throw chunkError;
+        }
+      }
+    }
   }
 
   return {

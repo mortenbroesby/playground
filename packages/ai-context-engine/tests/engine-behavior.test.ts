@@ -242,6 +242,110 @@ describe("ai-context-engine behavior", () => {
     });
   });
 
+  it("extracts symbols from a large file when single-pass tree-sitter parsing fails", async () => {
+    const repoRoot = await createFixtureRepo();
+    const largeModule = Array.from({ length: 900 }, (_, index) =>
+      `export function helper${index}(value: number): number { return value + ${index}; }`,
+    ).join("\n");
+
+    await writeFile(path.join(repoRoot, "src", "large.ts"), `${largeModule}\n`);
+
+    const summary = await indexFolder({ repoRoot });
+    const fileTree = await getFileTree({ repoRoot });
+    const largeOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/large.ts",
+    });
+    const largeContent = await getFileContent({
+      repoRoot,
+      filePath: "src/large.ts",
+    });
+    const textMatches = await searchText({
+      repoRoot,
+      query: "helper899",
+      filePattern: "src/large.ts",
+    });
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "helper899",
+      filePattern: "src/large.ts",
+    });
+
+    expect(summary).toMatchObject({
+      indexedFiles: 3,
+      staleStatus: "fresh",
+    });
+    expect(fileTree).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "src/large.ts",
+          symbolCount: 900,
+        }),
+      ]),
+    );
+    expect(largeOutline.filePath).toBe("src/large.ts");
+    expect(largeOutline.symbols).toHaveLength(900);
+    expect(largeOutline.symbols[0]).toMatchObject({
+      name: "helper0",
+    });
+    expect(largeContent.content).toContain("helper899");
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/large.ts",
+    });
+    expect(symbolMatches[0]).toMatchObject({
+      filePath: "src/large.ts",
+      name: "helper899",
+    });
+  });
+
+  it("indexes a declaration that spans chunk boundaries exactly once", async () => {
+    const repoRoot = await createFixtureRepo();
+    const filler = Array.from({ length: 220 }, (_, index) =>
+      `export function filler${index}(value: number): number { return value + ${index}; }`,
+    ).join("\n");
+    const spanningFunction = [
+      "export function boundaryHelper(value: number): string {",
+      "  const parts = [",
+      ...Array.from({ length: 180 }, (_, index) => `    "segment-${index}-${"x".repeat(48)}",`),
+      "  ];",
+      "  return parts.join(value.toString());",
+      "}",
+    ].join("\n");
+    const suffix = Array.from({ length: 40 }, (_, index) =>
+      `export const tail${index} = ${index};`,
+    ).join("\n");
+
+    await writeFile(
+      path.join(repoRoot, "src", "boundary.ts"),
+      `${filler}\n${spanningFunction}\n${suffix}\n`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const fileOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/boundary.ts",
+    });
+    const boundarySymbols = fileOutline.symbols.filter(
+      (symbol) => symbol.name === "boundaryHelper",
+    );
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "boundaryHelper",
+      filePattern: "src/boundary.ts",
+    });
+
+    expect(boundarySymbols).toHaveLength(1);
+    expect(boundarySymbols[0]).toMatchObject({
+      name: "boundaryHelper",
+      kind: "function",
+      filePath: "src/boundary.ts",
+    });
+    expect(
+      symbolMatches.filter((symbol) => symbol.name === "boundaryHelper"),
+    ).toHaveLength(1);
+  });
+
   it("supports language and file pattern filters in search", async () => {
     const repoRoot = await createFixtureRepo();
 

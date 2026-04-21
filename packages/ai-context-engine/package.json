@@ -16,6 +16,7 @@
   "scripts": {
     "cli": "node --experimental-strip-types ./src/cli.ts",
     "mcp": "node --experimental-strip-types ./src/mcp.ts",
+    "bench:small": "node --experimental-strip-types ./scripts/benchmark-small.mjs",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:mutation": "node ./scripts/mutation-opt-in.mjs",
