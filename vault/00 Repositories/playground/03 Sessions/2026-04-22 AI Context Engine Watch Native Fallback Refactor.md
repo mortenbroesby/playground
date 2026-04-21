@@ -44,8 +44,9 @@ native watcher is unavailable or emits errors.
 
 ## Verification
 
-- official Node.js docs were checked for `fs.watch` recursive support and caveats:
-  https://nodejs.org/download/release/v22.10.0/docs/api/fs.html
+- official Node.js docs were checked for `fs.watch` recursive support and
+  caveats:
+  [Node.js fs docs v22.10.0](https://nodejs.org/download/release/v22.10.0/docs/api/fs.html)
 - `pnpm --filter @playground/ai-context-engine type-check`
 - `pnpm --filter @playground/ai-context-engine test -- --run tests/engine-behavior.test.ts tests/mutation-smoke.watch.test.ts tests/interface.test.ts`
 
