@@ -141,6 +141,9 @@ async function benchmarkParseTargets(runs) {
       bytes: content.length,
       symbols: parseResult?.symbols.length ?? 0,
       imports: parseResult?.imports.length ?? 0,
+      backend: parseResult?.backend ?? null,
+      fallbackUsed: parseResult?.fallbackUsed ?? false,
+      fallbackReason: parseResult?.fallbackReason ?? null,
       fallbackLikely:
         (parseResult?.symbols.length ?? 0) === 0 &&
         (parseResult?.imports.length ?? 0) === 0,

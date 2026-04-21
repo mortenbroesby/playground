@@ -4,6 +4,7 @@ import path from "node:path";
 import Parser from "tree-sitter";
 import javascript from "tree-sitter-javascript";
 import tsLanguages from "tree-sitter-typescript";
+import { parseSync as parseOxcSync } from "oxc-parser";
 
 import type {
   SummarySource,
@@ -37,6 +38,9 @@ export interface ParsedFile {
   contentHash: string;
   symbols: ParsedSymbol[];
   imports: ParsedImport[];
+  backend: "oxc" | "tree-sitter";
+  fallbackUsed: boolean;
+  fallbackReason: string | null;
 }
 
 const parser = new Parser();
@@ -134,10 +138,7 @@ function resolveSummary(input: {
   sourceText: string;
   signature: string;
   summaryStrategy: SummaryStrategy;
-}): {
-  summary: string;
-  summarySource: SummarySource;
-} {
+}): { summary: string; summarySource: SummarySource } {
   if (input.summaryStrategy === "doc-comments-first") {
     const commentSummary = extractLeadingCommentSummary(input.node, input.sourceText);
     if (commentSummary) {
@@ -595,27 +596,408 @@ function splitSourceIntoChunks(sourceText: string): SourceChunk[] {
   return chunks;
 }
 
-export function supportedLanguageForFile(filePath: string): SupportedLanguage | null {
-  const ext = path.extname(filePath).toLowerCase();
-  switch (ext) {
-    case ".ts":
-      return "ts";
-    case ".tsx":
-      return "tsx";
-    case ".js":
-      return "js";
-    case ".jsx":
-      return "jsx";
+function buildLineOffsets(sourceText: string): number[] {
+  const offsets = [0];
+  for (let index = 0; index < sourceText.length; index += 1) {
+    if (sourceText[index] === "\n") {
+      offsets.push(index + 1);
+    }
+  }
+  return offsets;
+}
+
+function lineFromOffset(lineOffsets: number[], offset: number): number {
+  let low = 0;
+  let high = lineOffsets.length - 1;
+
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const current = lineOffsets[middle];
+    const next = lineOffsets[middle + 1] ?? Number.POSITIVE_INFINITY;
+
+    if (offset < current) {
+      high = middle - 1;
+      continue;
+    }
+
+    if (offset >= next) {
+      low = middle + 1;
+      continue;
+    }
+
+    return middle + 1;
+  }
+
+  return lineOffsets.length;
+}
+
+function parseCommentSummaryFromValue(
+  comment: { type: "Line" | "Block"; value: string },
+): string | null {
+  const normalized = comment.type === "Block"
+    ? comment.value
+        .split("\n")
+        .map((line) => line.replace(/^\s*\*\s?/, "").trim())
+        .filter(Boolean)
+    : comment.value
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+  const firstLine = normalized[0];
+  return firstLine ? normalizeWhitespace(firstLine) : null;
+}
+
+function extractLeadingOxcCommentSummary(input: {
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+  sourceText: string;
+  startByte: number;
+}): string | null {
+  const candidate = input.comments
+    .filter((comment) => comment.end <= input.startByte)
+    .at(-1);
+
+  if (!candidate) {
+    return null;
+  }
+
+  const between = input.sourceText.slice(candidate.end, input.startByte);
+  if (between.trim().length > 0) {
+    return null;
+  }
+
+  const beforeComment = input.sourceText.slice(0, candidate.start);
+  const lastNewline = beforeComment.lastIndexOf("\n");
+  const separator = beforeComment.slice(lastNewline + 1);
+  if (separator.trim().length > 0) {
+    return null;
+  }
+
+  return parseCommentSummaryFromValue(candidate);
+}
+
+function createOxcSymbol(input: {
+  sourceText: string;
+  relativePath: string;
+  kind: SymbolKind;
+  name: string;
+  startByte: number;
+  endByte: number;
+  exported: boolean;
+  lineOffsets: number[];
+  summaryStrategy: SummaryStrategy;
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+  qualifiedName?: string | null;
+}): ParsedSymbol {
+  const signature = normalizeWhitespace(
+    nodeText(input.sourceText, input.startByte, input.endByte),
+  );
+  const commentSummary = input.summaryStrategy === "doc-comments-first"
+    ? extractLeadingOxcCommentSummary({
+        comments: input.comments,
+        sourceText: input.sourceText,
+        startByte: input.startByte,
+      })
+    : null;
+
+  return {
+    id: buildSymbolId(
+      input.relativePath,
+      input.kind,
+      input.qualifiedName ?? input.name,
+      input.startByte,
+    ),
+    name: input.name,
+    qualifiedName: input.qualifiedName ?? null,
+    kind: input.kind,
+    signature,
+    summary: commentSummary ?? signature,
+    summarySource: commentSummary ? "doc-comment" : "signature",
+    startLine: lineFromOffset(input.lineOffsets, input.startByte),
+    endLine: lineFromOffset(
+      input.lineOffsets,
+      Math.max(input.startByte, input.endByte - 1),
+    ),
+    startByte: input.startByte,
+    endByte: input.endByte,
+    exported: input.exported,
+  };
+}
+
+function collectOxcClassMembers(input: {
+  node: any;
+  sourceText: string;
+  relativePath: string;
+  summaryStrategy: SummaryStrategy;
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+  lineOffsets: number[];
+  className: string;
+}): ParsedSymbol[] {
+  const members = input.node?.body?.body;
+  if (!Array.isArray(members)) {
+    return [];
+  }
+
+  return members.flatMap((member) => {
+    if (member?.type !== "MethodDefinition" || member.key?.type !== "Identifier") {
+      return [];
+    }
+
+    return [
+      createOxcSymbol({
+        sourceText: input.sourceText,
+        relativePath: input.relativePath,
+        kind: "method",
+        name: member.key.name,
+        qualifiedName: `${input.className}.${member.key.name}`,
+        startByte: member.start,
+        endByte: member.end,
+        exported: false,
+        lineOffsets: input.lineOffsets,
+        summaryStrategy: input.summaryStrategy,
+        comments: input.comments,
+      }),
+    ];
+  });
+}
+
+function collectOxcVariableSymbols(input: {
+  node: any;
+  sourceText: string;
+  relativePath: string;
+  summaryStrategy: SummaryStrategy;
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+  lineOffsets: number[];
+  exported: boolean;
+  rangeStart: number;
+  rangeEnd: number;
+}): ParsedSymbol[] {
+  const declarations = input.node?.declarations;
+  if (!Array.isArray(declarations)) {
+    return [];
+  }
+
+  return declarations.flatMap((declarator) => {
+    if (declarator?.id?.type !== "Identifier") {
+      return [];
+    }
+
+    return [
+      createOxcSymbol({
+        sourceText: input.sourceText,
+        relativePath: input.relativePath,
+        kind: "constant",
+        name: declarator.id.name,
+        startByte: input.rangeStart,
+        endByte: input.rangeEnd,
+        exported: input.exported,
+        lineOffsets: input.lineOffsets,
+        summaryStrategy: input.summaryStrategy,
+        comments: input.comments,
+      }),
+    ];
+  });
+}
+
+function collectOxcImports(moduleInfo: any): ParsedImport[] {
+  const staticImports = moduleInfo?.staticImports;
+  if (!Array.isArray(staticImports)) {
+    return [];
+  }
+
+  return staticImports.map((entry) => ({
+    source: entry.moduleRequest?.value ?? "",
+    specifiers: Array.isArray(entry.entries)
+      ? entry.entries
+          .map((specifier: any) => {
+            const kind = specifier.importName?.kind;
+            if (kind === "Name") {
+              return specifier.importName?.name ?? "";
+            }
+            return specifier.localName?.value ?? "";
+          })
+          .filter(Boolean)
+      : [],
+  }));
+}
+
+function collectOxcDeclarationSymbols(input: {
+  node: any;
+  sourceText: string;
+  relativePath: string;
+  summaryStrategy: SummaryStrategy;
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+  lineOffsets: number[];
+  exported: boolean;
+  rangeStart: number;
+  rangeEnd: number;
+}): ParsedSymbol[] {
+  switch (input.node?.type) {
+    case "FunctionDeclaration": {
+      const name = input.node.id?.name;
+      if (!name) {
+        return [];
+      }
+      return [
+        createOxcSymbol({
+          sourceText: input.sourceText,
+          relativePath: input.relativePath,
+          kind: "function",
+          name,
+          startByte: input.rangeStart,
+          endByte: input.rangeEnd,
+          exported: input.exported,
+          lineOffsets: input.lineOffsets,
+          summaryStrategy: input.summaryStrategy,
+          comments: input.comments,
+        }),
+      ];
+    }
+    case "ClassDeclaration": {
+      const name = input.node.id?.name;
+      if (!name) {
+        return [];
+      }
+      const classSymbol = createOxcSymbol({
+        sourceText: input.sourceText,
+        relativePath: input.relativePath,
+        kind: "class",
+        name,
+        startByte: input.rangeStart,
+        endByte: input.rangeEnd,
+        exported: input.exported,
+        lineOffsets: input.lineOffsets,
+        summaryStrategy: input.summaryStrategy,
+        comments: input.comments,
+      });
+      return [
+        classSymbol,
+        ...collectOxcClassMembers({
+          node: input.node,
+          sourceText: input.sourceText,
+          relativePath: input.relativePath,
+          summaryStrategy: input.summaryStrategy,
+          comments: input.comments,
+          lineOffsets: input.lineOffsets,
+          className: name,
+        }),
+      ];
+    }
+    case "TSInterfaceDeclaration":
+    case "TSTypeAliasDeclaration":
+    case "TSEnumDeclaration": {
+      const name = input.node.id?.name;
+      if (!name) {
+        return [];
+      }
+      return [
+        createOxcSymbol({
+          sourceText: input.sourceText,
+          relativePath: input.relativePath,
+          kind: "type",
+          name,
+          startByte: input.rangeStart,
+          endByte: input.rangeEnd,
+          exported: input.exported,
+          lineOffsets: input.lineOffsets,
+          summaryStrategy: input.summaryStrategy,
+          comments: input.comments,
+        }),
+      ];
+    }
+    case "VariableDeclaration":
+      return collectOxcVariableSymbols(input);
     default:
-      return null;
+      return [];
   }
 }
 
-export function parseSourceFile(input: {
+function parseWithOxc(input: {
   relativePath: string;
   content: string;
   language: SupportedLanguage;
   summaryStrategy?: SummaryStrategy;
+}): ParsedFile {
+  const result = parseOxcSync(input.relativePath, input.content);
+  const summaryStrategy = input.summaryStrategy ?? "doc-comments-first";
+  const comments = Array.isArray(result.comments) ? result.comments : [];
+  const lineOffsets = buildLineOffsets(input.content);
+  const symbols: ParsedSymbol[] = [];
+
+  for (const statement of result.program?.body ?? []) {
+    switch (statement?.type) {
+      case "ImportDeclaration":
+        break;
+      case "ExportNamedDeclaration": {
+        if (statement.declaration) {
+          symbols.push(
+            ...collectOxcDeclarationSymbols({
+              node: statement.declaration,
+              sourceText: input.content,
+              relativePath: input.relativePath,
+              summaryStrategy,
+              comments,
+              lineOffsets,
+              exported: true,
+              rangeStart: statement.start,
+              rangeEnd: statement.end,
+            }),
+          );
+        }
+        break;
+      }
+      case "ExportDefaultDeclaration": {
+        if (statement.declaration) {
+          symbols.push(
+            ...collectOxcDeclarationSymbols({
+              node: statement.declaration,
+              sourceText: input.content,
+              relativePath: input.relativePath,
+              summaryStrategy,
+              comments,
+              lineOffsets,
+              exported: true,
+              rangeStart: statement.start,
+              rangeEnd: statement.end,
+            }),
+          );
+        }
+        break;
+      }
+      default:
+        symbols.push(
+          ...collectOxcDeclarationSymbols({
+            node: statement,
+            sourceText: input.content,
+            relativePath: input.relativePath,
+            summaryStrategy,
+            comments,
+            lineOffsets,
+            exported: false,
+            rangeStart: statement.start,
+            rangeEnd: statement.end,
+          }),
+        );
+      }
+    }
+
+  return {
+    language: input.language,
+    contentHash: sha256(input.content),
+    symbols,
+    imports: collectOxcImports(result.module),
+    backend: "oxc",
+    fallbackUsed: false,
+    fallbackReason: null,
+  };
+}
+
+function parseWithTreeSitter(input: {
+  relativePath: string;
+  content: string;
+  language: SupportedLanguage;
+  summaryStrategy?: SummaryStrategy;
+  fallbackReason?: string;
 }): ParsedFile {
   parser.setLanguage(languageFor(input.language));
   const symbols: ParsedSymbol[] = [];
@@ -675,5 +1057,40 @@ export function parseSourceFile(input: {
     contentHash: sha256(input.content),
     symbols,
     imports,
+    backend: "tree-sitter",
+    fallbackUsed: true,
+    fallbackReason: input.fallbackReason ?? "oxc-parse-failed",
   };
+}
+
+export function supportedLanguageForFile(filePath: string): SupportedLanguage | null {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".ts":
+      return "ts";
+    case ".tsx":
+      return "tsx";
+    case ".js":
+      return "js";
+    case ".jsx":
+      return "jsx";
+    default:
+      return null;
+  }
+}
+
+export function parseSourceFile(input: {
+  relativePath: string;
+  content: string;
+  language: SupportedLanguage;
+  summaryStrategy?: SummaryStrategy;
+}): ParsedFile {
+  try {
+    return parseWithOxc(input);
+  } catch (error) {
+    return parseWithTreeSitter({
+      ...input,
+      fallbackReason: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
