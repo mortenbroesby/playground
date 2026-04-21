@@ -83,3 +83,6 @@ approval_mode = "approve"
 
 [mcp_servers.jcodemunch.tools.search_text]
 approval_mode = "approve"
+
+[features]
+codex_hooks = true

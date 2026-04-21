@@ -45,6 +45,7 @@ function NowPlayingWaveform({ className = 'h-4 w-4' }: { className?: string }) {
 export function NowPlayingWidget() {
   const { data, isLoading, isError } = useNowPlaying();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [dismissedTrackKey, setDismissedTrackKey] = useState<string | null>(null);
   const trackData =
     data &&
     'track' in data &&
@@ -57,6 +58,10 @@ export function NowPlayingWidget() {
   const trackKey = trackData
     ? `${trackData.isPlaying ? 'playing' : 'recent'}:${trackData.songUrl}:${trackData.track}:${trackData.artist}`
     : null;
+  const isDismissed =
+    trackKey !== null &&
+    (dismissedTrackKey === trackKey ||
+      window.localStorage.getItem('spotify-card-dismissed-track') === trackKey);
 
   useEffect(() => {
     if (!trackKey) {
@@ -66,11 +71,21 @@ export function NowPlayingWidget() {
     setIsExpanded(false);
   }, [trackKey]);
 
+  const dismissCard = () => {
+    if (!trackKey) {
+      return;
+    }
+
+    window.localStorage.setItem('spotify-card-dismissed-track', trackKey);
+    setDismissedTrackKey(trackKey);
+  };
+
   if (
     isLoading ||
     isError ||
     !trackData ||
-    !trackKey
+    !trackKey ||
+    isDismissed
   ) {
     return null;
   }
@@ -134,13 +149,29 @@ export function NowPlayingWidget() {
                 loading="lazy"
                 className="aspect-square w-full object-cover"
               />
-              <div className="absolute right-2 top-2">
+              <div className="absolute right-2 top-2 flex items-center gap-1.5">
                 <button
                   type="button"
+                  data-testid="dismiss-now-playing-widget"
+                  aria-label="Dismiss"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissCard();
+                  }}
+                  className="inline-flex min-h-7 touch-manipulation items-center rounded-md bg-black/60 px-2 text-[10px] font-medium uppercase tracking-[0.18em] text-white/80 backdrop-blur-sm transition-colors hover:bg-black/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                >
+                  Hide
+                </button>
+                <button
+                  type="button"
+                  data-testid="toggle-now-playing-widget"
                   aria-label="Collapse"
                   aria-expanded={true}
                   aria-controls="now-playing-details"
-                  onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(false);
+                  }}
                   className="inline-flex h-7 w-7 touch-manipulation items-center justify-center rounded-md bg-black/60 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 >
                   <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" />

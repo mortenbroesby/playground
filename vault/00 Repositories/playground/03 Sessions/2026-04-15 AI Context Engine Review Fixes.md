@@ -1,28 +1,25 @@
+---
+type: repo-session
+repo: playground
+date: 2026-04-15
+branch: feat/ai-context-engine-phase2-watch
+tags:
+  - ai-context-engine
+  - benchmark
+  - review
+  - phase-2
+---
+
 # AI Context Engine Review Fixes
 
-## Summary
+## What changed
 
-Address the first code-review pass on `feat/ai-context-engine-phase1` by fixing
-repo-boundary enforcement, public wrapper gaps, benchmark result integrity, and
-missing regression coverage across the engine and benchmark harness packages.
+Addressed the two issues surfaced by the multi-competency Ralph review:
 
-## Implemented
-
-- enforced repo-root confinement for engine file-path inputs and added
-  realpath-based symlink escape checks
-- made indexing respect `.gitignore` when `respectGitIgnore` is enabled
-- fixed fresh-repo `init`/`diagnostics` behavior so storage is created before
-  opening SQLite
-- exposed `searchSymbols` `kind` and `limit` through the CLI and MCP wrappers
-- fixed aliased import parsing for dependency selection in context bundles
-- prevented exported symbols from receiving a positive search score when the
-  query does not match
-- enforced hard token-budget caps in `getContextBundle`
-- tightened benchmark corpus task-path containment
-- removed misleading `tracePath` output until trace files actually exist
-- corrected benchmark success evaluation and corpus/run provenance reporting
-- added regression tests for traversal rejection, `.gitignore`, alias imports,
-  wrapper filters, and corpus path escapes
+1. benchmark workflows now enforce task `allowedPaths` when collecting evidence
+   and computing success
+2. engine runtime boundaries now validate `summaryStrategy` values instead of
+   accepting and persisting unsupported strings
 
 ## Verification
 
@@ -30,9 +27,10 @@ missing regression coverage across the engine and benchmark harness packages.
 - `pnpm --filter @playground/ai-context-engine test`
 - `pnpm --filter @playground/ai-context-engine-bench type-check`
 - `pnpm --filter @playground/ai-context-engine-bench test`
+- `pnpm lint:md`
 
-## Follow-up
+## Why it matters
 
-- do one more review pass on top of these fixes before merging
-- if that pass is clean, the remaining work should stay in the next planned
-  phase rather than extend this branch again
+The benchmark harness now compares workflows on the declared task slice instead
+of allowing out-of-scope hits to count as success, and the engine no longer
+stores invalid summary-strategy state from CLI or MCP callers.

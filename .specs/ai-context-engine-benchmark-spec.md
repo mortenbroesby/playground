@@ -85,6 +85,7 @@ Recommended task categories:
 6. multi-symbol context assembly
 
 The current corpus is intentionally tiny: one self-hosted task for the benchmark package.
+That checked-in task currently exercises `baseline`, `discovery-first`, `symbol-first`, and `bundle`.
 
 The next corpus expansion should still stay small enough to run frequently, but broad enough to catch regressions in:
 
@@ -242,20 +243,21 @@ If the benchmark includes an indexing phase, report it separately from retrieval
 
 ## 8. Reporting Format
 
-The benchmark should produce a markdown report and a machine-readable artifact.
+The benchmark currently produces a markdown report plus machine-readable JSON artifacts: `results.json` and `corpus.lock.json`.
 
 Current report contents:
 
 1. benchmark name and version
-2. repo SHA
-3. engine version
-4. tokenizer used
-5. corpus size and slice breakdown
-6. workflow definitions
-7. per-task table
-8. per-workflow summary table
-9. grand total summary
-10. failure notes
+2. run id
+3. repo SHA
+4. engine version
+5. tokenizer used
+6. corpus metadata, manifest path, and task count
+7. workflow definitions
+8. per-task table
+9. per-workflow summary table
+10. grand total summary
+11. failure notes
 
 Still future:
 - richer ambiguity handling
@@ -275,8 +277,7 @@ Recommended per-task table columns:
 
 Recommended machine-readable artifact:
 
-1. JSON results file with the same fields as the markdown report
-2. stable ordering so diffs are easy to review
+1. JSON results and corpus-lock files with stable ordering so diffs are easy to review
 
 ## 9. Reproducibility
 

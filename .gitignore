@@ -35,6 +35,7 @@ vault/.trash/
 # Monorepo
 .turbo/
 dist/
+coverage/
 *.tsbuildinfo
 playwright-report/
 test-results/
@@ -50,3 +51,5 @@ __screenshots__/
 .ralph/
 .codeintel/
 .ai-context-engine/
+.stryker-tmp/
+coverage/stryker*.html

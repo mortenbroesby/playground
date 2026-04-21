@@ -1,5 +1,6 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -16,6 +17,7 @@ import {
   searchSymbols,
   searchText,
   suggestInitialQueries,
+  watchFolder,
 } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
@@ -24,6 +26,19 @@ afterEach(async () => {
 });
 
 describe("ai-context-engine behavior", () => {
+  async function waitFor(
+    predicate: () => boolean,
+    timeoutMs = 2000,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate()) {
+      if (Date.now() > deadline) {
+        throw new Error("Timed out waiting for condition");
+      }
+      await delay(20);
+    }
+  }
+
   it("indexes a folder and exposes discovery-first queries", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -59,6 +74,91 @@ describe("ai-context-engine behavior", () => {
 
     const suggestions = await suggestInitialQueries({ repoRoot });
     expect(suggestions[0]).toContain("Greeter");
+  });
+
+  it("prefers leading doc comments for symbol summaries by default", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const mathOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+    expect(mathOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "area",
+          summary: "Calculate the circle area label.",
+          summarySource: "doc-comment",
+        }),
+      ]),
+    );
+
+    const stringsOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/strings.ts",
+    });
+    expect(stringsOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "formatLabel",
+          summary: "Format an area label for display.",
+          summarySource: "doc-comment",
+        }),
+        expect.objectContaining({
+          name: "Greeter",
+          summary: "Friendly greeter for string output.",
+          summarySource: "doc-comment",
+        }),
+        expect.objectContaining({
+          name: "greet",
+          summary: "Return a greeting for the provided name.",
+          summarySource: "doc-comment",
+        }),
+      ]),
+    );
+
+    const health = await diagnostics({ repoRoot });
+    expect(health).toMatchObject({
+      summaryStrategy: "doc-comments-first",
+      summarySources: {
+        "doc-comment": 4,
+        signature: 1,
+      },
+    });
+  });
+
+  it("can fall back to signature-derived summaries when configured", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({
+      repoRoot,
+      summaryStrategy: "signature-only",
+    });
+
+    const mathOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+    expect(mathOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "area",
+          summary:
+            "export function area(radius: number): string { const value = PI * radius * radius; return formatLabel(value); }",
+          summarySource: "signature",
+        }),
+      ]),
+    );
+
+    const health = await diagnostics({ repoRoot });
+    expect(health).toMatchObject({
+      summaryStrategy: "signature-only",
+      summarySources: {
+        signature: 5,
+      },
+    });
   });
 
   it("respects .gitignore entries during indexing", async () => {
@@ -249,6 +349,117 @@ export function circumference(radius: number): string {
     const health = await diagnostics({ repoRoot });
     expect(health.storageMode).toBe("wal");
     expect(health.staleStatus).toBe("fresh");
+  });
+
+  it("supports debounced watch mode with changed-file fast refresh", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; summary?: { indexedFiles: number } }> = [];
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            summary: event.summary
+              ? {
+                  indexedFiles: event.summary.indexedFiles,
+                }
+              : undefined,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+      );
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius + 1);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      const symbolMatches = await searchSymbols({
+        repoRoot,
+        query: "circumference",
+      });
+
+      expect(symbolMatches[0]?.name).toBe("circumference");
+      expect(reindexEvents).toHaveLength(1);
+      expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
+      expect(reindexEvents[0]?.summary).toMatchObject({
+        indexedFiles: 1,
+      });
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("removes deleted files during watch refresh without a full folder reindex", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; summary?: { indexedFiles: number } }> = [];
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            summary: event.summary
+              ? {
+                  indexedFiles: event.summary.indexedFiles,
+                }
+              : undefined,
+          });
+        }
+      },
+    });
+
+    try {
+      await rm(path.join(repoRoot, "src", "math.ts"));
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      const symbolMatches = await searchSymbols({
+        repoRoot,
+        query: "PI",
+      });
+      const health = await diagnostics({ repoRoot });
+
+      expect(symbolMatches).toHaveLength(0);
+      expect(health).toMatchObject({
+        indexedFiles: 1,
+        currentFiles: 1,
+        staleStatus: "fresh",
+      });
+      expect(reindexEvents).toHaveLength(1);
+      expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
+      expect(reindexEvents[0]?.summary).toMatchObject({
+        indexedFiles: 1,
+      });
+    } finally {
+      await watcher.close();
+    }
   });
 
   it("surfaces live freshness drift after the repository changes", async () => {

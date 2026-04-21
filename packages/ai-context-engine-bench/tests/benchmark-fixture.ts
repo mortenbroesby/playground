@@ -21,7 +21,9 @@ export interface BenchmarkFixtureRepo {
   repoSha: string;
 }
 
-export function createBenchmarkFixtureRepo(): BenchmarkFixtureRepo {
+export function createBenchmarkFixtureRepo(options: {
+  includeOutOfScopeDuplicate?: boolean;
+} = {}): BenchmarkFixtureRepo {
   const repoRoot = mkdtempSync(path.join(os.tmpdir(), "aice-bench-"));
   const corpusSourceDir = path.join(workspaceRoot, ".specs", "benchmarks");
   const corpusTargetDir = path.join(repoRoot, ".specs", "benchmarks");
@@ -37,6 +39,15 @@ export function createBenchmarkFixtureRepo(): BenchmarkFixtureRepo {
 }
 `,
   );
+  if (options.includeOutOfScopeDuplicate) {
+    writeFileSync(
+      path.join(repoRoot, "packages", "ai-context-engine-bench", "src", "a-outside.ts"),
+      `export function loadBenchmarkCorpus(): string {
+  return "outside";
+}
+`,
+    );
+  }
   execFileSync("git", ["init"], {
     cwd: repoRoot,
     encoding: "utf8",

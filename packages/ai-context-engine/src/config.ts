@@ -1,10 +1,28 @@
 import path from "node:path";
 
-import type { EngineConfig, EnginePaths, EnginePhase1ToolName } from "./types.ts";
+import type {
+  EngineConfig,
+  EnginePaths,
+  EnginePhase1ToolName,
+  SymbolKind,
+  SummaryStrategy,
+} from "./types.ts";
 
 const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
 
 export const ENGINE_STORAGE_DIRNAME = ".ai-context-engine";
+export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
+const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
+  "doc-comments-first",
+  "signature-only",
+]);
+const SYMBOL_KINDS = new Set<SymbolKind>([
+  "function",
+  "class",
+  "method",
+  "constant",
+  "type",
+]);
 
 export const ENGINE_PHASE_1_TOOLS: EnginePhase1ToolName[] = [
   "init",
@@ -34,8 +52,47 @@ export function resolveEnginePaths(repoRoot: string): EnginePaths {
   };
 }
 
+export function isSummaryStrategy(value: unknown): value is SummaryStrategy {
+  return typeof value === "string" && SUMMARY_STRATEGIES.has(value as SummaryStrategy);
+}
+
+export function parseSummaryStrategy(
+  value: unknown,
+  label = "summaryStrategy",
+): SummaryStrategy {
+  if (!isSummaryStrategy(value)) {
+    throw new Error(
+      `Unsupported ${label}: ${String(value)}. Expected one of: ${[...SUMMARY_STRATEGIES].join(", ")}`,
+    );
+  }
+
+  return value;
+}
+
+export function normalizeSummaryStrategy(value: unknown): SummaryStrategy {
+  return isSummaryStrategy(value) ? value : DEFAULT_SUMMARY_STRATEGY;
+}
+
+export function isSymbolKind(value: unknown): value is SymbolKind {
+  return typeof value === "string" && SYMBOL_KINDS.has(value as SymbolKind);
+}
+
+export function parseSymbolKind(
+  value: unknown,
+  label = "kind",
+): SymbolKind {
+  if (!isSymbolKind(value)) {
+    throw new Error(
+      `Unsupported ${label}: ${String(value)}. Expected one of: ${[...SYMBOL_KINDS].join(", ")}`,
+    );
+  }
+
+  return value;
+}
+
 export function createDefaultEngineConfig(input: {
   repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
 }): EngineConfig {
   return {
     repoRoot: input.repoRoot,
@@ -43,6 +100,10 @@ export function createDefaultEngineConfig(input: {
     respectGitIgnore: true,
     storageMode: "wal",
     staleStatus: "unknown",
+    summaryStrategy:
+      input.summaryStrategy === undefined
+        ? DEFAULT_SUMMARY_STRATEGY
+        : parseSummaryStrategy(input.summaryStrategy),
     paths: resolveEnginePaths(input.repoRoot),
   };
 }

@@ -1,7 +1,13 @@
 export {
   createDefaultEngineConfig,
+  DEFAULT_SUMMARY_STRATEGY,
   ENGINE_PHASE_1_TOOLS,
   ENGINE_STORAGE_DIRNAME,
+  isSymbolKind,
+  isSummaryStrategy,
+  normalizeSummaryStrategy,
+  parseSymbolKind,
+  parseSummaryStrategy,
   resolveEnginePaths,
 } from "./config.ts";
 export {
@@ -17,6 +23,7 @@ export {
   searchSymbols,
   searchText,
   suggestInitialQueries,
+  watchFolder,
 } from "./storage.ts";
 
 export type {
@@ -39,5 +46,10 @@ export type {
   SymbolKind,
   SymbolSourceResult,
   SymbolSummary,
+  SummarySource,
+  SummaryStrategy,
   SupportedLanguage,
+  WatchEvent,
+  WatchHandle,
+  WatchOptions,
 } from "./types.ts";

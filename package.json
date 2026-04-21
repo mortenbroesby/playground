@@ -25,12 +25,12 @@
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
     "agents:check": "node tools/agent-setup-check.mjs",
-    "claude-mem:sync": "node scripts/claude-mem/sync.mjs",
     "ralph:init": "node scripts/ralph/init.mjs",
     "ralph:loop": "node scripts/ralph/loop.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@playground/ai-context-engine": "workspace:*",
     "husky": "^9.1.7",
     "markdownlint-cli2": "^0.17.0",
     "prettier": "^3.3.0",

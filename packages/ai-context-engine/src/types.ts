@@ -4,6 +4,10 @@ export type StorageMode = "wal";
 
 export type StaleStatus = "unknown" | "fresh" | "stale";
 
+export type SummaryStrategy = "doc-comments-first" | "signature-only";
+
+export type SummarySource = "doc-comment" | "signature";
+
 export interface EnginePaths {
   storageDir: string;
   databasePath: string;
@@ -18,6 +22,7 @@ export interface EngineConfig {
   respectGitIgnore: boolean;
   storageMode: StorageMode;
   staleStatus: StaleStatus;
+  summaryStrategy: SummaryStrategy;
   paths: EnginePaths;
 }
 
@@ -33,6 +38,24 @@ export interface IndexSummary {
   indexedSymbols: number;
   skippedFiles: number;
   staleStatus: StaleStatus;
+}
+
+export interface WatchEvent {
+  type: "ready" | "reindex" | "error" | "close";
+  changedPaths: string[];
+  summary?: IndexSummary;
+  message?: string;
+}
+
+export interface WatchOptions {
+  repoRoot: string;
+  debounceMs?: number;
+  summaryStrategy?: SummaryStrategy;
+  onEvent?: (event: WatchEvent) => void | Promise<void>;
+}
+
+export interface WatchHandle {
+  close(): Promise<void>;
 }
 
 export interface RepoOutline {
@@ -55,6 +78,7 @@ export interface SymbolSummary {
   filePath: string;
   signature: string;
   summary: string;
+  summarySource: SummarySource;
   startLine: number;
   endLine: number;
   exported: boolean;
@@ -121,6 +145,8 @@ export interface DiagnosticsResult {
   databasePath: string;
   storageMode: StorageMode;
   staleStatus: StaleStatus;
+  summaryStrategy: SummaryStrategy;
+  summarySources: Partial<Record<SummarySource, number>>;
   indexedAt: string | null;
   indexAgeMs: number | null;
   indexedFiles: number;

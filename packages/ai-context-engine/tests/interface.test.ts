@@ -1,8 +1,22 @@
+import path from "node:path";
+import { execFile } from "node:child_process";
+import { writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { handleCli } from "../src/cli.ts";
 import { createMcpServer } from "../src/mcp.ts";
+import { indexFolder } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
+
+const execFileAsync = promisify(execFile);
+const packageRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 
 afterEach(async () => {
   await cleanupFixtureRepos();
@@ -48,6 +62,67 @@ describe("ai-context-engine interfaces", () => {
       name: "Greeter",
       kind: "class",
     });
+
+    const signatureOnlyStdout = await handleCli([
+      "index-folder",
+      "--repo",
+      repoRoot,
+      "--summary-strategy",
+      "signature-only",
+    ]);
+    expect(JSON.parse(signatureOnlyStdout)).toMatchObject({
+      staleStatus: "fresh",
+    });
+
+    const watchPromise = handleCli([
+      "watch",
+      "--repo",
+      repoRoot,
+      "--debounce-ms",
+      "50",
+      "--summary-strategy",
+      "signature-only",
+      "--timeout-ms",
+      "250",
+    ]);
+
+    await delay(75);
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+    );
+
+    const watchStdout = await watchPromise;
+    expect(JSON.parse(watchStdout)).toMatchObject({
+      debounceMs: 50,
+      stopReason: "timeout",
+    });
+    expect(JSON.parse(watchStdout).reindexCount).toBeGreaterThanOrEqual(0);
+    expect(JSON.parse(watchStdout).initialSummary).toMatchObject({
+      staleStatus: "fresh",
+    });
+    expect(JSON.parse(watchStdout).lastSummary).toMatchObject({
+      staleStatus: "fresh",
+    });
+
+    const signatureDiagnosticsStdout = await handleCli([
+      "diagnostics",
+      "--repo",
+      repoRoot,
+    ]);
+    expect(JSON.parse(signatureDiagnosticsStdout)).toMatchObject({
+      summaryStrategy: "signature-only",
+      summarySources: {
+        signature: 5,
+      },
+    });
   });
 
   it("exposes spec-aligned MCP tools", async () => {
@@ -80,6 +155,7 @@ describe("ai-context-engine interfaces", () => {
         name: "index_folder",
         arguments: {
           repoRoot,
+          summaryStrategy: "signature-only",
         },
       },
     });
@@ -110,6 +186,7 @@ describe("ai-context-engine interfaces", () => {
       name: "Greeter",
       kind: "class",
       filePath: "src/strings.ts",
+      summarySource: "signature",
     });
 
     const bundleResponse = await server.handleMessage({
@@ -139,6 +216,136 @@ describe("ai-context-engine interfaces", () => {
       symbol: {
         name: "Greeter",
       },
+    });
+  });
+
+  it("rejects unsupported summary strategies at runtime boundaries", async () => {
+    const repoRoot = await createFixtureRepo();
+    const server = createMcpServer();
+
+    await expect(
+      indexFolder({
+        repoRoot,
+        summaryStrategy: "bogus" as "signature-only",
+      }),
+    ).rejects.toThrow(/unsupported summaryStrategy/i);
+
+    await expect(
+      handleCli([
+        "index-folder",
+        "--repo",
+        repoRoot,
+        "--summary-strategy",
+        "bogus",
+      ]),
+    ).rejects.toThrow(/unsupported --summary-strategy/i);
+
+    const response = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "index_folder",
+        arguments: {
+          repoRoot,
+          summaryStrategy: "bogus",
+        },
+      },
+    });
+
+    expect(response.error?.message).toMatch(/unsupported summaryStrategy/i);
+  });
+
+  it("rejects malformed CLI arguments instead of silently coercing them", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await expect(
+      handleCli([
+        "search-symbols",
+        "--repo",
+        repoRoot,
+        "--query",
+        "Greeter",
+        "--kind",
+        "bogus",
+      ]),
+    ).rejects.toThrow(/unsupported --kind/i);
+
+    await expect(
+      handleCli([
+        "watch",
+        "--repo",
+        repoRoot,
+        "--debounce-ms",
+        "nope",
+        "--timeout-ms",
+        "50",
+      ]),
+    ).rejects.toThrow(/invalid numeric argument --debounce-ms/i);
+
+    await expect(
+      handleCli([
+        "search-symbols",
+        "--repo",
+        repoRoot,
+        "--query",
+        "Greeter",
+        "--limit",
+      ]),
+    ).rejects.toThrow(/missing value for argument --limit/i);
+  });
+
+  it("rejects malformed MCP arguments instead of treating them as empty filters", async () => {
+    const repoRoot = await createFixtureRepo();
+    const server = createMcpServer();
+
+    const invalidKindResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: {
+        name: "search_symbols",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          kind: "bogus",
+        },
+      },
+    });
+
+    expect(invalidKindResponse.error?.message).toMatch(/unsupported kind/i);
+
+    const invalidBudgetResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: {
+        name: "get_context_bundle",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          tokenBudget: "oops",
+        },
+      },
+    });
+
+    expect(invalidBudgetResponse.error?.message).toMatch(/invalid numeric argument: tokenBudget/i);
+  });
+
+  it("exposes a workspace bin wrapper for cli commands", async () => {
+    const repoRoot = await createFixtureRepo();
+    const binPath = path.join(packageRoot, "scripts", "ai-context-engine.mjs");
+
+    const { stdout } = await execFileAsync(process.execPath, [
+      binPath,
+      "cli",
+      "diagnostics",
+      "--repo",
+      repoRoot,
+    ]);
+
+    expect(JSON.parse(stdout)).toMatchObject({
+      storageMode: "wal",
     });
   });
 });

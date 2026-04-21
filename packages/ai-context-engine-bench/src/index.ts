@@ -11,9 +11,11 @@ export {
   runWorkflowTask,
 } from "./workflows.ts";
 export {
+  APPROXIMATE_BENCHMARK_TOKENIZER,
   BENCHMARK_TOKENIZER,
   countTokens,
   disposeTokenizer,
+  estimateTokens,
 } from "./tokenizer.ts";
 export {
   assertStrictSnapshot,

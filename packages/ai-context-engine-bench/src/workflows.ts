@@ -11,11 +11,12 @@ import {
   searchText,
 } from "@playground/ai-context-engine";
 
-import { countTokens } from "./tokenizer.ts";
+import { countTokens, estimateTokens } from "./tokenizer.ts";
 import type { BenchmarkCorpusTask } from "./types.ts";
 
 export interface WorkflowExecutionResult {
   retrievedTokens: number;
+  estimatedRetrievedTokens: number;
   toolCalls: number;
   evidence: string[];
   notes: string[];
@@ -41,6 +42,16 @@ function matchesAllowedPath(filePath: string, allowedPaths: readonly string[]): 
   });
 }
 
+function filterEvidenceToAllowedPaths(
+  evidence: readonly string[],
+  allowedPaths: readonly string[],
+): string[] {
+  return evidence.filter((item) => {
+    const pathPrefix = item.split(":", 1)[0] ?? item;
+    return matchesAllowedPath(pathPrefix, allowedPaths);
+  });
+}
+
 async function computeBaselineTokens(repoRoot: string, task: BenchmarkCorpusTask) {
   const fileTree = await getFileTree({ repoRoot });
   const relevantFiles = fileTree.filter((file) =>
@@ -50,6 +61,19 @@ async function computeBaselineTokens(repoRoot: string, task: BenchmarkCorpusTask
   for (const file of relevantFiles) {
     const content = await readFile(path.join(repoRoot, file.path), "utf8");
     total += countTokens(content);
+  }
+  return total;
+}
+
+async function computeEstimatedBaselineTokens(repoRoot: string, task: BenchmarkCorpusTask) {
+  const fileTree = await getFileTree({ repoRoot });
+  const relevantFiles = fileTree.filter((file) =>
+    matchesAllowedPath(file.path, task.manifest.allowedPaths),
+  );
+  let total = 0;
+  for (const file of relevantFiles) {
+    const content = await readFile(path.join(repoRoot, file.path), "utf8");
+    total += estimateTokens(content);
   }
   return total;
 }
@@ -72,11 +96,13 @@ const baselineWorkflow: WorkflowDefinition = {
       matchesAllowedPath(file.path, task.manifest.allowedPaths),
     );
     let tokenCount = 0;
+    let estimatedTokenCount = 0;
     const evidence: string[] = [];
 
     for (const file of relevantFiles) {
       const content = await readFile(path.join(repoRoot, file.path), "utf8");
       tokenCount += countTokens(content);
+      estimatedTokenCount += estimateTokens(content);
       for (const target of task.manifest.targets) {
         if (content.includes(target.value)) {
           evidence.push(file.path, target.value);
@@ -86,10 +112,14 @@ const baselineWorkflow: WorkflowDefinition = {
 
     return {
       retrievedTokens: tokenCount,
+      estimatedRetrievedTokens: estimatedTokenCount,
       toolCalls: 1,
-      evidence,
+      evidence: filterEvidenceToAllowedPaths(evidence, task.manifest.allowedPaths),
       notes: ["baseline read-all slice"],
-      success: successForTask(task, evidence),
+      success: successForTask(
+        task,
+        filterEvidenceToAllowedPaths(evidence, task.manifest.allowedPaths),
+      ),
     };
   },
 };
@@ -104,18 +134,26 @@ const symbolFirstWorkflow: WorkflowDefinition = {
       query: task.frontmatter.query,
       limit: 3,
     });
-    let retrievedTokens = countTokens(JSON.stringify(matches));
-    const evidence: string[] = matches.map((item) => item.name);
+    const allowedMatches = matches.filter((item) =>
+      matchesAllowedPath(item.filePath, task.manifest.allowedPaths),
+    );
+    let retrievedTokens = countTokens(JSON.stringify(allowedMatches));
+    let estimatedRetrievedTokens = estimateTokens(JSON.stringify(allowedMatches));
+    const evidence: string[] = allowedMatches.flatMap((item) => [
+      item.name,
+      item.filePath,
+    ]);
     const notes: string[] = [];
     let toolCalls = 1;
 
-    if (matches[0]) {
+    if (allowedMatches[0]) {
       const source = await getSymbolSource({
         repoRoot,
-        symbolId: matches[0].id,
+        symbolId: allowedMatches[0].id,
         verify: true,
       });
       retrievedTokens += countTokens(source.source);
+      estimatedRetrievedTokens += estimateTokens(source.source);
       evidence.push(source.symbol.name, source.symbol.filePath);
       toolCalls += 1;
     } else {
@@ -124,6 +162,7 @@ const symbolFirstWorkflow: WorkflowDefinition = {
 
     return {
       retrievedTokens,
+      estimatedRetrievedTokens,
       toolCalls,
       evidence,
       notes,
@@ -141,17 +180,22 @@ const textFirstWorkflow: WorkflowDefinition = {
       repoRoot,
       query: task.frontmatter.query,
     });
-    let retrievedTokens = countTokens(JSON.stringify(matches));
-    const evidence = matches.map((item) => `${item.filePath}:${item.line}`);
+    const allowedMatches = matches.filter((item) =>
+      matchesAllowedPath(item.filePath, task.manifest.allowedPaths),
+    );
+    let retrievedTokens = countTokens(JSON.stringify(allowedMatches));
+    let estimatedRetrievedTokens = estimateTokens(JSON.stringify(allowedMatches));
+    const evidence = allowedMatches.map((item) => `${item.filePath}:${item.line}`);
     const notes: string[] = [];
     let toolCalls = 1;
 
-    if (matches[0]) {
+    if (allowedMatches[0]) {
       const file = await getFileContent({
         repoRoot,
-        filePath: matches[0].filePath,
+        filePath: allowedMatches[0].filePath,
       });
       retrievedTokens += countTokens(file.content);
+      estimatedRetrievedTokens += estimateTokens(file.content);
       evidence.push(file.filePath, file.content);
       toolCalls += 1;
     } else {
@@ -160,6 +204,7 @@ const textFirstWorkflow: WorkflowDefinition = {
 
     return {
       retrievedTokens,
+      estimatedRetrievedTokens,
       toolCalls,
       evidence,
       notes,
@@ -178,6 +223,7 @@ const discoveryFirstWorkflow: WorkflowDefinition = {
       matchesAllowedPath(file.path, task.manifest.allowedPaths),
     );
     let retrievedTokens = countTokens(JSON.stringify(relevantFiles));
+    let estimatedRetrievedTokens = estimateTokens(JSON.stringify(relevantFiles));
     const evidence = relevantFiles.map((file) => file.path);
     const notes: string[] = [];
     let toolCalls = 1;
@@ -188,6 +234,7 @@ const discoveryFirstWorkflow: WorkflowDefinition = {
         filePath: relevantFiles[0].path,
       });
       retrievedTokens += countTokens(JSON.stringify(outline));
+      estimatedRetrievedTokens += estimateTokens(JSON.stringify(outline));
       evidence.push(
         relevantFiles[0].path,
         ...outline.symbols.map((symbol) => symbol.name),
@@ -199,6 +246,7 @@ const discoveryFirstWorkflow: WorkflowDefinition = {
 
     return {
       retrievedTokens,
+      estimatedRetrievedTokens,
       toolCalls,
       evidence,
       notes,
@@ -217,17 +265,33 @@ const bundleWorkflow: WorkflowDefinition = {
       query: task.frontmatter.query,
       tokenBudget: 400,
     });
+    const allowedItems = bundle.items.filter((item) =>
+      matchesAllowedPath(item.symbol.filePath, task.manifest.allowedPaths),
+    );
     return {
-      retrievedTokens: bundle.usedTokens,
+      retrievedTokens: allowedItems.reduce((total, item) => total + item.tokenCount, 0),
+      estimatedRetrievedTokens: estimateTokens(
+        JSON.stringify(
+          allowedItems.map((item) => ({
+            role: item.role,
+            reason: item.reason,
+            symbol: item.symbol,
+            source: item.source,
+          })),
+        ),
+      ),
       toolCalls: 1,
-      evidence: bundle.items.flatMap((item) => [
+      evidence: allowedItems.flatMap((item) => [
         item.symbol.name,
         item.symbol.filePath,
       ]),
-      notes: bundle.truncated ? ["bundle truncated"] : [],
+      notes: [
+        ...(bundle.truncated ? ["bundle truncated"] : []),
+        ...(allowedItems.length < bundle.items.length ? ["filtered to allowed paths"] : []),
+      ],
       success: successForTask(
         task,
-        bundle.items.map((item) => item.symbol.name),
+        allowedItems.flatMap((item) => [item.symbol.name, item.symbol.filePath]),
       ),
     };
   },
@@ -262,4 +326,11 @@ export async function computeBaselineForTask(
   task: BenchmarkCorpusTask,
 ) {
   return computeBaselineTokens(repoRoot, task);
+}
+
+export async function computeEstimatedBaselineForTask(
+  repoRoot: string,
+  task: BenchmarkCorpusTask,
+) {
+  return computeEstimatedBaselineTokens(repoRoot, task);
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_SUMMARY_STRATEGY,
   ENGINE_PHASE_1_TOOLS,
   createDefaultEngineConfig,
   resolveEnginePaths,
@@ -30,6 +31,7 @@ describe("ai-context-engine phase 1 contract", () => {
       respectGitIgnore: true,
       storageMode: "wal",
       staleStatus: "unknown",
+      summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
     });
 
     expect(config.paths.databasePath).toContain(".ai-context-engine/index.sqlite");

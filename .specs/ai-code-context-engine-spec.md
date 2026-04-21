@@ -9,12 +9,13 @@ Implemented now:
 - Tree-sitter parsing for `ts`, `tsx`, `js`, and `jsx`
 - repo/file discovery tools, symbol/text search, exact source retrieval, context bundles, CLI, and MCP
 - single-file refresh plus freshness diagnostics and stale-index reporting
+- debounced watch mode for live index refresh via the engine API and CLI
+- configurable doc-comment-first summaries with signature-only fallback and diagnostics metadata
 
 Still future:
-- watch mode and worktree-aware indexing
+- worktree-aware indexing
 - richer relationship and impact tools
 - fuzzy, centrality-aware, and semantic ranking
-- optional summarization backends beyond signature fallback
 
 ## 1. Purpose
 
@@ -290,14 +291,23 @@ Summaries improve navigation and ranking.
 They are not the source of truth.
 
 ### 11.2 Fallback chain
-Current implementation uses signature-derived summaries only.
+Current implementation uses a configurable local fallback chain:
+doc-comment → signature fallback
+
+Available strategies now:
+- `doc-comments-first`
+- `signature-only`
 
 Future target:
-docstring → generated summary → signature fallback
+doc-comment → generated summary → signature fallback
 
 ### 11.3 Provider model
 Allow optional summarization backends, including local-compatible backends.
 The system must still work without them.
+
+Implemented now:
+- local doc-comment extraction
+- explicit signature-only fallback mode
 
 ### 11.4 Performance model
 If summaries are expensive, allow deferred or background summarization so indexing remains usable immediately.
@@ -316,17 +326,22 @@ Support:
 Implemented now:
 - file hashes
 - stale-index reporting in metadata
+- debounced watch refresh that keeps the index current during local edits
 
 Still future:
 - modification time shortcuts
 - optional git tree SHA shortcuts
 
 ### 12.3 Watch mode
-Not implemented yet.
+Partially implemented.
 
-Target state:
-- watch daemon with debounce
-- changed-file fast paths
+Implemented now:
+- debounced watch loop
+- changed-path detection
+- CLI and library watch entry points
+
+Still future:
+- changed-file fast paths that avoid full `index_folder` refreshes
 
 ### 12.4 Worktree awareness
 Not implemented yet.
@@ -342,14 +357,23 @@ Target state:
 The main interface should be an MCP server exposing capability-oriented tools.
 
 ### 13.2 CLI support
-Implemented now:
+Implemented core commands now:
 - `init`
-- `index folder`
-- `index file`
+- `index-folder`
+- `index-file`
+- `get-repo-outline`
+- `get-file-tree`
+- `get-file-outline`
+- `suggest-initial-queries`
+- `search-symbols`
+- `search-text`
+- `get-context-bundle`
+- `get-file-content`
+- `get-symbol-source`
 - `diagnostics`
+- `watch`
 
 Still future:
-- `watch`
 - richer `config` commands
 
 ### 13.3 Diagnostics
@@ -359,9 +383,10 @@ Implemented now:
 - stale/fresh status
 - indexed and current file counts
 - snapshot hashes and drift reasons
+- active summary strategy
+- summary-source counts
 
 Still future:
-- active summarizer
 - transport mode
 - privacy settings
 - watcher health
@@ -374,6 +399,18 @@ Document an agent policy that encourages:
 
 Do not rely on policy alone for correctness, but make the intended workflow explicit.
 
+### 13.5 Build and packaging
+Implemented now:
+- native TypeScript execution for local CLI and MCP entry points via Node strip-types mode
+- no checked-in build artifacts for the private in-repo workspace packages
+
+Still future:
+- adopting `tsup` or an equivalent packager if these packages need published artifacts, faster cold starts from bundled entry points, or a stable `dist/` contract outside the workspace
+
+Current decision:
+- keep the engine and benchmark packages on native TypeScript execution for now
+- do not add a bundler until there is a concrete packaging requirement, because the current private-workspace setup already type-checks, tests, and runs without a separate build step
+
 ---
 
 ## 14. Security and safety
@@ -381,11 +418,11 @@ Do not rely on policy alone for correctness, but make the intended workflow expl
 ### 14.1 Required controls
 Implemented now:
 - common generated/dependency directory exclusion
-- optional `.gitignore` intent in config
+- `.gitignore` enforcement during indexing
+- explicit path traversal prevention
+- repo-root confinement for user-supplied file paths, including post-realpath validation to block symlink escapes
 
 Still future or only partially addressed:
-- explicit path traversal prevention
-- symlink escape protection
 - binary file exclusion
 - safe encoding handling beyond UTF-8 source reads
 - safe handling of configurable external endpoints
@@ -440,7 +477,7 @@ Use checksum validation for persisted artifacts where practical.
 - retrieval avoids reparsing
 - incremental refresh is materially faster than full reindex
 - watch mode supports live development without blocking reads
-  Current status: the first two are implemented; watch mode is still future work.
+  Current status: all three are implemented for the current local-first slice, using a debounced polling loop with changed-file fast paths. Worktree-aware watching is still future work.
 
 ---
 
@@ -459,7 +496,7 @@ Status: implemented.
 - basic CLI diagnostics
 
 ### Phase 2
-Status: partially implemented.
+Status: implemented.
 
 Implemented now:
 - get_context_bundle
@@ -467,10 +504,9 @@ Implemented now:
 - verification with content hash
 - stale metadata
 - query suggestion
-
-Still future:
-- watch mode with debounce
-- optional summaries beyond signature fallback
+- debounced watch mode via API and CLI
+- changed-file fast refresh during watch maintenance
+- configurable doc-comment-first summaries with signature-only override
 
 ### Phase 3
 Status: not implemented yet.

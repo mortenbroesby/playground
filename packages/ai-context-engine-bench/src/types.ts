@@ -44,7 +44,9 @@ export interface BenchmarkTaskResult {
   allowedPaths: string[];
   target: BenchmarkTaskTarget;
   baselineTokens: number;
+  estimatedBaselineTokens?: number;
   retrievedTokens: number;
+  estimatedRetrievedTokens?: number;
   tokenReductionPct: number;
   toolCalls: number;
   latencyMs: number;
@@ -59,7 +61,9 @@ export interface BenchmarkSummary {
   successCount: number;
   failureCount: number;
   baselineTokens: number;
+  estimatedBaselineTokens?: number;
   retrievedTokens: number;
+  estimatedRetrievedTokens?: number;
   tokenReductionPct: number;
 }
 
@@ -70,6 +74,7 @@ export interface BenchmarkResults {
   repoSha: string;
   engineVersion: string;
   tokenizer: string;
+  approximateTokenizer?: string;
   runId: string;
   machine: BenchmarkMachineInfo;
   corpus: BenchmarkCorpusMetadata;
@@ -85,6 +90,7 @@ export interface BenchmarkResultsInput {
   repoSha: string;
   engineVersion: string;
   tokenizer: string;
+  approximateTokenizer?: string;
   runId: string;
   machine: BenchmarkMachineInfo;
   corpus: BenchmarkCorpusMetadataInput;

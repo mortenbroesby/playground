@@ -11,8 +11,16 @@ import {
   serializeBenchmarkResults,
 } from "./report.ts";
 import { assertStrictSnapshot, getRepoSnapshot } from "./snapshot.ts";
-import { BENCHMARK_TOKENIZER } from "./tokenizer.ts";
-import { computeBaselineForTask, getWorkflowDefinition, runWorkflowTask } from "./workflows.ts";
+import {
+  APPROXIMATE_BENCHMARK_TOKENIZER,
+  BENCHMARK_TOKENIZER,
+} from "./tokenizer.ts";
+import {
+  computeBaselineForTask,
+  computeEstimatedBaselineForTask,
+  getWorkflowDefinition,
+  runWorkflowTask,
+} from "./workflows.ts";
 import type { BenchmarkRunOptions, BenchmarkRunOutcome } from "./types.ts";
 
 function makeRunId(repoSha: string): string {
@@ -52,6 +60,10 @@ export async function runBenchmark(
       }
       workflowIds.add(workflowId);
       const baselineTokens = await computeBaselineForTask(options.repoRoot, task);
+      const estimatedBaselineTokens = await computeEstimatedBaselineForTask(
+        options.repoRoot,
+        task,
+      );
       const startedAt = Date.now();
       const result = await runWorkflowTask({
         repoRoot: options.repoRoot,
@@ -69,7 +81,9 @@ export async function runBenchmark(
         allowedPaths: [...task.manifest.allowedPaths],
         target: task.manifest.targets[0],
         baselineTokens,
+        estimatedBaselineTokens,
         retrievedTokens: result.retrievedTokens,
+        estimatedRetrievedTokens: result.estimatedRetrievedTokens,
         tokenReductionPct,
         toolCalls: result.toolCalls,
         latencyMs,
@@ -87,6 +101,7 @@ export async function runBenchmark(
     repoSha,
     engineVersion: "0.0.1",
     tokenizer: BENCHMARK_TOKENIZER,
+    approximateTokenizer: APPROXIMATE_BENCHMARK_TOKENIZER,
     runId,
     machine: {
       hostname: os.hostname(),

@@ -2,6 +2,7 @@
 
 import process from "node:process";
 
+import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
 import {
   diagnostics,
   getFileContent,
@@ -15,18 +16,28 @@ import {
   searchSymbols,
   searchText,
   suggestInitialQueries,
+  watchFolder,
 } from "./index.ts";
 
+type StopReason = "timeout" | "signal" | "closed";
+
 type CliHandler = (args: Record<string, string>) => Promise<unknown>;
+const BOOLEAN_FLAGS = new Set(["verify"]);
 
 const commands: Record<string, CliHandler> = {
   init: async (args) => diagnostics({ repoRoot: required(args, "repo") }),
-  "index-folder": async (args) => indexFolder({ repoRoot: required(args, "repo") }),
+  "index-folder": async (args) =>
+    indexFolder({
+      repoRoot: required(args, "repo"),
+      summaryStrategy: optionalSummaryStrategy(args, "summary-strategy"),
+    }),
   "index-file": async (args) =>
     indexFile({
       repoRoot: required(args, "repo"),
       filePath: required(args, "file"),
+      summaryStrategy: optionalSummaryStrategy(args, "summary-strategy"),
     }),
+  watch: async (args) => runWatchCommand(args),
   "get-repo-outline": async (args) =>
     getRepoOutline({ repoRoot: required(args, "repo") }),
   "get-file-tree": async (args) =>
@@ -42,7 +53,7 @@ const commands: Record<string, CliHandler> = {
     searchSymbols({
       repoRoot: required(args, "repo"),
       query: required(args, "query"),
-      kind: optional(args, "kind") as Parameters<typeof searchSymbols>[0]["kind"],
+      kind: optionalKind(args, "kind"),
       limit: optionalNumber(args, "limit"),
     }),
   "search-text": async (args) =>
@@ -97,7 +108,30 @@ function optionalNumber(
   key: string,
 ): number | undefined {
   const value = optional(args, key);
-  return value ? Number(value) : undefined;
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid numeric argument --${key}: ${value}`);
+  }
+  return parsed;
+}
+
+function optionalSummaryStrategy(
+  args: Record<string, string>,
+  key: string,
+): Parameters<typeof indexFolder>[0]["summaryStrategy"] | undefined {
+  const value = optional(args, key);
+  return value ? parseSummaryStrategy(value, `--${key}`) : undefined;
+}
+
+function optionalKind(
+  args: Record<string, string>,
+  key: string,
+): Parameters<typeof searchSymbols>[0]["kind"] | undefined {
+  const value = optional(args, key);
+  return value ? parseSymbolKind(value, `--${key}`) : undefined;
 }
 
 function parseArgs(argv: string[]): { command: string; args: Record<string, string> } {
@@ -112,13 +146,91 @@ function parseArgs(argv: string[]): { command: string; args: Record<string, stri
     if (!token?.startsWith("--")) {
       continue;
     }
-    args[token.slice(2)] = rest[index + 1] ?? "true";
+    const key = token.slice(2);
+    const next = rest[index + 1];
+    if (!next || next.startsWith("--")) {
+      if (BOOLEAN_FLAGS.has(key)) {
+        args[key] = "true";
+        continue;
+      }
+      throw new Error(`Missing value for argument --${key}`);
+    }
+    args[key] = next;
     index += 1;
   }
 
   return {
     command,
     args,
+  };
+}
+
+async function runWatchCommand(args: Record<string, string>) {
+  const repoRoot = required(args, "repo");
+  const debounceMs = optionalNumber(args, "debounce-ms") ?? 100;
+  const timeoutMs = optionalNumber(args, "timeout-ms");
+  let stopReason: StopReason = "closed";
+  let initialSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
+  let lastSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
+  let reindexCount = 0;
+  let lastError: string | null = null;
+
+  let resolveStop!: () => void;
+  const stopPromise = new Promise<void>((resolve) => {
+    resolveStop = resolve;
+  });
+
+  const stopFromSignal = () => {
+    stopReason = "signal";
+    resolveStop();
+  };
+
+  const watcher = await watchFolder({
+    repoRoot,
+    debounceMs,
+    summaryStrategy: optionalSummaryStrategy(args, "summary-strategy"),
+    onEvent(event) {
+      if (event.type === "ready" && event.summary) {
+        initialSummary = event.summary;
+        lastSummary = event.summary;
+      }
+      if (event.type === "reindex" && event.summary) {
+        reindexCount += 1;
+        lastSummary = event.summary;
+      }
+      if (event.type === "error") {
+        lastError = event.message ?? "Unknown watch error";
+      }
+    },
+  });
+
+  process.once("SIGINT", stopFromSignal);
+  process.once("SIGTERM", stopFromSignal);
+
+  const timeout = timeoutMs
+    ? setTimeout(() => {
+        stopReason = "timeout";
+        resolveStop();
+      }, timeoutMs)
+    : null;
+
+  await stopPromise;
+
+  if (timeout) {
+    clearTimeout(timeout);
+  }
+  process.off("SIGINT", stopFromSignal);
+  process.off("SIGTERM", stopFromSignal);
+  await watcher.close();
+
+  return {
+    repoRoot,
+    debounceMs,
+    stopReason,
+    reindexCount,
+    initialSummary,
+    lastSummary,
+    lastError,
   };
 }
 
