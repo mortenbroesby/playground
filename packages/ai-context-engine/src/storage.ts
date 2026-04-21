@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -75,6 +75,11 @@ interface FilesystemStateEntry {
   path: string;
   mtimeMs: number;
   size: number;
+}
+
+interface SupportedFileCandidate {
+  absolutePath: string;
+  relativePath: string;
 }
 
 const SKIP_SEGMENTS = new Set([
@@ -276,6 +281,52 @@ function isGitIgnored(repoRoot: string, filePath: string): boolean {
   }
 }
 
+function resolveGitIgnoredPaths(
+  repoRoot: string,
+  filePaths: string[],
+): Set<string> {
+  if (filePaths.length === 0) {
+    return new Set();
+  }
+
+  const input = Buffer.from(
+    `${filePaths.join("\u0000")}\u0000`,
+    "utf8",
+  );
+  const result = spawnSync(
+    "git",
+    ["check-ignore", "--stdin", "-z", "-v", "-n"],
+    {
+      cwd: repoRoot,
+      input,
+      encoding: "buffer",
+      stdio: ["pipe", "pipe", "ignore"],
+    },
+  );
+
+  if (result.status !== 0) {
+    return new Set(filePaths.filter((filePath) => isGitIgnored(repoRoot, filePath)));
+  }
+
+  const fields = result.stdout.toString("utf8").split("\u0000");
+  const ignoredPaths = new Set<string>();
+
+  for (let index = 0; index + 3 < fields.length; index += 4) {
+    const source = fields[index];
+    const line = fields[index + 1];
+    const pattern = fields[index + 2];
+    const filePath = fields[index + 3];
+    if (!filePath) {
+      continue;
+    }
+    if (source || line || pattern) {
+      ignoredPaths.add(filePath);
+    }
+  }
+
+  return ignoredPaths;
+}
+
 async function writeSidecars(input: {
   repoRoot: string;
   indexedAt: string;
@@ -431,13 +482,12 @@ async function loadFilesystemSnapshot(
   return entries;
 }
 
-async function loadFilesystemStateSnapshot(
+async function scanSupportedFileCandidates(
   rootDir: string,
   currentDir = rootDir,
-): Promise<FilesystemStateEntry[]> {
+): Promise<SupportedFileCandidate[]> {
   const entries = await readdir(currentDir, { withFileTypes: true });
-  const results: FilesystemStateEntry[] = [];
-  const config = createDefaultEngineConfig({ repoRoot: rootDir });
+  const results: SupportedFileCandidate[] = [];
 
   for (const entry of entries) {
     if (entry.isSymbolicLink()) {
@@ -451,23 +501,46 @@ async function loadFilesystemStateSnapshot(
       if (SKIP_SEGMENTS.has(entry.name)) {
         continue;
       }
-      results.push(
-        ...(await loadFilesystemStateSnapshot(rootDir, absolutePath)),
-      );
+      results.push(...(await scanSupportedFileCandidates(rootDir, absolutePath)));
       continue;
     }
 
-    const language = supportedLanguageForFile(relativePath);
-    if (!language) {
-      continue;
-    }
-    if (config.respectGitIgnore && isGitIgnored(rootDir, relativePath)) {
+    if (!supportedLanguageForFile(relativePath)) {
       continue;
     }
 
-    const fileStat = await stat(absolutePath);
     results.push({
-      path: relativePath,
+      absolutePath,
+      relativePath,
+    });
+  }
+
+  return results.sort((left, right) =>
+    left.relativePath.localeCompare(right.relativePath)
+  );
+}
+
+async function loadFilesystemStateSnapshot(
+  rootDir: string,
+): Promise<FilesystemStateEntry[]> {
+  const config = createDefaultEngineConfig({ repoRoot: rootDir });
+  const candidates = await scanSupportedFileCandidates(rootDir);
+  const ignoredPaths = config.respectGitIgnore
+    ? resolveGitIgnoredPaths(
+        rootDir,
+        candidates.map((candidate) => candidate.relativePath),
+      )
+    : new Set<string>();
+  const results: FilesystemStateEntry[] = [];
+
+  for (const candidate of candidates) {
+    if (ignoredPaths.has(candidate.relativePath)) {
+      continue;
+    }
+
+    const fileStat = await stat(candidate.absolutePath);
+    results.push({
+      path: candidate.relativePath,
       mtimeMs: fileStat.mtimeMs,
       size: fileStat.size,
     });
@@ -537,37 +610,19 @@ function compareFilesystemStates(
 }
 
 async function listSupportedFiles(rootDir: string, currentDir = rootDir): Promise<string[]> {
-  const entries = await readdir(currentDir, { withFileTypes: true });
-  const results: string[] = [];
   const config = createDefaultEngineConfig({ repoRoot: rootDir });
-
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
-    const absolutePath = path.join(currentDir, entry.name);
-    const relativePath = path.relative(rootDir, absolutePath);
-
-    if (entry.isDirectory()) {
-      if (SKIP_SEGMENTS.has(entry.name)) {
-        continue;
-      }
-      results.push(...(await listSupportedFiles(rootDir, absolutePath)));
-      continue;
-    }
-
-    const language = supportedLanguageForFile(relativePath);
-    if (!language) {
-      continue;
-    }
-    if (config.respectGitIgnore && isGitIgnored(rootDir, relativePath)) {
-      continue;
-    }
-
-    results.push(relativePath);
+  const candidates = await scanSupportedFileCandidates(rootDir, currentDir);
+  if (!config.respectGitIgnore) {
+    return candidates.map((candidate) => candidate.relativePath);
   }
 
-  return results.sort();
+  const ignoredPaths = resolveGitIgnoredPaths(
+    rootDir,
+    candidates.map((candidate) => candidate.relativePath),
+  );
+  return candidates
+    .map((candidate) => candidate.relativePath)
+    .filter((relativePath) => !ignoredPaths.has(relativePath));
 }
 
 async function emitWatchEvent(
