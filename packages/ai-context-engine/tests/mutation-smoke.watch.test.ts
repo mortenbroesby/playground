@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -55,6 +55,98 @@ describe("mutation smoke watch boundaries", () => {
       expect(reindexEvents).toHaveLength(1);
       expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
       expect(reindexEvents[0]?.indexedFiles).toBe(1);
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("removes symbols when a watched source file is renamed away", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; indexedFiles?: number }> = [];
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            indexedFiles: event.summary?.indexedFiles,
+          });
+        }
+      },
+    });
+
+    try {
+      await rename(
+        path.join(repoRoot, "src", "math.ts"),
+        path.join(repoRoot, "src", "math.txt"),
+      );
+      await waitFor(() => reindexEvents.length >= 1);
+
+      expect(reindexEvents).toHaveLength(1);
+      expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
+      expect(reindexEvents[0]?.indexedFiles).toBe(1);
+      expect(await diagnostics({ repoRoot })).toMatchObject({
+        indexedFiles: 1,
+        staleStatus: "fresh",
+      });
+      expect(await searchSymbols({ repoRoot, query: "PI" })).toHaveLength(0);
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("refreshes changed files instead of treating them as deletions", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; indexedFiles?: number }> = [];
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            indexedFiles: event.summary?.indexedFiles,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+/** Calculate the circle area label. */
+export function area(radius: number): string {
+  const value = PI * radius * radius;
+  return formatLabel(value);
+}
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+      );
+      await waitFor(() => reindexEvents.length >= 1);
+
+      expect(reindexEvents).toHaveLength(1);
+      expect(reindexEvents[0]?.changedPaths).toContain("src/math.ts");
+      expect(reindexEvents[0]?.indexedFiles).toBe(1);
+      expect(await searchSymbols({ repoRoot, query: "circumference" })).toHaveLength(1);
+      expect(
+        (
+          await searchSymbols({ repoRoot, query: "area" })
+        ).some((entry) => entry.filePath === "src/math.ts"),
+      ).toBe(true);
+      expect(await diagnostics({ repoRoot })).toMatchObject({
+        indexedFiles: 2,
+        staleStatus: "fresh",
+      });
     } finally {
       await watcher.close();
     }
