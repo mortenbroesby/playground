@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -6,60 +6,15 @@ import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import {
+  assembleMemoryContext,
+  loadMemoryCorpus,
+  retrieveMemoryCandidates,
+} from "../tools/obsidian-rag.mjs";
+
 const execFile = promisify(execFileCallback);
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), "..");
-
-function tokenize(value) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9/._-]+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function normalize(value) {
-  return value.toLowerCase();
-}
-
-function scoreDocument(query, doc) {
-  const queryTokens = tokenize(query);
-  const docTokens = tokenize(doc.searchText);
-  const docTokenSet = new Set(docTokens);
-  let score = 0;
-
-  for (const token of queryTokens) {
-    if (docTokenSet.has(token)) {
-      score += 2;
-    }
-
-    if (doc.pathTokens.has(token)) {
-      score += 3;
-    }
-  }
-
-  const normalizedQuery = normalize(query);
-
-  if (doc.normalizedText.includes(normalizedQuery)) {
-    score += 10;
-  }
-
-  if (
-    normalizedQuery.includes("decision") &&
-    doc.normalizedText.includes("type: repo-decision")
-  ) {
-    score += 4;
-  }
-
-  if (
-    normalizedQuery.includes("session") &&
-    doc.normalizedText.includes("type: repo-session")
-  ) {
-    score += 4;
-  }
-
-  return score;
-}
 
 async function buildIndexedCorpus(vaultPath) {
   const outputDir = path.join(vaultPath, ".rag");
@@ -80,34 +35,9 @@ async function buildIndexedCorpus(vaultPath) {
     },
   );
 
-  const corpus = JSON.parse(
-    await readFile(path.join(outputDir, "obsidian-vault.corpus.json"), "utf8"),
+  return loadMemoryCorpus(
+    path.join(outputDir, "obsidian-vault.corpus.json"),
   );
-
-  return corpus.chunks.map((chunk) => ({
-    path: chunk.source_file.replace(/^vault\//, ""),
-    sourcePath: chunk.source_path,
-    heading: chunk.heading,
-    normalizedText: normalize(`${chunk.source_path}\n${chunk.text}`),
-    searchText: `${chunk.source_path}\n${chunk.text}`,
-    pathTokens: new Set(tokenize(chunk.source_path)),
-  }));
-}
-
-function searchCorpus(corpus, query, limit = 5) {
-  return corpus
-    .map((doc) => ({
-      path: doc.path,
-      heading: doc.heading,
-      sourcePath: doc.sourcePath,
-      score: scoreDocument(query, doc),
-    }))
-    .filter((result) => result.score > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score || left.path.localeCompare(right.path),
-    )
-    .slice(0, limit);
 }
 
 async function seedVerificationNotes(vaultPath) {
@@ -269,17 +199,38 @@ async function run() {
 
     const corpus = await buildIndexedCorpus(vaultPath);
     const results = checks.map((check) => {
-      const hits = searchCorpus(corpus, check.query, 3);
-      const passed = hits.some(
+      const candidates = retrieveMemoryCandidates({
+        corpus,
+        query: check.query,
+        limit: 3,
+      });
+      const context = assembleMemoryContext({
+        query: check.query,
+        candidates,
+        maxItems: 2,
+        tokenBudget: 400,
+      });
+      const passed = candidates.some(
         (hit) =>
-          hit.path === check.expectedPath &&
+          hit.sourceFile.replace(/^vault\//, "") === check.expectedPath &&
           (!check.expectedHeading || hit.heading === check.expectedHeading),
       );
 
       return {
         ...check,
         passed,
-        hits,
+        hits: candidates.map((candidate) => ({
+          path: candidate.sourceFile.replace(/^vault\//, ""),
+          heading: candidate.heading,
+          sourcePath: candidate.sourcePath,
+          score: candidate.score,
+          matchReasons: candidate.matchReasons,
+        })),
+        context: {
+          selectedCount: context.selectedCount,
+          estimatedTokens: context.estimatedTokens,
+          references: context.references,
+        },
       };
     });
 

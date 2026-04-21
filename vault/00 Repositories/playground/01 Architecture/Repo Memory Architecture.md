@@ -2,17 +2,20 @@
 type: repo-architecture
 repo: playground
 status: active
-summary: Durable agent memory is a vault-note workflow indexed into a local corpus and exposed through the obsidian-memory MCP server.
+summary: Durable agent memory is a vault-note workflow indexed into a local corpus, queried through a shared local retrieval module, and exposed through the obsidian-memory MCP server.
 keywords:
   - obsidian-memory
   - RAG
   - vault
+  - rag-query
   - memory_context
   - memory_search
   - memory_unfold
   - knowledge check
 related_paths:
   - vault/00 Repositories/playground
+  - tools/obsidian-rag.mjs
+  - tools/rag-query.mjs
   - tools/rag-index.ts
   - tools/rag-mcp-server.mjs
   - scripts/check-knowledge-reminder.mjs
@@ -60,7 +63,19 @@ Markdown concentrated in the repo-memory subtree so retrieval stays compact.
 
 ## Retrieval
 
-`tools/rag-mcp-server.mjs` exposes the generated corpus through:
+`tools/obsidian-rag.mjs` is the shared retrieval layer for the generated corpus.
+It handles:
+
+- lexical candidate retrieval with note-type and metadata-aware reranking
+- bounded context assembly with structured references
+- repo-home context lookup and chunk lookup helpers
+
+That retrieval layer is exposed through:
+
+- `pnpm rag:query` for direct local JSON queries
+- `tools/rag-mcp-server.mjs` for MCP access
+
+The MCP server exposes:
 
 - `memory_context` for the repo primer
 - `memory_search` for architecture, decision, and session lookup
@@ -72,6 +87,10 @@ vault files directly.
 Search and context tools are compact by default. `memory_search` returns source paths, summaries,
 short excerpts, and an explicit `memory_unfold` call for each hit. Agents should unfold only the
 specific chunk needed for the task instead of loading every retrieved section.
+
+`pnpm rag:query --query "<text>"` returns structured candidates plus a bounded
+context bundle with explicit references. This is the direct local interface for
+testing or scripting retrieval without going through MCP.
 
 `jcodemunch` MCP is the companion tool for source-code navigation. Use it for symbols, references,
 file outlines, and code relationships when available. Keep `obsidian-memory` focused on durable

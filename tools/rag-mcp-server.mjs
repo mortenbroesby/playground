@@ -7,6 +7,13 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import {
+  findMemoryChunk,
+  getMemoryContext,
+  indexMemoryCorpus,
+  retrieveMemoryCandidates,
+} from "./obsidian-rag.mjs";
+
 const serverVersion = "1.0.0";
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -136,79 +143,8 @@ function loadCorpus() {
   return loadedCorpus.value;
 }
 
-function tokenize(value) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9/._-]+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function normalize(value) {
-  return value.toLowerCase();
-}
-
-function scoreChunk(query, chunk) {
-  const queryTokens = tokenize(query);
-  const chunkText = [
-    chunk.source_path,
-    chunk.note_type,
-    chunk.repo_slug,
-    chunk.status,
-    chunk.summary,
-    ...(chunk.tags ?? []),
-    ...(chunk.keywords ?? []),
-    chunk.text,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  const chunkTokens = tokenize(chunkText);
-  const chunkTokenSet = new Set(chunkTokens);
-  const pathTokenSet = new Set(tokenize(chunk.source_path));
-  const normalizedQuery = normalize(query);
-  const normalizedText = normalize(chunkText);
-  let score = 0;
-
-  for (const token of queryTokens) {
-    if (chunkTokenSet.has(token)) {
-      score += 2;
-    }
-
-    if (pathTokenSet.has(token)) {
-      score += 3;
-    }
-  }
-
-  if (normalizedText.includes(normalizedQuery)) {
-    score += 10;
-  }
-
-  if (
-    normalizedQuery.includes("decision") &&
-    chunk.note_type === "repo-decision"
-  ) {
-    score += 4;
-  }
-
-  if (
-    normalizedQuery.includes("session") &&
-    chunk.note_type === "repo-session"
-  ) {
-    score += 4;
-  }
-
-  if (
-    normalizedQuery.includes("architecture") &&
-    chunk.heading.toLowerCase().includes("architecture")
-  ) {
-    score += 4;
-  }
-
-  return score;
-}
-
 function searchMemory(args) {
-  const corpus = loadCorpus();
+  const corpus = indexMemoryCorpus(loadCorpus());
   const limit = Number.isFinite(args.limit)
     ? Math.max(1, Math.min(20, args.limit))
     : 5;
@@ -219,36 +155,27 @@ function searchMemory(args) {
     throw new Error("query is required");
   }
 
-  const hits = corpus.chunks
-    .filter((chunk) => !args.repo_slug || chunk.repo_slug === args.repo_slug)
-    .filter((chunk) => !args.note_type || chunk.note_type === args.note_type)
-    .map((chunk) => ({
-      chunk,
-      score: scoreChunk(query, chunk),
-    }))
-    .filter((hit) => hit.score > 0)
-    .filter((hit) => hasSubstantiveContent(hit.chunk))
-    .sort((left, right) => {
-      return (
-        right.score - left.score ||
-        left.chunk.source_path.localeCompare(right.chunk.source_path)
-      );
-    })
-    .slice(0, limit);
+  const hits = retrieveMemoryCandidates({
+    corpus,
+    query,
+    limit,
+    repoSlug: args.repo_slug,
+    noteType: args.note_type,
+  }).filter((hit) => hasSubstantiveContent(hit));
 
   if (hits.length === 0) {
     return `No memory results found for: ${query}`;
   }
 
-  const formattedHits = hits.map(({ chunk, score }, index) => {
+  const formattedHits = hits.map((chunk, index) => {
     if (fullDetail) {
-      return formatFullChunk(chunk, `#${index + 1} score=${score}`);
+      return formatFullChunk(chunk, `#${index + 1} score=${chunk.score}`);
     }
 
     return [
-      `#${index + 1} score=${score}`,
-      `source_path: ${chunk.source_path}`,
-      `type: ${chunk.note_type ?? "unknown"} repo: ${chunk.repo_slug ?? "unknown"}`,
+      `#${index + 1} score=${chunk.score}`,
+      `source_path: ${chunk.sourcePath}`,
+      `type: ${chunk.noteType ?? "unknown"} repo: ${chunk.repoSlug ?? "unknown"}`,
       `heading: ${chunk.heading}`,
       chunk.summary ? `summary: ${chunk.summary}` : null,
       "",
@@ -270,16 +197,13 @@ function searchMemory(args) {
 }
 
 function unfoldMemory(args) {
-  const corpus = loadCorpus();
-  const sourcePath = args.source_path?.trim();
-  const sourceFile = args.source_file?.trim();
-  const heading = args.heading?.trim();
-  const chunk = sourcePath
-    ? corpus.chunks.find((candidate) => candidate.source_path === sourcePath)
-    : corpus.chunks.find(
-        (candidate) =>
-          candidate.source_file === sourceFile && candidate.heading === heading,
-      );
+  const corpus = indexMemoryCorpus(loadCorpus());
+  const chunk = findMemoryChunk({
+    corpus,
+    sourcePath: args.source_path?.trim(),
+    sourceFile: args.source_file?.trim(),
+    heading: args.heading?.trim(),
+  });
 
   if (!chunk) {
     throw new Error(
@@ -293,28 +217,11 @@ function unfoldMemory(args) {
 function contextMemory(args) {
   const repoSlug = args.repo_slug ?? "playground";
   const fullDetail = args.detail === "full";
-  const desiredHeadings = [
-    "What This Repo Is",
-    "Current Architecture",
-    "Architecture Map",
-    "Active Focus",
-    "Open Questions",
-    "Key Decisions",
-    "Next Actions",
-  ];
-  const corpus = loadCorpus();
-  const chunks = desiredHeadings
-    .map((heading) =>
-      corpus.chunks.find(
-        (chunk) =>
-          chunk.repo_slug === repoSlug &&
-          chunk.source_file.endsWith(
-            `00 Repositories/${repoSlug}/00 Repo Home.md`,
-          ) &&
-          chunk.heading === heading,
-      ),
-    )
-    .filter(Boolean);
+  const corpus = indexMemoryCorpus(loadCorpus());
+  const chunks = getMemoryContext({
+    corpus,
+    repoSlug,
+  });
 
   if (chunks.length === 0) {
     return searchMemory({
@@ -333,7 +240,7 @@ function contextMemory(args) {
   }
 
   return [
-    `source_file: ${chunks[0].source_file}`,
+    `source_file: ${chunks[0].sourceFile}`,
     "Compact repo context. Use memory_unfold with source_file and heading for detail.",
     "",
     formattedChunks.join("\n\n"),
@@ -349,7 +256,7 @@ function formatContextChunk(chunk, fullDetail) {
 
   return [
     `## ${chunk.heading}`,
-    `source_path: ${chunk.source_path}`,
+    `source_path: ${chunk.sourcePath}`,
     chunk.summary ? `summary: ${chunk.summary}` : null,
     "",
     contentOnly(chunk),
@@ -361,8 +268,8 @@ function formatContextChunk(chunk, fullDetail) {
 function formatFullChunk(chunk, headingLine = null) {
   return [
     headingLine,
-    `source_path: ${chunk.source_path}`,
-    `type: ${chunk.note_type ?? "unknown"} repo: ${chunk.repo_slug ?? "unknown"}`,
+    `source_path: ${chunk.sourcePath}`,
+    `type: ${chunk.noteType ?? "unknown"} repo: ${chunk.repoSlug ?? "unknown"}`,
     `heading: ${chunk.heading}`,
     chunk.summary ? `summary: ${chunk.summary}` : null,
     "",
@@ -398,7 +305,11 @@ function createExcerpt(content, query, maxLength = 240) {
     return compactContent;
   }
 
-  const tokens = tokenize(query).filter((token) => token.length > 2);
+  const tokens = query
+    .toLowerCase()
+    .replace(/[^a-z0-9/._-]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
   const lowerContent = compactContent.toLowerCase();
   const matchIndex = tokens
     .map((token) => lowerContent.indexOf(token))
