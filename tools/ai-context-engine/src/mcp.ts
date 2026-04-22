@@ -3,6 +3,7 @@
 import process from "node:process";
 
 import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
+import { parseMcpOptionalNumber } from "./validation.ts";
 import {
   diagnostics,
   getFileContent,
@@ -194,14 +195,7 @@ function requireString(params: Record<string, unknown>, key: string): string {
 }
 
 function optionalNumber(params: Record<string, unknown>, key: string): number | undefined {
-  const value = params[key];
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`Invalid numeric argument: ${key}`);
-  }
-  return value;
+  return parseMcpOptionalNumber(params, key);
 }
 
 async function dispatchTool(name: string, args: Record<string, unknown>) {

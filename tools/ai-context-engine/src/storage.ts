@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import { watch as fsWatch } from "node:fs";
 import { mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createRequire } from "node:module";
 
 import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
 import {
@@ -19,7 +18,19 @@ import {
   scanDirectoryStateSnapshot,
   snapshotHash,
 } from "./filesystem-scan.ts";
+import type {
+  IndexBackendConnection,
+  IndexBackendValue,
+  IndexStatement,
+} from "./index-backend.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
+import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
+import {
+  validateContextBundleOptions,
+  validateRankedContextOptions,
+  validateSearchSymbolsOptions,
+  validateSymbolSourceOptions,
+} from "./validation.ts";
 import type {
   DiagnosticsOptions,
   DiagnosticsResult,
@@ -66,9 +77,6 @@ const SKIP_SEGMENTS = new Set([
   "node_modules",
 ]);
 
-const require = createRequire(import.meta.url);
-const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
-
 interface DbSymbolRow {
   id: string;
   name: string;
@@ -92,6 +100,7 @@ interface RepoMetaRecord {
   indexedSymbols: number;
   indexedSnapshotHash: string;
   storageMode: string;
+  storageBackend?: string;
   staleStatus: "fresh" | "stale" | "unknown";
   summaryStrategy?: SummaryStrategy;
   watch?: WatchDiagnostics;
@@ -118,21 +127,21 @@ function mapSymbolRow(row: DbSymbolRow): SymbolSummary {
 }
 
 function typedAll<TRow>(
-  statement: import("node:sqlite").StatementSync,
-  ...params: import("node:sqlite").SQLInputValue[]
+  statement: IndexStatement,
+  ...params: IndexBackendValue[]
 ): TRow[] {
   return statement.all(...params) as unknown as TRow[];
 }
 
 function typedGet<TRow>(
-  statement: import("node:sqlite").StatementSync,
-  ...params: import("node:sqlite").SQLInputValue[]
+  statement: IndexStatement,
+  ...params: IndexBackendValue[]
 ): TRow | undefined {
   return statement.get(...params) as unknown as TRow | undefined;
 }
 
-function openDatabase(databasePath: string): import("node:sqlite").DatabaseSync {
-  const db = new DatabaseSync(databasePath);
+function openDatabase(databasePath: string): IndexBackendConnection {
+  const db = SQLITE_INDEX_BACKEND.open(databasePath);
 
   db.exec(`
     PRAGMA foreign_keys = ON;
@@ -289,6 +298,7 @@ async function writeSidecars(input: {
     indexedSnapshotHash: input.indexedSnapshotHash,
     staleStatus: input.staleStatus,
     storageMode: config.storageMode,
+    storageBackend: SQLITE_INDEX_BACKEND.backendName,
     summaryStrategy: input.summaryStrategy,
     watch: existingMeta?.watch ?? createDefaultWatchDiagnostics(),
   };
@@ -396,7 +406,7 @@ async function readRepoMeta(
 }
 
 function loadIndexedSnapshot(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
 ): SnapshotEntry[] {
   return typedAll<SnapshotEntry>(
     db.prepare(
@@ -461,7 +471,7 @@ async function readRepoFile(repoRoot: string, filePath: string) {
   };
 }
 
-function countRows(db: import("node:sqlite").DatabaseSync, sql: string): number {
+function countRows(db: IndexBackendConnection, sql: string): number {
   const row = db.prepare(sql).get() as { count: number };
   return row.count;
 }
@@ -574,7 +584,7 @@ function scoreSymbolRow(row: DbSymbolRow, query: string): number {
 }
 
 function loadSymbolRows(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   input: {
     kind?: SearchSymbolsOptions["kind"];
     language?: SearchSymbolsOptions["language"];
@@ -613,7 +623,7 @@ function loadSymbolRows(
 }
 
 function loadSymbolSourceRow(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   symbolId: string,
 ) {
   return typedGet<DbSymbolRow & { content_hash: string; content: string }>(
@@ -636,7 +646,7 @@ function loadSymbolSourceRow(
 }
 
 function resolveImportedFilePaths(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   sourceFilePath: string,
   importSource: string,
 ): string[] {
@@ -676,7 +686,7 @@ function resolveImportedFilePaths(
 }
 
 function pickDependencyRows(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   seedRow: DbSymbolRow,
 ): Array<{ row: DbSymbolRow; reason: string }> {
   const fileRow = typedGet<{ id: number }>(
@@ -829,7 +839,7 @@ function sortRankedSymbolEntries(
 }
 
 function resolveRankedSeedCandidates(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   input: ContextBundleOptions,
 ): RankedSeedCandidate[] {
   if (input.symbolIds?.length) {
@@ -871,7 +881,7 @@ function resolveRankedSeedCandidates(
 }
 
 function buildContextBundleFromSeeds(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   input: ContextBundleOptions,
   seedCandidates: RankedSeedCandidate[],
 ): ContextBundle {
@@ -970,7 +980,7 @@ function buildRankedContextResult(
   };
 }
 
-async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
+async function upsertFileIndex(db: IndexBackendConnection, input: {
   repoRoot: string;
   filePath: string;
   summaryStrategy?: SummaryStrategy;
@@ -1081,7 +1091,7 @@ async function upsertFileIndex(db: import("node:sqlite").DatabaseSync, input: {
 }
 
 function removeFileIndex(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   filePath: string,
 ): boolean {
   const result = db.prepare("DELETE FROM files WHERE path = ?").run(filePath);
@@ -1089,7 +1099,7 @@ function removeFileIndex(
 }
 
 async function finalizeIndex(
-  db: import("node:sqlite").DatabaseSync,
+  db: IndexBackendConnection,
   repoRoot: string,
   indexedAt: string,
   summaryStrategy: SummaryStrategy,
@@ -1655,6 +1665,7 @@ export async function suggestInitialQueries(input: {
 export async function searchSymbols(
   input: SearchSymbolsOptions,
 ): Promise<SymbolSummary[]> {
+  validateSearchSymbolsOptions(input);
   const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
@@ -1730,12 +1741,17 @@ export async function searchText(
 export async function getContextBundle(
   input: ContextBundleOptions,
 ): Promise<ContextBundle> {
+  const normalizedSeeds = validateContextBundleOptions(input);
   const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
   try {
-    const seedCandidates = resolveRankedSeedCandidates(db, input).slice(0, 3);
-    return buildContextBundleFromSeeds(db, input, seedCandidates);
+    const normalizedInput = {
+      ...input,
+      ...normalizedSeeds,
+    };
+    const seedCandidates = resolveRankedSeedCandidates(db, normalizedInput).slice(0, 3);
+    return buildContextBundleFromSeeds(db, normalizedInput, seedCandidates);
   } finally {
     db.close();
   }
@@ -1746,6 +1762,7 @@ export async function getRankedContext(input: {
   query: string;
   tokenBudget?: number;
 }): Promise<RankedContextResult> {
+  validateRankedContextOptions(input);
   const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
@@ -1796,6 +1813,7 @@ export async function getSymbolSource(input: {
   verify?: boolean;
   contextLines?: number;
 }): Promise<SymbolSourceResult> {
+  validateSymbolSourceOptions(input);
   const config = await ensureStorage(input.repoRoot);
   const db = openDatabase(config.paths.databasePath);
 
@@ -1923,6 +1941,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       storageDir: config.paths.storageDir,
       databasePath: config.paths.databasePath,
       storageMode: config.storageMode,
+      storageBackend: SQLITE_INDEX_BACKEND.backendName,
       staleStatus,
       freshnessMode: scanFreshness ? "scan" : "metadata",
       freshnessScanned: scanFreshness,

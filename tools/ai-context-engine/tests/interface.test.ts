@@ -509,6 +509,54 @@ export function circumference(radius: number): string {
         "--limit",
       ]),
     ).rejects.toThrow(/missing value for argument --limit/i);
+
+    await expect(
+      handleCli([
+        "search-symbols",
+        "--repo",
+        repoRoot,
+        "--query",
+        "Greeter",
+        "--limit",
+        "0",
+      ]),
+    ).rejects.toThrow(/limit must be positive/i);
+
+    await expect(
+      handleCli([
+        "get-ranked-context",
+        "--repo",
+        repoRoot,
+        "--query",
+        "Greeter",
+        "--budget",
+        "0",
+      ]),
+    ).rejects.toThrow(/tokenBudget must be positive/i);
+
+    await expect(
+      handleCli([
+        "get-symbol-source",
+        "--repo",
+        repoRoot,
+        "--symbol",
+        "fake-symbol",
+        "--context-lines",
+        "-1",
+      ]),
+    ).rejects.toThrow(/contextLines must be non-negative/i);
+
+    await expect(
+      handleCli([
+        "get-context-bundle",
+        "--repo",
+        repoRoot,
+        "--query",
+        "   ",
+        "--symbols",
+        "   ",
+      ]),
+    ).rejects.toThrow(/getContextBundle requires a non-empty query or symbolIds/i);
   });
 
   it("rejects malformed MCP arguments instead of treating them as empty filters", async () => {
@@ -546,6 +594,58 @@ export function circumference(radius: number): string {
     });
 
     expect(invalidBudgetResponse.error?.message).toMatch(/invalid numeric argument: tokenBudget/i);
+
+    const invalidLimitResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: {
+        name: "search_symbols",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          limit: 0,
+        },
+      },
+    });
+
+    expect(invalidLimitResponse.error?.message).toMatch(/limit must be positive/i);
+
+    const invalidContextLinesResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 9,
+      method: "tools/call",
+      params: {
+        name: "get_symbol_source",
+        arguments: {
+          repoRoot,
+          symbolId: "fake-symbol",
+          contextLines: -1,
+        },
+      },
+    });
+
+    expect(invalidContextLinesResponse.error?.message).toMatch(
+      /contextLines must be non-negative/i,
+    );
+
+    const emptyBundleSeedResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 10,
+      method: "tools/call",
+      params: {
+        name: "get_context_bundle",
+        arguments: {
+          repoRoot,
+          query: "   ",
+          symbolIds: ["   "],
+        },
+      },
+    });
+
+    expect(emptyBundleSeedResponse.error?.message).toMatch(
+      /getContextBundle requires a non-empty query or symbolIds/i,
+    );
   });
 
   it("exposes a workspace bin wrapper for cli commands", async () => {
@@ -562,6 +662,7 @@ export function circumference(radius: number): string {
 
     expect(JSON.parse(stdout)).toMatchObject({
       storageMode: "wal",
+      storageBackend: "sqlite",
     });
   });
 });

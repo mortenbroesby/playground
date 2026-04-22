@@ -71,6 +71,30 @@ describe("mutation smoke cli boundaries", () => {
     ).rejects.toThrow(
       /unsupported --summary-strategy: bogus\. expected one of: doc-comments-first, signature-only/i,
     );
+
+    await expect(
+      handleCli([
+        "search-symbols",
+        "--repo",
+        repoRoot,
+        "--query",
+        "Greeter",
+        "--limit",
+        "0",
+      ]),
+    ).rejects.toThrow(/limit must be positive/i);
+
+    await expect(
+      handleCli([
+        "get-context-bundle",
+        "--repo",
+        repoRoot,
+        "--query",
+        "   ",
+        "--symbols",
+        "   ",
+      ]),
+    ).rejects.toThrow(/getContextBundle requires a non-empty query or symbolIds/i);
   });
 
   it("preserves boolean flag and omitted optional number semantics", async () => {

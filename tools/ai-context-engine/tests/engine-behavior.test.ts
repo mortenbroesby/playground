@@ -242,6 +242,52 @@ describe("ai-context-engine behavior", () => {
     });
   });
 
+  it("rejects invalid search and retrieval boundaries at the library layer", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    await expect(
+      searchSymbols({
+        repoRoot,
+        query: "Greeter",
+        limit: 0,
+      }),
+    ).rejects.toThrow(/limit must be positive/i);
+
+    await expect(
+      getContextBundle({
+        repoRoot,
+        query: "Greeter",
+        tokenBudget: 0,
+      }),
+    ).rejects.toThrow(/tokenBudget must be positive/i);
+
+    await expect(
+      getRankedContext({
+        repoRoot,
+        query: "Greeter",
+        tokenBudget: 0,
+      }),
+    ).rejects.toThrow(/tokenBudget must be positive/i);
+
+    await expect(
+      getSymbolSource({
+        repoRoot,
+        contextLines: -1,
+        symbolIds: ["src/strings.ts::Greeter"],
+      }),
+    ).rejects.toThrow(/contextLines must be non-negative/i);
+
+    await expect(
+      getContextBundle({
+        repoRoot,
+        query: "   ",
+        symbolIds: ["   "],
+      }),
+    ).rejects.toThrow(/getContextBundle requires a non-empty query or symbolIds/i);
+  });
+
   it("extracts symbols from a large file when single-pass tree-sitter parsing fails", async () => {
     const repoRoot = await createFixtureRepo();
     const largeModule = Array.from({ length: 900 }, (_, index) =>
@@ -612,6 +658,7 @@ export function circumference(radius: number): string {
 
     const health = await diagnostics({ repoRoot });
     expect(health.storageMode).toBe("wal");
+    expect(health.storageBackend).toBe("sqlite");
     expect(health.staleStatus).toBe("fresh");
     expect(health).toMatchObject({
       freshnessMode: "metadata",

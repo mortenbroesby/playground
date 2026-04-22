@@ -28,8 +28,8 @@ adapters thin and repo-native.
 
 - Follow `AGENTS.md` and `.agents/rules/` first.
 - Use `pnpm` commands only.
-- Use `obsidian-memory` for repo history and `jcodemunch` for code navigation
-  when available.
+- Use `ai-context-engine` for repo code retrieval, `obsidian-memory` for repo
+  history, and `jcodemunch` when you need deeper reference-style navigation.
 - Keep durable workflow or architecture changes in
   `vault/02 Repositories/playground/`.
 - Keep commands in `.agents/commands/` so Claude slash commands and Codex

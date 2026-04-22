@@ -3,6 +3,7 @@
 import process from "node:process";
 
 import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
+import { parseCliOptionalNumber } from "./validation.ts";
 import {
   diagnostics,
   getFileContent,
@@ -123,15 +124,7 @@ function optionalNumber(
   args: Record<string, string>,
   key: string,
 ): number | undefined {
-  const value = optional(args, key);
-  if (!value) {
-    return undefined;
-  }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    throw new Error(`Invalid numeric argument --${key}: ${value}`);
-  }
-  return parsed;
+  return parseCliOptionalNumber(args, key);
 }
 
 function optionalSummaryStrategy(

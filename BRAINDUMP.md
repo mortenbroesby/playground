@@ -14,6 +14,12 @@ Keep this file loose:
 
 ## Braindump Inbox
 
+### Ideas
+
+- I think we could maybe benefit from having less entrypoints (?!) to query code, and more options and args. This way, the agent won't need long instruction sets to understand the exact difference between the granular ones. I might be wrong here! Also, feels like we have a lot of boilerplate code. e.g. validation couldbe done with smth like zod.
+
+### "TODOs"
+
 - Pull in relevant setup from superpowers.
 - Add unit tests for our hooks.
 - Setup smth like https://github.com/cfngc4594/agent-notify

@@ -40,6 +40,7 @@ export type {
   ContextBundleItem,
   ContextBundleOptions,
   IndexSummary,
+  IndexBackendName,
   RankedContextCandidate,
   RankedContextResult,
   RepoOutline,

@@ -1,6 +1,7 @@
 export type SupportedLanguage = "ts" | "tsx" | "js" | "jsx";
 
 export type StorageMode = "wal";
+export type IndexBackendName = "sqlite";
 
 export type StaleStatus = "unknown" | "fresh" | "stale";
 
@@ -200,6 +201,7 @@ export interface DiagnosticsResult {
   storageDir: string;
   databasePath: string;
   storageMode: StorageMode;
+  storageBackend: IndexBackendName;
   staleStatus: StaleStatus;
   freshnessMode: "metadata" | "scan";
   freshnessScanned: boolean;

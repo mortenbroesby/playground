@@ -19,9 +19,12 @@ Thin bootstrap for coding agents in this repo.
 
 ## Navigation
 
-- Use `jcodemunch` for code navigation when available.
-- Prefer `plan_turn`, `search_symbols`, `get_file_outline`, and
-  `get_symbol_source` before broad file reads.
+- Use `ai-context-engine` as the repo-owned default for code navigation when
+  available.
+- Prefer `search_symbols`, `search_text`, `get_file_outline`,
+  `get_symbol_source`, and `get_ranked_context` before broad file reads.
+- Use `jcodemunch` when you need its extra navigation surfaces or when the
+  engine is unavailable.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - Use [`.agents/context/active-context.md`](.agents/context/active-context.md)
   only as compact current-state or handoff context when present.

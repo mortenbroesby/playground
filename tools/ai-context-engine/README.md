@@ -19,6 +19,17 @@ It does that by indexing a repo locally, storing symbol and file metadata in
 SQLite, and exposing retrieval surfaces over that index through a CLI, an MCP
 server, and a small TypeScript API.
 
+The runtime artifacts for a given repo live at the repo root in
+`.ai-context-engine/`. That directory is the durable runtime contract for local
+use:
+
+- `index.sqlite` for the current index backend
+- `repo-meta.json` and `integrity.sha256` for repo-local metadata
+- `raw-cache/` for supporting source cache state
+
+By contrast, package build output stays inside this workspace at `dist/`. The
+repo-root directory is for engine runtime state, not npm publishing artifacts.
+
 Current capabilities:
 
 - repo-local indexing under `.ai-context-engine/`
@@ -54,7 +65,9 @@ Current implementation includes:
 - package scaffold and storage/config contract
 - Oxc as the primary parser for `ts`, `tsx`, `js`, and `jsx`
 - temporary Tree-sitter fallback contained behind the parser facade
-- SQLite-backed file, symbol, import, and content-blob storage in WAL mode
+- SQLite as the current index backend behind an internal storage boundary
+- WAL-mode file, symbol, import, and content-blob storage for the current
+  backend
 - JSON CLI entrypoint in `src/cli.ts`
 - stdio MCP server in `src/mcp.ts`
 - `index_folder` and `index_file`
@@ -99,6 +112,20 @@ The main retrieval surfaces are:
 
 The package is optimized around exact retrieval first. Ranking and assembly sit
 on top of exact indexed source; they do not replace it.
+
+## Repo workflow role
+
+In this repo, `ai-context-engine` is the default code retrieval layer for agent
+work. The intended split is:
+
+- use `ai-context-engine` for code search, exact source retrieval, bounded
+  context assembly, and freshness checks
+- use `obsidian-memory` for architecture, decisions, and historical repo memory
+- use `jcodemunch` when you need importer, reference, or blast-radius style
+  navigation that the local engine does not cover yet
+
+That dogfood split is deliberate. The engine should prove itself on normal code
+tasks without replacing the repo's durable memory layer.
 
 ## Package interfaces
 
@@ -156,6 +183,18 @@ The package now has an explicit build step for npm-style use:
 That means the CLI can be exercised both as a workspace command and as an
 installed package command, which is the minimum contract we need before making
 this publishable.
+
+## Storage direction
+
+SQLite is the current backend, not the promised forever architecture. The
+public library, CLI, and MCP surfaces are meant to stay stable while the
+internal index backend evolves.
+
+The next storage changes should preserve:
+
+- repo-root `.ai-context-engine/` artifacts as the runtime contract
+- exact retrieval semantics and source-anchored outputs
+- backend-specific details staying behind the engine's internal storage layer
 
 ## Benchmarks
 
