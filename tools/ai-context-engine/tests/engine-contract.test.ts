@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_SUMMARY_STRATEGY,
-  ENGINE_PHASE_1_TOOLS,
+  ENGINE_TOOLS,
   createDefaultEngineConfig,
   resolveEnginePaths,
 } from "../src/index.ts";
 
-describe("ai-context-engine phase 1 contract", () => {
+describe("ai-context-engine contract", () => {
   it("uses repo-local storage artifacts aligned with the engine name", () => {
     const repoRoot = "/tmp/playground";
 
@@ -20,7 +20,7 @@ describe("ai-context-engine phase 1 contract", () => {
     });
   });
 
-  it("defaults to a spec-aligned phase 1 engine config", () => {
+  it("defaults to a spec-aligned engine config", () => {
     const config = createDefaultEngineConfig({
       repoRoot: "/tmp/playground",
     });
@@ -37,8 +37,8 @@ describe("ai-context-engine phase 1 contract", () => {
     expect(config.paths.databasePath).toContain(".ai-context-engine/index.sqlite");
   });
 
-  it("advertises the required phase 1 tools before implementation expands", () => {
-    expect(ENGINE_PHASE_1_TOOLS).toEqual([
+  it("advertises the required engine tools", () => {
+    expect(ENGINE_TOOLS).toEqual([
       "init",
       "index_folder",
       "index_file",

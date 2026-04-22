@@ -15,6 +15,7 @@ import {
   getSymbolSource,
   indexFolder,
   indexFile,
+  queryCode,
   searchSymbols,
   searchText,
   suggestInitialQueries,
@@ -240,6 +241,76 @@ describe("ai-context-engine behavior", () => {
     expect(textMatches[0]).toMatchObject({
       filePath: "src/strings.ts",
     });
+  });
+
+  it("offers a unified query surface for discovery, source retrieval, and assembly", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "Greeter",
+      kind: "class",
+      includeTextMatches: true,
+      limit: 1,
+    });
+    expect(discoverResult).toMatchObject({
+      intent: "discover",
+      query: "Greeter",
+    });
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(discoverResult.symbolMatches[0]).toMatchObject({
+      name: "Greeter",
+      kind: "class",
+    });
+    expect(discoverResult.textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+    });
+    const greeterId = discoverResult.symbolMatches[0]?.id;
+    expect(greeterId).toBeDefined();
+
+    const sourceResult = await queryCode({
+      repoRoot,
+      intent: "source",
+      symbolIds: [greeterId!],
+      contextLines: 1,
+      verify: true,
+    });
+    expect(sourceResult).toMatchObject({
+      intent: "source",
+      fileContent: null,
+      symbolSource: {
+        requestedContextLines: 1,
+      },
+    });
+    expect(sourceResult.intent).toBe("source");
+    if (sourceResult.intent !== "source") {
+      throw new Error("Expected source result");
+    }
+    expect(sourceResult.symbolSource?.items[0]?.symbol.name).toBe("Greeter");
+
+    const assembleResult = await queryCode({
+      repoRoot,
+      intent: "assemble",
+      query: "Greeter",
+      tokenBudget: 120,
+      includeRankedCandidates: true,
+    });
+    expect(assembleResult).toMatchObject({
+      intent: "assemble",
+      bundle: {
+        tokenBudget: 120,
+      },
+      ranked: {
+        query: "Greeter",
+      },
+    });
+    expect(assembleResult.intent).toBe("assemble");
   });
 
   it("rejects invalid search and retrieval boundaries at the library layer", async () => {

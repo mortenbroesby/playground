@@ -86,6 +86,20 @@ describe("mutation smoke cli boundaries", () => {
 
     await expect(
       handleCli([
+        "query-code",
+        "--repo",
+        repoRoot,
+        "--intent",
+        "assemble",
+        "--query",
+        "   ",
+        "--symbols",
+        "   ",
+      ]),
+    ).rejects.toThrow(/query_code assemble intent requires a non-empty query or symbolIds/i);
+
+    await expect(
+      handleCli([
         "get-context-bundle",
         "--repo",
         repoRoot,
@@ -188,5 +202,28 @@ describe("mutation smoke cli boundaries", () => {
       id: symbol!.id,
       kind: "class",
     });
-  });
+
+    const queryCodeResult = JSON.parse(
+      await handleCli([
+        "query-code",
+        "--repo",
+        repoRoot,
+        "--intent",
+        "source",
+        "--symbol",
+        symbol!.id,
+        "--verify",
+      ]),
+    );
+
+    expect(queryCodeResult).toMatchObject({
+      intent: "source",
+      symbolSource: {
+        symbol: {
+          id: symbol!.id,
+        },
+        verified: true,
+      },
+    });
+  }, 30_000);
 });

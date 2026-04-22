@@ -48,12 +48,14 @@ without broad file reads.
 The typical flow is:
 
 1. index the repo with `index-folder`
-2. narrow the search with `get-repo-outline`, `get-file-tree`,
-   `get-file-outline`, `search-symbols`, or `search-text`
-3. pull exact code with `get-symbol-source` or `get-file-content`
-4. assemble bounded context with `get-context-bundle` or
-   `get-ranked-context`
-5. check freshness or watch status with `diagnostics`
+2. start with `query-code --intent discover` for the normal agent path
+3. fall back to `get-repo-outline`, `get-file-tree`, `get-file-outline`,
+   `search-symbols`, or `search-text` when you need the lower-level surfaces
+4. pull exact code with `query-code --intent source`, `get-symbol-source`, or
+   `get-file-content`
+5. assemble bounded context with `query-code --intent assemble`,
+   `get-context-bundle`, or `get-ranked-context`
+6. check freshness or watch status with `diagnostics`
 
 This keeps retrieval discovery-first and source-anchored instead of jumping
 straight to broad file reads.
@@ -96,6 +98,9 @@ Current implementation includes:
 
 The main retrieval surfaces are:
 
+- `query_code`
+  preferred umbrella surface for discovery, exact retrieval, and bounded
+  assembly with one intent-driven contract
 - `search_symbols`
   discovery-first lookup for named code entities
 - `search_text`
@@ -112,6 +117,10 @@ The main retrieval surfaces are:
 
 The package is optimized around exact retrieval first. Ranking and assembly sit
 on top of exact indexed source; they do not replace it.
+
+For agent ergonomics, `query_code` is now the preferred starting point. The
+older granular surfaces remain available because they are still useful for
+precise tool routing, debugging, and benchmarks.
 
 ## Repo workflow role
 
@@ -148,6 +157,9 @@ JavaScript instead of repo-local TypeScript sources.
 - `pnpm exec ai-context-engine cli get-repo-outline --repo /abs/repo`
 - `pnpm exec ai-context-engine cli search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
 - `pnpm exec ai-context-engine cli get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
+- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --intent discover --query Greeter --include-text`
+- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
+- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --intent assemble --query Greeter --budget 120 --include-ranked`
 - `pnpm exec ai-context-engine cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
@@ -161,6 +173,9 @@ JavaScript instead of repo-local TypeScript sources.
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
 - `pnpm --filter @playground/ai-context-engine cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
+- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --intent discover --query Greeter --include-text`
+- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
+- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --intent assemble --query Greeter --budget 120 --include-ranked`
 - `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo`

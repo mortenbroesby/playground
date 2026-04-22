@@ -147,6 +147,50 @@ export interface SymbolSourceResult {
   endLine?: number;
 }
 
+export type QueryCodeIntent = "discover" | "source" | "assemble";
+
+export interface QueryCodeOptions {
+  repoRoot: string;
+  intent: QueryCodeIntent;
+  query?: string;
+  symbolId?: string;
+  symbolIds?: string[];
+  filePath?: string;
+  kind?: SymbolKind;
+  language?: SupportedLanguage;
+  filePattern?: string;
+  limit?: number;
+  contextLines?: number;
+  verify?: boolean;
+  tokenBudget?: number;
+  includeTextMatches?: boolean;
+  includeRankedCandidates?: boolean;
+}
+
+export interface QueryCodeDiscoverResult {
+  intent: "discover";
+  query: string;
+  symbolMatches: SymbolSummary[];
+  textMatches: SearchTextMatch[];
+}
+
+export interface QueryCodeSourceResult {
+  intent: "source";
+  fileContent: FileContentResult | null;
+  symbolSource: SymbolSourceResult | null;
+}
+
+export interface QueryCodeAssembleResult {
+  intent: "assemble";
+  bundle: ContextBundle;
+  ranked: RankedContextResult | null;
+}
+
+export type QueryCodeResult =
+  | QueryCodeDiscoverResult
+  | QueryCodeSourceResult
+  | QueryCodeAssembleResult;
+
 export type ContextBundleItemRole = "target" | "dependency";
 
 export interface ContextBundleItem {
@@ -221,7 +265,7 @@ export interface DiagnosticsResult {
   watch: WatchDiagnostics;
 }
 
-export type EnginePhase1ToolName =
+export type EngineToolName =
   | "init"
   | "index_folder"
   | "index_file"

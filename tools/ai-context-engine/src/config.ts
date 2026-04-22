@@ -3,7 +3,7 @@ import path from "node:path";
 import type {
   EngineConfig,
   EnginePaths,
-  EnginePhase1ToolName,
+  EngineToolName,
   SymbolKind,
   SummaryStrategy,
 } from "./types.ts";
@@ -24,7 +24,7 @@ const SYMBOL_KINDS = new Set<SymbolKind>([
   "type",
 ]);
 
-export const ENGINE_PHASE_1_TOOLS: EnginePhase1ToolName[] = [
+export const ENGINE_TOOLS: EngineToolName[] = [
   "init",
   "index_folder",
   "index_file",

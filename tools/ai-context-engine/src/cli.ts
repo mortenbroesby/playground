@@ -2,8 +2,13 @@
 
 import process from "node:process";
 
-import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
-import { parseCliOptionalNumber } from "./validation.ts";
+import {
+  parseCliOptionalNumber,
+  parseCliSummaryStrategy,
+  parseCliSupportedLanguage,
+  parseCliSymbolKind,
+  parseQueryCodeCliInput,
+} from "./validation.ts";
 import {
   diagnostics,
   getFileContent,
@@ -15,6 +20,7 @@ import {
   getSymbolSource,
   indexFile,
   indexFolder,
+  queryCode,
   searchSymbols,
   searchText,
   suggestInitialQueries,
@@ -24,7 +30,12 @@ import {
 type StopReason = "timeout" | "signal" | "closed";
 
 type CliHandler = (args: Record<string, string>) => Promise<unknown>;
-const BOOLEAN_FLAGS = new Set(["verify", "scan-freshness"]);
+const BOOLEAN_FLAGS = new Set([
+  "verify",
+  "scan-freshness",
+  "include-text",
+  "include-ranked",
+]);
 
 const commands: Record<string, CliHandler> = {
   init: async (args) => diagnostics({ repoRoot: required(args, "repo") }),
@@ -66,6 +77,8 @@ const commands: Record<string, CliHandler> = {
       query: required(args, "query"),
       filePattern: optional(args, "file-pattern"),
     }),
+  "query-code": async (args) =>
+    queryCode(parseQueryCodeCliInput(args)),
   "get-context-bundle": async (args) =>
     getContextBundle({
       repoRoot: required(args, "repo"),
@@ -131,30 +144,21 @@ function optionalSummaryStrategy(
   args: Record<string, string>,
   key: string,
 ): Parameters<typeof indexFolder>[0]["summaryStrategy"] | undefined {
-  const value = optional(args, key);
-  return value ? parseSummaryStrategy(value, `--${key}`) : undefined;
+  return parseCliSummaryStrategy(args, key);
 }
 
 function optionalKind(
   args: Record<string, string>,
   key: string,
 ): Parameters<typeof searchSymbols>[0]["kind"] | undefined {
-  const value = optional(args, key);
-  return value ? parseSymbolKind(value, `--${key}`) : undefined;
+  return parseCliSymbolKind(args, key);
 }
 
 function optionalLanguage(
   args: Record<string, string>,
   key: string,
 ): Parameters<typeof searchSymbols>[0]["language"] | undefined {
-  const value = optional(args, key);
-  return value === "ts" || value === "tsx" || value === "js" || value === "jsx"
-    ? value
-    : value
-      ? (() => {
-          throw new Error(`Unsupported --${key}: ${value}. Expected one of: ts, tsx, js, jsx`);
-        })()
-      : undefined;
+  return parseCliSupportedLanguage(args, key);
 }
 
 function parseArgs(argv: string[]): { command: string; args: Record<string, string> } {

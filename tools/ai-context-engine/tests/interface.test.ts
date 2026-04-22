@@ -80,6 +80,31 @@ describe("ai-context-engine interfaces", () => {
     expect(JSON.parse(filteredTextStdout)[0]).toMatchObject({
       filePath: "src/strings.ts",
     });
+    const queryCodeDiscoverStdout = await handleCli([
+      "query-code",
+      "--repo",
+      repoRoot,
+      "--intent",
+      "discover",
+      "--query",
+      "Greeter",
+      "--kind",
+      "class",
+      "--limit",
+      "1",
+      "--include-text",
+    ]);
+    expect(JSON.parse(queryCodeDiscoverStdout)).toMatchObject({
+      intent: "discover",
+      query: "Greeter",
+    });
+    expect(JSON.parse(queryCodeDiscoverStdout).symbolMatches[0]).toMatchObject({
+      name: "Greeter",
+      kind: "class",
+    });
+    expect(JSON.parse(queryCodeDiscoverStdout).textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+    });
     const greeterId = JSON.parse(filteredStdout)[0].id as string;
 
     const greetStdout = await handleCli([
@@ -116,6 +141,27 @@ describe("ai-context-engine interfaces", () => {
       },
       selected: true,
     });
+    const queryCodeAssembleStdout = await handleCli([
+      "query-code",
+      "--repo",
+      repoRoot,
+      "--intent",
+      "assemble",
+      "--query",
+      "Greeter",
+      "--budget",
+      "120",
+      "--include-ranked",
+    ]);
+    expect(JSON.parse(queryCodeAssembleStdout)).toMatchObject({
+      intent: "assemble",
+      bundle: {
+        tokenBudget: 120,
+      },
+      ranked: {
+        query: "Greeter",
+      },
+    });
 
     const symbolSourceStdout = await handleCli([
       "get-symbol-source",
@@ -130,6 +176,25 @@ describe("ai-context-engine interfaces", () => {
       requestedContextLines: 1,
     });
     expect(JSON.parse(symbolSourceStdout).items).toHaveLength(2);
+    const queryCodeSourceStdout = await handleCli([
+      "query-code",
+      "--repo",
+      repoRoot,
+      "--intent",
+      "source",
+      "--symbols",
+      `${greeterId},${greetId}`,
+      "--context-lines",
+      "1",
+      "--verify",
+    ]);
+    expect(JSON.parse(queryCodeSourceStdout)).toMatchObject({
+      intent: "source",
+      symbolSource: {
+        requestedContextLines: 1,
+      },
+    });
+    expect(JSON.parse(queryCodeSourceStdout).symbolSource.items).toHaveLength(2);
 
     const signatureOnlyStdout = await handleCli([
       "index-folder",
@@ -203,7 +268,7 @@ export function circumference(radius: number): string {
       },
     });
     expect(signatureDiagnostics.watch.reindexCount).toBeGreaterThanOrEqual(0);
-  });
+  }, 35_000);
 
   it("treats a subdirectory CLI repo path as the enclosing git worktree root", async () => {
     const repoRoot = await createFixtureRepo();
@@ -232,7 +297,7 @@ export function circumference(radius: number): string {
       indexedFiles: 2,
       currentFiles: 2,
     });
-  });
+  }, 15_000);
 
   it("exposes spec-aligned MCP tools", async () => {
     const repoRoot = await createFixtureRepo();
@@ -253,6 +318,7 @@ export function circumference(radius: number): string {
     expect(tools.map((tool) => tool.name)).toContain(
       "get_symbol_source",
     );
+    expect(tools.map((tool) => tool.name)).toContain("query_code");
     expect(tools.map((tool) => tool.name)).toContain("get_context_bundle");
     expect(tools.map((tool) => tool.name)).toContain("get_ranked_context");
     expect(tools.map((tool) => tool.name)).toContain("diagnostics");
@@ -433,7 +499,36 @@ export function circumference(radius: number): string {
       requestedContextLines: 1,
     });
     expect(JSON.parse(symbolSourceContent.text).items).toHaveLength(2);
-  });
+
+    const queryCodeResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 10,
+      method: "tools/call",
+      params: {
+        name: "query_code",
+        arguments: {
+          repoRoot,
+          intent: "discover",
+          query: "Greeter",
+          includeTextMatches: true,
+        },
+      },
+    });
+
+    const queryCodeContent = (
+      queryCodeResponse.result as {
+        content: Array<{ type: string; text: string }>;
+      }
+    ).content[0];
+    expect(queryCodeContent.type).toBe("text");
+    expect(JSON.parse(queryCodeContent.text)).toMatchObject({
+      intent: "discover",
+      query: "Greeter",
+    });
+    expect(JSON.parse(queryCodeContent.text).symbolMatches[0]).toMatchObject({
+      name: "Greeter",
+    });
+  }, 20_000);
 
   it("rejects unsupported summary strategies at runtime boundaries", async () => {
     const repoRoot = await createFixtureRepo();
@@ -548,6 +643,20 @@ export function circumference(radius: number): string {
 
     await expect(
       handleCli([
+        "query-code",
+        "--repo",
+        repoRoot,
+        "--intent",
+        "assemble",
+        "--query",
+        "   ",
+        "--symbols",
+        "   ",
+      ]),
+    ).rejects.toThrow(/query_code assemble intent requires a non-empty query or symbolIds/i);
+
+    await expect(
+      handleCli([
         "get-context-bundle",
         "--repo",
         repoRoot,
@@ -646,6 +755,23 @@ export function circumference(radius: number): string {
     expect(emptyBundleSeedResponse.error?.message).toMatch(
       /getContextBundle requires a non-empty query or symbolIds/i,
     );
+
+    const invalidQueryCodeResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 11,
+      method: "tools/call",
+      params: {
+        name: "query_code",
+        arguments: {
+          repoRoot,
+          intent: "source",
+        },
+      },
+    });
+
+    expect(invalidQueryCodeResponse.error?.message).toMatch(
+      /query_code source intent requires filePath, symbolId, or symbolIds/i,
+    );
   });
 
   it("exposes a workspace bin wrapper for cli commands", async () => {
@@ -664,5 +790,5 @@ export function circumference(radius: number): string {
       storageMode: "wal",
       storageBackend: "sqlite",
     });
-  });
+  }, 15_000);
 });

@@ -42,6 +42,11 @@ import type {
   FileOutline,
   FileTreeEntry,
   IndexSummary,
+  QueryCodeAssembleResult,
+  QueryCodeDiscoverResult,
+  QueryCodeOptions,
+  QueryCodeResult,
+  QueryCodeSourceResult,
   RankedContextCandidate,
   RankedContextResult,
   RepoOutline,
@@ -1735,6 +1740,87 @@ export async function searchText(
     return matches;
   } finally {
     db.close();
+  }
+}
+
+export async function queryCode(
+  input: QueryCodeOptions,
+): Promise<QueryCodeResult> {
+  switch (input.intent) {
+    case "discover": {
+      const symbolMatches = await searchSymbols({
+        repoRoot: input.repoRoot,
+        query: input.query ?? "",
+        kind: input.kind,
+        language: input.language,
+        filePattern: input.filePattern,
+        limit: input.limit,
+      });
+      const textMatches = input.includeTextMatches
+        ? await searchText({
+            repoRoot: input.repoRoot,
+            query: input.query ?? "",
+            filePattern: input.filePattern,
+          })
+        : [];
+
+      const result: QueryCodeDiscoverResult = {
+        intent: "discover",
+        query: input.query ?? "",
+        symbolMatches,
+        textMatches,
+      };
+      return result;
+    }
+    case "source": {
+      const fileContent = input.filePath
+        ? await getFileContent({
+            repoRoot: input.repoRoot,
+            filePath: input.filePath,
+          })
+        : null;
+      const hasSymbolRequest = Boolean(input.symbolId) || Boolean(input.symbolIds?.length);
+      const symbolSource = hasSymbolRequest
+        ? await getSymbolSource({
+            repoRoot: input.repoRoot,
+            symbolId: input.symbolId,
+            symbolIds: input.symbolIds,
+            contextLines: input.contextLines,
+            verify: input.verify,
+          })
+        : null;
+
+      const result: QueryCodeSourceResult = {
+        intent: "source",
+        fileContent,
+        symbolSource,
+      };
+      return result;
+    }
+    case "assemble": {
+      const ranked = input.includeRankedCandidates && input.query
+        ? await getRankedContext({
+            repoRoot: input.repoRoot,
+            query: input.query,
+            tokenBudget: input.tokenBudget,
+          })
+        : null;
+      const bundle = ranked
+        ? ranked.bundle
+        : await getContextBundle({
+            repoRoot: input.repoRoot,
+            query: input.query,
+            symbolIds: input.symbolIds,
+            tokenBudget: input.tokenBudget,
+          });
+
+      const result: QueryCodeAssembleResult = {
+        intent: "assemble",
+        bundle,
+        ranked,
+      };
+      return result;
+    }
   }
 }
 

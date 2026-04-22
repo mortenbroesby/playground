@@ -20,16 +20,18 @@ task-specific context needed for the next step.
 
 1. Start with persistent repo context: `AGENTS.md`, `.agents/rules/`, and any
    closer `AGENTS.md`.
-2. For code tasks, use `ai-context-engine` first: `search_symbols`,
-   `search_text`, `get_file_outline`, `get_symbol_source`,
-   `get_context_bundle`, `get_ranked_context`, and `diagnostics`.
-3. Use `jcodemunch` when you need extra reference, importer, or blast-radius
+2. For code tasks, use `ai-context-engine` first: `query_code`,
+   `get_file_outline`, and `diagnostics`.
+3. Drop to `search_symbols`, `search_text`, `get_symbol_source`,
+   `get_context_bundle`, and `get_ranked_context` when the granular surfaces
+   are materially clearer.
+4. Use `jcodemunch` when you need extra reference, importer, or blast-radius
    surfaces that the local engine does not provide yet.
-4. For repo history, architecture, or decisions, query `obsidian-memory` before
+5. For repo history, architecture, or decisions, query `obsidian-memory` before
    assuming.
-5. Load only the exact files, symbols, tests, and error output relevant to the
+6. Load only the exact files, symbols, tests, and error output relevant to the
    current slice.
-6. Refresh or compact context when the task changes materially.
+7. Refresh or compact context when the task changes materially.
 
 ## Rationalizations
 

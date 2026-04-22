@@ -1,7 +1,119 @@
+import { z } from "zod";
+
 import type {
   ContextBundleOptions,
+  QueryCodeOptions,
   SearchSymbolsOptions,
+  SummaryStrategy,
+  SupportedLanguage,
+  SymbolKind,
 } from "./types.ts";
+
+const supportedLanguageSchema = z.enum(["ts", "tsx", "js", "jsx"]);
+const symbolKindSchema = z.enum(["function", "class", "method", "constant", "type"]);
+const summaryStrategySchema = z.enum(["doc-comments-first", "signature-only"]);
+const queryCodeIntentSchema = z.enum(["discover", "source", "assemble"]);
+
+const finiteNumberSchema = z.number().finite();
+const positiveNumberSchema = finiteNumberSchema.refine((value) => value > 0, {
+  message: "must be positive",
+});
+const nonNegativeNumberSchema = finiteNumberSchema.refine((value) => value >= 0, {
+  message: "must be non-negative",
+});
+
+const cliNumberSchema = z.string().transform((value, ctx) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Invalid numeric value: ${value}`,
+    });
+    return z.NEVER;
+  }
+
+  return parsed;
+});
+
+const nonEmptyTrimmedStringSchema = z.string().transform((value) => value.trim());
+const nonEmptyOptionalStringSchema = nonEmptyTrimmedStringSchema
+  .transform((value) => (value.length > 0 ? value : undefined))
+  .optional();
+
+const symbolIdsArraySchema = z
+  .array(z.string())
+  .transform((symbolIds) => symbolIds.map((symbolId) => symbolId.trim()).filter(Boolean))
+  .optional();
+
+const queryCodeOptionsSchema = z.object({
+  repoRoot: z.string().min(1),
+  intent: queryCodeIntentSchema,
+  query: nonEmptyOptionalStringSchema,
+  symbolId: nonEmptyOptionalStringSchema,
+  symbolIds: symbolIdsArraySchema,
+  filePath: nonEmptyOptionalStringSchema,
+  kind: symbolKindSchema.optional(),
+  language: supportedLanguageSchema.optional(),
+  filePattern: nonEmptyOptionalStringSchema,
+  limit: positiveNumberSchema.optional(),
+  contextLines: nonNegativeNumberSchema.optional(),
+  verify: z.boolean().optional(),
+  tokenBudget: positiveNumberSchema.optional(),
+  includeTextMatches: z.boolean().optional(),
+  includeRankedCandidates: z.boolean().optional(),
+}).superRefine((input, ctx) => {
+  if (input.intent === "discover" && !input.query) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "query_code discover intent requires a non-empty query",
+      path: ["query"],
+    });
+  }
+
+  if (
+    input.intent === "source" &&
+    !input.filePath &&
+    !input.symbolId &&
+    (!input.symbolIds || input.symbolIds.length === 0)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "query_code source intent requires filePath, symbolId, or symbolIds",
+    });
+  }
+
+  if (
+    input.intent === "assemble" &&
+    !input.query &&
+    (!input.symbolIds || input.symbolIds.length === 0)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "query_code assemble intent requires a non-empty query or symbolIds",
+    });
+  }
+});
+
+function optionalCliString(args: Record<string, string>, key: string): string | undefined {
+  const value = args[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function trimToOptional(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeZodError(
+  error: z.ZodError,
+  fallbackMessage: string,
+): string {
+  return error.issues[0]?.message ?? fallbackMessage;
+}
 
 export function parseCliOptionalNumber(
   args: Record<string, string>,
@@ -12,12 +124,12 @@ export function parseCliOptionalNumber(
     return undefined;
   }
 
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
+  const parsed = cliNumberSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error(`Invalid numeric argument --${key}: ${value}`);
   }
 
-  return parsed;
+  return parsed.data;
 }
 
 export function parseMcpOptionalNumber(
@@ -29,27 +141,30 @@ export function parseMcpOptionalNumber(
     return undefined;
   }
 
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  const parsed = finiteNumberSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error(`Invalid numeric argument: ${key}`);
   }
 
-  return value;
+  return parsed.data;
 }
 
 export function requirePositiveNumber(value: number, name: string): number {
-  if (value <= 0) {
+  const parsed = positiveNumberSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error(`${name} must be positive`);
   }
 
-  return value;
+  return parsed.data;
 }
 
 export function requireNonNegativeNumber(value: number, name: string): number {
-  if (value < 0) {
+  const parsed = nonNegativeNumberSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error(`${name} must be non-negative`);
   }
 
-  return value;
+  return parsed.data;
 }
 
 export function validateSearchSymbolsOptions(
@@ -63,7 +178,7 @@ export function validateSearchSymbolsOptions(
 export function normalizeContextBundleSeeds(
   input: Pick<ContextBundleOptions, "query" | "symbolIds">,
 ): Pick<ContextBundleOptions, "query" | "symbolIds"> {
-  const query = input.query?.trim() ? input.query.trim() : undefined;
+  const query = trimToOptional(input.query);
   const symbolIds = input.symbolIds
     ?.map((symbolId) => symbolId.trim())
     .filter(Boolean);
@@ -102,4 +217,115 @@ export function validateSymbolSourceOptions(input: {
   if (input.contextLines !== undefined) {
     requireNonNegativeNumber(input.contextLines, "contextLines");
   }
+}
+
+export function parseCliSupportedLanguage(
+  args: Record<string, string>,
+  key: string,
+): SupportedLanguage | undefined {
+  const value = optionalCliString(args, key);
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = supportedLanguageSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(`Unsupported --${key}: ${value}. Expected one of: ts, tsx, js, jsx`);
+  }
+
+  return parsed.data;
+}
+
+export function parseCliSymbolKind(
+  args: Record<string, string>,
+  key: string,
+): SymbolKind | undefined {
+  const value = optionalCliString(args, key);
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = symbolKindSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(
+      `Unsupported --${key}: ${value}. Expected one of: function, class, method, constant, type`,
+    );
+  }
+
+  return parsed.data;
+}
+
+export function parseCliSummaryStrategy(
+  args: Record<string, string>,
+  key: string,
+): SummaryStrategy | undefined {
+  const value = optionalCliString(args, key);
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = summaryStrategySchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(
+      `Unsupported --${key}: ${value}. Expected one of: doc-comments-first, signature-only`,
+    );
+  }
+
+  return parsed.data;
+}
+
+export function parseQueryCodeCliInput(args: Record<string, string>): QueryCodeOptions {
+  const rawInput = {
+    repoRoot: args.repo,
+    intent: args.intent,
+    query: optionalCliString(args, "query"),
+    symbolId: optionalCliString(args, "symbol"),
+    symbolIds: optionalCliString(args, "symbols")?.split(","),
+    filePath: optionalCliString(args, "file"),
+    kind: parseCliSymbolKind(args, "kind"),
+    language: parseCliSupportedLanguage(args, "language"),
+    filePattern: optionalCliString(args, "file-pattern"),
+    limit: parseCliOptionalNumber(args, "limit"),
+    contextLines: parseCliOptionalNumber(args, "context-lines"),
+    verify: args.verify === "true",
+    tokenBudget: parseCliOptionalNumber(args, "budget"),
+    includeTextMatches: args["include-text"] === "true",
+    includeRankedCandidates: args["include-ranked"] === "true",
+  };
+
+  const parsed = queryCodeOptionsSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    throw new Error(normalizeZodError(parsed.error, "Invalid query-code arguments"));
+  }
+
+  return parsed.data;
+}
+
+export function parseQueryCodeMcpInput(args: Record<string, unknown>): QueryCodeOptions {
+  const rawInput = {
+    repoRoot: typeof args.repoRoot === "string" ? args.repoRoot : "",
+    intent: args.intent,
+    query: typeof args.query === "string" ? args.query : undefined,
+    symbolId: typeof args.symbolId === "string" ? args.symbolId : undefined,
+    symbolIds: Array.isArray(args.symbolIds)
+      ? args.symbolIds.filter((value): value is string => typeof value === "string")
+      : undefined,
+    filePath: typeof args.filePath === "string" ? args.filePath : undefined,
+    kind: args.kind,
+    language: args.language,
+    filePattern: typeof args.filePattern === "string" ? args.filePattern : undefined,
+    limit: args.limit,
+    contextLines: args.contextLines,
+    verify: args.verify === true,
+    tokenBudget: args.tokenBudget,
+    includeTextMatches: args.includeTextMatches === true,
+    includeRankedCandidates: args.includeRankedCandidates === true,
+  };
+
+  const parsed = queryCodeOptionsSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    throw new Error(normalizeZodError(parsed.error, "Invalid query_code arguments"));
+  }
+
+  return parsed.data;
 }

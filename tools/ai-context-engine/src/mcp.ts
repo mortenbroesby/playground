@@ -3,7 +3,7 @@
 import process from "node:process";
 
 import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
-import { parseMcpOptionalNumber } from "./validation.ts";
+import { parseMcpOptionalNumber, parseQueryCodeMcpInput } from "./validation.ts";
 import {
   diagnostics,
   getFileContent,
@@ -15,6 +15,7 @@ import {
   getSymbolSource,
   indexFile,
   indexFolder,
+  queryCode,
   searchSymbols,
   searchText,
   suggestInitialQueries,
@@ -99,6 +100,57 @@ const toolDefinitions: McpTool[] = [
       description: "Optional glob-like file path filter",
     },
   }, ["repoRoot", "query"]),
+  tool("query_code", "Unified code query surface for discovery, exact retrieval, and bounded assembly.", {
+    repoRoot: stringProp("Repository root path"),
+    intent: {
+      type: "string",
+      description: "discover, source, or assemble",
+    },
+    query: stringProp("Optional query for discover and assemble intents"),
+    symbolId: stringProp("Optional indexed symbol id"),
+    symbolIds: {
+      type: "array",
+      items: stringProp("Indexed symbol id"),
+      description: "Optional indexed symbol ids",
+    },
+    filePath: stringProp("Optional path relative to the repository root"),
+    kind: {
+      type: "string",
+      description: "Optional symbol kind filter",
+    },
+    language: {
+      type: "string",
+      description: "Optional language filter (ts, tsx, js, jsx)",
+    },
+    filePattern: {
+      type: "string",
+      description: "Optional glob-like file path filter",
+    },
+    limit: {
+      type: "number",
+      description: "Optional maximum number of symbol results",
+    },
+    contextLines: {
+      type: "number",
+      description: "Optional surrounding context line count",
+    },
+    verify: {
+      type: "boolean",
+      description: "Verify symbol-source content hash before returning",
+    },
+    tokenBudget: {
+      type: "number",
+      description: "Optional bundle token budget",
+    },
+    includeTextMatches: {
+      type: "boolean",
+      description: "When discover intent is used, include raw text matches too",
+    },
+    includeRankedCandidates: {
+      type: "boolean",
+      description: "When assemble intent is used, include ranked candidate output too",
+    },
+  }, ["repoRoot", "intent"]),
   tool("get_context_bundle", "Assemble bounded context from ranked symbols and dependencies.", {
     repoRoot: stringProp("Repository root path"),
     query: {
@@ -264,6 +316,8 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
             ? args.filePattern
             : undefined,
       });
+    case "query_code":
+      return queryCode(parseQueryCodeMcpInput(args));
     case "get_context_bundle":
       return getContextBundle({
         repoRoot: requireString(args, "repoRoot"),

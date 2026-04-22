@@ -22,9 +22,10 @@ alwaysApply: true
   available.
 - Start by ensuring the repo is indexed; use `index-folder` if the index is
   missing or stale.
-- Prefer `search_symbols`, `search_text`, `get_file_outline`,
-  `get_symbol_source`, `get_context_bundle`, `get_ranked_context`,
-  `get_file_tree`, and `diagnostics`.
+- Prefer `query_code`, `get_file_outline`, `get_file_tree`, and `diagnostics`.
+- Drop to `search_symbols`, `search_text`, `get_symbol_source`,
+  `get_context_bundle`, and `get_ranked_context` when the lower-level surfaces
+  are materially clearer for the task.
 - Use `search_symbols` for named code lookups and `search_text` for strings,
   comments, or non-symbol matches.
 - Use `get_file_outline` to inspect a file cheaply before opening it, and
