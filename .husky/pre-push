@@ -1,1 +1,2 @@
-pnpm lint:md
+pnpm lint:md || exit 1
+pnpm --filter @playground/ai-context-engine type-lint

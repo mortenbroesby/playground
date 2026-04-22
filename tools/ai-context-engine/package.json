@@ -30,6 +30,7 @@
     "bench:cli": "node --experimental-strip-types ./scripts/benchmark-cli.mjs",
     "bench:corpus": "node --experimental-strip-types ./bench/src/cli.ts",
     "test:package-bin": "node ./scripts/smoke-package-bin.mjs",
+    "type-lint": "pnpm run type-check && tsc -p ./bench/tsconfig.json --noEmit && tsc -p ./tsconfig.build.json --noEmit",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:mutation": "node ./scripts/mutation-opt-in.mjs",

@@ -3,6 +3,8 @@
   "tasks": {
     "build": {
       "dependsOn": [
+        "type-lint",
+        "^type-lint",
         "^build"
       ],
       "outputs": [
@@ -16,6 +18,12 @@
       "dependsOn": [
         "^build"
       ]
+    },
+    "type-lint": {
+      "dependsOn": [
+        "^type-lint"
+      ],
+      "outputs": []
     },
     "type-check": {
       "dependsOn": [

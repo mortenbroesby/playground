@@ -24,6 +24,7 @@
     "rag:verify": "pnpm --filter @playground/obsidian-memory rag:verify",
     "test": "turbo test",
     "test:integration": "pnpm --filter @playground/todo-app test:integration",
+    "type-lint": "turbo type-lint",
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
     "agents:check": "node scripts/agent-setup-check.mjs",
