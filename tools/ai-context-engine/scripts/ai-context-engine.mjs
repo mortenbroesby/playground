@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -20,21 +21,34 @@ function usage() {
 
 const [mode, ...args] = process.argv.slice(2);
 
-const target =
+const sourceTarget =
   mode === "cli"
     ? path.join(packageRoot, "src", "cli.ts")
     : mode === "mcp"
       ? path.join(packageRoot, "src", "mcp.ts")
       : null;
+const distTarget =
+  mode === "cli"
+    ? path.join(packageRoot, "dist", "cli.js")
+    : mode === "mcp"
+      ? path.join(packageRoot, "dist", "mcp.js")
+      : null;
 
-if (!target) {
+if (!sourceTarget || !distTarget) {
   usage();
   process.exit(1);
 }
 
-const child = spawn(process.execPath, ["--experimental-strip-types", target, ...args], {
-  stdio: "inherit",
-});
+const useBuiltTarget = existsSync(distTarget);
+const child = spawn(
+  process.execPath,
+  useBuiltTarget
+    ? [distTarget, ...args]
+    : ["--experimental-strip-types", sourceTarget, ...args],
+  {
+    stdio: "inherit",
+  },
+);
 
 child.on("exit", (code, signal) => {
   if (signal) {

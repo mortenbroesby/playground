@@ -9,7 +9,7 @@ import {
   getSymbolSource,
   searchSymbols,
   searchText,
-} from "@playground/ai-context-engine";
+} from "../../src/index.ts";
 
 import { countTokens, estimateTokens } from "./tokenizer.ts";
 import type { BenchmarkCorpusTask } from "./types.ts";

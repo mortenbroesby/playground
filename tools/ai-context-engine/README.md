@@ -110,6 +110,11 @@ You can use the engine through:
 
 The shortest local entrypoint is usually `pnpm exec ai-context-engine ...`.
 
+For packaging, the published bin is the same `ai-context-engine` command. The
+workspace wrapper falls back to `src/*.ts` during local development, but
+`prepack` now builds `dist/` so installed consumers execute plain built
+JavaScript instead of repo-local TypeScript sources.
+
 ## Commands
 
 - `pnpm exec ai-context-engine cli index-folder --repo /abs/repo`
@@ -123,6 +128,8 @@ The shortest local entrypoint is usually `pnpm exec ai-context-engine ...`.
 - `pnpm exec ai-context-engine mcp`
 - `pnpm --filter @playground/ai-context-engine bench:small`
 - `pnpm --filter @playground/ai-context-engine bench:cli`
+- `pnpm --filter @playground/ai-context-engine build`
+- `pnpm --filter @playground/ai-context-engine test:package-bin`
 - `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
@@ -135,6 +142,20 @@ The shortest local entrypoint is usually `pnpm exec ai-context-engine ...`.
 
 The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with
 MCP-style `tools/list` and `tools/call` routing.
+
+## Packaging
+
+The package now has an explicit build step for npm-style use:
+
+- `build` emits `dist/index.js`, `dist/cli.js`, `dist/mcp.js`, and declarations
+- `prepack` runs `build` automatically before `pnpm pack` or publish
+- `test:package-bin` packs the workspace package into a tarball, installs it
+  into a temporary project, and verifies the installed `ai-context-engine` bin
+  can index a fixture repo
+
+That means the CLI can be exercised both as a workspace command and as an
+installed package command, which is the minimum contract we need before making
+this publishable.
 
 ## Benchmarks
 

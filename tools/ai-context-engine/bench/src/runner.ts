@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { indexFolder } from "@playground/ai-context-engine";
+import { indexFolder } from "../../src/index.ts";
 
 import { loadBenchmarkCorpus } from "./corpus.ts";
 import {

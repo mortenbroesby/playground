@@ -2,7 +2,7 @@ import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { indexFolder } from "@playground/ai-context-engine";
+import { indexFolder } from "../../src/index.ts";
 
 import { runBenchmark, runWorkflowTask, loadBenchmarkCorpus } from "../src/index.ts";
 import { createBenchmarkFixtureRepo } from "./benchmark-fixture.ts";
