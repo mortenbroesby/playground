@@ -23,17 +23,9 @@ alwaysApply: true
 - Start by ensuring the repo is indexed; use `index-folder` if the index is
   missing or stale.
 - Prefer `query_code`, `get_file_outline`, `get_file_tree`, and `diagnostics`.
-- Drop to `search_symbols`, `search_text`, `get_symbol_source`,
-  `get_context_bundle`, and `get_ranked_context` when the lower-level surfaces
-  are materially clearer for the task.
-- Use `search_symbols` for named code lookups and `search_text` for strings,
-  comments, or non-symbol matches.
-- Use `get_file_outline` to inspect a file cheaply before opening it, and
-  `get_symbol_source` when you already know which implementation you need.
-- Use `get_context_bundle` when you need a symbol plus nearby imports and
-  supporting context without broad file reads.
-- Use `get_ranked_context` when the query is still ambiguous and you need to
-  inspect which candidates the engine would actually assemble under budget.
+- Use `query_code` with `discover`, `source`, or `assemble` intent instead of
+  the older granular retrieval tools.
+- Use `get_file_outline` to inspect a file cheaply before opening it.
 - Use `diagnostics` when you need freshness or watch-health confirmation before
   trusting the local index.
 - Use `jcodemunch` for reference-heavy or blast-radius questions that the local

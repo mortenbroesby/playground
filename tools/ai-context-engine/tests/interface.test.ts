@@ -315,13 +315,16 @@ export function circumference(radius: number): string {
       }
     ).tools;
 
-    expect(tools.map((tool) => tool.name)).toContain(
-      "get_symbol_source",
-    );
-    expect(tools.map((tool) => tool.name)).toContain("query_code");
-    expect(tools.map((tool) => tool.name)).toContain("get_context_bundle");
-    expect(tools.map((tool) => tool.name)).toContain("get_ranked_context");
-    expect(tools.map((tool) => tool.name)).toContain("diagnostics");
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "index_folder",
+      "index_file",
+      "get_repo_outline",
+      "get_file_tree",
+      "get_file_outline",
+      "suggest_initial_queries",
+      "query_code",
+      "diagnostics",
+    ]);
 
     await server.handleMessage({
       jsonrpc: "2.0",
@@ -341,11 +344,13 @@ export function circumference(radius: number): string {
       id: 3,
       method: "tools/call",
       params: {
-        name: "search_symbols",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "discover",
           query: "Greeter",
           kind: "class",
+          includeTextMatches: true,
           limit: 1,
         },
       },
@@ -357,22 +362,28 @@ export function circumference(radius: number): string {
       }
     ).content[0];
     expect(content.type).toBe("text");
-    expect(JSON.parse(content.text)).toHaveLength(1);
-    expect(JSON.parse(content.text)[0]).toMatchObject({
+    expect(JSON.parse(content.text)).toMatchObject({
+      intent: "discover",
+      query: "Greeter",
+    });
+    expect(JSON.parse(content.text).symbolMatches).toHaveLength(1);
+    expect(JSON.parse(content.text).symbolMatches[0]).toMatchObject({
       name: "Greeter",
       kind: "class",
       filePath: "src/strings.ts",
       summarySource: "signature",
     });
+    expect(JSON.parse(content.text).textMatches.length).toBeGreaterThan(0);
 
     const filteredSearchResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 31,
       method: "tools/call",
       params: {
-        name: "search_symbols",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "discover",
           query: "Greeter",
           language: "ts",
           filePattern: "src/*.ts",
@@ -386,19 +397,21 @@ export function circumference(radius: number): string {
         content: Array<{ type: string; text: string }>;
       }
     ).content[0];
-    expect(JSON.parse(filteredSearchContent.text).every((entry: { filePath: string }) =>
+    const filteredDiscover = JSON.parse(filteredSearchContent.text);
+    expect(filteredDiscover.symbolMatches.every((entry: { filePath: string }) =>
       entry.filePath.endsWith(".ts"),
     )).toBe(true);
-    const greeterToolId = JSON.parse(content.text)[0].id as string;
+    const greeterToolId = JSON.parse(content.text).symbolMatches[0].id as string;
 
     const greetResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 30,
       method: "tools/call",
       params: {
-        name: "search_symbols",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "discover",
           query: "greet",
           kind: "method",
           limit: 1,
@@ -411,18 +424,20 @@ export function circumference(radius: number): string {
         content: Array<{ type: string; text: string }>;
       }
     ).content[0];
-    const greetToolId = JSON.parse(greetContent.text)[0].id as string;
+    const greetToolId = JSON.parse(greetContent.text).symbolMatches[0].id as string;
 
     const bundleResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
       params: {
-        name: "get_context_bundle",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "assemble",
           query: "Greeter",
           tokenBudget: 120,
+          includeRankedCandidates: true,
         },
       },
     });
@@ -434,41 +449,24 @@ export function circumference(radius: number): string {
     ).content[0];
     expect(bundleContent.type).toBe("text");
     expect(JSON.parse(bundleContent.text)).toMatchObject({
-      query: "Greeter",
+      intent: "assemble",
+      bundle: {
+        query: "Greeter",
+        tokenBudget: 120,
+      },
     });
-    expect(JSON.parse(bundleContent.text).items[0]).toMatchObject({
+    expect(JSON.parse(bundleContent.text).bundle.items[0]).toMatchObject({
       symbol: {
         name: "Greeter",
       },
     });
-
-    const rankedResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 8,
-      method: "tools/call",
-      params: {
-        name: "get_ranked_context",
-        arguments: {
-          repoRoot,
-          query: "Greeter",
-          tokenBudget: 120,
-        },
-      },
-    });
-
-    const rankedContent = (
-      rankedResponse.result as {
-        content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    expect(rankedContent.type).toBe("text");
-    expect(JSON.parse(rankedContent.text)).toMatchObject({
+    expect(JSON.parse(bundleContent.text).ranked).toMatchObject({
       query: "Greeter",
       bundle: {
         tokenBudget: 120,
       },
     });
-    expect(JSON.parse(rankedContent.text).candidates[0]).toMatchObject({
+    expect(JSON.parse(bundleContent.text).ranked.candidates[0]).toMatchObject({
       symbol: {
         name: "Greeter",
       },
@@ -480,9 +478,10 @@ export function circumference(radius: number): string {
       id: 9,
       method: "tools/call",
       params: {
-        name: "get_symbol_source",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "source",
           symbolIds: [greeterToolId, greetToolId],
           contextLines: 1,
         },
@@ -496,9 +495,12 @@ export function circumference(radius: number): string {
     ).content[0];
     expect(symbolSourceContent.type).toBe("text");
     expect(JSON.parse(symbolSourceContent.text)).toMatchObject({
-      requestedContextLines: 1,
+      intent: "source",
+      symbolSource: {
+        requestedContextLines: 1,
+      },
     });
-    expect(JSON.parse(symbolSourceContent.text).items).toHaveLength(2);
+    expect(JSON.parse(symbolSourceContent.text).symbolSource.items).toHaveLength(2);
 
     const queryCodeResponse = await server.handleMessage({
       jsonrpc: "2.0",
@@ -528,6 +530,21 @@ export function circumference(radius: number): string {
     expect(JSON.parse(queryCodeContent.text).symbolMatches[0]).toMatchObject({
       name: "Greeter",
     });
+
+    const retiredToolResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 12,
+      method: "tools/call",
+      params: {
+        name: "search_symbols",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+        },
+      },
+    });
+
+    expect(retiredToolResponse.error?.message).toMatch(/unknown tool: search_symbols/i);
   }, 20_000);
 
   it("rejects unsupported summary strategies at runtime boundaries", async () => {
@@ -677,57 +694,61 @@ export function circumference(radius: number): string {
       id: 6,
       method: "tools/call",
       params: {
-        name: "search_symbols",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "discover",
           query: "Greeter",
           kind: "bogus",
         },
       },
     });
 
-    expect(invalidKindResponse.error?.message).toMatch(/unsupported kind/i);
+    expect(invalidKindResponse.error?.message).toMatch(/invalid option|unsupported kind/i);
 
     const invalidBudgetResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 7,
       method: "tools/call",
       params: {
-        name: "get_context_bundle",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "assemble",
           query: "Greeter",
           tokenBudget: "oops",
         },
       },
     });
 
-    expect(invalidBudgetResponse.error?.message).toMatch(/invalid numeric argument: tokenBudget/i);
+    expect(invalidBudgetResponse.error?.message).toMatch(/expected number|invalid numeric argument/i);
 
     const invalidLimitResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 8,
       method: "tools/call",
       params: {
-        name: "search_symbols",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "discover",
           query: "Greeter",
           limit: 0,
         },
       },
     });
 
-    expect(invalidLimitResponse.error?.message).toMatch(/limit must be positive/i);
+    expect(invalidLimitResponse.error?.message).toMatch(/limit must be positive|must be positive/i);
 
     const invalidContextLinesResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 9,
       method: "tools/call",
       params: {
-        name: "get_symbol_source",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "source",
           symbolId: "fake-symbol",
           contextLines: -1,
         },
@@ -735,7 +756,7 @@ export function circumference(radius: number): string {
     });
 
     expect(invalidContextLinesResponse.error?.message).toMatch(
-      /contextLines must be non-negative/i,
+      /contextLines must be non-negative|must be non-negative/i,
     );
 
     const emptyBundleSeedResponse = await server.handleMessage({
@@ -743,9 +764,10 @@ export function circumference(radius: number): string {
       id: 10,
       method: "tools/call",
       params: {
-        name: "get_context_bundle",
+        name: "query_code",
         arguments: {
           repoRoot,
+          intent: "assemble",
           query: "   ",
           symbolIds: ["   "],
         },
@@ -753,7 +775,7 @@ export function circumference(radius: number): string {
     });
 
     expect(emptyBundleSeedResponse.error?.message).toMatch(
-      /getContextBundle requires a non-empty query or symbolIds/i,
+      /query_code assemble intent requires a non-empty query or symbolIds/i,
     );
 
     const invalidQueryCodeResponse = await server.handleMessage({

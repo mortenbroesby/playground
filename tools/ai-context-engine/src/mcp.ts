@@ -2,22 +2,16 @@
 
 import process from "node:process";
 
-import { parseSummaryStrategy, parseSymbolKind } from "./config.ts";
-import { parseMcpOptionalNumber, parseQueryCodeMcpInput } from "./validation.ts";
+import { parseSummaryStrategy } from "./config.ts";
+import { parseQueryCodeMcpInput } from "./validation.ts";
 import {
   diagnostics,
-  getFileContent,
   getFileOutline,
   getFileTree,
   getRepoOutline,
-  getContextBundle,
-  getRankedContext,
-  getSymbolSource,
   indexFile,
   indexFolder,
   queryCode,
-  searchSymbols,
-  searchText,
   suggestInitialQueries,
 } from "./index.ts";
 
@@ -72,34 +66,6 @@ const toolDefinitions: McpTool[] = [
   tool("suggest_initial_queries", "Suggest likely entry points before code retrieval.", {
     repoRoot: stringProp("Repository root path"),
   }, ["repoRoot"]),
-  tool("search_symbols", "Search indexed symbols by name and signature.", {
-    repoRoot: stringProp("Repository root path"),
-    query: stringProp("Search query"),
-    kind: {
-      type: "string",
-      description: "Optional symbol kind filter",
-    },
-    language: {
-      type: "string",
-      description: "Optional language filter (ts, tsx, js, jsx)",
-    },
-    filePattern: {
-      type: "string",
-      description: "Optional glob-like file path filter",
-    },
-    limit: {
-      type: "number",
-      description: "Optional maximum number of results",
-    },
-  }, ["repoRoot", "query"]),
-  tool("search_text", "Search indexed raw source text.", {
-    repoRoot: stringProp("Repository root path"),
-    query: stringProp("Search query"),
-    filePattern: {
-      type: "string",
-      description: "Optional glob-like file path filter",
-    },
-  }, ["repoRoot", "query"]),
   tool("query_code", "Unified code query surface for discovery, exact retrieval, and bounded assembly.", {
     repoRoot: stringProp("Repository root path"),
     intent: {
@@ -151,48 +117,6 @@ const toolDefinitions: McpTool[] = [
       description: "When assemble intent is used, include ranked candidate output too",
     },
   }, ["repoRoot", "intent"]),
-  tool("get_context_bundle", "Assemble bounded context from ranked symbols and dependencies.", {
-    repoRoot: stringProp("Repository root path"),
-    query: {
-      type: "string",
-      description: "Optional search query to seed the bundle",
-    },
-    symbolIds: {
-      type: "array",
-      items: stringProp("Indexed symbol id"),
-      description: "Optional explicit seed symbol ids",
-    },
-    tokenBudget: {
-      type: "number",
-      description: "Token budget for the returned bundle",
-    },
-  }, ["repoRoot"]),
-  tool("get_ranked_context", "Return ranked query candidates plus the bounded context selected under budget.", {
-    repoRoot: stringProp("Repository root path"),
-    query: stringProp("Search query used to rank candidate symbols"),
-    tokenBudget: {
-      type: "number",
-      description: "Token budget for the returned bundle",
-    },
-  }, ["repoRoot", "query"]),
-  tool("get_file_content", "Fetch full indexed file content from the raw cache.", {
-    repoRoot: stringProp("Repository root path"),
-    filePath: stringProp("Path relative to the repository root"),
-  }, ["repoRoot", "filePath"]),
-  tool("get_symbol_source", "Fetch exact source for one indexed symbol.", {
-    repoRoot: stringProp("Repository root path"),
-    symbolId: stringProp("Indexed symbol id"),
-    symbolIds: {
-      type: "array",
-      items: stringProp("Indexed symbol id"),
-      description: "Optional batch of indexed symbol ids",
-    },
-    contextLines: {
-      type: "number",
-      description: "Optional surrounding context line count",
-    },
-    verify: { type: "boolean", description: "Verify content hash before returning" },
-  }, ["repoRoot"]),
   tool("diagnostics", "Report storage and freshness metadata.", {
     repoRoot: stringProp("Repository root path"),
     scanFreshness: {
@@ -246,10 +170,6 @@ function requireString(params: Record<string, unknown>, key: string): string {
   return value;
 }
 
-function optionalNumber(params: Record<string, unknown>, key: string): number | undefined {
-  return parseMcpOptionalNumber(params, key);
-}
-
 async function dispatchTool(name: string, args: Record<string, unknown>) {
   switch (name) {
     case "index_folder":
@@ -280,84 +200,8 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
       });
     case "suggest_initial_queries":
       return suggestInitialQueries({ repoRoot: requireString(args, "repoRoot") });
-    case "search_symbols":
-      return searchSymbols({
-        repoRoot: requireString(args, "repoRoot"),
-        query: requireString(args, "query"),
-        kind:
-          typeof args.kind === "string"
-            ? parseSymbolKind(args.kind, "kind")
-            : undefined,
-        language:
-          args.language === "ts" ||
-          args.language === "tsx" ||
-          args.language === "js" ||
-          args.language === "jsx"
-            ? args.language
-            : typeof args.language === "string"
-              ? (() => {
-                  throw new Error(
-                    `Unsupported language: ${args.language}. Expected one of: ts, tsx, js, jsx`,
-                  );
-                })()
-              : undefined,
-        filePattern:
-          typeof args.filePattern === "string" && args.filePattern.length > 0
-            ? args.filePattern
-            : undefined,
-        limit: optionalNumber(args, "limit"),
-      });
-    case "search_text":
-      return searchText({
-        repoRoot: requireString(args, "repoRoot"),
-        query: requireString(args, "query"),
-        filePattern:
-          typeof args.filePattern === "string" && args.filePattern.length > 0
-            ? args.filePattern
-            : undefined,
-      });
     case "query_code":
       return queryCode(parseQueryCodeMcpInput(args));
-    case "get_context_bundle":
-      return getContextBundle({
-        repoRoot: requireString(args, "repoRoot"),
-        query:
-          typeof args.query === "string" && args.query.length > 0
-            ? args.query
-            : undefined,
-        symbolIds: Array.isArray(args.symbolIds)
-          ? args.symbolIds.filter(
-              (value): value is string => typeof value === "string" && value.length > 0,
-            )
-          : undefined,
-        tokenBudget: optionalNumber(args, "tokenBudget"),
-      });
-    case "get_ranked_context":
-      return getRankedContext({
-        repoRoot: requireString(args, "repoRoot"),
-        query: requireString(args, "query"),
-        tokenBudget: optionalNumber(args, "tokenBudget"),
-      });
-    case "get_file_content":
-      return getFileContent({
-        repoRoot: requireString(args, "repoRoot"),
-        filePath: requireString(args, "filePath"),
-      });
-    case "get_symbol_source":
-      return getSymbolSource({
-        repoRoot: requireString(args, "repoRoot"),
-        symbolId:
-          typeof args.symbolId === "string" && args.symbolId.length > 0
-            ? args.symbolId
-            : undefined,
-        symbolIds: Array.isArray(args.symbolIds)
-          ? args.symbolIds.filter(
-              (value): value is string => typeof value === "string" && value.length > 0,
-            )
-          : undefined,
-        contextLines: optionalNumber(args, "contextLines"),
-        verify: args.verify === true,
-      });
     case "diagnostics":
       return diagnostics({
         repoRoot: requireString(args, "repoRoot"),

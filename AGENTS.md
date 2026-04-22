@@ -23,8 +23,7 @@ Thin bootstrap for coding agents in this repo.
   available.
 - Prefer `query_code`, `get_file_outline`, and `diagnostics` before broad file
   reads.
-- Drop to `search_symbols`, `search_text`, `get_symbol_source`, and
-  `get_ranked_context` when you need the more granular surfaces.
+- Use `query_code` intents instead of the older granular retrieval surfaces.
 - Use `jcodemunch` when you need its extra navigation surfaces or when the
   engine is unavailable.
 - Use `obsidian-memory` for repo history, architecture, and decisions.

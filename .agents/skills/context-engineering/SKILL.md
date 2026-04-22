@@ -22,9 +22,8 @@ task-specific context needed for the next step.
    closer `AGENTS.md`.
 2. For code tasks, use `ai-context-engine` first: `query_code`,
    `get_file_outline`, and `diagnostics`.
-3. Drop to `search_symbols`, `search_text`, `get_symbol_source`,
-   `get_context_bundle`, and `get_ranked_context` when the granular surfaces
-   are materially clearer.
+3. Use `query_code` intents for discovery, exact retrieval, and bounded
+   assembly rather than older granular retrieval tools.
 4. Use `jcodemunch` when you need extra reference, importer, or blast-radius
    surfaces that the local engine does not provide yet.
 5. For repo history, architecture, or decisions, query `obsidian-memory` before

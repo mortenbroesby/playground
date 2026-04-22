@@ -273,10 +273,5 @@ export type EngineToolName =
   | "get_file_tree"
   | "get_file_outline"
   | "suggest_initial_queries"
-  | "search_symbols"
-  | "search_text"
-  | "get_context_bundle"
-  | "get_ranked_context"
-  | "get_file_content"
-  | "get_symbol_source"
+  | "query_code"
   | "diagnostics";

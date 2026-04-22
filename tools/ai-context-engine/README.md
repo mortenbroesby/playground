@@ -100,27 +100,17 @@ The main retrieval surfaces are:
 
 - `query_code`
   preferred umbrella surface for discovery, exact retrieval, and bounded
-  assembly with one intent-driven contract
-- `search_symbols`
-  discovery-first lookup for named code entities
-- `search_text`
-  fallback lookup for literals, comments, flags, and other non-symbol text
-- `get_symbol_source`
-  exact source retrieval for one or more symbols, with optional surrounding
-  context lines
-- `get_context_bundle`
-  bounded assembly of exact source snippets under a token budget
-- `get_ranked_context`
-  inspectable ranked candidates plus the bounded bundle selected from them
+  assembly with one intent-driven contract across the MCP boundary
 - `diagnostics`
   metadata-first health and freshness reporting, with optional full drift scan
 
 The package is optimized around exact retrieval first. Ranking and assembly sit
 on top of exact indexed source; they do not replace it.
 
-For agent ergonomics, `query_code` is now the preferred starting point. The
-older granular surfaces remain available because they are still useful for
-precise tool routing, debugging, and benchmarks.
+For agent ergonomics, the MCP surface is intentionally narrow: use
+`query_code`, structural inspection tools, and `diagnostics`. The older
+granular retrieval commands remain available through the library and CLI for
+debugging, benchmarks, and engine development.
 
 ## Repo workflow role
 
@@ -142,7 +132,8 @@ You can use the engine through:
 
 - the library exports in `src/index.ts`
 - the JSON CLI in `src/cli.ts`
-- the stdio MCP server in `src/mcp.ts`
+- the stdio MCP server in `src/mcp.ts`, which exposes indexing tools,
+  structural outline tools, `query_code`, and `diagnostics`
 
 The shortest local entrypoint is usually `pnpm exec ai-context-engine ...`.
 
