@@ -1,6 +1,6 @@
 [mcp_servers.obsidian-memory]
 command = "node"
-args = ["tools/rag-mcp-server.mjs"]
+args = ["tools/obsidian-memory/src/rag-mcp-server.mjs"]
 cwd = "."
 enabled_tools = [
   "memory_context",
