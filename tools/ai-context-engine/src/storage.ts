@@ -5,6 +5,17 @@ import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import {
+  Subject,
+  buffer,
+  concatMap,
+  debounceTime,
+  filter,
+  from,
+  map,
+  mergeMap,
+  share,
+} from "rxjs";
 
 import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
 import {
@@ -1603,10 +1614,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   const debounceMs = input.debounceMs ?? 100;
   const repoRoot = await resolveRepoRoot(input.repoRoot);
   const pollMs = Math.max(50, Math.min(debounceMs, 250));
-  const pendingPaths = new Set<string>();
   let closed = false;
-  let debounceTimer: NodeJS.Timeout | null = null;
-  let activeFlush: Promise<void> | null = null;
   let pollInFlight = false;
   let pollInterval: NodeJS.Timeout | null = null;
   let nativeWatchTimer: NodeJS.Timeout | null = null;
@@ -1618,6 +1626,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let reindexCount = 0;
   let lastSummary: IndexSummary | null = null;
   let lastError: string | null = null;
+  const changedPathInputs$ = new Subject<string[]>();
 
   const persistWatchEvent = async (event: WatchEvent) => {
     if (event.type === "ready") {
@@ -1653,114 +1662,79 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     });
   };
 
-  const scheduleFlush = (paths: string[]) => {
-    for (const filePath of paths) {
-      pendingPaths.add(filePath);
-    }
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-    debounceTimer = setTimeout(() => {
-      debounceTimer = null;
-      void flush();
-    }, debounceMs);
-  };
-
-  const flush = async () => {
-    if (closed || activeFlush) {
+  const emitChangedPaths = (paths: string[]) => {
+    if (closed || paths.length === 0) {
       return;
     }
+    changedPathInputs$.next(paths);
+  };
 
-    const changedPaths = [...pendingPaths].sort();
-    pendingPaths.clear();
+  const flushChangedPaths = async (changedPaths: string[]): Promise<WatchEvent> => {
+    try {
+      const config = await ensureStorage(repoRoot, input.summaryStrategy);
+      const db = openDatabase(config.paths.databasePath);
+      const meta = await readRepoMeta(config.paths.repoMetaPath);
+      const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
 
-    activeFlush = (async () => {
+      let indexedFiles = 0;
+      let indexedSymbols = 0;
+
       try {
-        const config = await ensureStorage(repoRoot, input.summaryStrategy);
-        const db = openDatabase(config.paths.databasePath);
-        const meta = await readRepoMeta(config.paths.repoMetaPath);
-        const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
+        for (const filePath of changedPaths) {
+          const absolutePath = path.join(repoRoot, filePath);
+          const fileExists = await stat(absolutePath)
+            .then((entry) => entry.isFile())
+            .catch(() => false);
 
-        let indexedFiles = 0;
-        let indexedSymbols = 0;
-
-        try {
-          for (const filePath of changedPaths) {
-            const absolutePath = path.join(repoRoot, filePath);
-            const fileExists = await stat(absolutePath)
-              .then((entry) => entry.isFile())
-              .catch(() => false);
-
-            if (!fileExists) {
-              if (removeFileIndex(db, filePath)) {
-                indexedFiles += 1;
-              }
-              continue;
-            }
-
-            if (!supportedLanguageForFile(filePath) || isGitIgnored(repoRoot, filePath)) {
-              if (removeFileIndex(db, filePath)) {
-                indexedFiles += 1;
-              }
-              continue;
-            }
-
-            const result = await upsertFileIndex(db, {
-              repoRoot,
-              filePath,
-              summaryStrategy: config.summaryStrategy,
-              forceRefresh,
-            });
-            if (result.indexed) {
+          if (!fileExists) {
+            if (removeFileIndex(db, filePath)) {
               indexedFiles += 1;
-              indexedSymbols += result.symbolCount;
             }
+            continue;
           }
 
-          const indexedAt = new Date().toISOString();
-          await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+          if (!supportedLanguageForFile(filePath) || isGitIgnored(repoRoot, filePath)) {
+            if (removeFileIndex(db, filePath)) {
+              indexedFiles += 1;
+            }
+            continue;
+          }
 
-          const summary = {
+          const result = await upsertFileIndex(db, {
+            repoRoot,
+            filePath,
+            summaryStrategy: config.summaryStrategy,
+            forceRefresh,
+          });
+          if (result.indexed) {
+            indexedFiles += 1;
+            indexedSymbols += result.symbolCount;
+          }
+        }
+
+        const indexedAt = new Date().toISOString();
+        await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+
+        return {
+          type: "reindex",
+          changedPaths,
+          summary: {
             indexedFiles,
             indexedSymbols,
-            staleStatus: "fresh" as const,
-          };
-          const event = {
-            type: "reindex",
-            changedPaths,
-            summary,
-          } satisfies WatchEvent;
-          await persistWatchEvent(event);
-          await emitWatchEvent(input.onEvent, event);
-        } finally {
-          db.close();
-        }
-      } catch (error) {
-        for (const filePath of changedPaths) {
-          pendingPaths.add(filePath);
-        }
-        const event = {
-          type: "error",
-          changedPaths,
-          message: error instanceof Error ? error.message : String(error),
+            staleStatus: "fresh",
+          },
         } satisfies WatchEvent;
-        await persistWatchEvent(event);
-        await emitWatchEvent(input.onEvent, event);
       } finally {
-        activeFlush = null;
-        if (!closed && pendingPaths.size > 0) {
-          if (debounceTimer) {
-            clearTimeout(debounceTimer);
-          }
-          debounceTimer = setTimeout(() => {
-            debounceTimer = null;
-            void flush();
-          }, debounceMs);
-        }
+        db.close();
       }
-    })();
-
-    await activeFlush;
+    } catch (error) {
+      emitChangedPaths(changedPaths);
+      return {
+        type: "error",
+        changedPaths,
+        message: error instanceof Error ? error.message : String(error),
+      } satisfies WatchEvent;
+    }
   };
 
   const runPollingSweep = async () => {
@@ -1834,7 +1808,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
 
       const changedPathList = [...changedPaths].sort();
       if (changedPathList.length > 0) {
-        scheduleFlush(changedPathList);
+        emitChangedPaths(changedPathList);
       }
     } catch (error) {
       const event = {
@@ -1884,6 +1858,41 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     }
   };
 
+  const changedPathItems$ = changedPathInputs$.pipe(
+    mergeMap((paths) => from(paths)),
+    share(),
+  );
+  const flushQueue$ = changedPathItems$.pipe(
+    buffer(changedPathItems$.pipe(debounceTime(debounceMs))),
+    map((paths) => [...new Set(paths)].sort()),
+    filter((paths) => paths.length > 0),
+    concatMap((paths) =>
+      from(flushChangedPaths(paths)).pipe(
+        concatMap(async (event) => {
+          await persistWatchEvent(event);
+          await emitWatchEvent(input.onEvent, event);
+          return event;
+        }),
+      )
+    ),
+  );
+
+  let resolveProcessingDone!: () => void;
+  let rejectProcessingDone!: (error: unknown) => void;
+  const processingDone = new Promise<void>((resolve, reject) => {
+    resolveProcessingDone = resolve;
+    rejectProcessingDone = reject;
+  });
+  const flushSubscription = flushQueue$.subscribe({
+    next() {},
+    error(error) {
+      rejectProcessingDone(error);
+    },
+    complete() {
+      resolveProcessingDone();
+    },
+  });
+
   const initialSummary = await indexFolder({
     repoRoot,
     summaryStrategy: input.summaryStrategy,
@@ -1905,10 +1914,6 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         return;
       }
       closed = true;
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
       if (nativeWatchTimer) {
         clearTimeout(nativeWatchTimer);
         nativeWatchTimer = null;
@@ -1919,7 +1924,9 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       }
       nativeWatcher?.close();
       nativeWatcher = null;
-      await activeFlush;
+      changedPathInputs$.complete();
+      await processingDone;
+      flushSubscription.unsubscribe();
       const event = {
         type: "close",
         changedPaths: [],

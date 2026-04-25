@@ -55,6 +55,14 @@ tags:
 - closed the remaining performance-priority question by documenting that
   RxJS-style orchestration and progress streaming stay out of scope until there
   is a concrete UX need that the current MCP plus watch model cannot satisfy
+- revisited that decision specifically for `watchFolder()` and replaced the
+  hand-rolled debounce, pending-path, and active-flush coordination with an
+  RxJS pipeline that batches changed paths after a quiet period, dedupes them,
+  and serializes reindex work explicitly
+- tested a `chokidar` transport underneath that RxJS pipeline and rejected it
+  for now after it produced `EMFILE` watch exhaustion in the repo’s mutation
+  smoke coverage, keeping the existing native watch plus polling fallback as
+  the event source
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`
@@ -75,12 +83,16 @@ ai-context-engine adoption work.
 
 This slice makes MCP startup lighter and more predictable, moves protocol
 handling onto the supported SDK path, reduces future drift in the exposed tool
-surface, and reintroduces a practical fallback path for code navigation when
-the primary engine is unavailable.
+surface, reintroduces a practical fallback path for code navigation when the
+primary engine is unavailable, and now also makes the long-lived watch path
+more explicit and maintainable without changing the repo’s proven watch-source
+fallback behavior.
 
 ## Verification
 
 - `pnpm --filter @playground/ai-context-engine test -- --run tests/interface.test.ts`
+- `pnpm --filter @playground/ai-context-engine test -- --run tests/mutation-smoke.watch.test.ts tests/engine-behavior.test.ts tests/interface.test.ts`
+- `pnpm --filter @playground/ai-context-engine type-lint`
 - `pnpm --filter @playground/ai-context-engine type-check`
 - manual stdio MCP repro for `initialize` plus `tools/list` against
   `tools/ai-context-engine/scripts/ai-context-engine.mjs mcp`

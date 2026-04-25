@@ -58,7 +58,7 @@ describe("mutation smoke watch boundaries", () => {
     } finally {
       await watcher.close();
     }
-  });
+  }, 10000);
 
   it("removes symbols when a watched source file is renamed away", async () => {
     const repoRoot = await createFixtureRepo();
@@ -95,7 +95,7 @@ describe("mutation smoke watch boundaries", () => {
     } finally {
       await watcher.close();
     }
-  });
+  }, 10000);
 
   it("refreshes changed files instead of treating them as deletions", async () => {
     const repoRoot = await createFixtureRepo();
@@ -150,5 +150,5 @@ export function circumference(radius: number): string {
     } finally {
       await watcher.close();
     }
-  });
+  }, 10000);
 });

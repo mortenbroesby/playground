@@ -327,12 +327,18 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.6)
+      chokidar:
+        specifier: ^4.0.3
+        version: 4.0.3
       oxc-parser:
         specifier: ^0.127.0
         version: 0.127.0
       oxc-resolver:
         specifier: ^11.19.1
         version: 11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
       tiktoken:
         specifier: ^1.0.22
         version: 1.0.22

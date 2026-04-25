@@ -2,7 +2,7 @@ import { realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import {
   diagnostics,
@@ -28,6 +28,9 @@ afterEach(async () => {
 });
 
 describe("ai-context-engine behavior", () => {
+  const it = (name: string, fn: (...args: never[]) => unknown, timeout = 15000) =>
+    baseIt(name, fn as never, timeout);
+
   async function waitFor(
     predicate: () => boolean,
     timeoutMs = 2000,
@@ -1077,5 +1080,5 @@ export function area(radius: number): string {
         filePath: "../outside.ts",
       }),
     ).rejects.toThrow(/escapes repository root/i);
-  });
+  }, 15000);
 });

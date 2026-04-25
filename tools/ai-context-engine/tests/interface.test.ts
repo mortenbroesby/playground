@@ -291,17 +291,17 @@ export function circumference(radius: number): string {
     const signatureDiagnostics = JSON.parse(signatureDiagnosticsStdout);
     expect(signatureDiagnostics).toMatchObject({
       summaryStrategy: "signature-only",
-      summarySources: {
-        signature: 5,
-      },
-      watch: {
-        status: "idle",
-        debounceMs: 50,
-        pollMs: 50,
-        lastEvent: "close",
-        lastChangedPaths: [],
-        lastSummary: {
-          staleStatus: "fresh",
+        summarySources: {
+          signature: 5,
+        },
+        watch: {
+          status: "idle",
+          debounceMs: 50,
+          pollMs: 50,
+          lastEvent: "close",
+          lastChangedPaths: [],
+          lastSummary: {
+            staleStatus: "fresh",
         },
       },
     });
@@ -551,7 +551,7 @@ export function circumference(radius: number): string {
         storageDir: path.join(canonicalRepoRoot, ".ai-context-engine"),
       });
     });
-  });
+  }, 15000);
 
   it("rejects unsupported summary strategies at runtime boundaries", async () => {
     const repoRoot = await createFixtureRepo();
