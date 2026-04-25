@@ -69,7 +69,8 @@ straight to broad file reads.
 Current implementation includes:
 
 - package scaffold and storage/config contract
-- Oxc as the primary parser for `ts`, `tsx`, `js`, and `jsx`
+- Oxc as the primary parser for TypeScript and JavaScript source, including
+  `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, and `.jsx`
 - temporary Tree-sitter fallback contained behind the parser facade
 - SQLite as the current index backend behind an internal storage boundary
 - WAL-mode file, symbol, import, and content-blob storage for the current

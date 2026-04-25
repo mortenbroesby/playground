@@ -213,6 +213,45 @@ export function hookLabel(value) {
     );
   });
 
+  it("indexes .cjs files as JavaScript source", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "legacy.cjs"),
+      `const { formatLabel } = require("./strings.js");
+
+function legacyLabel(value) {
+  return formatLabel(value);
+}
+
+module.exports = {
+  legacyLabel,
+};
+`,
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    const fileTree = await getFileTree({ repoRoot });
+    const fileOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/legacy.cjs",
+    });
+
+    expect(summary.indexedFiles).toBe(3);
+    expect(fileTree.map((file) => file.path)).toContain("src/legacy.cjs");
+    expect(fileOutline).toMatchObject({
+      filePath: "src/legacy.cjs",
+    });
+    expect(fileOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "legacyLabel",
+          kind: "function",
+        }),
+      ]),
+    );
+  });
+
   it("anchors indexing and diagnostics to the enclosing git worktree root", async () => {
     const repoRoot = await createFixtureRepo();
     const canonicalRepoRoot = await realpath(repoRoot);

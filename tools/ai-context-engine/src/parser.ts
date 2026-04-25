@@ -1071,6 +1071,7 @@ export function supportedLanguageForFile(filePath: string): SupportedLanguage | 
     case ".tsx":
       return "tsx";
     case ".js":
+    case ".cjs":
     case ".mjs":
       return "js";
     case ".jsx":
