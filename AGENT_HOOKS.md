@@ -16,6 +16,9 @@ Shared hook policy for agent runtimes in `playground`.
   not block them, so edit flows still work.
 - `PostToolUse` best-effort reindexes edited code files through
   a small `ai-context-engine` hook adapter.
+- `SessionStart` now bootstraps one repo-local `ai-context-engine` watch
+  process in the background so fresh indexing begins automatically and later
+  edits or external changes continue to flow into the local index.
 - `PreToolUse` separately blocks dangerous shell commands and protected writes.
 - `PostToolUse` audits edits through the existing shared hooks.
 

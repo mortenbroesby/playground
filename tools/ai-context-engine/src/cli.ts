@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import process from "node:process";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 
 import {
   parseCliOptionalNumber,
@@ -196,6 +197,7 @@ async function runWatchCommand(args: Record<string, string>) {
   const repoRoot = required(args, "repo");
   const debounceMs = optionalNumber(args, "debounce-ms") ?? 100;
   const timeoutMs = optionalNumber(args, "timeout-ms");
+  const pidFile = optional(args, "pid-file");
   let stopReason: StopReason = "closed";
   let initialSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
   let lastSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
@@ -234,6 +236,10 @@ async function runWatchCommand(args: Record<string, string>) {
   process.once("SIGINT", stopFromSignal);
   process.once("SIGTERM", stopFromSignal);
 
+  if (pidFile) {
+    await writeFile(pidFile, `${process.pid}\n`);
+  }
+
   const timeout = timeoutMs
     ? setTimeout(() => {
         stopReason = "timeout";
@@ -249,6 +255,17 @@ async function runWatchCommand(args: Record<string, string>) {
   process.off("SIGINT", stopFromSignal);
   process.off("SIGTERM", stopFromSignal);
   await watcher.close();
+
+  if (pidFile) {
+    try {
+      const currentPid = (await readFile(pidFile, "utf8")).trim();
+      if (currentPid === String(process.pid)) {
+        await unlink(pidFile);
+      }
+    } catch {
+      // Best-effort cleanup only.
+    }
+  }
 
   return {
     repoRoot,

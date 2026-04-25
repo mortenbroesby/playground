@@ -32,6 +32,9 @@ tags:
   and SQLite handle across its internal retrieval steps instead of reopening
   storage for each sub-call, and memoized repo-root plus storage setup work per
   process
+- added session-start hook bootstrap for a detached repo-local
+  `ai-context-engine` watch process so fresh indexing starts automatically and
+  continues updating after later edits or external file changes
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`

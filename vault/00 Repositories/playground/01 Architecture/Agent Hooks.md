@@ -2,7 +2,7 @@
 type: repo-architecture
 repo: playground
 status: active
-summary: Shared hook policy for Codex and Claude Code, with Claude-only interception and a common security runner.
+summary: Shared hook policy for Codex and Claude Code, with shared session-start ai-context-engine freshness bootstrap and focused runtime adapters.
 keywords:
   - hooks
   - codex
@@ -42,8 +42,8 @@ runtime supports it.
 - Claude Code: `.claude/settings.json` invokes specific `.agents/hooks/*.mjs`
   entrypoints for `SessionStart`, `UserPromptSubmit`, `Notification`,
   `PreToolUse`, `PostToolUse`, and `SessionEnd`.
-- Codex: no active hook is wired at the moment. If one is added later, it
-  should remain a thin shim that delegates to the shared runner.
+- Codex: `.codex/hooks.json` invokes the shared `SessionStart`,
+  dangerous-command, and logging hooks.
 
 ## Security Defaults
 
@@ -54,6 +54,16 @@ runtime supports it.
 - Block edits outside the project root.
 - Keep hooks fast, use specific runtime matchers, and keep personal hook
   overrides in ignored local settings.
+
+## Freshness Bootstrap
+
+- `SessionStart` now best-effort ensures one detached repo-local
+  `ai-context-engine` watch process is running from `.ai-context-engine/`.
+- The hook stays fast: it only checks or launches the background watcher and
+  returns session context immediately.
+- The watcher owns initial indexing plus incremental refresh for later local
+  edits and external file changes, reducing stale-index windows for both agent
+  and end-user flows.
 
 ## Repository Hooks
 

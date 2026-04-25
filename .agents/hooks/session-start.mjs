@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
+import { ensureAiContextEngineWatch } from './lib/ai-context-engine.mjs';
 import {
   getProjectRoot,
   isDirectEntrypoint,
@@ -62,6 +63,17 @@ function buildDynamicGitContext(cwd) {
 export async function handleSessionStart(payload) {
   const cwd = getProjectRoot(payload);
   const dynamicContext = buildDynamicGitContext(cwd);
+  let watchStatus = null;
+
+  try {
+    watchStatus = await ensureAiContextEngineWatch(cwd);
+  } catch (error) {
+    watchStatus = {
+      status: 'error',
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+
   const baseContext = [
     'Shared cross-agent hook policy is active for this session.',
     'Use ai-context-engine first for code exploration. See `.agents/rules/repo-workflow.md` for tool selection and `AGENT_HOOKS.md` for hook behavior.',
@@ -73,6 +85,14 @@ export async function handleSessionStart(payload) {
 
   if (dynamicContext) {
     baseContext.push(`Current git state: ${dynamicContext}`);
+  }
+
+  if (watchStatus?.status === 'started' || watchStatus?.status === 'already-running') {
+    baseContext.push(
+      `ai-context-engine watch: ${watchStatus.status === 'started' ? 'started' : 'already running'} (pid ${watchStatus.pid}).`,
+    );
+  } else if (watchStatus?.status === 'error') {
+    baseContext.push(`ai-context-engine watch bootstrap failed: ${watchStatus.message}`);
   }
 
   return sessionContext(baseContext.join('\n'));
