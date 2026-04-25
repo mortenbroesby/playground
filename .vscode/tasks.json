@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Ctrl: Start Daemon",
+      "type": "shell",
+      "command": "npx",
+      "args": [
+        "@bulletproof-sh/ctrl-daemon@latest"
+      ],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -84,8 +84,6 @@ describe("ai-context-engine interfaces", () => {
       "query-code",
       "--repo",
       repoRoot,
-      "--intent",
-      "discover",
       "--query",
       "Greeter",
       "--kind",
@@ -145,8 +143,6 @@ describe("ai-context-engine interfaces", () => {
       "query-code",
       "--repo",
       repoRoot,
-      "--intent",
-      "assemble",
       "--query",
       "Greeter",
       "--budget",
@@ -180,8 +176,6 @@ describe("ai-context-engine interfaces", () => {
       "query-code",
       "--repo",
       repoRoot,
-      "--intent",
-      "source",
       "--symbols",
       `${greeterId},${greetId}`,
       "--context-lines",
@@ -531,6 +525,32 @@ export function circumference(radius: number): string {
       name: "Greeter",
     });
 
+    const autoAssembleResponse = await server.handleMessage({
+      jsonrpc: "2.0",
+      id: 11,
+      method: "tools/call",
+      params: {
+        name: "query_code",
+        arguments: {
+          repoRoot,
+          query: "Greeter",
+          tokenBudget: 120,
+        },
+      },
+    });
+
+    const autoAssembleContent = (
+      autoAssembleResponse.result as {
+        content: Array<{ type: string; text: string }>;
+      }
+    ).content[0];
+    expect(JSON.parse(autoAssembleContent.text)).toMatchObject({
+      intent: "assemble",
+      bundle: {
+        tokenBudget: 120,
+      },
+    });
+
     const retiredToolResponse = await server.handleMessage({
       jsonrpc: "2.0",
       id: 12,
@@ -786,13 +806,12 @@ export function circumference(radius: number): string {
         name: "query_code",
         arguments: {
           repoRoot,
-          intent: "source",
         },
       },
     });
 
     expect(invalidQueryCodeResponse.error?.message).toMatch(
-      /query_code source intent requires filePath, symbolId, or symbolIds/i,
+      /query_code auto intent resolved to discover and requires a non-empty query/i,
     );
   });
 

@@ -70,7 +70,7 @@ const toolDefinitions: McpTool[] = [
     repoRoot: stringProp("Repository root path"),
     intent: {
       type: "string",
-      description: "discover, source, or assemble",
+      description: "Optional intent override: auto, discover, source, or assemble",
     },
     query: stringProp("Optional query for discover and assemble intents"),
     symbolId: stringProp("Optional indexed symbol id"),
@@ -116,7 +116,7 @@ const toolDefinitions: McpTool[] = [
       type: "boolean",
       description: "When assemble intent is used, include ranked candidate output too",
     },
-  }, ["repoRoot", "intent"]),
+  }, ["repoRoot"]),
   tool("diagnostics", "Report storage and freshness metadata.", {
     repoRoot: stringProp("Repository root path"),
     scanFreshness: {

@@ -147,11 +147,11 @@ export interface SymbolSourceResult {
   endLine?: number;
 }
 
-export type QueryCodeIntent = "discover" | "source" | "assemble";
+export type QueryCodeIntent = "discover" | "source" | "assemble" | "auto";
 
 export interface QueryCodeOptions {
   repoRoot: string;
-  intent: QueryCodeIntent;
+  intent?: QueryCodeIntent;
   query?: string;
   symbolId?: string;
   symbolIds?: string[];

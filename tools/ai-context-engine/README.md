@@ -48,12 +48,16 @@ without broad file reads.
 The typical flow is:
 
 1. index the repo with `index-folder`
-2. start with `query-code --intent discover` for the normal agent path
+2. start with `query-code` in auto mode for the normal agent path
 3. fall back to `get-repo-outline`, `get-file-tree`, `get-file-outline`,
    `search-symbols`, or `search-text` when you need the lower-level surfaces
-4. pull exact code with `query-code --intent source`, `get-symbol-source`, or
+4. pull exact code with `query-code --intent source`, or let auto mode infer
+   source retrieval from explicit file or symbol targets, then fall back to
+   `get-symbol-source` or
    `get-file-content`
-5. assemble bounded context with `query-code --intent assemble`,
+5. assemble bounded context with `query-code --intent assemble`, or let auto
+   mode infer assembly from a token budget or ranked-candidate request, then
+   fall back to
    `get-context-bundle`, or `get-ranked-context`
 6. check freshness or watch status with `diagnostics`
 
@@ -100,7 +104,9 @@ The main retrieval surfaces are:
 
 - `query_code`
   preferred umbrella surface for discovery, exact retrieval, and bounded
-  assembly with one intent-driven contract across the MCP boundary
+  assembly with one intent-driven contract across the MCP boundary. When the
+  intent is omitted, auto mode resolves to discover, source, or assemble from
+  the provided arguments.
 - `diagnostics`
   metadata-first health and freshness reporting, with optional full drift scan
 
@@ -148,9 +154,9 @@ JavaScript instead of repo-local TypeScript sources.
 - `pnpm exec ai-context-engine cli get-repo-outline --repo /abs/repo`
 - `pnpm exec ai-context-engine cli search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
 - `pnpm exec ai-context-engine cli get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
-- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --intent discover --query Greeter --include-text`
+- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --query Greeter --include-text`
 - `pnpm exec ai-context-engine cli query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
-- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --intent assemble --query Greeter --budget 120 --include-ranked`
+- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
 - `pnpm exec ai-context-engine cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
@@ -164,9 +170,9 @@ JavaScript instead of repo-local TypeScript sources.
 - `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
 - `pnpm --filter @playground/ai-context-engine cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
-- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --intent discover --query Greeter --include-text`
+- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --query Greeter --include-text`
 - `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
-- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --intent assemble --query Greeter --budget 120 --include-ranked`
+- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
 - `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo`

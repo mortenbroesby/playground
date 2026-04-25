@@ -348,6 +348,39 @@ export function hookLabel(value) {
     expect(assembleResult.intent).toBe("assemble");
   });
 
+  it("supports auto query mode when the intent is omitted", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      query: "Greeter",
+      includeTextMatches: true,
+    });
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+
+    const greeterId = discoverResult.symbolMatches[0]?.id;
+    expect(greeterId).toBeDefined();
+
+    const sourceResult = await queryCode({
+      repoRoot,
+      symbolIds: [greeterId!],
+      contextLines: 1,
+    });
+    expect(sourceResult.intent).toBe("source");
+
+    const assembleResult = await queryCode({
+      repoRoot,
+      query: "Greeter",
+      tokenBudget: 120,
+    });
+    expect(assembleResult.intent).toBe("assemble");
+  });
+
   it("rejects invalid search and retrieval boundaries at the library layer", async () => {
     const repoRoot = await createFixtureRepo();
 

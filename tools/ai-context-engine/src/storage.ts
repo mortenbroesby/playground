@@ -44,6 +44,7 @@ import type {
   IndexSummary,
   QueryCodeAssembleResult,
   QueryCodeDiscoverResult,
+  QueryCodeIntent,
   QueryCodeOptions,
   QueryCodeResult,
   QueryCodeSourceResult,
@@ -1746,7 +1747,7 @@ export async function searchText(
 export async function queryCode(
   input: QueryCodeOptions,
 ): Promise<QueryCodeResult> {
-  switch (input.intent) {
+  switch (resolveQueryCodeIntent(input)) {
     case "discover": {
       const symbolMatches = await searchSymbols({
         repoRoot: input.repoRoot,
@@ -1821,7 +1822,34 @@ export async function queryCode(
       };
       return result;
     }
+    default:
+      throw new Error(`Unsupported query_code intent: ${String(input.intent)}`);
   }
+}
+
+function resolveQueryCodeIntent(
+  input: Pick<
+    QueryCodeOptions,
+    "intent" | "symbolId" | "symbolIds" | "filePath" | "tokenBudget" | "includeRankedCandidates"
+  >,
+): Exclude<QueryCodeIntent, "auto"> {
+  if (input.intent && input.intent !== "auto") {
+    return input.intent;
+  }
+
+  if (input.filePath || input.symbolId) {
+    return "source";
+  }
+
+  if (input.tokenBudget !== undefined || input.includeRankedCandidates) {
+    return "assemble";
+  }
+
+  if (input.symbolIds && input.symbolIds.length > 0) {
+    return "source";
+  }
+
+  return "discover";
 }
 
 export async function getContextBundle(

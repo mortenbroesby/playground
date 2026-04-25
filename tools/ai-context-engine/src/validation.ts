@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type {
   ContextBundleOptions,
+  QueryCodeIntent,
   QueryCodeOptions,
   SearchSymbolsOptions,
   SummaryStrategy,
@@ -12,7 +13,7 @@ import type {
 const supportedLanguageSchema = z.enum(["ts", "tsx", "js", "jsx"]);
 const symbolKindSchema = z.enum(["function", "class", "method", "constant", "type"]);
 const summaryStrategySchema = z.enum(["doc-comments-first", "signature-only"]);
-const queryCodeIntentSchema = z.enum(["discover", "source", "assemble"]);
+const queryCodeIntentSchema = z.enum(["discover", "source", "assemble", "auto"]);
 
 const finiteNumberSchema = z.number().finite();
 const positiveNumberSchema = finiteNumberSchema.refine((value) => value > 0, {
@@ -47,7 +48,7 @@ const symbolIdsArraySchema = z
 
 const queryCodeOptionsSchema = z.object({
   repoRoot: z.string().min(1),
-  intent: queryCodeIntentSchema,
+  intent: queryCodeIntentSchema.default("auto"),
   query: nonEmptyOptionalStringSchema,
   symbolId: nonEmptyOptionalStringSchema,
   symbolIds: symbolIdsArraySchema,
@@ -62,37 +63,70 @@ const queryCodeOptionsSchema = z.object({
   includeTextMatches: z.boolean().optional(),
   includeRankedCandidates: z.boolean().optional(),
 }).superRefine((input, ctx) => {
-  if (input.intent === "discover" && !input.query) {
+  const resolvedIntent = resolveQueryCodeIntent(input);
+
+  if (resolvedIntent === "discover" && !input.query) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "query_code discover intent requires a non-empty query",
+      message: input.intent === "auto"
+        ? "query_code auto intent resolved to discover and requires a non-empty query"
+        : "query_code discover intent requires a non-empty query",
       path: ["query"],
     });
   }
 
   if (
-    input.intent === "source" &&
+    resolvedIntent === "source" &&
     !input.filePath &&
     !input.symbolId &&
     (!input.symbolIds || input.symbolIds.length === 0)
   ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "query_code source intent requires filePath, symbolId, or symbolIds",
+      message: input.intent === "auto"
+        ? "query_code auto intent resolved to source and requires filePath, symbolId, or symbolIds"
+        : "query_code source intent requires filePath, symbolId, or symbolIds",
     });
   }
 
   if (
-    input.intent === "assemble" &&
+    resolvedIntent === "assemble" &&
     !input.query &&
     (!input.symbolIds || input.symbolIds.length === 0)
   ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "query_code assemble intent requires a non-empty query or symbolIds",
+      message: input.intent === "auto"
+        ? "query_code auto intent resolved to assemble and requires a non-empty query or symbolIds"
+        : "query_code assemble intent requires a non-empty query or symbolIds",
     });
   }
 });
+
+function resolveQueryCodeIntent(
+  input: Pick<
+    QueryCodeOptions,
+    "intent" | "symbolId" | "symbolIds" | "filePath" | "tokenBudget" | "includeRankedCandidates"
+  >,
+): Exclude<QueryCodeIntent, "auto"> {
+  if (input.intent && input.intent !== "auto") {
+    return input.intent;
+  }
+
+  if (input.filePath || input.symbolId) {
+    return "source";
+  }
+
+  if (input.tokenBudget !== undefined || input.includeRankedCandidates) {
+    return "assemble";
+  }
+
+  if (input.symbolIds && input.symbolIds.length > 0) {
+    return "source";
+  }
+
+  return "discover";
+}
 
 function optionalCliString(args: Record<string, string>, key: string): string | undefined {
   const value = args[key];
