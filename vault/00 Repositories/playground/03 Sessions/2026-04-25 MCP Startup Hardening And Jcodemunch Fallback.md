@@ -52,6 +52,9 @@ tags:
 - moved direct `index-folder` and `index-file` requests onto a child-process
   execution path so explicit reindex work no longer has to monopolize the main
   MCP server process, while keeping the existing public contracts intact
+- closed the remaining performance-priority question by documenting that
+  RxJS-style orchestration and progress streaming stay out of scope until there
+  is a concrete UX need that the current MCP plus watch model cannot satisfy
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`

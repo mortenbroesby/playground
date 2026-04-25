@@ -263,3 +263,6 @@ Current limits to keep in mind:
 - ranking is useful but still relatively shallow
 - incremental indexing remains watch-, file-, and folder-oriented rather than
   fully fine-grained
+- the engine intentionally does not expose progress streaming or RxJS-style
+  orchestration yet; add that only for a concrete UX gap that the current
+  MCP plus watch model cannot cover
