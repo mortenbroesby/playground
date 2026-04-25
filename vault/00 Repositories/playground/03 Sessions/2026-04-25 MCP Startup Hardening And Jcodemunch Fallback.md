@@ -38,6 +38,11 @@ tags:
 - implemented process-lifetime SQLite connection reuse plus prepared-statement
   caching in `ai-context-engine`, with explicit cache reset for fixture teardown
   so the first performance-priority slice is now partially delivered in code
+- removed skipped-file counting from normal index and watch responses to avoid
+  the extra repo walk on hot indexing paths
+- pushed initial symbol discovery candidate filtering for `query_code` and
+  symbol search down into SQLite by prefiltering on language, kind, and query
+  terms before JS-side scoring
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`

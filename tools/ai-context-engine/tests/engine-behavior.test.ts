@@ -49,7 +49,6 @@ describe("ai-context-engine behavior", () => {
     expect(summary).toMatchObject({
       indexedFiles: 2,
       indexedSymbols: 5,
-      skippedFiles: 1,
       staleStatus: "fresh",
     });
 

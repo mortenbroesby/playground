@@ -37,7 +37,6 @@ export type SymbolKind =
 export interface IndexSummary {
   indexedFiles: number;
   indexedSymbols: number;
-  skippedFiles: number;
   staleStatus: StaleStatus;
 }
 

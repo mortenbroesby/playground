@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { watch as fsWatch } from "node:fs";
-import { mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
@@ -70,18 +70,6 @@ import type {
   FilesystemStateEntry,
   SnapshotEntry,
 } from "./filesystem-scan.ts";
-
-const SKIP_SEGMENTS = new Set([
-  ".git",
-  ".next",
-  ".turbo",
-  ".vercel",
-  ".ai-context-engine",
-  ".codeintel",
-  "coverage",
-  "dist",
-  "node_modules",
-]);
 
 interface DbSymbolRow {
   id: string;
@@ -440,7 +428,6 @@ function normalizeWatchDiagnostics(value: unknown): WatchDiagnostics {
       candidate.lastSummary !== null &&
       typeof candidate.lastSummary.indexedFiles === "number" &&
       typeof candidate.lastSummary.indexedSymbols === "number" &&
-      typeof candidate.lastSummary.skippedFiles === "number" &&
       (candidate.lastSummary.staleStatus === "fresh" ||
         candidate.lastSummary.staleStatus === "stale" ||
         candidate.lastSummary.staleStatus === "unknown")
@@ -672,39 +659,66 @@ function scoreSymbolRow(row: DbSymbolRow, query: string): number {
 function loadSymbolRows(
   db: IndexBackendConnection,
   input: {
+    query?: string;
     kind?: SearchSymbolsOptions["kind"];
     language?: SearchSymbolsOptions["language"];
     filePattern?: SearchSymbolsOptions["filePattern"];
   } = {},
 ): DbSymbolRow[] {
-  const rows = input.kind
-    ? typedAll<DbSymbolRow>(
-        db.prepare(
-          `
-            SELECT
-              id, name, qualified_name, kind, file_path, signature, summary,
-              summary_source,
-              start_line, end_line, start_byte, end_byte, exported
-            FROM symbols
-            WHERE kind = ?
-          `,
-        ),
-        input.kind,
-      )
-    : typedAll<DbSymbolRow>(
-        db.prepare(
-          `
-            SELECT
-              id, name, qualified_name, kind, file_path, signature, summary,
-              summary_source,
-              start_line, end_line, start_byte, end_byte, exported
-            FROM symbols
-          `,
-        ),
-      );
+  const whereClauses: string[] = [];
+  const params: IndexBackendValue[] = [];
+
+  if (input.kind) {
+    whereClauses.push("symbols.kind = ?");
+    params.push(input.kind);
+  }
+
+  if (input.language) {
+    whereClauses.push("files.language = ?");
+    params.push(input.language);
+  }
+
+  const queryTerms = [...new Set([
+    normalizeQuery(input.query ?? ""),
+    ...queryTokens(input.query ?? ""),
+  ].filter(Boolean))];
+
+  if (queryTerms.length > 0) {
+    const tokenClauses = queryTerms.map(() =>
+      `(
+        lower(symbols.name) LIKE ?
+        OR lower(COALESCE(symbols.qualified_name, '')) LIKE ?
+        OR lower(symbols.signature) LIKE ?
+        OR lower(symbols.summary) LIKE ?
+        OR lower(symbols.file_path) LIKE ?
+      )`,
+    );
+    whereClauses.push(`(${tokenClauses.join(" OR ")})`);
+
+    for (const term of queryTerms) {
+      const wildcard = `%${term}%`;
+      params.push(wildcard, wildcard, wildcard, wildcard, wildcard);
+    }
+  }
+
+  const rows = typedAll<DbSymbolRow>(
+    db.prepare(
+      `
+        SELECT
+          symbols.id, symbols.name, symbols.qualified_name, symbols.kind,
+          symbols.file_path, symbols.signature, symbols.summary,
+          symbols.summary_source,
+          symbols.start_line, symbols.end_line, symbols.start_byte,
+          symbols.end_byte, symbols.exported
+        FROM symbols
+        INNER JOIN files ON files.id = symbols.file_id
+        ${whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : ""}
+      `,
+    ),
+    ...params,
+  );
 
   return rows
-    .filter((row) => !input.language || row.file_path.endsWith(`.${input.language}`))
     .filter((row) => matchesFilePattern(row.file_path, input.filePattern));
 }
 
@@ -946,7 +960,7 @@ function resolveRankedSeedCandidates(
     return [];
   }
 
-  return loadSymbolRows(db)
+  return loadSymbolRows(db, { query: input.query })
     .map((row) => ({
       row,
       score: scoreSymbolRow(row, input.query ?? ""),
@@ -1250,35 +1264,11 @@ export async function indexFolder(input: {
     return {
       indexedFiles,
       indexedSymbols,
-      skippedFiles: await countSkippedFiles(repoRoot),
       staleStatus: "fresh",
     };
   } finally {
     db.close();
   }
-}
-
-async function countSkippedFiles(repoRoot: string): Promise<number> {
-  let skipped = 0;
-  async function walk(currentDir: string) {
-    const entries = await readdir(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const absolutePath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        if (SKIP_SEGMENTS.has(entry.name)) {
-          continue;
-        }
-        await walk(absolutePath);
-        continue;
-      }
-      const relativePath = path.relative(repoRoot, absolutePath);
-      if (!supportedLanguageForFile(relativePath)) {
-        skipped += 1;
-      }
-    }
-  }
-  await walk(repoRoot);
-  return skipped;
 }
 
 export async function indexFile(input: {
@@ -1304,7 +1294,6 @@ export async function indexFile(input: {
     return {
       indexedFiles: result.indexed ? 1 : 0,
       indexedSymbols: result.symbolCount,
-      skippedFiles: 0,
       staleStatus: "fresh",
     };
   } finally {
@@ -1436,7 +1425,6 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
           const summary = {
             indexedFiles,
             indexedSymbols,
-            skippedFiles: await countSkippedFiles(repoRoot),
             staleStatus: "fresh" as const,
           };
           const event = {
@@ -1749,6 +1737,7 @@ function searchSymbolsInContext(
   input: SearchSymbolsOptions,
 ): SymbolSummary[] {
   const rows = loadSymbolRows(context.db, {
+    query: input.query,
     kind: input.kind,
     language: input.language,
     filePattern: input.filePattern,
