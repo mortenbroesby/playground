@@ -72,6 +72,7 @@ import type {
 } from "./filesystem-scan.ts";
 
 interface DbSymbolRow {
+  file_id?: number;
   id: string;
   name: string;
   qualified_name: string | null;
@@ -191,6 +192,23 @@ function initializeDatabase(db: IndexBackendConnection) {
       file_id INTEGER PRIMARY KEY,
       content TEXT NOT NULL,
       FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE
+    );
+    CREATE VIRTUAL TABLE IF NOT EXISTS symbol_search USING fts5(
+      symbol_id UNINDEXED,
+      file_id UNINDEXED,
+      name,
+      qualified_name,
+      signature,
+      summary,
+      file_path UNINDEXED,
+      kind UNINDEXED,
+      tokenize = 'unicode61'
+    );
+    CREATE VIRTUAL TABLE IF NOT EXISTS content_search USING fts5(
+      file_id UNINDEXED,
+      file_path UNINDEXED,
+      content,
+      tokenize = 'unicode61'
     );
     CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
     CREATE INDEX IF NOT EXISTS idx_symbols_file_path ON symbols(file_path);
@@ -559,6 +577,31 @@ function queryTokens(value: string): string[] {
     .filter(Boolean);
 }
 
+function uniqueQueryTerms(value: string): string[] {
+  return [...new Set([
+    normalizeQuery(value),
+    ...queryTokens(value),
+  ].filter(Boolean))];
+}
+
+function quoteFtsTerm(term: string): string {
+  return `"${term.replace(/"/g, '""')}"`;
+}
+
+function buildFtsMatchQuery(value: string): string | null {
+  const terms = uniqueQueryTerms(value)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 2);
+
+  if (terms.length === 0) {
+    return null;
+  }
+
+  return terms
+    .map((term) => `${quoteFtsTerm(term)}*`)
+    .join(" OR ");
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -656,6 +699,14 @@ function scoreSymbolRow(row: DbSymbolRow, query: string): number {
   return score;
 }
 
+function clearFileSearchRows(
+  db: IndexBackendConnection,
+  fileId: number,
+) {
+  db.prepare("DELETE FROM symbol_search WHERE file_id = ?").run(fileId);
+  db.prepare("DELETE FROM content_search WHERE file_id = ?").run(fileId);
+}
+
 function loadSymbolRows(
   db: IndexBackendConnection,
   input: {
@@ -667,6 +718,8 @@ function loadSymbolRows(
 ): DbSymbolRow[] {
   const whereClauses: string[] = [];
   const params: IndexBackendValue[] = [];
+  const ftsQuery = buildFtsMatchQuery(input.query ?? "");
+  let candidateIds: string[] | null = null;
 
   if (input.kind) {
     whereClauses.push("symbols.kind = ?");
@@ -678,10 +731,30 @@ function loadSymbolRows(
     params.push(input.language);
   }
 
-  const queryTerms = [...new Set([
-    normalizeQuery(input.query ?? ""),
-    ...queryTokens(input.query ?? ""),
-  ].filter(Boolean))];
+  const queryTerms = uniqueQueryTerms(input.query ?? "");
+
+  if (ftsQuery) {
+    const ftsParams: IndexBackendValue[] = [ftsQuery, ...params];
+
+    const ftsRows = typedAll<{ symbol_id: string }>(
+      db.prepare(
+        `
+          SELECT DISTINCT symbol_search.symbol_id
+          FROM symbol_search
+          INNER JOIN symbols ON symbols.id = symbol_search.symbol_id
+          INNER JOIN files ON files.id = symbols.file_id
+          WHERE symbol_search MATCH ?
+          ${whereClauses.length > 0 ? `AND ${whereClauses.join(" AND ")}` : ""}
+          LIMIT 400
+        `,
+      ),
+      ...ftsParams,
+    );
+
+    candidateIds = ftsRows
+      .map((row) => row.symbol_id)
+      .filter(Boolean);
+  }
 
   if (queryTerms.length > 0) {
     const tokenClauses = queryTerms.map(() =>
@@ -699,6 +772,12 @@ function loadSymbolRows(
       const wildcard = `%${term}%`;
       params.push(wildcard, wildcard, wildcard, wildcard, wildcard);
     }
+  }
+
+  if (candidateIds && candidateIds.length > 0) {
+    const placeholders = candidateIds.map(() => "?").join(", ");
+    whereClauses.push(`symbols.id IN (${placeholders})`);
+    params.push(...candidateIds);
   }
 
   const rows = typedAll<DbSymbolRow>(
@@ -1109,6 +1188,7 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   }
 
   if (existing) {
+    clearFileSearchRows(db, existing.id);
     db.prepare("DELETE FROM imports WHERE file_id = ?").run(existing.id);
     db.prepare("DELETE FROM symbols WHERE file_id = ?").run(existing.id);
     db.prepare("DELETE FROM content_blobs WHERE file_id = ?").run(existing.id);
@@ -1147,12 +1227,20 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   db.prepare(
     "INSERT INTO content_blobs (file_id, content) VALUES (?, ?)",
   ).run(fileRow.id, file.content);
+  db.prepare(
+    "INSERT INTO content_search (file_id, file_path, content) VALUES (?, ?, ?)",
+  ).run(fileRow.id, file.relativePath, file.content);
 
   const insertSymbol = db.prepare(`
     INSERT INTO symbols (
       id, file_id, file_path, name, qualified_name, kind, signature, summary,
       summary_source, start_line, end_line, start_byte, end_byte, exported
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertSymbolSearch = db.prepare(`
+    INSERT INTO symbol_search (
+      symbol_id, file_id, name, qualified_name, signature, summary, file_path, kind
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const symbol of parsed.symbols) {
     insertSymbol.run(
@@ -1170,6 +1258,16 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
       symbol.startByte,
       symbol.endByte,
       symbol.exported ? 1 : 0,
+    );
+    insertSymbolSearch.run(
+      symbol.id,
+      fileRow.id,
+      symbol.name,
+      symbol.qualifiedName ?? "",
+      symbol.signature,
+      symbol.summary,
+      file.relativePath,
+      symbol.kind,
     );
   }
 
@@ -1194,6 +1292,14 @@ function removeFileIndex(
   db: IndexBackendConnection,
   filePath: string,
 ): boolean {
+  const fileRow = typedGet<{ id: number }>(
+    db.prepare("SELECT id FROM files WHERE path = ?"),
+    filePath,
+  );
+  if (!fileRow) {
+    return false;
+  }
+  clearFileSearchRows(db, fileRow.id);
   const result = db.prepare("DELETE FROM files WHERE path = ?").run(filePath);
   return Number(result.changes ?? 0) > 0;
 }
@@ -1239,7 +1345,7 @@ export async function indexFolder(input: {
 
     for (const stalePath of trackedPaths) {
       if (!nextPaths.has(stalePath)) {
-        db.prepare("DELETE FROM files WHERE path = ?").run(stalePath);
+        removeFileIndex(db, stalePath);
       }
     }
 
@@ -1779,14 +1885,41 @@ function searchTextInContext(
   context: EngineContext,
   input: SearchTextOptions,
 ): SearchTextMatch[] {
-  const rows = context.db.prepare(
+  const whereClauses: string[] = [];
+  const params: IndexBackendValue[] = [];
+  const ftsQuery = buildFtsMatchQuery(input.query);
+
+  if (ftsQuery) {
+    const ftsRows = typedAll<{ file_id: number }>(
+      context.db.prepare(
+        `
+          SELECT DISTINCT file_id
+          FROM content_search
+          WHERE content_search MATCH ?
+          LIMIT 200
+        `,
+      ),
+      ftsQuery,
+    );
+    if (ftsRows.length > 0) {
+      const placeholders = ftsRows.map(() => "?").join(", ");
+      whereClauses.push(`files.id IN (${placeholders})`);
+      params.push(...ftsRows.map((row) => row.file_id));
+    }
+  }
+
+  const rows = typedAll<{ file_path: string; content: string }>(
+    context.db.prepare(
       `
         SELECT files.path AS file_path, content_blobs.content AS content
         FROM content_blobs
         INNER JOIN files ON files.id = content_blobs.file_id
+        ${whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : ""}
         ORDER BY files.path ASC
       `,
-    ).all() as Array<{ file_path: string; content: string }>;
+    ),
+    ...params,
+  );
   const lowerQuery = input.query.toLowerCase();
   const matches: SearchTextMatch[] = [];
 

@@ -3,6 +3,15 @@
 ## Status
 
 Proposed on 2026-04-25.
+Updated on 2026-04-25 after implementation work.
+
+Implementation state:
+
+- priority 1 is implemented
+- priority 2 is implemented
+- priority 3 is partially implemented with SQLite-side prefiltering plus FTS
+  shortlists that preserve current JS ranking semantics via fallback
+- priorities 4 and 5 remain open
 
 This spec captures the local research that led to the recommended next
 performance refactor order for `@playground/ai-context-engine`.
@@ -85,6 +94,16 @@ The current ranking helpers also operate over loaded symbol rows in JS in:
 
 That is acceptable at small scale but will not be the right foundation if MCP
 becomes the main navigation surface for larger repos.
+
+The implementation direction that proved safe here was not a pure FTS rewrite.
+Instead:
+
+- keep current JS-side scoring and final ordering
+- use SQL predicates and FTS to shrink the candidate set before scoring
+- fall back to the broader SQL path when FTS would miss substring-style matches
+
+That preserves current discovery behavior while still reducing work for normal
+queries.
 
 ### 3.5 Freshness scanning is intentionally expensive
 
@@ -203,6 +222,23 @@ selection.
   broad symbol corpus into memory for normal queries
 - search quality is preserved or explicitly benchmarked
 - fixture and interface tests still pass
+
+### Implementation notes
+
+The currently landed slice uses SQLite FTS5 as a shortlist accelerator for:
+
+- symbol discovery candidates
+- text-search file candidates
+
+The shortlist is intentionally not the final answer. The engine still:
+
+- applies existing JS scoring to symbol rows after shortlist selection
+- scans matched file contents line-by-line to preserve preview semantics
+- falls back to the broader SQL path when a substring query does not align with
+  FTS tokenization
+
+This gives a meaningful reduction in normal-case row loading without silently
+changing what users can find.
 
 ## 8. Priority 4: Optional Workerized Indexing
 

@@ -615,6 +615,33 @@ module.exports = {
     });
   });
 
+  it("preserves substring search behavior when FTS shortlists are too narrow", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "reet",
+    });
+    expect(symbolMatches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Greeter",
+          filePath: "src/strings.ts",
+        }),
+      ]),
+    );
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "ello",
+    });
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+    });
+  });
+
   it("supports batch symbol source retrieval with optional context lines", async () => {
     const repoRoot = await createFixtureRepo();
 

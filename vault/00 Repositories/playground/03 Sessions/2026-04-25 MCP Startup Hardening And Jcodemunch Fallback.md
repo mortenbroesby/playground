@@ -43,6 +43,12 @@ tags:
 - pushed initial symbol discovery candidate filtering for `query_code` and
   symbol search down into SQLite by prefiltering on language, kind, and query
   terms before JS-side scoring
+- added FTS-backed shortlist tables for symbols and file content, wired index
+  maintenance to keep them fresh on update and delete, and used them to reduce
+  normal-case symbol and text-search candidate loading while preserving current
+  ranking and preview behavior through fallback
+- added a regression test that proves substring-only queries still remain
+  discoverable even when FTS tokenization is too narrow to find them on its own
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`
