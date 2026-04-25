@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process';
 import path from 'node:path';
 import {
   getProjectRoot,
@@ -9,10 +8,11 @@ import {
   normalizeToolPath,
   runHook,
 } from './lib/core.mjs';
+import { spawnAiContextEngineCli } from './lib/ai-context-engine.mjs';
 
 const CODE_PATH_PATTERNS = [
   /(^|\/)(apps|packages|tools|scripts|\.agents|\.codex|\.claude|\.github)(\/|$)/i,
-  /\.(?:c|cc|cpp|cs|css|go|h|hpp|html|java|js|json|jsx|kt|mjs|php|py|rb|rs|scss|sh|sql|swift|toml|ts|tsx|vue|xml|yaml|yml)$/i,
+  /\.(?:js|jsx|mjs|ts|tsx)$/i,
 ];
 
 function isCodeLikePath(filePath) {
@@ -22,15 +22,16 @@ function isCodeLikePath(filePath) {
 
 function spawnReindex(projectRoot, filePath) {
   const absolutePath = path.resolve(projectRoot, filePath);
-  const child = spawn('jcodemunch-mcp', ['index-file', absolutePath], {
-    cwd: projectRoot,
-    detached: true,
-    stdio: 'ignore',
-  });
+  const relativePath = path.relative(projectRoot, absolutePath);
+  const child = spawnAiContextEngineCli(
+    projectRoot,
+    ['index-file', '--repo', projectRoot, '--file', relativePath],
+    { detached: true },
+  );
   child.unref();
 }
 
-export async function handleJcodemunchReindex(payload) {
+export async function handleAiContextEngineReindex(payload) {
   const projectRoot = getProjectRoot(payload);
   const touchedPaths = [...new Set(getTouchedPaths(payload).filter(isCodeLikePath))];
 
@@ -46,5 +47,5 @@ export async function handleJcodemunchReindex(payload) {
 }
 
 if (isDirectEntrypoint(import.meta.url)) {
-  runHook('jcodemunch-reindex', handleJcodemunchReindex);
+  runHook('ai-context-engine-reindex', handleAiContextEngineReindex);
 }

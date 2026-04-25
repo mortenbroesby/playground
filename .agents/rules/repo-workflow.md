@@ -28,12 +28,10 @@ alwaysApply: true
 - Use `get_file_outline` to inspect a file cheaply before opening it.
 - Use `diagnostics` when you need freshness or watch-health confirmation before
   trusting the local index.
-- Use `jcodemunch` for reference-heavy or blast-radius questions that the local
-  engine does not cover yet.
 - Read files directly only when you need the exact file content for an edit or
   when a non-code support file is not represented in the index.
-- Avoid broad shell-based code scans when `ai-context-engine` or `jcodemunch`
-  can answer the question more precisely.
+- Avoid broad shell-based code scans when `ai-context-engine` can answer the
+  question more precisely.
 
 ## Memory
 

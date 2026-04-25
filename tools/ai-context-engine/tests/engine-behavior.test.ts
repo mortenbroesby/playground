@@ -178,6 +178,41 @@ describe("ai-context-engine behavior", () => {
     expect(fileTree.map((file) => file.path)).not.toContain("src/ignored.ts");
   });
 
+  it("indexes .mjs files as JavaScript source", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "hook.mjs"),
+      `import { formatLabel } from "./strings.js";
+
+export function hookLabel(value) {
+  return formatLabel(value);
+}
+`,
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    const fileTree = await getFileTree({ repoRoot });
+    const fileOutline = await getFileOutline({
+      repoRoot,
+      filePath: "src/hook.mjs",
+    });
+
+    expect(summary.indexedFiles).toBe(3);
+    expect(fileTree.map((file) => file.path)).toContain("src/hook.mjs");
+    expect(fileOutline).toMatchObject({
+      filePath: "src/hook.mjs",
+    });
+    expect(fileOutline.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "hookLabel",
+          kind: "function",
+        }),
+      ]),
+    );
+  });
+
   it("anchors indexing and diagnostics to the enclosing git worktree root", async () => {
     const repoRoot = await createFixtureRepo();
     const canonicalRepoRoot = await realpath(repoRoot);

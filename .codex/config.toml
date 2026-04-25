@@ -17,71 +17,46 @@ approval_mode = "approve"
 [mcp_servers.obsidian-memory.tools.memory_unfold]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch]
-command = "jcodemunch-mcp"
+[mcp_servers."ai-context-engine"]
+command = "node"
 args = [
-  "serve",
-  "--transport",
-  "stdio",
-  "--watcher",
-  "--watcher-path",
-  ".",
-  "--watcher-extra-ignore",
-  "README.md",
-  "vault/",
-  "docs/superpowers/",
-  ".rag/",
-  "dist/",
-  ".next/",
-  ".turbo/",
-  "coverage/",
+  "tools/ai-context-engine/scripts/ai-context-engine.mjs",
+  "mcp",
 ]
 cwd = "."
 enabled_tools = [
-  "get_context_bundle",
-  "get_file_content",
+  "index_folder",
+  "index_file",
   "get_file_outline",
   "get_file_tree",
   "get_repo_outline",
-  "get_symbol_source",
-  "plan_turn",
-  "register_edit",
-  "resolve_repo",
-  "search_symbols",
-  "search_text",
+  "suggest_initial_queries",
+  "query_code",
+  "diagnostics",
 ]
 
-[mcp_servers.jcodemunch.tools.get_context_bundle]
+[mcp_servers."ai-context-engine".tools.index_folder]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch.tools.get_file_content]
+[mcp_servers."ai-context-engine".tools.index_file]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch.tools.get_file_outline]
+[mcp_servers."ai-context-engine".tools.get_file_outline]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch.tools.get_file_tree]
+[mcp_servers."ai-context-engine".tools.get_file_tree]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch.tools.get_repo_outline]
+[mcp_servers."ai-context-engine".tools.get_repo_outline]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch.tools.get_symbol_source]
+[mcp_servers."ai-context-engine".tools.suggest_initial_queries]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch.tools.plan_turn]
+[mcp_servers."ai-context-engine".tools.query_code]
 approval_mode = "approve"
 
-[mcp_servers.jcodemunch.tools.register_edit]
-approval_mode = "approve"
-
-[mcp_servers.jcodemunch.tools.resolve_repo]
-approval_mode = "approve"
-
-[mcp_servers.jcodemunch.tools.search_symbols]
-approval_mode = "approve"
-
-[mcp_servers.jcodemunch.tools.search_text]
+[mcp_servers."ai-context-engine".tools.diagnostics]
 approval_mode = "approve"
 
 [features]

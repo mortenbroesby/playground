@@ -19,7 +19,7 @@ const CODE_PATH_PATTERNS = [
 ];
 
 const SAFE_BASH_PATTERNS = [
-  /\b(?:git|pnpm|node|npm|npx|yarn|bun|cargo|go|pytest|vitest|jest|docker|kubectl|jcodemunch-mcp)\b/i,
+  /\b(?:git|pnpm|node|npm|npx|yarn|bun|cargo|go|pytest|vitest|jest|docker|kubectl|ai-context-engine)\b/i,
   /\brg\b[^|]*(?:README|AGENTS|CLAUDE|docs\/|vault\/)/i,
 ];
 
@@ -37,8 +37,8 @@ function isCodeLikePath(filePath) {
 
 function buildGuardReason() {
   return [
-    'Use jcodemunch for code exploration.',
-    'Start with `plan_turn` or `resolve_repo`, then prefer `search_symbols`/`search_text`, `get_file_outline`, and `get_symbol_source`.',
+    'Use ai-context-engine for code exploration.',
+    'Start with `query_code`, then prefer `get_file_outline`, `get_file_tree`, `get_repo_outline`, and `diagnostics` before broad file reads.',
     'Use direct file reads only for exact edit context or non-code support files.',
   ].join(' ');
 }
@@ -89,7 +89,7 @@ function shouldWarnOnRead(projectRoot, toolInput) {
   }
 }
 
-export async function handleJcodemunchGuard(payload) {
+export async function handleCodeNavigationGuard(payload) {
   const toolName = getToolName(payload);
   const toolInput = getToolInput(payload);
 
@@ -110,7 +110,7 @@ export async function handleJcodemunchGuard(payload) {
     const projectRoot = getProjectRoot(payload);
     if (shouldWarnOnRead(projectRoot, toolInput)) {
       return {
-        stderr: 'Large code read detected. Prefer jcodemunch first: `plan_turn`, `get_file_outline`, `get_symbol_source`. Targeted `Read` with `offset`/`limit` is fine.\n',
+        stderr: 'Large code read detected. Prefer ai-context-engine first: `query_code`, `get_file_outline`, `get_file_tree`, `get_repo_outline`, and `diagnostics`. Targeted `Read` with `offset`/`limit` is fine.\n',
       };
     }
   }
@@ -119,5 +119,5 @@ export async function handleJcodemunchGuard(payload) {
 }
 
 if (isDirectEntrypoint(import.meta.url)) {
-  runHook('jcodemunch-guard', handleJcodemunchGuard);
+  runHook('code-navigation-guard', handleCodeNavigationGuard);
 }

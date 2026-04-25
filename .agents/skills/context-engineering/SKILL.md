@@ -24,13 +24,11 @@ task-specific context needed for the next step.
    `get_file_outline`, and `diagnostics`.
 3. Use `query_code` intents for discovery, exact retrieval, and bounded
    assembly rather than older granular retrieval tools.
-4. Use `jcodemunch` when you need extra reference, importer, or blast-radius
-   surfaces that the local engine does not provide yet.
-5. For repo history, architecture, or decisions, query `obsidian-memory` before
+4. For repo history, architecture, or decisions, query `obsidian-memory` before
    assuming.
-6. Load only the exact files, symbols, tests, and error output relevant to the
+5. Load only the exact files, symbols, tests, and error output relevant to the
    current slice.
-7. Refresh or compact context when the task changes materially.
+6. Refresh or compact context when the task changes materially.
 
 ## Rationalizations
 
@@ -51,5 +49,5 @@ task-specific context needed for the next step.
 
 - [ ] Persistent rules were loaded first
 - [ ] Task-specific context stayed narrow
-- [ ] `ai-context-engine`, `jcodemunch`, or `obsidian-memory` were used when appropriate
+- [ ] `ai-context-engine` or `obsidian-memory` were used when appropriate
 - [ ] Loaded examples and APIs actually exist in the repo

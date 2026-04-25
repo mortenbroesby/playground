@@ -92,9 +92,9 @@ specific chunk needed for the task instead of loading every retrieved section.
 context bundle with explicit references. This is the direct local interface for
 testing or scripting retrieval without going through MCP.
 
-`jcodemunch` MCP is the companion tool for source-code navigation. Use it for symbols, references,
-file outlines, and code relationships when available. Keep `obsidian-memory` focused on durable
-architecture, decisions, and session context rather than raw source-code indexing.
+`ai-context-engine` is the repo-owned source-code navigation layer. Use it for indexed discovery,
+exact source retrieval, structural outlines, and freshness checks. Keep `obsidian-memory` focused
+on durable architecture, decisions, and session context rather than raw source-code indexing.
 
 ## Forgetting Guard
 

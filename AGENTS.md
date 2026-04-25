@@ -24,8 +24,6 @@ Thin bootstrap for coding agents in this repo.
 - Prefer `query_code`, `get_file_outline`, and `diagnostics` before broad file
   reads.
 - Use `query_code` intents instead of the older granular retrieval surfaces.
-- Use `jcodemunch` when you need its extra navigation surfaces or when the
-  engine is unavailable.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - Use [`.agents/context/active-context.md`](.agents/context/active-context.md)
   only as compact current-state or handoff context when present.
