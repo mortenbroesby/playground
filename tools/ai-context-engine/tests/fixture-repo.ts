@@ -3,6 +3,8 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { clearStorageProcessCaches } from "../src/index.ts";
+
 const createdDirs: string[] = [];
 
 export async function createFixtureRepo(options: {
@@ -67,6 +69,7 @@ export class Greeter {
 }
 
 export async function cleanupFixtureRepos() {
+  clearStorageProcessCaches();
   await Promise.all(
     createdDirs.splice(0).map(async (dir) => {
       await rm(dir, { recursive: true, force: true });

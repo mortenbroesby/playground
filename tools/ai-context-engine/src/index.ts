@@ -11,6 +11,7 @@ export {
   resolveEnginePaths,
 } from "./config.ts";
 export {
+  clearStorageProcessCaches,
   diagnostics,
   getFileContent,
   getFileOutline,

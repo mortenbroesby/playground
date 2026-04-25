@@ -117,8 +117,14 @@ interface EngineContext {
   db: IndexBackendConnection;
 }
 
+interface CachedDatabaseConnection {
+  actual: IndexBackendConnection;
+  shared: IndexBackendConnection;
+}
+
 const repoRootResolutionCache = new Map<string, Promise<string>>();
 const ensuredStorageRoots = new Set<string>();
+const databaseConnectionCache = new Map<string, CachedDatabaseConnection>();
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -154,9 +160,7 @@ function typedGet<TRow>(
   return statement.get(...params) as unknown as TRow | undefined;
 }
 
-function openDatabase(databasePath: string): IndexBackendConnection {
-  const db = SQLITE_INDEX_BACKEND.open(databasePath);
-
+function initializeDatabase(db: IndexBackendConnection) {
   db.exec(`
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
@@ -212,8 +216,49 @@ function openDatabase(databasePath: string): IndexBackendConnection {
       "ALTER TABLE symbols ADD COLUMN summary_source TEXT NOT NULL DEFAULT 'signature'",
     );
   }
+}
 
-  return db;
+function shareDatabaseConnection(actual: IndexBackendConnection): IndexBackendConnection {
+  return {
+    backendName: actual.backendName,
+    exec(sql: string) {
+      actual.exec(sql);
+    },
+    prepare(sql: string) {
+      return actual.prepare(sql);
+    },
+    close() {
+      // Shared process-lifetime connection; real close happens via cache reset.
+    },
+  };
+}
+
+function openDatabase(databasePath: string): IndexBackendConnection {
+  const cached = databaseConnectionCache.get(databasePath);
+  if (cached) {
+    return cached.shared;
+  }
+
+  const actual = SQLITE_INDEX_BACKEND.open(databasePath);
+  initializeDatabase(actual);
+
+  const shared = shareDatabaseConnection(actual);
+  databaseConnectionCache.set(databasePath, {
+    actual,
+    shared,
+  });
+
+  return shared;
+}
+
+export function clearStorageProcessCaches() {
+  for (const cached of databaseConnectionCache.values()) {
+    cached.actual.close();
+  }
+
+  databaseConnectionCache.clear();
+  repoRootResolutionCache.clear();
+  ensuredStorageRoots.clear();
 }
 
 async function resolveRepoRoot(repoRoot: string): Promise<string> {

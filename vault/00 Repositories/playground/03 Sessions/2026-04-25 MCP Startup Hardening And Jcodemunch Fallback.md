@@ -35,6 +35,9 @@ tags:
 - added session-start hook bootstrap for a detached repo-local
   `ai-context-engine` watch process so fresh indexing starts automatically and
   continues updating after later edits or external file changes
+- implemented process-lifetime SQLite connection reuse plus prepared-statement
+  caching in `ai-context-engine`, with explicit cache reset for fixture teardown
+  so the first performance-priority slice is now partially delivered in code
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`

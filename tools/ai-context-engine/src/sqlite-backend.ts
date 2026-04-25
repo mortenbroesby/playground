@@ -38,6 +38,7 @@ class SqliteStatement implements IndexStatement {
 class SqliteConnection implements IndexBackendConnection {
   readonly backendName = "sqlite";
   private readonly db: import("node:sqlite").DatabaseSync;
+  private readonly statementCache = new Map<string, SqliteStatement>();
 
   constructor(db: import("node:sqlite").DatabaseSync) {
     this.db = db;
@@ -48,10 +49,17 @@ class SqliteConnection implements IndexBackendConnection {
   }
 
   prepare(sql: string): IndexStatement {
-    return new SqliteStatement(this.db.prepare(sql));
+    let statement = this.statementCache.get(sql);
+    if (!statement) {
+      statement = new SqliteStatement(this.db.prepare(sql));
+      this.statementCache.set(sql, statement);
+    }
+
+    return statement;
   }
 
   close(): void {
+    this.statementCache.clear();
     this.db.close();
   }
 }
