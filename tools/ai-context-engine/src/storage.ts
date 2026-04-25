@@ -1,8 +1,10 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { watch as fsWatch } from "node:fs";
 import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
 import {
@@ -114,6 +116,13 @@ interface CachedDatabaseConnection {
 const repoRootResolutionCache = new Map<string, Promise<string>>();
 const ensuredStorageRoots = new Set<string>();
 const databaseConnectionCache = new Map<string, CachedDatabaseConnection>();
+const INDEX_WORKER_CHILD_ENV = "AI_CONTEXT_ENGINE_INDEX_WORKER_CHILD";
+
+const storageModulePath = fileURLToPath(import.meta.url);
+const storageModuleDir = path.dirname(storageModulePath);
+const cliEntrypoint = storageModulePath.endsWith(".ts")
+  ? path.join(storageModuleDir, "cli.ts")
+  : path.join(storageModuleDir, "cli.js");
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -258,13 +267,98 @@ function openDatabase(databasePath: string): IndexBackendConnection {
 }
 
 export function clearStorageProcessCaches() {
+  clearDatabaseConnectionCache();
+  repoRootResolutionCache.clear();
+  ensuredStorageRoots.clear();
+}
+
+function clearDatabaseConnectionCache(databasePath?: string) {
+  if (databasePath) {
+    const cached = databaseConnectionCache.get(databasePath);
+    cached?.actual.close();
+    databaseConnectionCache.delete(databasePath);
+    return;
+  }
+
   for (const cached of databaseConnectionCache.values()) {
     cached.actual.close();
   }
 
   databaseConnectionCache.clear();
-  repoRootResolutionCache.clear();
-  ensuredStorageRoots.clear();
+}
+
+function shouldUseIndexWorker() {
+  return process.env[INDEX_WORKER_CHILD_ENV] !== "1";
+}
+
+async function runIndexCommandInChild(
+  command: "index-folder" | "index-file",
+  input: {
+    repoRoot: string;
+    filePath?: string;
+    summaryStrategy?: SummaryStrategy;
+  },
+): Promise<IndexSummary> {
+  const args = storageModulePath.endsWith(".ts")
+    ? [
+        "--no-warnings",
+        "--experimental-strip-types",
+        cliEntrypoint,
+        command,
+        "--repo",
+        input.repoRoot,
+      ]
+    : [
+        "--no-warnings",
+        cliEntrypoint,
+        command,
+        "--repo",
+        input.repoRoot,
+      ];
+
+  if (input.filePath) {
+    args.push("--file", input.filePath);
+  }
+  if (input.summaryStrategy) {
+    args.push("--summary-strategy", input.summaryStrategy);
+  }
+
+  return new Promise<IndexSummary>((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      env: {
+        ...process.env,
+        [INDEX_WORKER_CHILD_ENV]: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr.trim() || stdout.trim() || `${command} worker failed`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout) as IndexSummary);
+      } catch (error) {
+        reject(
+          new Error(
+            `Failed to parse ${command} worker output: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+      }
+    });
+  });
 }
 
 async function resolveRepoRoot(repoRoot: string): Promise<string> {
@@ -1327,7 +1421,7 @@ async function finalizeIndex(
   });
 }
 
-export async function indexFolder(input: {
+async function indexFolderDirect(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
 }): Promise<IndexSummary> {
@@ -1377,7 +1471,25 @@ export async function indexFolder(input: {
   }
 }
 
-export async function indexFile(input: {
+export async function indexFolder(input: {
+  repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
+}): Promise<IndexSummary> {
+  if (!shouldUseIndexWorker()) {
+    return indexFolderDirect(input);
+  }
+
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
+  clearDatabaseConnectionCache(config.paths.databasePath);
+  const result = await runIndexCommandInChild("index-folder", {
+    repoRoot: config.repoRoot,
+    summaryStrategy: config.summaryStrategy,
+  });
+  clearDatabaseConnectionCache(config.paths.databasePath);
+  return result;
+}
+
+async function indexFileDirect(input: {
   repoRoot: string;
   filePath: string;
   summaryStrategy?: SummaryStrategy;
@@ -1405,6 +1517,26 @@ export async function indexFile(input: {
   } finally {
     db.close();
   }
+}
+
+export async function indexFile(input: {
+  repoRoot: string;
+  filePath: string;
+  summaryStrategy?: SummaryStrategy;
+}): Promise<IndexSummary> {
+  if (!shouldUseIndexWorker()) {
+    return indexFileDirect(input);
+  }
+
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
+  clearDatabaseConnectionCache(config.paths.databasePath);
+  const result = await runIndexCommandInChild("index-file", {
+    repoRoot: config.repoRoot,
+    filePath: input.filePath,
+    summaryStrategy: config.summaryStrategy,
+  });
+  clearDatabaseConnectionCache(config.paths.databasePath);
+  return result;
 }
 
 export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {

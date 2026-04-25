@@ -49,6 +49,9 @@ tags:
   ranking and preview behavior through fallback
 - added a regression test that proves substring-only queries still remain
   discoverable even when FTS tokenization is too narrow to find them on its own
+- moved direct `index-folder` and `index-file` requests onto a child-process
+  execution path so explicit reindex work no longer has to monopolize the main
+  MCP server process, while keeping the existing public contracts intact
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`

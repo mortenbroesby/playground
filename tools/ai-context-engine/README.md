@@ -96,6 +96,9 @@ Current implementation includes:
   recent watch health without being attached to the live CLI event stream
 - watch mode now prefers a native filesystem watcher and falls back to the
   internal polling detector when native watching is unavailable or errors
+- direct `index-folder` and `index-file` requests now offload the heavy index
+  pass into a child process so explicit reindex work does not monopolize the
+  main MCP server process
 - symbol search now supports `language` and `filePattern` filters, and text
   search supports `filePattern`
 - repo inputs anchored to any Git subdirectory resolve to the enclosing worktree

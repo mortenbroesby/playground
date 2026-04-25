@@ -9,9 +9,11 @@ Implementation state:
 
 - priority 1 is implemented
 - priority 2 is implemented
-- priority 3 is partially implemented with SQLite-side prefiltering plus FTS
-  shortlists that preserve current JS ranking semantics via fallback
-- priorities 4 and 5 remain open
+- priority 3 is implemented with SQLite-side prefiltering plus FTS shortlists
+  that preserve current JS ranking semantics via fallback
+- priority 4 is implemented for direct indexing requests by offloading heavy
+  `indexFolder` and `indexFile` work into a child process
+- priority 5 remains intentionally deferred
 
 This spec captures the local research that led to the recommended next
 performance refactor order for `@playground/ai-context-engine`.
@@ -265,6 +267,22 @@ necessary yet.
 - watch and session-start bootstrap semantics remain intact
 - failure handling for the worker path is explicit
 
+### Implementation notes
+
+The landed workerization slice keeps the public library, CLI, and MCP contracts
+unchanged:
+
+- exported `indexFolder` and `indexFile` now fork the package's own CLI in a
+  child process
+- the child disables recursive re-offload through an internal environment flag
+- the parent clears any cached SQLite connection for that repo before and after
+  the worker run so later reads reopen against the updated database state
+- watch mode remains intact, and the session-start watcher still runs as its
+  own detached process
+
+This is enough to isolate explicit indexing requests from the main MCP server
+process without adding a second public protocol or widening the tool surface.
+
 ## 9. Priority 5: Progress Streaming Or RxJS Abstractions
 
 ### Objective
@@ -305,13 +323,14 @@ For each phase, use the narrowest relevant checks:
 
 ## 12. Recommendation Summary
 
-The next performance work should focus on storage and indexing mechanics, not
+The main performance work should focus on storage and indexing mechanics, not
 reactive libraries.
 
-The correct sequence is:
+The sequence that proved correct here was:
 
 1. cache repo-root resolution and SQLite connections
 2. remove skipped-file counting from normal index/watch responses
 3. move discovery toward SQL or FTS-backed candidate selection
-4. isolate indexing work only if needed afterward
-5. consider streaming or RxJS only once the dominant costs are already reduced
+4. isolate indexing work afterward where it protects MCP responsiveness
+5. keep streaming or RxJS deferred until there is a concrete UX need after the
+   dominant storage and indexing costs are already reduced
