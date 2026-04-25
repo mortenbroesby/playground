@@ -113,8 +113,12 @@ interface CachedDatabaseConnection {
   shared: IndexBackendConnection;
 }
 
+const REPO_ROOT_CACHE_LIMIT = 32;
+const STORAGE_ROOT_CACHE_LIMIT = 32;
+const DATABASE_CONNECTION_CACHE_LIMIT = 4;
+
 const repoRootResolutionCache = new Map<string, Promise<string>>();
-const ensuredStorageRoots = new Set<string>();
+const ensuredStorageRoots = new Map<string, true>();
 const databaseConnectionCache = new Map<string, CachedDatabaseConnection>();
 const INDEX_WORKER_CHILD_ENV = "AI_CONTEXT_ENGINE_INDEX_WORKER_CHILD";
 
@@ -156,6 +160,44 @@ function typedGet<TRow>(
   ...params: IndexBackendValue[]
 ): TRow | undefined {
   return statement.get(...params) as unknown as TRow | undefined;
+}
+
+function getLruEntry<TKey, TValue>(
+  cache: Map<TKey, TValue>,
+  key: TKey,
+): TValue | undefined {
+  const value = cache.get(key);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  cache.delete(key);
+  cache.set(key, value);
+  return value;
+}
+
+function setLruEntry<TKey, TValue>(
+  cache: Map<TKey, TValue>,
+  key: TKey,
+  value: TValue,
+  limit: number,
+  onEvict?: (key: TKey, value: TValue) => void,
+) {
+  if (cache.has(key)) {
+    cache.delete(key);
+  }
+  cache.set(key, value);
+
+  while (cache.size > limit) {
+    const oldest = cache.entries().next();
+    if (oldest.done) {
+      return;
+    }
+
+    const [oldestKey, oldestValue] = oldest.value;
+    cache.delete(oldestKey);
+    onEvict?.(oldestKey, oldestValue);
+  }
 }
 
 function initializeDatabase(db: IndexBackendConnection) {
@@ -249,7 +291,7 @@ function shareDatabaseConnection(actual: IndexBackendConnection): IndexBackendCo
 }
 
 function openDatabase(databasePath: string): IndexBackendConnection {
-  const cached = databaseConnectionCache.get(databasePath);
+  const cached = getLruEntry(databaseConnectionCache, databasePath);
   if (cached) {
     return cached.shared;
   }
@@ -258,10 +300,18 @@ function openDatabase(databasePath: string): IndexBackendConnection {
   initializeDatabase(actual);
 
   const shared = shareDatabaseConnection(actual);
-  databaseConnectionCache.set(databasePath, {
-    actual,
-    shared,
-  });
+  setLruEntry(
+    databaseConnectionCache,
+    databasePath,
+    {
+      actual,
+      shared,
+    },
+    DATABASE_CONNECTION_CACHE_LIMIT,
+    (_evictedPath, evictedConnection) => {
+      evictedConnection.actual.close();
+    },
+  );
 
   return shared;
 }
@@ -363,7 +413,7 @@ async function runIndexCommandInChild(
 
 async function resolveRepoRoot(repoRoot: string): Promise<string> {
   const absoluteRepoRoot = path.resolve(repoRoot);
-  let cachedResolution = repoRootResolutionCache.get(absoluteRepoRoot);
+  let cachedResolution = getLruEntry(repoRootResolutionCache, absoluteRepoRoot);
   if (!cachedResolution) {
     cachedResolution = (async () => {
       const resolvedRepoRoot = await realpath(absoluteRepoRoot).catch(
@@ -382,7 +432,12 @@ async function resolveRepoRoot(repoRoot: string): Promise<string> {
         return resolvedRepoRoot;
       }
     })();
-    repoRootResolutionCache.set(absoluteRepoRoot, cachedResolution);
+    setLruEntry(
+      repoRootResolutionCache,
+      absoluteRepoRoot,
+      cachedResolution,
+      REPO_ROOT_CACHE_LIMIT,
+    );
   }
 
   return cachedResolution;
@@ -394,10 +449,15 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     repoRoot: resolvedRepoRoot,
     summaryStrategy,
   });
-  if (!ensuredStorageRoots.has(resolvedRepoRoot)) {
+  if (!getLruEntry(ensuredStorageRoots, resolvedRepoRoot)) {
     await mkdir(config.paths.storageDir, { recursive: true });
     await mkdir(config.paths.rawCacheDir, { recursive: true });
-    ensuredStorageRoots.add(resolvedRepoRoot);
+    setLruEntry(
+      ensuredStorageRoots,
+      resolvedRepoRoot,
+      true,
+      STORAGE_ROOT_CACHE_LIMIT,
+    );
   }
   return config;
 }
