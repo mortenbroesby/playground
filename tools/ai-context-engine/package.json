@@ -25,7 +25,7 @@
     "build:js": "tsup src/index.ts src/cli.ts src/mcp.ts --format esm --target node24 --out-dir dist --clean --tsconfig tsconfig.build.json",
     "build:types": "tsc -p tsconfig.build.json",
     "cli": "node --experimental-strip-types ./src/cli.ts",
-    "mcp": "node --experimental-strip-types ./src/mcp.ts",
+    "mcp": "node --no-warnings --experimental-strip-types ./src/mcp.ts",
     "bench:small": "node --experimental-strip-types ./scripts/benchmark-small.mjs",
     "bench:cli": "node --experimental-strip-types ./scripts/benchmark-cli.mjs",
     "bench:corpus": "node --experimental-strip-types ./bench/src/cli.ts",
@@ -50,6 +50,7 @@
     "vitest": "^2.1.9"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "oxc-parser": "^0.127.0",
     "oxc-resolver": "^11.19.1",
     "tiktoken": "^1.0.22",

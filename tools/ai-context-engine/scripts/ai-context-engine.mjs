@@ -42,11 +42,12 @@ if (!sourceTarget || !distTarget) {
 // In the workspace, prefer source so local MCP/CLI runs reflect current edits.
 // Installed packages do not ship src/, so they naturally fall back to dist/.
 const useBuiltTarget = !existsSync(sourceTarget) && existsSync(distTarget);
+const nodeArgs = mode === "mcp" ? ["--no-warnings"] : [];
 const child = spawn(
   process.execPath,
   useBuiltTarget
-    ? [distTarget, ...args]
-    : ["--experimental-strip-types", sourceTarget, ...args],
+    ? [...nodeArgs, distTarget, ...args]
+    : [...nodeArgs, "--experimental-strip-types", sourceTarget, ...args],
   {
     stdio: "inherit",
   },

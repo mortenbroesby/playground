@@ -16,8 +16,9 @@ In practice it helps an agent answer questions like:
 - "Is the local index fresh, and is watch mode healthy?"
 
 It does that by indexing a repo locally, storing symbol and file metadata in
-SQLite, and exposing retrieval surfaces over that index through a CLI, an MCP
-server, and a small TypeScript API.
+SQLite, and exposing retrieval surfaces over that index through a stdio MCP
+server, with a CLI and small TypeScript API as secondary debug and development
+surfaces.
 
 The runtime artifacts for a given repo live at the repo root in
 `.ai-context-engine/`. That directory is the durable runtime contract for local
@@ -35,7 +36,8 @@ Current capabilities:
 - repo-local indexing under `.ai-context-engine/`
 - exact symbol and source retrieval as the truth layer
 - ranked, budgeted context assembly for agent use
-- CLI and stdio MCP entrypoints
+- stdio MCP entrypoint backed by the official MCP TypeScript SDK
+- CLI entrypoint for local debugging and benchmarks
 - local benchmark scripts for latency and token-savings measurement
 - watch-mode refresh with native filesystem watching and polling fallback
 
@@ -137,10 +139,12 @@ tasks without replacing the repo's durable memory layer.
 
 You can use the engine through:
 
+- the stdio MCP server in `src/mcp.ts`, which is the primary agent interface
+  and exposes indexing tools, structural outline tools, `query_code`, and
+  `diagnostics`
 - the library exports in `src/index.ts`
-- the JSON CLI in `src/cli.ts`
-- the stdio MCP server in `src/mcp.ts`, which exposes indexing tools,
-  structural outline tools, `query_code`, and `diagnostics`
+- the JSON CLI in `src/cli.ts` for local debugging, packaging smoke tests, and
+  benchmarks
 
 The shortest local entrypoint is usually `pnpm exec ai-context-engine ...`.
 
@@ -180,8 +184,8 @@ JavaScript instead of repo-local TypeScript sources.
 - `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo --scan-freshness`
 - `pnpm --filter @playground/ai-context-engine mcp`
 
-The CLI prints JSON for each command. The MCP server speaks stdio JSON-RPC with
-MCP-style `tools/list` and `tools/call` routing.
+The CLI prints JSON for each command. The MCP server runs over stdio using the
+official MCP TypeScript SDK and a narrow repo-owned tool surface.
 
 ## Packaging
 

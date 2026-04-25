@@ -1,14 +1,17 @@
 import path from "node:path";
-import { execFile, spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { realpath, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { handleCli } from "../src/cli.ts";
-import { createMcpServer } from "../src/mcp.ts";
+import { MCP_SERVER_NAME, MCP_TOOL_DEFINITIONS } from "../src/mcp-contract.ts";
+import { dispatchTool } from "../src/mcp.ts";
 import { indexFolder } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
@@ -18,46 +21,45 @@ const packageRoot = path.resolve(
   "..",
 );
 
-async function runMcpExchange(messages: Array<Record<string, unknown>>) {
-  const child = spawn(
-    process.execPath,
-    [path.join(packageRoot, "scripts", "ai-context-engine.mjs"), "mcp"],
-    {
-      cwd: packageRoot,
-      stdio: ["pipe", "pipe", "pipe"],
-    },
-  );
+function asTextResultForTest(value: unknown) {
+  return JSON.stringify(value, null, 2);
+}
 
-  let stdout = "";
+async function withMcpClient<T>(
+  run: (context: {
+    client: Client;
+    stderr: () => string;
+  }) => Promise<T>,
+) {
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [path.join(packageRoot, "scripts", "ai-context-engine.mjs"), "mcp"],
+    cwd: packageRoot,
+    stderr: "pipe",
+  });
   let stderr = "";
-
-  child.stdout.setEncoding("utf8");
-  child.stderr.setEncoding("utf8");
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk;
-  });
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk;
+  const stderrStream = transport.stderr as
+    | (NodeJS.ReadableStream & { setEncoding?: (encoding: BufferEncoding) => void })
+    | null;
+  stderrStream?.setEncoding?.("utf8");
+  stderrStream?.on("data", (chunk) => {
+    stderr += String(chunk);
   });
 
-  for (const message of messages) {
-    const payload = JSON.stringify(message);
-    child.stdin.write(
-      `Content-Length: ${Buffer.byteLength(payload, "utf8")}\r\n\r\n${payload}`,
-    );
+  const client = new Client({
+    name: "vitest",
+    version: "1.0.0",
+  });
+
+  try {
+    await client.connect(transport);
+    return await run({
+      client,
+      stderr: () => stderr,
+    });
+  } finally {
+    await client.close();
   }
-  child.stdin.end();
-
-  const exitCode = await new Promise<number>((resolve, reject) => {
-    child.on("error", reject);
-    child.on("close", (code) => resolve(code ?? 0));
-  });
-
-  return {
-    exitCode,
-    stdout,
-    stderr,
-  };
 }
 
 afterEach(async () => {
@@ -337,49 +339,16 @@ export function circumference(radius: number): string {
 
   it("exposes spec-aligned MCP tools", async () => {
     const repoRoot = await createFixtureRepo();
-    const server = createMcpServer();
-
-    const toolsResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/list",
-    });
-
-    const tools = (
-      toolsResponse.result as {
-        tools: Array<{ name: string }>;
-      }
-    ).tools;
-
-    expect(tools.map((tool) => tool.name)).toEqual([
-      "index_folder",
-      "index_file",
-      "get_repo_outline",
-      "get_file_tree",
-      "get_file_outline",
-      "suggest_initial_queries",
-      "query_code",
-      "diagnostics",
-    ]);
-
-    await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
+    await withMcpClient(async ({ client, stderr }) => {
+      const toolsResult = await client.listTools();
+      const indexResult = await client.callTool({
         name: "index_folder",
         arguments: {
           repoRoot,
           summaryStrategy: "signature-only",
         },
-      },
-    });
-
-    const response = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: {
+      });
+      const discoverResult = await client.callTool({
         name: "query_code",
         arguments: {
           repoRoot,
@@ -389,33 +358,8 @@ export function circumference(radius: number): string {
           includeTextMatches: true,
           limit: 1,
         },
-      },
-    });
-
-    const content = (
-      response.result as {
-        content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    expect(content.type).toBe("text");
-    expect(JSON.parse(content.text)).toMatchObject({
-      intent: "discover",
-      query: "Greeter",
-    });
-    expect(JSON.parse(content.text).symbolMatches).toHaveLength(1);
-    expect(JSON.parse(content.text).symbolMatches[0]).toMatchObject({
-      name: "Greeter",
-      kind: "class",
-      filePath: "src/strings.ts",
-      summarySource: "signature",
-    });
-    expect(JSON.parse(content.text).textMatches.length).toBeGreaterThan(0);
-
-    const filteredSearchResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 31,
-      method: "tools/call",
-      params: {
+      });
+      const filteredSearchResult = await client.callTool({
         name: "query_code",
         arguments: {
           repoRoot,
@@ -425,25 +369,8 @@ export function circumference(radius: number): string {
           filePattern: "src/*.ts",
           limit: 5,
         },
-      },
-    });
-
-    const filteredSearchContent = (
-      filteredSearchResponse.result as {
-        content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    const filteredDiscover = JSON.parse(filteredSearchContent.text);
-    expect(filteredDiscover.symbolMatches.every((entry: { filePath: string }) =>
-      entry.filePath.endsWith(".ts"),
-    )).toBe(true);
-    const greeterToolId = JSON.parse(content.text).symbolMatches[0].id as string;
-
-    const greetResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 30,
-      method: "tools/call",
-      params: {
+      });
+      const greetResult = await client.callTool({
         name: "query_code",
         arguments: {
           repoRoot,
@@ -452,21 +379,8 @@ export function circumference(radius: number): string {
           kind: "method",
           limit: 1,
         },
-      },
-    });
-
-    const greetContent = (
-      greetResponse.result as {
-        content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    const greetToolId = JSON.parse(greetContent.text).symbolMatches[0].id as string;
-
-    const bundleResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: {
+      });
+      const bundleResult = await client.callTool({
         name: "query_code",
         arguments: {
           repoRoot,
@@ -475,165 +389,172 @@ export function circumference(radius: number): string {
           tokenBudget: 120,
           includeRankedCandidates: true,
         },
-      },
-    });
+      });
 
-    const bundleContent = (
-      bundleResponse.result as {
+      expect(stderr()).toBe("");
+      expect(indexResult.isError).not.toBe(true);
+
+      const tools = (toolsResult as {
+        tools: Array<{ name: string }>;
+      }).tools;
+
+      expect(tools.map((tool) => tool.name)).toEqual(
+        MCP_TOOL_DEFINITIONS.map((tool) => tool.name),
+      );
+
+      const content = (
+        discoverResult as {
         content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    expect(bundleContent.type).toBe("text");
-    expect(JSON.parse(bundleContent.text)).toMatchObject({
-      intent: "assemble",
-      bundle: {
+        }).content[0];
+      expect(content.type).toBe("text");
+      expect(JSON.parse(content.text)).toMatchObject({
+        intent: "discover",
         query: "Greeter",
-        tokenBudget: 120,
-      },
-    });
-    expect(JSON.parse(bundleContent.text).bundle.items[0]).toMatchObject({
-      symbol: {
+      });
+      expect(JSON.parse(content.text).symbolMatches).toHaveLength(1);
+      expect(JSON.parse(content.text).symbolMatches[0]).toMatchObject({
         name: "Greeter",
-      },
-    });
-    expect(JSON.parse(bundleContent.text).ranked).toMatchObject({
-      query: "Greeter",
-      bundle: {
-        tokenBudget: 120,
-      },
-    });
-    expect(JSON.parse(bundleContent.text).ranked.candidates[0]).toMatchObject({
-      symbol: {
-        name: "Greeter",
-      },
-      selected: true,
-    });
+        kind: "class",
+        filePath: "src/strings.ts",
+        summarySource: "signature",
+      });
+      expect(JSON.parse(content.text).textMatches.length).toBeGreaterThan(0);
 
-    const symbolSourceResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 9,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-          intent: "source",
-          symbolIds: [greeterToolId, greetToolId],
-          contextLines: 1,
-        },
-      },
-    });
-
-    const symbolSourceContent = (
-      symbolSourceResponse.result as {
+      const filteredSearchContent = (
+        filteredSearchResult as {
         content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    expect(symbolSourceContent.type).toBe("text");
-    expect(JSON.parse(symbolSourceContent.text)).toMatchObject({
-      intent: "source",
-      symbolSource: {
-        requestedContextLines: 1,
-      },
-    });
-    expect(JSON.parse(symbolSourceContent.text).symbolSource.items).toHaveLength(2);
+        }).content[0];
+      const filteredDiscover = JSON.parse(filteredSearchContent.text);
+      expect(filteredDiscover.symbolMatches.every((entry: { filePath: string }) =>
+        entry.filePath.endsWith(".ts"),
+      )).toBe(true);
+      const greeterToolId = JSON.parse(content.text).symbolMatches[0].id as string;
 
-    const queryCodeResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 10,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-          intent: "discover",
-          query: "Greeter",
-          includeTextMatches: true,
-        },
-      },
-    });
-
-    const queryCodeContent = (
-      queryCodeResponse.result as {
+      const greetContent = (
+        greetResult as {
         content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    expect(queryCodeContent.type).toBe("text");
-    expect(JSON.parse(queryCodeContent.text)).toMatchObject({
-      intent: "discover",
-      query: "Greeter",
-    });
-    expect(JSON.parse(queryCodeContent.text).symbolMatches[0]).toMatchObject({
-      name: "Greeter",
-    });
+        }).content[0];
+      const greetToolId = JSON.parse(greetContent.text).symbolMatches[0].id as string;
 
-    const autoAssembleResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 11,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
+      const bundleContent = (
+        bundleResult as {
+        content: Array<{ type: string; text: string }>;
+        }).content[0];
+      expect(bundleContent.type).toBe("text");
+      expect(JSON.parse(bundleContent.text)).toMatchObject({
+        intent: "assemble",
+        bundle: {
           query: "Greeter",
           tokenBudget: 120,
         },
-      },
-    });
+      });
+      expect(JSON.parse(bundleContent.text).bundle.items[0]).toMatchObject({
+        symbol: {
+          name: "Greeter",
+        },
+      });
+      expect(JSON.parse(bundleContent.text).ranked).toMatchObject({
+        query: "Greeter",
+        bundle: {
+          tokenBudget: 120,
+        },
+      });
+      expect(JSON.parse(bundleContent.text).ranked.candidates[0]).toMatchObject({
+        symbol: {
+          name: "Greeter",
+        },
+        selected: true,
+      });
 
-    const autoAssembleContent = (
-      autoAssembleResponse.result as {
-        content: Array<{ type: string; text: string }>;
-      }
-    ).content[0];
-    expect(JSON.parse(autoAssembleContent.text)).toMatchObject({
-      intent: "assemble",
-      bundle: {
+      const symbolSourceResponse = await dispatchTool("query_code", {
+        repoRoot,
+        intent: "source",
+        symbolIds: [greeterToolId, greetToolId],
+        contextLines: 1,
+      });
+
+      const symbolSourceContent = asTextResultForTest(symbolSourceResponse);
+      expect(JSON.parse(symbolSourceContent)).toMatchObject({
+        intent: "source",
+        symbolSource: {
+          requestedContextLines: 1,
+        },
+      });
+      expect(JSON.parse(symbolSourceContent).symbolSource.items).toHaveLength(2);
+
+      const queryCodeResponse = await dispatchTool("query_code", {
+        repoRoot,
+        intent: "discover",
+        query: "Greeter",
+        includeTextMatches: true,
+      });
+
+      const queryCodeContent = asTextResultForTest(queryCodeResponse);
+      expect(JSON.parse(queryCodeContent)).toMatchObject({
+        intent: "discover",
+        query: "Greeter",
+      });
+      expect(JSON.parse(queryCodeContent).symbolMatches[0]).toMatchObject({
+        name: "Greeter",
+      });
+
+      const autoAssembleResponse = await dispatchTool("query_code", {
+        repoRoot,
+        query: "Greeter",
         tokenBudget: 120,
-      },
-    });
+      });
 
-    const retiredToolResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 12,
-      method: "tools/call",
-      params: {
-        name: "search_symbols",
-        arguments: {
+      const autoAssembleContent = asTextResultForTest(autoAssembleResponse);
+      expect(JSON.parse(autoAssembleContent)).toMatchObject({
+        intent: "assemble",
+        bundle: {
+          tokenBudget: 120,
+        },
+      });
+
+      await expect(
+        dispatchTool("search_symbols", {
           repoRoot,
           query: "Greeter",
-        },
-      },
+        }),
+      ).rejects.toThrow(/unknown tool: search_symbols/i);
     });
-
-    expect(retiredToolResponse.error?.message).toMatch(/unknown tool: search_symbols/i);
   }, 20_000);
 
-  it("keeps MCP startup free of backend side effects before the first tool call", async () => {
-    const result = await runMcpExchange([
-      {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "initialize",
-        params: {},
-      },
-      {
-        jsonrpc: "2.0",
-        id: 2,
-        method: "tools/list",
-      },
-    ]);
+  it("boots the SDK-backed MCP stdio server and handles initialize, tools/list, and tools/call", async () => {
+    const repoRoot = await createFixtureRepo();
+    const canonicalRepoRoot = await realpath(repoRoot);
+    await withMcpClient(async ({ client, stderr }) => {
+      expect(client.getServerVersion()).toMatchObject({
+        name: MCP_SERVER_NAME,
+      });
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.stdout).toContain('"id":1');
-    expect(result.stdout).toContain('"id":2');
-    expect(result.stdout).toContain('"name":"query_code"');
+      const tools = await client.listTools();
+      expect(tools.tools.map((tool) => tool.name)).toEqual(
+        MCP_TOOL_DEFINITIONS.map((tool) => tool.name),
+      );
+
+      const diagnostics = await client.callTool({
+        name: "diagnostics",
+        arguments: {
+          repoRoot,
+        },
+      });
+      const diagnosticsContent = (
+        diagnostics as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+
+      expect(stderr()).toBe("");
+      expect(JSON.parse(diagnosticsContent.text)).toMatchObject({
+        storageDir: path.join(canonicalRepoRoot, ".ai-context-engine"),
+      });
+    });
   });
 
   it("rejects unsupported summary strategies at runtime boundaries", async () => {
     const repoRoot = await createFixtureRepo();
-    const server = createMcpServer();
 
     await expect(
       indexFolder({
@@ -652,20 +573,12 @@ export function circumference(radius: number): string {
       ]),
     ).rejects.toThrow(/unsupported --summary-strategy/i);
 
-    const response = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
-      params: {
-        name: "index_folder",
-        arguments: {
-          repoRoot,
-          summaryStrategy: "bogus",
-        },
-      },
-    });
-
-    expect(response.error?.message).toMatch(/unsupported summaryStrategy/i);
+    await expect(
+      dispatchTool("index_folder", {
+        repoRoot,
+        summaryStrategy: "bogus",
+      }),
+    ).rejects.toThrow(/unsupported summaryStrategy/i);
   });
 
   it("rejects malformed CLI arguments instead of silently coercing them", async () => {
@@ -771,112 +684,57 @@ export function circumference(radius: number): string {
 
   it("rejects malformed MCP arguments instead of treating them as empty filters", async () => {
     const repoRoot = await createFixtureRepo();
-    const server = createMcpServer();
 
-    const invalidKindResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 6,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-          intent: "discover",
-          query: "Greeter",
-          kind: "bogus",
-        },
-      },
-    });
+    await expect(
+      dispatchTool("query_code", {
+        repoRoot,
+        intent: "discover",
+        query: "Greeter",
+        kind: "bogus",
+      }),
+    ).rejects.toThrow(/invalid option|unsupported kind/i);
 
-    expect(invalidKindResponse.error?.message).toMatch(/invalid option|unsupported kind/i);
+    await expect(
+      dispatchTool("query_code", {
+        repoRoot,
+        intent: "assemble",
+        query: "Greeter",
+        tokenBudget: "oops",
+      }),
+    ).rejects.toThrow(/expected number|invalid numeric argument/i);
 
-    const invalidBudgetResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 7,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-          intent: "assemble",
-          query: "Greeter",
-          tokenBudget: "oops",
-        },
-      },
-    });
+    await expect(
+      dispatchTool("query_code", {
+        repoRoot,
+        intent: "discover",
+        query: "Greeter",
+        limit: 0,
+      }),
+    ).rejects.toThrow(/limit must be positive|must be positive/i);
 
-    expect(invalidBudgetResponse.error?.message).toMatch(/expected number|invalid numeric argument/i);
+    await expect(
+      dispatchTool("query_code", {
+        repoRoot,
+        intent: "source",
+        symbolId: "fake-symbol",
+        contextLines: -1,
+      }),
+    ).rejects.toThrow(/contextLines must be non-negative|must be non-negative/i);
 
-    const invalidLimitResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 8,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-          intent: "discover",
-          query: "Greeter",
-          limit: 0,
-        },
-      },
-    });
+    await expect(
+      dispatchTool("query_code", {
+        repoRoot,
+        intent: "assemble",
+        query: "   ",
+        symbolIds: ["   "],
+      }),
+    ).rejects.toThrow(/query_code assemble intent requires a non-empty query or symbolIds/i);
 
-    expect(invalidLimitResponse.error?.message).toMatch(/limit must be positive|must be positive/i);
-
-    const invalidContextLinesResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 9,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-          intent: "source",
-          symbolId: "fake-symbol",
-          contextLines: -1,
-        },
-      },
-    });
-
-    expect(invalidContextLinesResponse.error?.message).toMatch(
-      /contextLines must be non-negative|must be non-negative/i,
-    );
-
-    const emptyBundleSeedResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 10,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-          intent: "assemble",
-          query: "   ",
-          symbolIds: ["   "],
-        },
-      },
-    });
-
-    expect(emptyBundleSeedResponse.error?.message).toMatch(
-      /query_code assemble intent requires a non-empty query or symbolIds/i,
-    );
-
-    const invalidQueryCodeResponse = await server.handleMessage({
-      jsonrpc: "2.0",
-      id: 11,
-      method: "tools/call",
-      params: {
-        name: "query_code",
-        arguments: {
-          repoRoot,
-        },
-      },
-    });
-
-    expect(invalidQueryCodeResponse.error?.message).toMatch(
-      /query_code auto intent resolved to discover and requires a non-empty query/i,
-    );
+    await expect(
+      dispatchTool("query_code", {
+        repoRoot,
+      }),
+    ).rejects.toThrow(/query_code auto intent resolved to discover and requires a non-empty query/i);
   });
 
   it("exposes a workspace bin wrapper for cli commands", async () => {

@@ -112,6 +112,14 @@ interface RepoMetaRecord {
   watch?: WatchDiagnostics;
 }
 
+interface EngineContext {
+  config: Awaited<ReturnType<typeof ensureStorage>>;
+  db: IndexBackendConnection;
+}
+
+const repoRootResolutionCache = new Map<string, Promise<string>>();
+const ensuredStorageRoots = new Set<string>();
+
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -210,21 +218,29 @@ function openDatabase(databasePath: string): IndexBackendConnection {
 
 async function resolveRepoRoot(repoRoot: string): Promise<string> {
   const absoluteRepoRoot = path.resolve(repoRoot);
-  const resolvedRepoRoot = await realpath(absoluteRepoRoot).catch(
-    () => absoluteRepoRoot,
-  );
+  let cachedResolution = repoRootResolutionCache.get(absoluteRepoRoot);
+  if (!cachedResolution) {
+    cachedResolution = (async () => {
+      const resolvedRepoRoot = await realpath(absoluteRepoRoot).catch(
+        () => absoluteRepoRoot,
+      );
 
-  try {
-    const worktreeRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd: resolvedRepoRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+      try {
+        const worktreeRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+          cwd: resolvedRepoRoot,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        }).trim();
 
-    return await realpath(worktreeRoot).catch(() => worktreeRoot);
-  } catch {
-    return resolvedRepoRoot;
+        return await realpath(worktreeRoot).catch(() => worktreeRoot);
+      } catch {
+        return resolvedRepoRoot;
+      }
+    })();
+    repoRootResolutionCache.set(absoluteRepoRoot, cachedResolution);
   }
+
+  return cachedResolution;
 }
 
 async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy) {
@@ -233,9 +249,28 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     repoRoot: resolvedRepoRoot,
     summaryStrategy,
   });
-  await mkdir(config.paths.storageDir, { recursive: true });
-  await mkdir(config.paths.rawCacheDir, { recursive: true });
+  if (!ensuredStorageRoots.has(resolvedRepoRoot)) {
+    await mkdir(config.paths.storageDir, { recursive: true });
+    await mkdir(config.paths.rawCacheDir, { recursive: true });
+    ensuredStorageRoots.add(resolvedRepoRoot);
+  }
   return config;
+}
+
+async function createEngineContext(input: {
+  repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
+}): Promise<EngineContext> {
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
+
+  return {
+    config,
+    db: openDatabase(config.paths.databasePath),
+  };
+}
+
+function closeEngineContext(context: EngineContext) {
+  context.db.close();
 }
 
 function normalizeRepoRelativePath(repoRoot: string, filePath: string) {
@@ -1565,31 +1600,29 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
 }
 
 export async function getRepoOutline(input: { repoRoot: string }): Promise<RepoOutline> {
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
+  const context = await createEngineContext(input);
 
   try {
     const languages = Object.fromEntries(
       (
-        db.prepare(
+        context.db.prepare(
           "SELECT language, COUNT(*) AS count FROM files GROUP BY language",
         ).all() as Array<{ language: SupportedLanguage; count: number }>
       ).map((row) => [row.language, row.count]),
     ) as RepoOutline["languages"];
 
     return {
-      totalFiles: countRows(db, "SELECT COUNT(*) AS count FROM files"),
-      totalSymbols: countRows(db, "SELECT COUNT(*) AS count FROM symbols"),
+      totalFiles: countRows(context.db, "SELECT COUNT(*) AS count FROM files"),
+      totalSymbols: countRows(context.db, "SELECT COUNT(*) AS count FROM symbols"),
       languages,
     };
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
 }
 
 export async function getFileTree(input: { repoRoot: string }): Promise<FileTreeEntry[]> {
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
+  const context = await createEngineContext(input);
 
   try {
     const rows = typedAll<{
@@ -1597,7 +1630,7 @@ export async function getFileTree(input: { repoRoot: string }): Promise<FileTree
       language: SupportedLanguage;
       symbol_count: number;
     }>(
-      db.prepare("SELECT path, language, symbol_count FROM files ORDER BY path ASC"),
+      context.db.prepare("SELECT path, language, symbol_count FROM files ORDER BY path ASC"),
     );
     return rows.map((row) => ({
       path: row.path,
@@ -1605,7 +1638,7 @@ export async function getFileTree(input: { repoRoot: string }): Promise<FileTree
       symbolCount: row.symbol_count,
     }));
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
 }
 
@@ -1613,12 +1646,11 @@ export async function getFileOutline(input: {
   repoRoot: string;
   filePath: string;
 }): Promise<FileOutline> {
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
-  const { relativePath } = normalizeRepoRelativePath(config.repoRoot, input.filePath);
+  const context = await createEngineContext(input);
+  const { relativePath } = normalizeRepoRelativePath(context.config.repoRoot, input.filePath);
 
   try {
-    const rows = typedAll<DbSymbolRow>(db.prepare(
+    const rows = typedAll<DbSymbolRow>(context.db.prepare(
       `
         SELECT
           id, name, qualified_name, kind, file_path, signature, summary,
@@ -1635,18 +1667,17 @@ export async function getFileOutline(input: {
       symbols: rows.map(mapSymbolRow),
     };
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
 }
 
 export async function suggestInitialQueries(input: {
   repoRoot: string;
 }): Promise<string[]> {
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
+  const context = await createEngineContext(input);
 
   try {
-    const rows = db.prepare(
+    const rows = context.db.prepare(
       `
         SELECT name, kind, file_path, exported
         FROM symbols
@@ -1664,54 +1695,57 @@ export async function suggestInitialQueries(input: {
       (row) => `Inspect ${row.kind} ${row.name} in ${row.file_path}`,
     );
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
+}
+
+function searchSymbolsInContext(
+  context: EngineContext,
+  input: SearchSymbolsOptions,
+): SymbolSummary[] {
+  const rows = loadSymbolRows(context.db, {
+    kind: input.kind,
+    language: input.language,
+    filePattern: input.filePattern,
+  });
+  const normalizedQuery = normalizeQuery(input.query);
+
+  return rows
+    .map((row) => ({
+      row,
+      score: scoreSymbolRow(row, normalizedQuery),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        Number(right.row.exported) - Number(left.row.exported) ||
+        left.row.file_path.localeCompare(right.row.file_path) ||
+        left.row.start_line - right.row.start_line ||
+        left.row.name.localeCompare(right.row.name),
+    )
+    .slice(0, input.limit ?? 20)
+    .map((entry) => mapSymbolRow(entry.row));
 }
 
 export async function searchSymbols(
   input: SearchSymbolsOptions,
 ): Promise<SymbolSummary[]> {
   validateSearchSymbolsOptions(input);
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
+  const context = await createEngineContext(input);
 
   try {
-    const rows = loadSymbolRows(db, {
-      kind: input.kind,
-      language: input.language,
-      filePattern: input.filePattern,
-    });
-    const normalizedQuery = normalizeQuery(input.query);
-
-    return rows
-      .map((row) => ({
-        row,
-        score: scoreSymbolRow(row, normalizedQuery),
-      }))
-      .filter((entry) => entry.score > 0)
-      .sort(
-        (left, right) =>
-          right.score - left.score ||
-          Number(right.row.exported) - Number(left.row.exported) ||
-          left.row.file_path.localeCompare(right.row.file_path) ||
-          left.row.start_line - right.row.start_line ||
-          left.row.name.localeCompare(right.row.name),
-      )
-      .slice(0, input.limit ?? 20)
-      .map((entry) => mapSymbolRow(entry.row));
+    return searchSymbolsInContext(context, input);
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
 }
 
-export async function searchText(
+function searchTextInContext(
+  context: EngineContext,
   input: SearchTextOptions,
-): Promise<SearchTextMatch[]> {
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
-
-  try {
-    const rows = db.prepare(
+): SearchTextMatch[] {
+  const rows = context.db.prepare(
       `
         SELECT files.path AS file_path, content_blobs.content AS content
         FROM content_blobs
@@ -1719,111 +1753,122 @@ export async function searchText(
         ORDER BY files.path ASC
       `,
     ).all() as Array<{ file_path: string; content: string }>;
-    const lowerQuery = input.query.toLowerCase();
-    const matches: SearchTextMatch[] = [];
+  const lowerQuery = input.query.toLowerCase();
+  const matches: SearchTextMatch[] = [];
 
-    for (const row of rows) {
-      if (!matchesFilePattern(row.file_path, input.filePattern)) {
-        continue;
-      }
-      const lines = row.content.split("\n");
-      lines.forEach((line, index) => {
-        if (line.toLowerCase().includes(lowerQuery)) {
-          matches.push({
-            filePath: row.file_path,
-            line: index + 1,
-            preview: line.trim(),
-          });
-        }
-      });
+  for (const row of rows) {
+    if (!matchesFilePattern(row.file_path, input.filePattern)) {
+      continue;
     }
+    const lines = row.content.split("\n");
+    lines.forEach((line, index) => {
+      if (line.toLowerCase().includes(lowerQuery)) {
+        matches.push({
+          filePath: row.file_path,
+          line: index + 1,
+          preview: line.trim(),
+        });
+      }
+    });
+  }
 
-    return matches;
+  return matches;
+}
+
+export async function searchText(
+  input: SearchTextOptions,
+): Promise<SearchTextMatch[]> {
+  const context = await createEngineContext(input);
+
+  try {
+    return searchTextInContext(context, input);
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
 }
 
 export async function queryCode(
   input: QueryCodeOptions,
 ): Promise<QueryCodeResult> {
-  switch (resolveQueryCodeIntent(input)) {
-    case "discover": {
-      const symbolMatches = await searchSymbols({
-        repoRoot: input.repoRoot,
-        query: input.query ?? "",
-        kind: input.kind,
-        language: input.language,
-        filePattern: input.filePattern,
-        limit: input.limit,
-      });
-      const textMatches = input.includeTextMatches
-        ? await searchText({
-            repoRoot: input.repoRoot,
-            query: input.query ?? "",
-            filePattern: input.filePattern,
-          })
-        : [];
+  const context = await createEngineContext(input);
 
-      const result: QueryCodeDiscoverResult = {
-        intent: "discover",
-        query: input.query ?? "",
-        symbolMatches,
-        textMatches,
-      };
-      return result;
-    }
-    case "source": {
-      const fileContent = input.filePath
-        ? await getFileContent({
-            repoRoot: input.repoRoot,
-            filePath: input.filePath,
-          })
-        : null;
-      const hasSymbolRequest = Boolean(input.symbolId) || Boolean(input.symbolIds?.length);
-      const symbolSource = hasSymbolRequest
-        ? await getSymbolSource({
-            repoRoot: input.repoRoot,
-            symbolId: input.symbolId,
-            symbolIds: input.symbolIds,
-            contextLines: input.contextLines,
-            verify: input.verify,
-          })
-        : null;
+  try {
+    switch (resolveQueryCodeIntent(input)) {
+      case "discover": {
+        const symbolMatches = searchSymbolsInContext(context, {
+          repoRoot: context.config.repoRoot,
+          query: input.query ?? "",
+          kind: input.kind,
+          language: input.language,
+          filePattern: input.filePattern,
+          limit: input.limit,
+        });
+        const textMatches = input.includeTextMatches
+          ? searchTextInContext(context, {
+              repoRoot: context.config.repoRoot,
+              query: input.query ?? "",
+              filePattern: input.filePattern,
+            })
+          : [];
 
-      const result: QueryCodeSourceResult = {
-        intent: "source",
-        fileContent,
-        symbolSource,
-      };
-      return result;
-    }
-    case "assemble": {
-      const ranked = input.includeRankedCandidates && input.query
-        ? await getRankedContext({
-            repoRoot: input.repoRoot,
-            query: input.query,
-            tokenBudget: input.tokenBudget,
-          })
-        : null;
-      const bundle = ranked
-        ? ranked.bundle
-        : await getContextBundle({
-            repoRoot: input.repoRoot,
-            query: input.query,
-            symbolIds: input.symbolIds,
-            tokenBudget: input.tokenBudget,
-          });
+        const result: QueryCodeDiscoverResult = {
+          intent: "discover",
+          query: input.query ?? "",
+          symbolMatches,
+          textMatches,
+        };
+        return result;
+      }
+      case "source": {
+        const fileContent = input.filePath
+          ? getFileContentFromContext(context, input.filePath)
+          : null;
+        const hasSymbolRequest = Boolean(input.symbolId) || Boolean(input.symbolIds?.length);
+        const symbolSource = hasSymbolRequest
+          ? getSymbolSourceFromContext(context, {
+              symbolId: input.symbolId,
+              symbolIds: input.symbolIds,
+              contextLines: input.contextLines,
+              verify: input.verify,
+            })
+          : null;
 
-      const result: QueryCodeAssembleResult = {
-        intent: "assemble",
-        bundle,
-        ranked,
-      };
-      return result;
+        const result: QueryCodeSourceResult = {
+          intent: "source",
+          fileContent,
+          symbolSource,
+        };
+        return result;
+      }
+      case "assemble": {
+        const ranked = input.includeRankedCandidates && input.query
+          ? getRankedContextFromContext(context, {
+              repoRoot: context.config.repoRoot,
+              query: input.query,
+              tokenBudget: input.tokenBudget,
+            })
+          : null;
+        const bundle = ranked
+          ? ranked.bundle
+          : getContextBundleFromContext(context, {
+              repoRoot: context.config.repoRoot,
+              query: input.query,
+              symbolIds: input.symbolIds,
+              tokenBudget: input.tokenBudget,
+            });
+
+        const result: QueryCodeAssembleResult = {
+          intent: "assemble",
+          bundle,
+          ranked,
+        };
+        return result;
+      }
+      default:
+        throw new Error(`Unsupported query_code intent: ${String(input.intent)}`);
     }
-    default:
-      throw new Error(`Unsupported query_code intent: ${String(input.intent)}`);
+  } finally {
+    closeEngineContext(context);
   }
 }
 
@@ -1852,23 +1897,45 @@ function resolveQueryCodeIntent(
   return "discover";
 }
 
+function getContextBundleFromContext(
+  context: EngineContext,
+  input: ContextBundleOptions,
+): ContextBundle {
+  const normalizedSeeds = validateContextBundleOptions(input);
+  const normalizedInput = {
+    ...input,
+    repoRoot: context.config.repoRoot,
+    ...normalizedSeeds,
+  };
+  const seedCandidates = resolveRankedSeedCandidates(context.db, normalizedInput).slice(0, 3);
+  return buildContextBundleFromSeeds(context.db, normalizedInput, seedCandidates);
+}
+
 export async function getContextBundle(
   input: ContextBundleOptions,
 ): Promise<ContextBundle> {
-  const normalizedSeeds = validateContextBundleOptions(input);
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
+  const context = await createEngineContext(input);
 
   try {
-    const normalizedInput = {
-      ...input,
-      ...normalizedSeeds,
-    };
-    const seedCandidates = resolveRankedSeedCandidates(db, normalizedInput).slice(0, 3);
-    return buildContextBundleFromSeeds(db, normalizedInput, seedCandidates);
+    return getContextBundleFromContext(context, input);
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
+}
+
+function getRankedContextFromContext(context: EngineContext, input: {
+  repoRoot: string;
+  query: string;
+  tokenBudget?: number;
+}): RankedContextResult {
+  validateRankedContextOptions(input);
+  const normalizedInput = {
+    ...input,
+    repoRoot: context.config.repoRoot,
+  };
+  const seedCandidates = resolveRankedSeedCandidates(context.db, normalizedInput);
+  const bundle = buildContextBundleFromSeeds(context.db, normalizedInput, seedCandidates.slice(0, 3));
+  return buildRankedContextResult(normalizedInput, seedCandidates, bundle);
 }
 
 export async function getRankedContext(input: {
@@ -1876,29 +1943,21 @@ export async function getRankedContext(input: {
   query: string;
   tokenBudget?: number;
 }): Promise<RankedContextResult> {
-  validateRankedContextOptions(input);
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
+  const context = await createEngineContext(input);
 
   try {
-    const seedCandidates = resolveRankedSeedCandidates(db, input);
-    const bundle = buildContextBundleFromSeeds(db, input, seedCandidates.slice(0, 3));
-    return buildRankedContextResult(input, seedCandidates, bundle);
+    return getRankedContextFromContext(context, input);
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
 }
 
-export async function getFileContent(input: {
-  repoRoot: string;
-  filePath: string;
-}): Promise<FileContentResult> {
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
-  const { relativePath } = normalizeRepoRelativePath(config.repoRoot, input.filePath);
-
-  try {
-    const row = db.prepare(
+function getFileContentFromContext(
+  context: EngineContext,
+  filePath: string,
+): FileContentResult {
+  const { relativePath } = normalizeRepoRelativePath(context.config.repoRoot, filePath);
+  const row = context.db.prepare(
       `
         SELECT content_blobs.content AS content
         FROM content_blobs
@@ -1907,17 +1966,85 @@ export async function getFileContent(input: {
       `,
     ).get(relativePath) as { content: string } | undefined;
 
-    if (!row) {
-      throw new Error(`File not indexed: ${relativePath}`);
-    }
-
-    return {
-      filePath: relativePath,
-      content: row.content,
-    };
-  } finally {
-    db.close();
+  if (!row) {
+    throw new Error(`File not indexed: ${relativePath}`);
   }
+
+  return {
+    filePath: relativePath,
+    content: row.content,
+  };
+}
+
+export async function getFileContent(input: {
+  repoRoot: string;
+  filePath: string;
+}): Promise<FileContentResult> {
+  const context = await createEngineContext(input);
+
+  try {
+    return getFileContentFromContext(context, input.filePath);
+  } finally {
+    closeEngineContext(context);
+  }
+}
+
+function getSymbolSourceFromContext(context: EngineContext, input: {
+  symbolId?: string;
+  symbolIds?: string[];
+  verify?: boolean;
+  contextLines?: number;
+}): SymbolSourceResult {
+  validateSymbolSourceOptions(input);
+  const requestedIds = [
+    ...(input.symbolId ? [input.symbolId] : []),
+    ...(input.symbolIds ?? []),
+  ];
+  const symbolIds = [...new Set(requestedIds.filter(Boolean))];
+
+  if (symbolIds.length === 0) {
+    throw new Error("At least one symbol id is required");
+  }
+
+  const rows = symbolIds.map((symbolId) => {
+    const row = context.db.prepare(
+      `
+        SELECT
+          symbols.id, symbols.name, symbols.qualified_name, symbols.kind, symbols.file_path,
+          symbols.signature, symbols.summary, symbols.summary_source,
+          symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
+          symbols.exported,
+          files.content_hash, content_blobs.content
+        FROM symbols
+        INNER JOIN files ON files.id = symbols.file_id
+        INNER JOIN content_blobs ON content_blobs.file_id = files.id
+        WHERE symbols.id = ?
+      `,
+    ).get(symbolId) as (DbSymbolRow & {
+      content_hash: string;
+      content: string;
+    }) | undefined;
+
+    if (!row) {
+      throw new Error(`Symbol not indexed: ${symbolId}`);
+    }
+    return row;
+  });
+
+  const items = rows.map((row) =>
+    buildSymbolSourceItem(row, input.verify === true, input.contextLines),
+  );
+  const first = items[0];
+
+  return {
+    requestedContextLines: Math.max(0, Math.floor(input.contextLines ?? 0)),
+    items,
+    symbol: first?.symbol,
+    source: first?.source,
+    verified: first?.verified,
+    startLine: first?.startLine,
+    endLine: first?.endLine,
+  };
 }
 
 export async function getSymbolSource(input: {
@@ -1927,62 +2054,12 @@ export async function getSymbolSource(input: {
   verify?: boolean;
   contextLines?: number;
 }): Promise<SymbolSourceResult> {
-  validateSymbolSourceOptions(input);
-  const config = await ensureStorage(input.repoRoot);
-  const db = openDatabase(config.paths.databasePath);
+  const context = await createEngineContext(input);
 
   try {
-    const requestedIds = [
-      ...(input.symbolId ? [input.symbolId] : []),
-      ...(input.symbolIds ?? []),
-    ];
-    const symbolIds = [...new Set(requestedIds.filter(Boolean))];
-
-    if (symbolIds.length === 0) {
-      throw new Error("At least one symbol id is required");
-    }
-
-    const rows = symbolIds.map((symbolId) => {
-      const row = db.prepare(
-        `
-          SELECT
-            symbols.id, symbols.name, symbols.qualified_name, symbols.kind, symbols.file_path,
-            symbols.signature, symbols.summary, symbols.summary_source,
-            symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
-            symbols.exported,
-            files.content_hash, content_blobs.content
-          FROM symbols
-          INNER JOIN files ON files.id = symbols.file_id
-          INNER JOIN content_blobs ON content_blobs.file_id = files.id
-          WHERE symbols.id = ?
-        `,
-      ).get(symbolId) as (DbSymbolRow & {
-        content_hash: string;
-        content: string;
-      }) | undefined;
-
-      if (!row) {
-        throw new Error(`Symbol not indexed: ${symbolId}`);
-      }
-      return row;
-    });
-
-    const items = rows.map((row) =>
-      buildSymbolSourceItem(row, input.verify === true, input.contextLines),
-    );
-    const first = items[0];
-
-    return {
-      requestedContextLines: Math.max(0, Math.floor(input.contextLines ?? 0)),
-      items,
-      symbol: first?.symbol,
-      source: first?.source,
-      verified: first?.verified,
-      startLine: first?.startLine,
-      endLine: first?.endLine,
-    };
+    return getSymbolSourceFromContext(context, input);
   } finally {
-    db.close();
+    closeEngineContext(context);
   }
 }
 

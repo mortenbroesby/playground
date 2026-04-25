@@ -18,9 +18,10 @@ approval_mode = "approve"
 approval_mode = "approve"
 
 [mcp_servers."ai-context-engine"]
-command = "node"
+command = "pnpm"
 args = [
-  "tools/ai-context-engine/scripts/ai-context-engine.mjs",
+  "exec",
+  "ai-context-engine",
   "mcp",
 ]
 cwd = "."
