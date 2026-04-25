@@ -4,16 +4,10 @@ import process from "node:process";
 
 import { parseSummaryStrategy } from "./config.ts";
 import { parseQueryCodeMcpInput } from "./validation.ts";
-import {
-  diagnostics,
-  getFileOutline,
-  getFileTree,
-  getRepoOutline,
-  indexFile,
-  indexFolder,
-  queryCode,
-  suggestInitialQueries,
-} from "./index.ts";
+
+type EngineModule = typeof import("./index.ts");
+
+let engineModulePromise: Promise<EngineModule> | null = null;
 
 interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -171,9 +165,11 @@ function requireString(params: Record<string, unknown>, key: string): string {
 }
 
 async function dispatchTool(name: string, args: Record<string, unknown>) {
+  const engine = await loadEngineModule();
+
   switch (name) {
     case "index_folder":
-      return indexFolder({
+      return engine.indexFolder({
         repoRoot: requireString(args, "repoRoot"),
         summaryStrategy:
           typeof args.summaryStrategy === "string"
@@ -181,7 +177,7 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
             : undefined,
       });
     case "index_file":
-      return indexFile({
+      return engine.indexFile({
         repoRoot: requireString(args, "repoRoot"),
         filePath: requireString(args, "filePath"),
         summaryStrategy:
@@ -190,26 +186,31 @@ async function dispatchTool(name: string, args: Record<string, unknown>) {
             : undefined,
       });
     case "get_repo_outline":
-      return getRepoOutline({ repoRoot: requireString(args, "repoRoot") });
+      return engine.getRepoOutline({ repoRoot: requireString(args, "repoRoot") });
     case "get_file_tree":
-      return getFileTree({ repoRoot: requireString(args, "repoRoot") });
+      return engine.getFileTree({ repoRoot: requireString(args, "repoRoot") });
     case "get_file_outline":
-      return getFileOutline({
+      return engine.getFileOutline({
         repoRoot: requireString(args, "repoRoot"),
         filePath: requireString(args, "filePath"),
       });
     case "suggest_initial_queries":
-      return suggestInitialQueries({ repoRoot: requireString(args, "repoRoot") });
+      return engine.suggestInitialQueries({ repoRoot: requireString(args, "repoRoot") });
     case "query_code":
-      return queryCode(parseQueryCodeMcpInput(args));
+      return engine.queryCode(parseQueryCodeMcpInput(args));
     case "diagnostics":
-      return diagnostics({
+      return engine.diagnostics({
         repoRoot: requireString(args, "repoRoot"),
         scanFreshness: args.scanFreshness === true,
       });
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
+}
+
+function loadEngineModule(): Promise<EngineModule> {
+  engineModulePromise ??= import("./index.ts");
+  return engineModulePromise;
 }
 
 export function createMcpServer() {

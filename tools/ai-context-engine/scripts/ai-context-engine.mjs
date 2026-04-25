@@ -39,7 +39,9 @@ if (!sourceTarget || !distTarget) {
   process.exit(1);
 }
 
-const useBuiltTarget = existsSync(distTarget);
+// In the workspace, prefer source so local MCP/CLI runs reflect current edits.
+// Installed packages do not ship src/, so they naturally fall back to dist/.
+const useBuiltTarget = !existsSync(sourceTarget) && existsSync(distTarget);
 const child = spawn(
   process.execPath,
   useBuiltTarget

@@ -24,6 +24,7 @@ args = [
   "mcp",
 ]
 cwd = "."
+startup_timeout_sec = 90
 enabled_tools = [
   "index_folder",
   "index_file",
@@ -57,6 +58,75 @@ approval_mode = "approve"
 approval_mode = "approve"
 
 [mcp_servers."ai-context-engine".tools.diagnostics]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch]
+command = "jcodemunch-mcp"
+args = [
+  "serve",
+  "--transport",
+  "stdio",
+  "--watcher",
+  "--watcher-path",
+  ".",
+  "--watcher-extra-ignore",
+  "README.md",
+  "vault/",
+  "plugins/",
+  "docs/superpowers/",
+  ".rag/",
+  "dist/",
+  ".next/",
+  ".turbo/",
+  "coverage/",
+]
+cwd = "."
+startup_timeout_sec = 30
+enabled_tools = [
+  "get_file_outline",
+  "get_file_content",
+  "get_file_tree",
+  "plan_turn",
+  "register_edit",
+  "resolve_repo",
+  "get_repo_outline",
+  "search_symbols",
+  "get_context_bundle",
+  "get_symbol_source",
+  "search_text",
+]
+
+[mcp_servers.jcodemunch.tools.get_file_outline]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_file_content]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_file_tree]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.plan_turn]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.register_edit]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.resolve_repo]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_repo_outline]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.search_symbols]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_context_bundle]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_symbol_source]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.search_text]
 approval_mode = "approve"
 
 [features]

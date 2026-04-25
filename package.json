@@ -22,7 +22,7 @@
     "rag:index": "pnpm --filter @playground/obsidian-memory rag:index",
     "rag:query": "pnpm --filter @playground/obsidian-memory rag:query",
     "rag:verify": "pnpm --filter @playground/obsidian-memory rag:verify",
-    "ctrl:daemon": "npx @bulletproof-sh/ctrl-daemon@latest",
+    "ctrl:daemon": "npx @bulletproof-sh/ctrl-daemon@latest --force",
     "test": "turbo test",
     "test:integration": "pnpm --filter @playground/todo-app test:integration",
     "type-lint": "turbo type-lint",

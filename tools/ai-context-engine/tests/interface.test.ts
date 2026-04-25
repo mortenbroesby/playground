@@ -1,5 +1,5 @@
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { realpath, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
@@ -17,6 +17,48 @@ const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+
+async function runMcpExchange(messages: Array<Record<string, unknown>>) {
+  const child = spawn(
+    process.execPath,
+    [path.join(packageRoot, "scripts", "ai-context-engine.mjs"), "mcp"],
+    {
+      cwd: packageRoot,
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+
+  let stdout = "";
+  let stderr = "";
+
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  for (const message of messages) {
+    const payload = JSON.stringify(message);
+    child.stdin.write(
+      `Content-Length: ${Buffer.byteLength(payload, "utf8")}\r\n\r\n${payload}`,
+    );
+  }
+  child.stdin.end();
+
+  const exitCode = await new Promise<number>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => resolve(code ?? 0));
+  });
+
+  return {
+    exitCode,
+    stdout,
+    stderr,
+  };
+}
 
 afterEach(async () => {
   await cleanupFixtureRepos();
@@ -566,6 +608,28 @@ export function circumference(radius: number): string {
 
     expect(retiredToolResponse.error?.message).toMatch(/unknown tool: search_symbols/i);
   }, 20_000);
+
+  it("keeps MCP startup free of backend side effects before the first tool call", async () => {
+    const result = await runMcpExchange([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {},
+      },
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/list",
+      },
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain('"id":1');
+    expect(result.stdout).toContain('"id":2');
+    expect(result.stdout).toContain('"name":"query_code"');
+  });
 
   it("rejects unsupported summary strategies at runtime boundaries", async () => {
     const repoRoot = await createFixtureRepo();

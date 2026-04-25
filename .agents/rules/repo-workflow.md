@@ -20,6 +20,11 @@ alwaysApply: true
 
 - Use `ai-context-engine` as the default repo-owned code retrieval path when
   available.
+- If `ai-context-engine` is unavailable, use `jcodemunch` as the fallback
+  retrieval path before broad shell-based exploration.
+- For `jcodemunch` fallback flows, start with `plan_turn` when you need route
+  selection, then prefer `search_symbols`, `search_text`, `get_file_outline`,
+  `get_symbol_source`, `get_context_bundle`, and `get_file_tree`.
 - Start by ensuring the repo is indexed; use `index-folder` if the index is
   missing or stale.
 - Prefer `query_code`, `get_file_outline`, `get_file_tree`, and `diagnostics`.

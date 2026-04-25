@@ -21,6 +21,10 @@ Thin bootstrap for coding agents in this repo.
 
 - Use `ai-context-engine` as the repo-owned default for code navigation when
   available.
+- If `ai-context-engine` is unavailable, fall back to `jcodemunch` rather than
+  broad shell-based code scans.
+- For `jcodemunch` fallback flows, start with `plan_turn`, then prefer
+  `search_symbols`, `get_file_outline`, and `get_symbol_source`.
 - Prefer `query_code`, `get_file_outline`, and `diagnostics` before broad file
   reads.
 - Use `query_code` intents instead of the older granular retrieval surfaces.
