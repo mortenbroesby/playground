@@ -37,6 +37,7 @@ import type {
   IndexStatement,
 } from "./index-backend.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
+import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
 import {
   validateContextBundleOptions,
@@ -132,6 +133,7 @@ const repoRootResolutionCache = new Map<string, Promise<string>>();
 const ensuredStorageRoots = new Map<string, true>();
 const databaseConnectionCache = new Map<string, CachedDatabaseConnection>();
 const INDEX_WORKER_CHILD_ENV = "AI_CONTEXT_ENGINE_INDEX_WORKER_CHILD";
+const storageLogger = getLogger({ component: "storage" });
 
 const storageModulePath = fileURLToPath(import.meta.url);
 const storageModuleDir = path.dirname(storageModulePath);
@@ -360,6 +362,7 @@ async function runIndexCommandInChild(
     summaryStrategy?: SummaryStrategy;
   },
 ): Promise<IndexSummary> {
+  const startedAt = Date.now();
   const args = storageModulePath.endsWith(".ts")
     ? [
         "--no-warnings",
@@ -385,6 +388,13 @@ async function runIndexCommandInChild(
   }
 
   return new Promise<IndexSummary>((resolve, reject) => {
+    storageLogger.debug({
+      event: "index_worker_start",
+      command,
+      repoRoot: input.repoRoot,
+      filePath: input.filePath ?? null,
+      summaryStrategy: input.summaryStrategy ?? null,
+    });
     const child = spawn(process.execPath, args, {
       env: {
         ...process.env,
@@ -403,15 +413,53 @@ async function runIndexCommandInChild(
     child.stderr.on("data", (chunk: string) => {
       stderr += chunk;
     });
-    child.on("error", reject);
+    child.on("error", (error) => {
+      storageLogger.error({
+        event: "index_worker_spawn_error",
+        command,
+        repoRoot: input.repoRoot,
+        durationMs: Date.now() - startedAt,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      reject(error);
+    });
     child.on("close", (code) => {
       if (code !== 0) {
+        storageLogger.error({
+          event: "index_worker_failed",
+          command,
+          repoRoot: input.repoRoot,
+          filePath: input.filePath ?? null,
+          durationMs: Date.now() - startedAt,
+          exitCode: code,
+          stderrBytes: stderr.length,
+          stdoutBytes: stdout.length,
+        });
         reject(new Error(stderr.trim() || stdout.trim() || `${command} worker failed`));
         return;
       }
       try {
-        resolve(JSON.parse(stdout) as IndexSummary);
+        const parsed = JSON.parse(stdout) as IndexSummary;
+        storageLogger.debug({
+          event: "index_worker_finish",
+          command,
+          repoRoot: input.repoRoot,
+          filePath: input.filePath ?? null,
+          durationMs: Date.now() - startedAt,
+          indexedFiles: parsed.indexedFiles,
+          indexedSymbols: parsed.indexedSymbols,
+        });
+        resolve(parsed);
       } catch (error) {
+        storageLogger.error({
+          event: "index_worker_parse_error",
+          command,
+          repoRoot: input.repoRoot,
+          durationMs: Date.now() - startedAt,
+          stdoutBytes: stdout.length,
+          stderrBytes: stderr.length,
+          message: error instanceof Error ? error.message : String(error),
+        });
         reject(
           new Error(
             `Failed to parse ${command} worker output: ${error instanceof Error ? error.message : String(error)}`,
@@ -1614,6 +1662,10 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   const debounceMs = input.debounceMs ?? 100;
   const repoRoot = await resolveRepoRoot(input.repoRoot);
   const pollMs = Math.max(50, Math.min(debounceMs, 250));
+  const watchLogger = storageLogger.child({
+    operation: "watch_folder",
+    repoRoot,
+  });
   let closed = false;
   let pollInFlight = false;
   let pollInterval: NodeJS.Timeout | null = null;
@@ -1660,6 +1712,33 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         lastSummary,
       },
     });
+
+    if (event.type === "ready") {
+      watchLogger.info({
+        event: "watch_ready",
+        indexedFiles: event.summary?.indexedFiles ?? null,
+        indexedSymbols: event.summary?.indexedSymbols ?? null,
+      });
+    } else if (event.type === "reindex") {
+      watchLogger.debug({
+        event: "watch_reindex",
+        changedPathCount: event.changedPaths.length,
+        indexedFiles: event.summary?.indexedFiles ?? null,
+        indexedSymbols: event.summary?.indexedSymbols ?? null,
+      });
+    } else if (event.type === "error") {
+      watchLogger.warn({
+        event: "watch_error",
+        changedPathCount: event.changedPaths.length,
+        message: event.message ?? "Unknown watch error",
+      });
+    } else if (event.type === "close") {
+      watchLogger.info({
+        event: "watch_close",
+        reindexCount,
+        lastError,
+      });
+    }
   };
 
   const emitChangedPaths = (paths: string[]) => {
@@ -1838,6 +1917,10 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       return;
     }
     usingPollingFallback = true;
+    watchLogger.warn({
+      event: "watch_polling_fallback",
+      pollMs,
+    });
     pollInterval = setInterval(() => {
       void runPollingSweep();
     }, pollMs);
@@ -1848,6 +1931,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       nativeWatcher = fsWatch(repoRoot, { recursive: true }, () => {
         scheduleNativeWatchSweep();
       });
+      watchLogger.debug({ event: "watch_native_started" });
       nativeWatcher.on("error", () => {
         nativeWatcher?.close();
         nativeWatcher = null;

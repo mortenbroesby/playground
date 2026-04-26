@@ -190,6 +190,17 @@ JavaScript instead of repo-local TypeScript sources.
 The CLI prints JSON for each command. The MCP server runs over stdio using the
 official MCP TypeScript SDK and a narrow repo-owned tool surface.
 
+## Structured diagnostics
+
+Opt-in structured diagnostics now use `pino` and stay disabled by default.
+
+- set `AI_CONTEXT_ENGINE_LOG_LEVEL=debug` or `trace` to emit JSON logs to
+  `stderr`
+- default behavior stays `silent`, which keeps MCP stdout clean and preserves
+  JSON CLI output contracts
+- the current instrumentation is intentionally narrow: MCP tool dispatch,
+  watch lifecycle, and child index worker execution
+
 ## Packaging
 
 The package now has an explicit build step for npm-style use:

@@ -27,6 +27,7 @@ import {
   suggestInitialQueries,
   watchFolder,
 } from "./index.ts";
+import { getLogger } from "./logger.ts";
 
 type StopReason = "timeout" | "signal" | "closed";
 
@@ -198,6 +199,11 @@ async function runWatchCommand(args: Record<string, string>) {
   const debounceMs = optionalNumber(args, "debounce-ms") ?? 100;
   const timeoutMs = optionalNumber(args, "timeout-ms");
   const pidFile = optional(args, "pid-file");
+  const logger = getLogger({
+    component: "cli",
+    command: "watch",
+    repoRoot,
+  });
   let stopReason: StopReason = "closed";
   let initialSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
   let lastSummary: Awaited<ReturnType<typeof indexFolder>> | null = null;
@@ -213,6 +219,13 @@ async function runWatchCommand(args: Record<string, string>) {
     stopReason = "signal";
     resolveStop();
   };
+
+  logger.info({
+    event: "watch_command_start",
+    debounceMs,
+    timeoutMs: timeoutMs ?? null,
+    hasPidFile: pidFile !== undefined,
+  });
 
   const watcher = await watchFolder({
     repoRoot,
@@ -238,6 +251,7 @@ async function runWatchCommand(args: Record<string, string>) {
 
   if (pidFile) {
     await writeFile(pidFile, `${process.pid}\n`);
+    logger.debug({ event: "watch_pid_written", pidFile });
   }
 
   const timeout = timeoutMs
@@ -266,6 +280,13 @@ async function runWatchCommand(args: Record<string, string>) {
       // Best-effort cleanup only.
     }
   }
+
+  logger.info({
+    event: "watch_command_stop",
+    stopReason,
+    reindexCount,
+    lastError,
+  });
 
   return {
     repoRoot,

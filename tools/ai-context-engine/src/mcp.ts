@@ -10,10 +10,12 @@ import {
   MCP_SERVER_VERSION,
   MCP_TOOL_DEFINITIONS,
 } from "./mcp-contract.ts";
+import { getLogger } from "./logger.ts";
 
 type EngineModule = typeof import("./index.ts");
 
 let engineModulePromise: Promise<EngineModule> | null = null;
+const logger = getLogger({ component: "mcp" });
 
 function asTextResult(value: unknown) {
   return {
@@ -37,8 +39,31 @@ export async function dispatchTool(name: string, args: Record<string, unknown>) 
     throw new Error(`Unknown tool: ${name}`);
   }
 
+  const startedAt = Date.now();
+  logger.debug({
+    event: "tool_call_start",
+    toolName: name,
+    argKeys: Object.keys(args).sort(),
+  });
+
   const engine = await loadEngineModule();
-  return tool.execute(engine, args);
+  try {
+    const result = await tool.execute(engine, args);
+    logger.debug({
+      event: "tool_call_finish",
+      toolName: name,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    logger.error({
+      event: "tool_call_error",
+      toolName: name,
+      durationMs: Date.now() - startedAt,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 export function createMcpServer() {
@@ -59,6 +84,11 @@ export function createMcpServer() {
 }
 
 async function main() {
+  logger.info({
+    event: "server_start",
+    serverName: MCP_SERVER_NAME,
+    serverVersion: MCP_SERVER_VERSION,
+  });
   const server = createMcpServer();
   const transport = new StdioServerTransport();
 
@@ -75,6 +105,7 @@ async function main() {
   });
 
   await server.connect(transport);
+  logger.info({ event: "server_connected" });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

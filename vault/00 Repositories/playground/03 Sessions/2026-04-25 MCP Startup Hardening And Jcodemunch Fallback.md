@@ -66,6 +66,10 @@ tags:
 - swapped the storage backend adapter from `node:sqlite` to `better-sqlite3`
   while keeping the same internal `IndexBackendConnection` contract so the
   engine no longer depends on Node’s experimental SQLite runtime surface
+- added opt-in structured diagnostics with `pino`, gated by
+  `AI_CONTEXT_ENGINE_LOG_LEVEL`, and limited the first instrumentation slice to
+  MCP tool dispatch, watch lifecycle, and child index worker execution so
+  normal stdout-facing contracts remain unchanged by default
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`
@@ -90,7 +94,9 @@ surface, reintroduces a practical fallback path for code navigation when the
 primary engine is unavailable, and now also makes the long-lived watch path
 more explicit and maintainable without changing the repo’s proven watch-source
 fallback behavior. The backend swap also removes an unnecessary dependency on
-Node experimental APIs from the core index path.
+Node experimental APIs from the core index path. The logging slice makes it
+easier to inspect long-lived local behavior without turning observability into
+a mandatory runtime concern for every MCP or CLI call.
 
 ## Verification
 
