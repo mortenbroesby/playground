@@ -2,10 +2,12 @@ import path from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
 import { realpath, writeFile } from "node:fs/promises";
+import net from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import { decode } from "@msgpack/msgpack";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -90,6 +92,42 @@ async function startObservabilityServer(
       await once(child, "exit").catch(() => undefined);
     },
   };
+}
+
+async function listenOnPort(host: string, port: number) {
+  return await new Promise<net.Server>((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(port, host, () => {
+      server.removeListener("error", reject);
+      resolve(server);
+    });
+  });
+}
+
+async function listenOnFirstAvailablePortInRange(
+  host: string,
+  start: number,
+  end: number,
+) {
+  for (let port = start; port <= end; port += 1) {
+    try {
+      const server = await listenOnPort(host, port);
+      return { server, port };
+    } catch (error) {
+      if (
+        error instanceof Error
+        && "code" in error
+        && error.code === "EADDRINUSE"
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error(`No available port found in ${start}-${end}`);
 }
 
 function asTextResultForTest(value: unknown) {
@@ -655,13 +693,23 @@ export function circumference(radius: number): string {
 
       const viewerResponse = await fetch(`http://${server.host}:${server.port}/`);
       const viewerHtml = await viewerResponse.text();
-      expect(viewerHtml).toContain("ai-context-engine live observability");
-      expect(viewerHtml).toContain(repoRoot);
+      expect(viewerHtml).toContain("Astrograph observability");
+      expect(viewerHtml).toContain("root");
 
       const healthResponse = await fetch(`http://${server.host}:${server.port}/health`);
       const health = await healthResponse.json() as { storageDir: string; watch: { status: string } };
       expect(health.storageDir).toContain(".ai-context-engine");
       expect(health.watch.status).toBe("idle");
+
+      const msgpackHealthResponse = await fetch(`http://${server.host}:${server.port}/health?format=msgpack`, {
+        headers: {
+          Accept: "application/msgpack",
+        },
+      });
+      const msgpackHealth = decode(
+        new Uint8Array(await msgpackHealthResponse.arrayBuffer()),
+      ) as { storageDir: string };
+      expect(msgpackHealth.storageDir).toContain(".ai-context-engine");
 
       await handleCli(["index-folder", "--repo", repoRoot]);
 
@@ -685,6 +733,89 @@ export function circumference(radius: number): string {
     } finally {
       socket.close();
       await server.close();
+    }
+  }, 45_000);
+
+  it("serves msgpack websocket events when requested", async () => {
+    const repoRoot = await createFixtureRepo();
+    await writeFile(
+      path.join(repoRoot, "ai-context-engine.config.json"),
+      JSON.stringify({
+        observability: {
+          port: 0,
+          recentLimit: 20,
+          snapshotIntervalMs: 100,
+        },
+      }),
+    );
+
+    const server = await startObservabilityServer(repoRoot, ["--dev"]);
+    const binaryMessages: Array<Record<string, unknown>> = [];
+    const socket = new WebSocket(
+      `ws://${server.host}:${server.port}/events?encoding=msgpack`,
+    );
+    socket.binaryType = "arraybuffer";
+
+    socket.addEventListener("message", (event) => {
+      if (typeof event.data === "string") {
+        binaryMessages.push(JSON.parse(event.data) as Record<string, unknown>);
+        return;
+      }
+
+      const message = decode(new Uint8Array(event.data as ArrayBuffer)) as Record<string, unknown>;
+      binaryMessages.push(message);
+    });
+
+    try {
+      await waitFor(() => binaryMessages.some((message) => message.type === "snapshot"), 15_000);
+      await handleCli(["index-folder", "--repo", repoRoot]);
+      await waitFor(() =>
+        binaryMessages.some((message) =>
+          message.type === "event"
+            && (message.event as { event?: string } | undefined)?.event === "index-worker.finished"
+        ),
+      );
+    } finally {
+      socket.close();
+      await server.close();
+    }
+  }, 45_000);
+
+  it("falls back to another port in the 34323 range when the requested port is busy", async () => {
+    const repoRoot = await createFixtureRepo();
+    const blocked = await listenOnFirstAvailablePortInRange("127.0.0.1", 34323, 35322);
+
+    await writeFile(
+      path.join(repoRoot, "ai-context-engine.config.json"),
+      JSON.stringify({
+        observability: {
+          port: blocked.port,
+          recentLimit: 10,
+          snapshotIntervalMs: 100,
+        },
+      }),
+    );
+
+    const server = await startObservabilityServer(repoRoot);
+
+    try {
+      expect(server.port).not.toBe(blocked.port);
+      expect(server.port).toBeGreaterThanOrEqual(34323);
+      expect(server.port).toBeLessThanOrEqual(35322);
+
+      const healthResponse = await fetch(`http://${server.host}:${server.port}/health`);
+      expect(healthResponse.ok).toBe(true);
+    } finally {
+      await server.close();
+      await new Promise<void>((resolve, reject) => {
+        blocked.server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
     }
   }, 30_000);
 

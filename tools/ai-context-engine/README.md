@@ -1,6 +1,10 @@
-# `@playground/ai-context-engine`
+# Astrograph (`@playground/ai-context-engine`)
 
 Local deterministic context engine for AI-assisted code exploration.
+
+`Astrograph` is the human-facing name for this engine inside the repo. The
+published package name, runtime directory, MCP server id, and CLI command stay
+`ai-context-engine` for compatibility.
 
 ## What it does
 
@@ -201,10 +205,17 @@ The package now includes an opt-in local observability surface intended for
 developer debugging rather than agent retrieval.
 
 - start it with `pnpm exec ai-context-engine observability --repo /abs/repo`
+- add `--dev` in workspace development to force the Vite dev client and React
+  Fast Refresh path explicitly
 - it binds to `127.0.0.1` by default and uses Bun's uWebSockets-backed server
   runtime through `Bun.serve`
+- if the requested port is unavailable, startup scans `34323-35322` and uses
+  the first open port in that range
+- in workspace mode, if the built viewer assets are missing, the Bun server
+  automatically starts a Vite dev server and serves a React client shell with
+  hot reload instead of failing startup
 - it exposes:
-  - `/` for a tiny built-in live viewer
+  - `/` for the React observability viewer
   - `/health` for a live `diagnostics` snapshot
   - `/recent` for the current in-memory tail of recent JSONL events
   - `/events` for a read-only websocket stream
@@ -212,6 +223,8 @@ developer debugging rather than agent retrieval.
 - the Bun server does not open SQLite directly; health snapshots are delegated
   to the normal Node CLI path so the transport runtime stays separate from the
   storage runtime
+- the viewer now prefers MessagePack over both HTTP and websocket paths, while
+  JSON remains available as a compatibility fallback
 
 This surface is intentionally local, metadata-first, and read-only. It exists
 to help inspect MCP requests, watch behavior, child index worker activity, and
@@ -231,7 +244,7 @@ Initial supported shape:
   "observability": {
     "enabled": false,
     "host": "127.0.0.1",
-    "port": 4318,
+    "port": 34323,
     "recentLimit": 100,
     "snapshotIntervalMs": 1000
   }

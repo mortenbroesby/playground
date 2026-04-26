@@ -57,7 +57,7 @@ Initial supported shape:
   "observability": {
     "enabled": false,
     "host": "127.0.0.1",
-    "port": 4318,
+    "port": 34323,
     "recentLimit": 100,
     "snapshotIntervalMs": 1000
   }

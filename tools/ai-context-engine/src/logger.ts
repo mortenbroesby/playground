@@ -6,7 +6,7 @@ const configuredLevel = process.env.AI_CONTEXT_ENGINE_LOG_LEVEL?.trim() || "sile
 
 const rootLogger = pino(
   {
-    name: "ai-context-engine",
+    name: "astrograph",
     level: configuredLevel,
     base: undefined,
   },

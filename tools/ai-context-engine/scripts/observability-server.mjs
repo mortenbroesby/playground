@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, open, readFile, realpath, stat } from "node:fs/promises";
 import net from "node:net";
@@ -9,18 +9,28 @@ import process from "node:process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import { encode } from "@msgpack/msgpack";
+
 const execFileAsync = promisify(execFile);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDir, "..");
 const EVENT_TOPIC = "ai-context-engine.events";
 const STORAGE_DIRNAME = ".ai-context-engine";
 const CONFIG_FILENAME = "ai-context-engine.config.json";
+const ENGINE_DISPLAY_NAME = "Astrograph";
+const OBSERVABILITY_PORT_RANGE_START = 34323;
+const OBSERVABILITY_PORT_RANGE_END = 35322;
+const VITE_PORT_RANGE_START = 35323;
+const VITE_PORT_RANGE_END = 36322;
+const VITE_CONFIG_PATH = path.join(packageRoot, "observability", "vite.config.ts");
+const OBSERVABILITY_DIST_DIR = path.join(packageRoot, "observability-dist");
+const OBSERVABILITY_SOURCE_DIR = path.join(packageRoot, "observability");
 
 function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  ai-context-engine observability --repo /abs/repo [--host 127.0.0.1] [--port 4318] [--recent-limit 100] [--snapshot-interval-ms 1000]",
+      "  ai-context-engine observability [--repo /abs/repo] [--host 127.0.0.1] [--port 34323] [--recent-limit 100] [--snapshot-interval-ms 1000] [--dev]",
     ].join("\n") + "\n",
   );
 }
@@ -32,6 +42,7 @@ function parseArgs(argv) {
     port: null,
     recentLimit: null,
     snapshotIntervalMs: null,
+    dev: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -41,6 +52,11 @@ function parseArgs(argv) {
     }
 
     const key = token.slice(2);
+    if (key === "dev") {
+      args.dev = true;
+      continue;
+    }
+
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) {
       throw new Error(`Missing value for argument --${key}`);
@@ -68,6 +84,7 @@ function parseArgs(argv) {
     recentLimit: args.recentLimit === null ? undefined : Number(args.recentLimit),
     snapshotIntervalMs:
       args.snapshotIntervalMs === null ? undefined : Number(args.snapshotIntervalMs),
+    dev: args.dev,
   };
 }
 
@@ -120,7 +137,7 @@ async function loadRepoConfig(repoRoot) {
     observability: {
       enabled: false,
       host: "127.0.0.1",
-      port: 4318,
+      port: 34323,
       recentLimit: 100,
       snapshotIntervalMs: 1000,
     },
@@ -197,144 +214,12 @@ async function loadRepoConfig(repoRoot) {
   return merged;
 }
 
-function renderViewerHtml(input) {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ai-context-engine observability</title>
-    <style>
-      :root { color-scheme: light; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-      body { margin: 0; background: #f3efe6; color: #1f2937; }
-      main { max-width: 1200px; margin: 0 auto; padding: 24px; display: grid; gap: 16px; }
-      .hero { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #d97706; padding: 20px; border-radius: 16px; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-      section { background: #fffdf8; border: 1px solid #e5dcc8; border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(120, 113, 108, 0.08); }
-      h1, h2 { margin: 0 0 12px; font-weight: 700; }
-      h1 { font-size: 22px; }
-      h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: #92400e; }
-      pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
-      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 420px; overflow: auto; }
-      li { border: 1px solid #eadfcd; border-radius: 10px; padding: 10px; background: #fff; }
-      .meta { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
-      .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #111827; color: #fff; font-size: 12px; }
-      .ok { background: #065f46; }
-      .warn { background: #b45309; }
-      .error { background: #991b1b; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <section class="hero">
-        <h1>ai-context-engine live observability</h1>
-        <div class="meta">repoRoot: ${escapeHtml(input.repoRoot)}</div>
-        <div class="meta">config: ${escapeHtml(input.configPath ?? "none")}</div>
-      </section>
-      <div class="grid">
-        <section>
-          <h2>Health</h2>
-          <pre id="health">loading...</pre>
-        </section>
-        <section>
-          <h2>Status</h2>
-          <div id="status" class="pill">connecting</div>
-        </section>
-      </div>
-      <div class="grid">
-        <section>
-          <h2>Recent</h2>
-          <ul id="recent"></ul>
-        </section>
-        <section>
-          <h2>Live Stream</h2>
-          <ul id="events"></ul>
-        </section>
-      </div>
-    </main>
-    <script>
-      const healthNode = document.getElementById("health");
-      const statusNode = document.getElementById("status");
-      const recentNode = document.getElementById("recent");
-      const eventsNode = document.getElementById("events");
-      function renderEvent(target, payload) {
-        const item = document.createElement("li");
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.textContent = [payload.ts ?? "", payload.source ?? "", payload.event ?? ""].filter(Boolean).join(" · ");
-        const body = document.createElement("pre");
-        body.textContent = JSON.stringify(payload.data ?? payload, null, 2);
-        item.append(meta, body);
-        target.prepend(item);
-        while (target.children.length > 40) target.removeChild(target.lastChild);
-      }
-      async function refreshHealth() {
-        const response = await fetch("/health");
-        healthNode.textContent = JSON.stringify(await response.json(), null, 2);
-      }
-      async function refreshRecent() {
-        const response = await fetch("/recent");
-        const payload = await response.json();
-        recentNode.innerHTML = "";
-        for (const event of payload.events ?? []) renderEvent(recentNode, event);
-      }
-      function setStatus(text, className) {
-        statusNode.textContent = text;
-        statusNode.className = "pill " + className;
-      }
-      async function boot() {
-        await refreshHealth();
-        await refreshRecent();
-        const protocol = location.protocol === "https:" ? "wss" : "ws";
-        const socket = new WebSocket(protocol + "://" + location.host + "/events");
-        socket.addEventListener("open", () => setStatus("connected", "ok"));
-        socket.addEventListener("close", () => setStatus("disconnected", "warn"));
-        socket.addEventListener("error", () => setStatus("error", "error"));
-        socket.addEventListener("message", async (message) => {
-          const raw = message.data instanceof Blob ? await message.data.text() : String(message.data);
-          const payload = JSON.parse(raw);
-          if (payload.type === "snapshot") {
-            healthNode.textContent = JSON.stringify(payload.snapshot, null, 2);
-            return;
-          }
-          if (payload.type === "recent") {
-            recentNode.innerHTML = "";
-            for (const event of payload.events ?? []) renderEvent(recentNode, event);
-            return;
-          }
-          if (payload.type === "event" && payload.event) {
-            renderEvent(eventsNode, payload.event);
-            if (payload.event.event === "health.snapshot") {
-              healthNode.textContent = JSON.stringify(payload.event.data, null, 2);
-            }
-          }
-        });
-        setInterval(() => void refreshHealth().catch(() => undefined), 3000);
-      }
-      void boot();
-    </script>
-  </body>
-</html>`;
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-async function resolvePort(host, port) {
-  if (port !== 0) {
-    return port;
-  }
-
+async function probePort(host, port) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.unref();
     server.on("error", reject);
-    server.listen(0, host, () => {
+    server.listen(port, host, () => {
       const address = server.address();
       const resolvedPort =
         typeof address === "object" && address ? address.port : undefined;
@@ -344,13 +229,52 @@ async function resolvePort(host, port) {
           return;
         }
         if (!resolvedPort) {
-          reject(new Error("Failed to resolve an ephemeral port"));
+          reject(new Error("Failed to resolve an available port"));
           return;
         }
         resolve(resolvedPort);
       });
     });
   });
+}
+
+function isAddressInUseError(error) {
+  return Boolean(error) && typeof error === "object" && "code" in error && error.code === "EADDRINUSE";
+}
+
+async function resolvePort(host, requestedPort, rangeStart, rangeEnd) {
+  if (requestedPort !== 0) {
+    try {
+      return await probePort(host, requestedPort);
+    } catch (error) {
+      if (!isAddressInUseError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  const candidatePorts = [];
+  if (requestedPort >= rangeStart && requestedPort <= rangeEnd) {
+    candidatePorts.push(requestedPort);
+  }
+  for (let port = rangeStart; port <= rangeEnd; port += 1) {
+    if (port !== requestedPort) {
+      candidatePorts.push(port);
+    }
+  }
+
+  for (const port of candidatePorts) {
+    try {
+      return await probePort(host, port);
+    } catch (error) {
+      if (isAddressInUseError(error)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error(`No available port found in ${rangeStart}-${rangeEnd}`);
 }
 
 function createHealthEvent(snapshot) {
@@ -425,6 +349,160 @@ async function runDiagnostics(repoRoot) {
   return JSON.parse(stdout);
 }
 
+function wantsMsgpack(req, url) {
+  if (url.searchParams.get("format") === "msgpack") {
+    return true;
+  }
+
+  const accept = req.headers.get("accept") ?? "";
+  return accept.includes("application/msgpack");
+}
+
+function createProtocolResponse(data, useMsgpack) {
+  if (useMsgpack) {
+    return new Response(Buffer.from(encode(data)), {
+      headers: {
+        "content-type": "application/msgpack",
+      },
+    });
+  }
+
+  return Response.json(data);
+}
+
+function socketEncodingFromRequest(url) {
+  return url.searchParams.get("encoding") === "msgpack" ? "msgpack" : "json";
+}
+
+function sendSocketPayload(ws, encoding, payload) {
+  if (encoding === "msgpack") {
+    ws.send(Buffer.from(encode(payload)), true);
+    return;
+  }
+
+  ws.send(JSON.stringify(payload));
+}
+
+function getMimeType(filePath) {
+  if (filePath.endsWith(".html")) {
+    return "text/html; charset=utf-8";
+  }
+  if (filePath.endsWith(".js")) {
+    return "text/javascript; charset=utf-8";
+  }
+  if (filePath.endsWith(".css")) {
+    return "text/css; charset=utf-8";
+  }
+  if (filePath.endsWith(".json")) {
+    return "application/json; charset=utf-8";
+  }
+  if (filePath.endsWith(".svg")) {
+    return "image/svg+xml";
+  }
+  return "application/octet-stream";
+}
+
+function reactRefreshPreamble(viteOrigin) {
+  return `<script type="module">
+import RefreshRuntime from '${viteOrigin}/@react-refresh'
+RefreshRuntime.injectIntoGlobalHook(window)
+window.$RefreshReg$ = () => {}
+window.$RefreshSig$ = () => (type) => type
+window.__vite_plugin_react_preamble_installed__ = true
+</script>`;
+}
+
+function renderDevShell(viteOrigin) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${ENGINE_DISPLAY_NAME} observability</title>
+    ${reactRefreshPreamble(viteOrigin)}
+    <script type="module" src="${viteOrigin}/@vite/client"></script>
+    <script type="module" src="${viteOrigin}/src/main.tsx"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`;
+}
+
+async function startViteDevServer(input) {
+  const port = await resolvePort(
+    input.host,
+    0,
+    VITE_PORT_RANGE_START,
+    VITE_PORT_RANGE_END,
+  );
+
+  const child = spawn(
+    "pnpm",
+    [
+      "exec",
+      "vite",
+      "--config",
+      VITE_CONFIG_PATH,
+      "--host",
+      input.host,
+      "--port",
+      String(port),
+      "--strictPort",
+    ],
+    {
+      cwd: packageRoot,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  let stdout = "";
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+
+  const origin = `http://${input.host}:${port}`;
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 15_000) {
+    if (child.exitCode !== null) {
+      throw new Error(stderr || stdout || "Vite dev server exited early");
+    }
+
+    try {
+      const response = await fetch(`${origin}/@vite/client`);
+      if (response.ok) {
+        return {
+          child,
+          origin,
+        };
+      }
+    } catch {
+      // keep polling
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  child.kill("SIGTERM");
+  throw new Error("Timed out waiting for Vite dev server");
+}
+
+async function readBuiltViewerIndex() {
+  return await readFile(path.join(OBSERVABILITY_DIST_DIR, "index.html"), "utf8");
+}
+
+function shouldServeSpa(urlPathname) {
+  return urlPathname === "/" || urlPathname === "/health/view";
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const repoRoot = await resolveRepoRoot(args.repo);
@@ -437,7 +515,25 @@ async function main() {
   requirePositiveInteger(recentLimit, "recentLimit");
   requirePositiveInteger(snapshotIntervalMs, "snapshotIntervalMs");
   requirePositiveInteger(port, "port", true);
-  const resolvedPort = await resolvePort(host, port);
+  const resolvedPort = await resolvePort(
+    host,
+    port,
+    OBSERVABILITY_PORT_RANGE_START,
+    OBSERVABILITY_PORT_RANGE_END,
+  );
+
+  const hasBuiltViewer = await stat(path.join(OBSERVABILITY_DIST_DIR, "index.html"))
+    .then(() => true)
+    .catch(() => false);
+  const hasViewerSource = await stat(path.join(OBSERVABILITY_SOURCE_DIR, "index.html"))
+    .then(() => true)
+    .catch(() => false);
+
+  const devMode = args.dev || (!hasBuiltViewer && hasViewerSource);
+  const viteDev = devMode
+    ? await startViteDevServer({ host })
+    : null;
+  const builtViewerIndex = !devMode ? await readBuiltViewerIndex() : null;
 
   const paths = resolveStoragePaths(repoRoot);
   let recentEvents = await readRecentEvents(paths.eventsPath, recentLimit);
@@ -447,6 +543,7 @@ async function main() {
   let lastHealthSnapshotId = "";
   let tailInFlight = false;
   let healthInFlight = false;
+  const activeSockets = new Set();
 
   function pushRecentEvent(event) {
     recentEvents.push(event);
@@ -523,7 +620,9 @@ async function main() {
             lastHealthSnapshotId = "";
           }
           pushRecentEvent(event);
-          server.publish(EVENT_TOPIC, JSON.stringify({ type: "event", event }));
+          for (const ws of activeSockets) {
+            sendSocketPayload(ws, ws.data.encoding, { type: "event", event });
+          }
         }
       } finally {
         await handle.close();
@@ -539,24 +638,10 @@ async function main() {
     async fetch(req, bunServer) {
       const url = new URL(req.url);
 
-      if (url.pathname === "/") {
-        return new Response(
-          renderViewerHtml({
-            repoRoot,
-            configPath: repoConfig.configPath,
-          }),
-          {
-            headers: {
-              "content-type": "text/html; charset=utf-8",
-            },
-          },
-        );
-      }
-
       if (url.pathname === "/events") {
         const success = bunServer.upgrade(req, {
           data: {
-            connectedAt: Date.now(),
+            encoding: socketEncodingFromRequest(url),
           },
         });
         return success ? undefined : new Response("WebSocket upgrade failed", { status: 500 });
@@ -565,7 +650,7 @@ async function main() {
       if (url.pathname === "/health") {
         try {
           const snapshot = await runDiagnostics(repoRoot);
-          return Response.json(snapshot);
+          return createProtocolResponse(snapshot, wantsMsgpack(req, url));
         } catch (error) {
           return Response.json(
             {
@@ -577,46 +662,83 @@ async function main() {
       }
 
       if (url.pathname === "/recent") {
-        return Response.json({
-          repoRoot,
-          events: recentEvents,
-        });
+        return createProtocolResponse(
+          {
+            repoRoot,
+            events: recentEvents,
+          },
+          wantsMsgpack(req, url),
+        );
+      }
+
+      if (!devMode && url.pathname.startsWith("/assets/")) {
+        const assetPath = path.join(OBSERVABILITY_DIST_DIR, url.pathname.slice(1));
+        const asset = await readFile(assetPath).catch(() => null);
+        if (asset) {
+          return new Response(asset, {
+            headers: {
+              "content-type": getMimeType(assetPath),
+            },
+          });
+        }
+      }
+
+      if (shouldServeSpa(url.pathname)) {
+        if (devMode && viteDev) {
+          return new Response(renderDevShell(viteDev.origin), {
+            headers: {
+              "content-type": "text/html; charset=utf-8",
+            },
+          });
+        }
+
+        if (builtViewerIndex) {
+          return new Response(builtViewerIndex, {
+            headers: {
+              "content-type": "text/html; charset=utf-8",
+            },
+          });
+        }
       }
 
       return Response.json({
         repoRoot,
-        endpoints: ["/", "/health", "/recent", "/events"],
+        endpoints: ["/", "/health/view", "/health", "/recent", "/events"],
+        devMode,
+        viteOrigin: viteDev?.origin ?? null,
       });
     },
     websocket: {
       open(ws) {
         connectedClients += 1;
+        activeSockets.add(ws);
         ws.subscribe(EVENT_TOPIC);
 
         void (async () => {
           try {
             const snapshot = await runDiagnostics(repoRoot);
-            ws.send(JSON.stringify({
+            sendSocketPayload(ws, ws.data.encoding, {
               type: "snapshot",
               snapshot,
-            }));
-            ws.send(JSON.stringify({
+            });
+            sendSocketPayload(ws, ws.data.encoding, {
               type: "recent",
               events: recentEvents,
-            }));
+            });
           } catch (error) {
-            ws.send(JSON.stringify({
+            sendSocketPayload(ws, ws.data.encoding, {
               type: "error",
               message: error instanceof Error ? error.message : String(error),
-            }));
+            });
           }
         })();
       },
       message() {
         // Read-only channel.
       },
-      close() {
+      close(ws) {
         connectedClients = Math.max(0, connectedClients - 1);
+        activeSockets.delete(ws);
       },
       error() {
         // Best-effort debug surface only.
@@ -628,6 +750,8 @@ async function main() {
     host: server.hostname,
     port: server.port,
     repoRoot,
+    devMode,
+    viteOrigin: viteDev?.origin ?? null,
   })}\n`);
 
   await publishHealthSnapshot(server, "startup").catch(() => null);
@@ -646,6 +770,7 @@ async function main() {
   const shutdown = () => {
     clearInterval(tailInterval);
     clearInterval(snapshotInterval);
+    viteDev?.child.kill("SIGTERM");
     server.stop(true);
     process.exit(0);
   };

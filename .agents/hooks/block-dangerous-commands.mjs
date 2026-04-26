@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   firstNonEmpty,
+  getProjectRoot,
   getToolInput,
   isDirectEntrypoint,
   preToolDeny,
@@ -56,8 +59,21 @@ const DANGEROUS_COMMAND_PATTERNS = [
   },
 ];
 
-function allowsDirectMainPush(command) {
-  return /\bCODEX_ALLOW_DIRECT_MAIN_PUSH=1\b/.test(command);
+function loadAgentSettings(projectRoot) {
+  const settingsPath = path.join(projectRoot, '.agents', 'settings.json');
+  try {
+    return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function allowsDirectMainPush(command, projectRoot) {
+  if (/\bCODEX_ALLOW_DIRECT_MAIN_PUSH=1\b/.test(command)) {
+    return true;
+  }
+
+  return loadAgentSettings(projectRoot).allowDirectMainPush === true;
 }
 
 function getCurrentBranch() {
@@ -69,7 +85,7 @@ function getCurrentBranch() {
   return result.status === 0 ? result.stdout.trim() : '';
 }
 
-export function getDangerousCommandReason(command) {
+export function getDangerousCommandReason(command, projectRoot = process.cwd()) {
   if (!command) {
     return '';
   }
@@ -77,7 +93,7 @@ export function getDangerousCommandReason(command) {
   if (/(^|[;&|()]\s*)git\s+push\b/i.test(command)) {
     if (
       /\bgit\s+push\b.*(?:origin\s+|:)(?:main|master)\b/i.test(command) &&
-      !allowsDirectMainPush(command)
+      !allowsDirectMainPush(command, projectRoot)
     ) {
       return 'Pushing directly to main/master is blocked. Use a feature branch and create a PR.';
     }
@@ -90,7 +106,7 @@ export function getDangerousCommandReason(command) {
       const branch = getCurrentBranch();
       if (
         (branch === 'main' || branch === 'master') &&
-        !allowsDirectMainPush(command)
+        !allowsDirectMainPush(command, projectRoot)
       ) {
         return `Bare git push is blocked on ${branch}. Use a feature branch and create a PR.`;
       }
@@ -116,7 +132,8 @@ export function getDangerousCommandReason(command) {
 
 export async function handleDangerousCommands(payload) {
   const command = firstNonEmpty(getToolInput(payload)?.command, '');
-  const reason = getDangerousCommandReason(command);
+  const projectRoot = getProjectRoot(payload);
+  const reason = getDangerousCommandReason(command, projectRoot);
   return reason ? preToolDeny(reason) : {};
 }
 

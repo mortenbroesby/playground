@@ -158,3 +158,32 @@ a mandatory runtime concern for every MCP or CLI call.
   inspectable in a browser without introducing a separate frontend app.
 - Captured the broader release-hardening direction in
   `.specs/ai-context-engine-alpha-release-spec.md`.
+
+## React plus MessagePack observability follow-up (2026-04-26)
+
+- Replaced the inline observability page with a Vite-built React client under
+  `tools/ai-context-engine/observability/`.
+- The Bun observability server now serves built viewer assets for package-style
+  use and can auto-start a Vite dev server in workspace mode so the viewer gets
+  React Fast Refresh without requiring a prebuild first.
+- Added a MessagePack transport with JSON fallback:
+  - `/health` and `/recent` now support `application/msgpack`
+  - `/events` supports `?encoding=msgpack` for binary websocket frames
+  - the React viewer uses the MessagePack path by default
+- Kept the original split-runtime constraint intact: Bun still owns the
+  observability transport layer, while Node still owns SQLite-backed
+  diagnostics and health generation.
+
+## Agent workflow follow-up (2026-04-26)
+
+- Replaced the hard-coded direct-main push block with a repo-local boolean
+  toggle in `.agents/settings.json`.
+- `allowDirectMainPush: true` now allows normal `git push origin main` through
+  the hook without requiring the one-shot env escape hatch, while flipping it
+  back to `false` restores the block.
+- Promoted `IDEAS.md` from an informal note to a real implementation queue for
+  agent autopilot work.
+- Expanded `.agents/commands/ideas-to-done.md` so it now treats `IDEAS.md` as a
+  top-to-bottom Ralph-driven execution queue: pick the top item, spec if
+  needed, implement, verify, update durable docs, delete the completed item,
+  and continue until empty.

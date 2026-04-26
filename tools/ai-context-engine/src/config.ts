@@ -18,15 +18,18 @@ const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
 
 export const ENGINE_STORAGE_DIRNAME = ".ai-context-engine";
 export const ENGINE_CONFIG_FILENAME = "ai-context-engine.config.json";
+export const ENGINE_DISPLAY_NAME = "Astrograph";
 export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
 export const DEFAULT_OBSERVABILITY_HOST = "127.0.0.1";
-export const DEFAULT_OBSERVABILITY_PORT = 4318;
+export const DEFAULT_OBSERVABILITY_PORT = 34323;
 export const DEFAULT_OBSERVABILITY_RECENT_LIMIT = 100;
 export const DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS = 1000;
+
 const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
   "doc-comments-first",
   "signature-only",
 ]);
+
 const SYMBOL_KINDS = new Set<SymbolKind>([
   "function",
   "class",
