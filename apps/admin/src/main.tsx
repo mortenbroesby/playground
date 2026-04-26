@@ -1,3 +1,4 @@
+import '@playground/ui/theme.css';
 import '@mantine/core/styles.css';
 import { createTheme, MantineProvider } from '@mantine/core';
 import React from 'react';
@@ -23,11 +24,9 @@ const theme = createTheme({
     ],
   },
   primaryShade: { dark: 6, light: 6 },
-  fontFamily:
-    'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  fontFamily: 'var(--font-sans)',
   headings: {
-    fontFamily:
-      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: 'var(--font-mono)',
   },
   components: {
     Button: {

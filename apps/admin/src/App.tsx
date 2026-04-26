@@ -1,3 +1,4 @@
+import { Panel } from '@playground/ui';
 import {
   Badge,
   Box,
@@ -600,13 +601,13 @@ export function App() {
   }
 
   return (
-    <Box className="admin-shell">
+    <Box className="admin-shell terminal-app">
       <Stack className="admin-page" gap="sm">
-        <Paper p="sm" withBorder className="page-header">
+        <Panel glow className="page-header chrome-panel">
           <Group justify="space-between" align="flex-start" gap="sm">
             <Box>
-              <Text className="eyebrow">ADMIN-01</Text>
-              <Title order={1} className="page-title">Kanban</Title>
+              <Text className="chrome-label eyebrow">ADMIN-01</Text>
+              <Title order={1} className="terminal-heading page-title">Kanban</Title>
               <Text c="dimmed" size="xs">
                 Live editor for <code>{taskBoardLabel}</code>.
               </Text>
@@ -643,14 +644,14 @@ export function App() {
               </Group>
             </Stack>
           </Group>
-        </Paper>
+        </Panel>
 
-        <Box className="quick-add-shell">
+        <Panel tone="quiet" className="quick-add-shell chrome-panel">
           <form onSubmit={handleAddTask}>
             <Stack gap="sm" className="quick-add-surface">
               <Box>
-                <Text className="eyebrow">Add idea</Text>
-                <Title order={2} className="board-title">
+                <Text className="chrome-label eyebrow">Add idea</Text>
+                <Title order={2} className="terminal-heading board-title">
                   Capture first, shape later
                 </Title>
                 <Text c="dimmed" size="xs">
@@ -723,13 +724,13 @@ export function App() {
               </Box>
             </Stack>
           </form>
-        </Box>
+        </Panel>
 
-        <Paper p="sm" withBorder className="board-toolbar">
+        <Panel tone="quiet" className="board-toolbar chrome-panel">
           <Stack gap="xs">
             <Group justify="space-between" align="flex-start" gap="sm">
               <Box>
-                <Text className="eyebrow">Board controls</Text>
+                <Text className="chrome-label eyebrow">Board controls</Text>
                 <Text c="dimmed" size="xs">
                   {isWritable
                     ? 'Auto-saves the board index and linked task notes while you work.'
@@ -782,14 +783,14 @@ export function App() {
               </Group>
             </Group>
           </Stack>
-        </Paper>
+        </Panel>
 
-        <Paper p="sm" withBorder className="board-shell">
+        <Panel glow className="board-shell chrome-panel">
           <Stack gap="sm">
             <Group justify="space-between" align="center">
               <Box>
-                <Text className="eyebrow">Board lanes</Text>
-                <Title order={2} className="board-title">
+                <Text className="chrome-label eyebrow">Board lanes</Text>
+                <Title order={2} className="terminal-heading board-title">
                   {focusedSection ? `${focusedSection} focus mode` : 'Current work'}
                 </Title>
               </Box>
@@ -822,7 +823,7 @@ export function App() {
               </Box>
             </ScrollArea>
           </Stack>
-        </Paper>
+        </Panel>
 
         <Drawer
           opened={selectedTask != null}

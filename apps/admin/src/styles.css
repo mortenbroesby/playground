@@ -10,7 +10,7 @@ body {
     radial-gradient(circle at top left, rgba(71, 178, 108, 0.18), transparent 24%),
     radial-gradient(circle at right 12%, rgba(59, 130, 246, 0.12), transparent 20%),
     linear-gradient(180deg, #0a0e0c 0%, #0d1111 100%);
-  color: var(--mantine-color-text);
+  color: hsl(var(--foreground));
 }
 
 code {
@@ -22,13 +22,18 @@ code {
 
 .admin-shell {
   min-height: 100vh;
+  padding: 0.9rem;
 }
 
 .admin-page {
   max-width: 1720px;
   margin: 0 auto;
-  padding: 0.85rem;
   font-size: 13px;
+}
+
+.chrome-panel {
+  overflow: hidden;
+  padding: 0.85rem;
 }
 
 .page-header {
@@ -46,20 +51,16 @@ code {
 
 .eyebrow {
   margin-bottom: 0.15rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--mantine-color-dimmed);
+  color: hsl(var(--muted-foreground));
 }
 
 .page-title {
-  font-size: 0.96rem;
+  font-size: 1rem;
   line-height: 1.1;
 }
 
 .board-title {
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   line-height: 1.15;
 }
 
@@ -156,6 +157,7 @@ code {
   max-width: 48ch;
   margin-top: -0.22rem;
   font-size: 0.68rem;
+  color: hsl(var(--muted-foreground));
 }
 
 .column-meta {
@@ -188,6 +190,7 @@ code {
   min-height: 1.65rem;
   font-size: 0.72rem;
   line-height: 1.35;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state {

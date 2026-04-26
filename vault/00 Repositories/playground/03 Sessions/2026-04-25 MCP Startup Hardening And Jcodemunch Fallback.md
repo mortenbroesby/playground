@@ -262,3 +262,15 @@ a mandatory runtime concern for every MCP or CLI call.
   only spawns a new server when that status file is missing or stale.
 - Bumped Astrograph from `0.0.1-alpha.1` to `0.0.1-alpha.2` for this
   observability-process behavior change.
+
+## Admin chrome shared-theme migration (2026-04-26)
+
+- Migrated the outer `apps/admin` shell onto the shared `@playground/ui`
+  terminal theme instead of leaving the top-level frame on its older
+  admin-only visual treatment.
+- Imported `@playground/ui/theme.css` in the admin entrypoint and aligned the
+  Mantine theme fonts with the shared sans/mono token pair.
+- Replaced the top-level header, quick-add, toolbar, and board wrapper `Paper`
+  chrome with shared `Panel` surfaces while keeping Mantine for the editable
+  board controls and task widgets.
+- Removed the completed `apps/admin` chrome migration item from `IDEAS.md`.

@@ -9,13 +9,15 @@ Example:
 
 Queue:
 
-- Migrate apps/admin chrome to the shared UI theme package so it stops carrying a parallel visual system.
+- Refresh documentation in @astrolens package (./tools/ai-context-engine)
+
+- Create a React Component Library, barebones viewable standalone app like how <https://mantine.dev/core/package/> shows components.
+
+- Ensure our shared design token package is an actual design system. Reuseable, opinionated.
 
 - Define the package and naming plan to evolve `@playground/ui` into the React design system brand `@astrolux`, then ship the first safe rename/export slice.
 
 - Implement "@biomejs/biome" in astrolens for now, later to entire repository.
-
-- Refresh documentation in @astrolens package (./tools/ai-context-engine)
 
 - Do a round of refactor in @astrolens package (./tools/ai-context-engine), clean up tech debt
 
