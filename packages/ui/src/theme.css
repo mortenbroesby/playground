@@ -31,6 +31,9 @@
     0 0 0 1px rgba(50, 255, 156, 0.08),
     0 0 24px rgba(17, 94, 59, 0.16);
   --grid-line: rgba(74, 98, 90, 0.16);
+  --scrollbar-track: rgba(7, 12, 14, 0.82);
+  --scrollbar-thumb: rgba(88, 163, 124, 0.64);
+  --scrollbar-thumb-hover: rgba(109, 196, 146, 0.82);
   --surface-0: rgba(5, 11, 13, 0.96);
   --surface-1: rgba(8, 15, 18, 0.96);
   --surface-2: rgba(11, 20, 23, 0.94);
@@ -39,6 +42,35 @@
 
 html {
   color-scheme: dark;
+  scrollbar-gutter: stable;
+}
+
+:where(html, body, *, .mantine-ScrollArea-viewport, .terminal-scrollbars) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+:where(html, body, *, .mantine-ScrollArea-viewport, .terminal-scrollbars)::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+:where(html, body, *, .mantine-ScrollArea-viewport, .terminal-scrollbars)::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+:where(html, body, *, .mantine-ScrollArea-viewport, .terminal-scrollbars)::-webkit-scrollbar-thumb {
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--scrollbar-thumb), rgba(53, 111, 81, 0.92));
+}
+
+:where(html, body, *, .mantine-ScrollArea-viewport, .terminal-scrollbars)::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--scrollbar-thumb-hover),
+    rgba(72, 143, 104, 0.96)
+  );
 }
 
 body {
@@ -276,6 +308,43 @@ a {
   border-color: rgba(101, 210, 147, 0.82);
 }
 
+.ui-field-label {
+  margin-bottom: 0.38rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.ui-field-description,
+.ui-field-error {
+  margin-top: 0.38rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.ui-field-description {
+  color: hsl(var(--muted-foreground));
+}
+
+.ui-field-error {
+  color: hsl(var(--destructive));
+}
+
+.ui-field-input {
+  min-height: 2.35rem;
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ui-field-dropdown {
+  border: 1px solid rgba(70, 96, 86, 0.58);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+  box-shadow: var(--panel-shadow);
+}
+
+.ui-field-option {
+  font-family: var(--font-sans);
+}
+
 .metric-panel {
   border: 1px solid rgba(63, 89, 80, 0.68);
   background: linear-gradient(180deg, rgba(9, 18, 21, 0.96), rgba(6, 13, 15, 0.96));
@@ -319,21 +388,30 @@ a {
 
 .terminal-scrollbars {
   scrollbar-width: thin;
-  scrollbar-color: rgba(88, 163, 124, 0.6) rgba(7, 12, 14, 0.8);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .terminal-scrollbars::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
 }
 
 .terminal-scrollbars::-webkit-scrollbar-track {
-  background: rgba(7, 12, 14, 0.8);
+  background: var(--scrollbar-track);
 }
 
 .terminal-scrollbars::-webkit-scrollbar-thumb {
-  border: 2px solid rgba(7, 12, 14, 0.8);
-  background: rgba(88, 163, 124, 0.6);
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--scrollbar-thumb), rgba(53, 111, 81, 0.92));
+}
+
+.terminal-scrollbars::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--scrollbar-thumb-hover),
+    rgba(72, 143, 104, 0.96)
+  );
 }
 
 @keyframes terminal-pulse {

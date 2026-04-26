@@ -1,4 +1,4 @@
-import { Panel } from '@playground/ui';
+import { FieldInput, FieldSelect, FieldTextarea, Panel } from '@playground/ui';
 import {
   Badge,
   Box,
@@ -10,12 +10,9 @@ import {
   Group,
   Paper,
   ScrollArea,
-  Select,
   SimpleGrid,
   Stack,
   Text,
-  TextInput,
-  Textarea,
   Title,
 } from '@mantine/core';
 import {
@@ -237,13 +234,13 @@ function SectionColumn({
                 ) : null}
 
                 <SimpleGrid cols={2} spacing="xs" className="task-select-grid">
-                  <Select
+                  <FieldSelect
                     aria-label={`Priority for ${task.title}`}
                     data={prioritySelectData}
                     value={task.priority}
                     onChange={(value) => value && onPriorityChange(task, value as KanbanPriority)}
                   />
-                  <Select
+                  <FieldSelect
                     aria-label={`Section for ${task.title}`}
                     data={sectionSelectData}
                     value={task.section}
@@ -660,7 +657,7 @@ export function App() {
               </Box>
 
               <SimpleGrid cols={{ base: 1, md: 5 }} spacing="xs" verticalSpacing="xs">
-                <TextInput
+                <FieldInput
                   ref={draftTitleInputRef}
                   label="Task"
                   placeholder="Add a new idea or follow-up task"
@@ -668,13 +665,13 @@ export function App() {
                   onChange={(event) => setDraftTitle(event.target.value)}
                   className="idea-field-wide"
                 />
-                <Select
+                <FieldSelect
                   label="Priority"
                   data={prioritySelectData}
                   value={draftPriority}
                   onChange={(value) => value && setDraftPriority(value as KanbanPriority)}
                 />
-                <Select
+                <FieldSelect
                   label="Section"
                   data={sectionSelectData}
                   value={draftSection}
@@ -707,13 +704,13 @@ export function App() {
               <Box className="draft-details" data-expanded={showDraftDetails ? 'true' : 'false'}>
                 <Collapse in={showDraftDetails}>
                   <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xs" verticalSpacing="xs">
-                    <TextInput
+                    <FieldInput
                       label="Why"
                       placeholder="Why this matters"
                       value={draftWhy}
                       onChange={(event) => setDraftWhy(event.target.value)}
                     />
-                    <TextInput
+                    <FieldInput
                       label="Outcome"
                       placeholder="What done should look like"
                       value={draftOutcome}
@@ -757,7 +754,7 @@ export function App() {
             </Group>
 
             <Group align="flex-end" gap="xs" wrap="wrap">
-              <TextInput
+              <FieldInput
                 leftSection={<Search className="icon-sm" aria-hidden="true" />}
                 placeholder="Search tasks, outcomes, or sources"
                 aria-label="Search kanban tasks"
@@ -849,14 +846,14 @@ export function App() {
                 ) : null}
               </Group>
 
-              <TextInput
+              <FieldInput
                 label="Title"
                 value={selectedTask.title}
                 onChange={(event) => handleTitleChange(selectedTask, event.target.value)}
               />
 
               <SimpleGrid cols={2} spacing="sm">
-                <Select
+                <FieldSelect
                   label="Priority"
                   data={prioritySelectData}
                   value={selectedTask.priority}
@@ -864,7 +861,7 @@ export function App() {
                     value && handlePriorityChange(selectedTask, value as KanbanPriority)
                   }
                 />
-                <Select
+                <FieldSelect
                   label="Section"
                   data={sectionSelectData}
                   value={selectedTask.section}
@@ -876,7 +873,7 @@ export function App() {
 
               <Divider />
 
-              <Textarea
+              <FieldTextarea
                 label="Why"
                 autosize
                 minRows={3}
@@ -884,7 +881,7 @@ export function App() {
                 onChange={(event) => handleWhyChange(selectedTask, event.target.value)}
               />
 
-              <Textarea
+              <FieldTextarea
                 label="Outcome"
                 autosize
                 minRows={3}
@@ -892,13 +889,13 @@ export function App() {
                 onChange={(event) => handleOutcomeChange(selectedTask, event.target.value)}
               />
 
-              <TextInput
+              <FieldInput
                 label="Source"
                 value={selectedTask.source ?? ''}
                 onChange={(event) => handleSourceChange(selectedTask, event.target.value)}
               />
 
-              <Textarea
+              <FieldTextarea
                 label="Details"
                 description={
                   selectedTask.taskFile

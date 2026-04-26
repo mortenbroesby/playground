@@ -274,3 +274,23 @@ a mandatory runtime concern for every MCP or CLI call.
   chrome with shared `Panel` surfaces while keeping Mantine for the editable
   board controls and task widgets.
 - Removed the completed `apps/admin` chrome migration item from `IDEAS.md`.
+
+## Shared Mantine field wrapper slice (2026-04-26)
+
+- Started following the "Mantine for interaction, `@playground/ui` for look"
+  split in code instead of keeping it as advice only.
+- Added shared Mantine-backed field wrappers to `packages/ui`:
+  `FieldInput`, `FieldSelect`, and `FieldTextarea`.
+- Moved the admin board to those repo-owned wrappers for its common form
+  controls, so input chrome now flows through the shared design system while
+  Mantine still provides the interaction mechanics underneath.
+
+## Shared scrollbar chrome pass (2026-04-26)
+
+- Promoted the shared terminal scrollbar treatment from an opt-in utility to a
+  global app-level default in `packages/ui/src/theme.css`.
+- Added shared scrollbar tokens for track, thumb, and hover states, then wired
+  them through both Firefox `scrollbar-color` and WebKit pseudo-elements.
+- Mantine scroll areas now inherit the same scrollbar chrome automatically,
+  which keeps admin, host, and Astrograph surfaces more coherent without an
+  extra dependency layer.
