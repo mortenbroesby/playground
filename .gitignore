@@ -35,6 +35,7 @@ vault/.trash/
 # Monorepo
 .turbo/
 dist/
+tools/ai-context-engine/observability-dist/
 coverage/
 *.tsbuildinfo
 playwright-report/

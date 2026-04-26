@@ -305,3 +305,12 @@ a mandatory runtime concern for every MCP or CLI call.
   browser scrollbars pasted onto a custom shell.
 - Bumped Astrograph from `0.0.1-alpha.2` to `0.0.1-alpha.3` for the package UI
   behavior change.
+
+## Astrograph generated viewer artifact cleanup (2026-04-26)
+
+- Stopped tracking `tools/ai-context-engine/observability-dist/` in git so the
+  built observability viewer no longer churns committed generated files.
+- Kept the package-level `files` allowlist intact for npm packaging, but moved
+  the repo policy to source-only tracking plus local/generated build output.
+- Bumped Astrograph from `0.0.1-alpha.3` to `0.0.1-alpha.4` to record the repo
+  packaging and git-tracking policy change under the package version gate.
