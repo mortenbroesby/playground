@@ -49,7 +49,9 @@ function HealthView({ snapshot }: { snapshot: HealthSnapshot | null }) {
         <h1>@astrograph health inspect</h1>
       </section>
       <section className="panel terminal-panel">
-        <pre>{JSON.stringify(snapshot, null, 2)}</pre>
+        <div className="scroll-frame terminal-scrollbars">
+          <pre className="inspector-pre">{JSON.stringify(snapshot, null, 2)}</pre>
+        </div>
       </section>
     </main>
   );
@@ -163,7 +165,7 @@ export function App() {
       <div className="columns">
         <section className="panel terminal-panel">
           <h2>Recent</h2>
-          <ul className="event-list">
+          <ul className="event-list terminal-scrollbars">
             {recent.map((event, index) => (
               <EventCard event={event} key={event.id ?? `${event.event}-${index}`} />
             ))}
@@ -171,7 +173,7 @@ export function App() {
         </section>
         <section className="panel terminal-panel">
           <h2>Live Stream</h2>
-          <ul className="event-list">
+          <ul className="event-list terminal-scrollbars">
             {events.map((event, index) => (
               <EventCard event={event} key={event.id ?? `${event.event}-${index}`} />
             ))}

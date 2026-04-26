@@ -294,3 +294,14 @@ a mandatory runtime concern for every MCP or CLI call.
 - Mantine scroll areas now inherit the same scrollbar chrome automatically,
   which keeps admin, host, and Astrograph surfaces more coherent without an
   extra dependency layer.
+
+## Astrograph observability scrollbar follow-up (2026-04-26)
+
+- Tightened the Astrograph observability app specifically by moving its long
+  event feeds and health inspector onto explicit inset scroll frames instead of
+  relying on raw overflowing lists and `pre` blocks.
+- Applied the shared terminal scrollbar chrome directly to those observability
+  regions, which makes the viewer feel more intentional and less like default
+  browser scrollbars pasted onto a custom shell.
+- Bumped Astrograph from `0.0.1-alpha.2` to `0.0.1-alpha.3` for the package UI
+  behavior change.
