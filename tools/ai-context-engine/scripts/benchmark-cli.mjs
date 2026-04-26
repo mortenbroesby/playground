@@ -14,7 +14,7 @@ const packageRoot = path.resolve(
 const workspaceRoot = findProjectRoot(packageRoot, "pnpm");
 
 const EXCLUDED_SEGMENTS = new Set([
-  ".ai-context-engine",
+  ".astrograph",
   ".stryker-tmp",
   ".vite",
   "coverage",
@@ -112,7 +112,7 @@ async function benchmarkCli(repoRoot, options) {
   requireBinary("hyperfine");
 
   const resolvedRepoRoot = path.resolve(repoRoot);
-  await rm(path.join(resolvedRepoRoot, ".ai-context-engine"), {
+  await rm(path.join(resolvedRepoRoot, ".astrograph"), {
     recursive: true,
     force: true,
   });

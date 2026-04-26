@@ -50,6 +50,7 @@ __screenshots__/
 # Ralph loop working files
 .ralph/
 .codeintel/
+.astrograph/
 .ai-context-engine/
 .stryker-tmp/
 coverage/stryker*.html

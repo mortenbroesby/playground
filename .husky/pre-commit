@@ -1,1 +1,2 @@
 pnpm knowledge:check
+pnpm --filter @playground/ai-context-engine check:version-bump

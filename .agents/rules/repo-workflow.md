@@ -74,6 +74,10 @@ alwaysApply: true
 
 - Once the task reaches the final stage, do not end on soft optional phrasing
   such as "if you want, I can...".
+- Default to ending implementation work by committing and pushing the result.
+- If the user and agent explicitly agreed on a feature branch, push that
+  branch.
+- Otherwise commit on the current branch and push `main`.
 - Prefer taking the next concrete action immediately when it is already within
   scope and permissions.
 - When confirmation is still needed, present one recommended concrete action as

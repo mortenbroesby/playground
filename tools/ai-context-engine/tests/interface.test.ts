@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { handleCli } from "../src/cli.ts";
 import { MCP_SERVER_NAME, MCP_TOOL_DEFINITIONS } from "../src/mcp-contract.ts";
 import { dispatchTool } from "../src/mcp.ts";
-import { indexFolder } from "../src/index.ts";
+import { ASTROGRAPH_PACKAGE_VERSION, indexFolder } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
 const execFileAsync = promisify(execFile);
@@ -439,8 +439,9 @@ export function circumference(radius: number): string {
       nestedRepoRoot,
     ]);
     expect(JSON.parse(diagnosticsStdout)).toMatchObject({
-      storageDir: path.join(canonicalRepoRoot, ".ai-context-engine"),
-      databasePath: path.join(canonicalRepoRoot, ".ai-context-engine", "index.sqlite"),
+      storageDir: path.join(canonicalRepoRoot, ".astrograph"),
+      databasePath: path.join(canonicalRepoRoot, ".astrograph", "index.sqlite"),
+      storageVersion: 1,
       indexedFiles: 2,
       currentFiles: 2,
     });
@@ -636,6 +637,7 @@ export function circumference(radius: number): string {
     await withMcpClient(async ({ client, stderr }) => {
       expect(client.getServerVersion()).toMatchObject({
         name: MCP_SERVER_NAME,
+        version: ASTROGRAPH_PACKAGE_VERSION,
       });
 
       const tools = await client.listTools();
@@ -657,7 +659,9 @@ export function circumference(radius: number): string {
 
       expect(stderr()).toBe("");
       expect(JSON.parse(diagnosticsContent.text)).toMatchObject({
-        storageDir: path.join(canonicalRepoRoot, ".ai-context-engine"),
+        engineVersion: ASTROGRAPH_PACKAGE_VERSION,
+        storageDir: path.join(canonicalRepoRoot, ".astrograph"),
+        storageVersion: 1,
       });
     });
   }, 15000);
@@ -666,7 +670,7 @@ export function circumference(radius: number): string {
     const repoRoot = await createFixtureRepo();
     const canonicalRepoRoot = await realpath(repoRoot);
     await writeFile(
-      path.join(repoRoot, "ai-context-engine.config.json"),
+      path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         observability: {
           port: 0,
@@ -698,7 +702,7 @@ export function circumference(radius: number): string {
 
       const healthResponse = await fetch(`http://${server.host}:${server.port}/health`);
       const health = await healthResponse.json() as { storageDir: string; watch: { status: string } };
-      expect(health.storageDir).toContain(".ai-context-engine");
+      expect(health.storageDir).toContain(".astrograph");
       expect(health.watch.status).toBe("idle");
 
       const msgpackHealthResponse = await fetch(`http://${server.host}:${server.port}/health?format=msgpack`, {
@@ -709,7 +713,7 @@ export function circumference(radius: number): string {
       const msgpackHealth = decode(
         new Uint8Array(await msgpackHealthResponse.arrayBuffer()),
       ) as { storageDir: string };
-      expect(msgpackHealth.storageDir).toContain(".ai-context-engine");
+      expect(msgpackHealth.storageDir).toContain(".astrograph");
 
       await handleCli(["index-folder", "--repo", repoRoot]);
 
@@ -739,7 +743,7 @@ export function circumference(radius: number): string {
   it("serves msgpack websocket events when requested", async () => {
     const repoRoot = await createFixtureRepo();
     await writeFile(
-      path.join(repoRoot, "ai-context-engine.config.json"),
+      path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         observability: {
           port: 0,
@@ -786,7 +790,7 @@ export function circumference(radius: number): string {
     const blocked = await listenOnFirstAvailablePortInRange("127.0.0.1", 34323, 35322);
 
     await writeFile(
-      path.join(repoRoot, "ai-context-engine.config.json"),
+      path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         observability: {
           port: blocked.port,

@@ -5,10 +5,15 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  ASTROGRAPH_PACKAGE_VERSION,
+  ASTROGRAPH_VERSION_PARTS,
   DEFAULT_SUMMARY_STRATEGY,
+  ENGINE_STORAGE_VERSION,
   ENGINE_TOOLS,
+  assessAstrographVersionBump,
   loadRepoEngineConfig,
   createDefaultEngineConfig,
+  parseAstrographVersion,
   resolveEnginePaths,
 } from "../src/index.ts";
 
@@ -29,12 +34,13 @@ describe("ai-context-engine contract", () => {
     const repoRoot = "/tmp/playground";
 
     expect(resolveEnginePaths(repoRoot)).toEqual({
-      storageDir: "/tmp/playground/.ai-context-engine",
-      databasePath: "/tmp/playground/.ai-context-engine/index.sqlite",
-      repoMetaPath: "/tmp/playground/.ai-context-engine/repo-meta.json",
-      integrityPath: "/tmp/playground/.ai-context-engine/integrity.sha256",
-      rawCacheDir: "/tmp/playground/.ai-context-engine/raw-cache",
-      eventsPath: "/tmp/playground/.ai-context-engine/events.jsonl",
+      storageDir: "/tmp/playground/.astrograph",
+      databasePath: "/tmp/playground/.astrograph/index.sqlite",
+      repoMetaPath: "/tmp/playground/.astrograph/repo-meta.json",
+      integrityPath: "/tmp/playground/.astrograph/integrity.sha256",
+      storageVersionPath: "/tmp/playground/.astrograph/storage-version.json",
+      rawCacheDir: "/tmp/playground/.astrograph/raw-cache",
+      eventsPath: "/tmp/playground/.astrograph/events.jsonl",
     });
   });
 
@@ -52,7 +58,8 @@ describe("ai-context-engine contract", () => {
       summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
     });
 
-    expect(config.paths.databasePath).toContain(".ai-context-engine/index.sqlite");
+    expect(config.paths.databasePath).toContain(".astrograph/index.sqlite");
+    expect(ENGINE_STORAGE_VERSION).toBe(1);
   });
 
   it("advertises the required engine tools", () => {
@@ -69,12 +76,60 @@ describe("ai-context-engine contract", () => {
     ]);
   });
 
+  it("uses package.json as the canonical Astrograph version source", () => {
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.0");
+    expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
+      major: 0,
+      minor: 0,
+      patch: 1,
+      increment: 0,
+    });
+    expect(ASTROGRAPH_VERSION_PARTS).toEqual({
+      major: 0,
+      minor: 0,
+      patch: 1,
+      increment: 0,
+    });
+  });
+
+  it("enforces Astrograph bump rules for increment and semver resets", () => {
+    expect(
+      assessAstrographVersionBump(
+        { major: 0, minor: 0, patch: 1, increment: 0 },
+        { major: 0, minor: 0, patch: 1, increment: 1 },
+      ),
+    ).toMatchObject({
+      ok: true,
+      kind: "increment",
+    });
+
+    expect(
+      assessAstrographVersionBump(
+        { major: 0, minor: 0, patch: 1, increment: 4 },
+        { major: 0, minor: 0, patch: 2, increment: 0 },
+      ),
+    ).toMatchObject({
+      ok: true,
+      kind: "patch",
+    });
+
+    expect(
+      assessAstrographVersionBump(
+        { major: 0, minor: 0, patch: 1, increment: 4 },
+        { major: 0, minor: 0, patch: 2, increment: 1 },
+      ),
+    ).toMatchObject({
+      ok: false,
+      kind: null,
+    });
+  });
+
   it("loads repo-root config defaults when present", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "ai-context-engine-config-"));
     tempDirs.push(repoRoot);
 
     await writeFile(
-      path.join(repoRoot, "ai-context-engine.config.json"),
+      path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         summaryStrategy: "signature-only",
         observability: {
@@ -96,7 +151,7 @@ describe("ai-context-engine contract", () => {
       recentLimit: 17,
       snapshotIntervalMs: 250,
     });
-    expect(config.configPath).toContain("ai-context-engine.config.json");
+    expect(config.configPath).toContain("astrograph.config.json");
   });
 
   it("fails clearly for invalid repo-root config", async () => {
@@ -104,7 +159,7 @@ describe("ai-context-engine contract", () => {
     tempDirs.push(repoRoot);
 
     await writeFile(
-      path.join(repoRoot, "ai-context-engine.config.json"),
+      path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         observability: {
           recentLimit: 0,
@@ -113,7 +168,7 @@ describe("ai-context-engine contract", () => {
     );
 
     await expect(loadRepoEngineConfig(repoRoot)).rejects.toThrow(
-      /Invalid ai-context-engine\.config\.json/i,
+      /Invalid astrograph\.config\.json/i,
     );
   });
 });

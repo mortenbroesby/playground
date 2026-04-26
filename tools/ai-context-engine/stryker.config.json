@@ -21,7 +21,7 @@
   "ignorePatterns": [
     "coverage",
     "dist",
-    ".ai-context-engine",
+    ".astrograph",
     ".stryker-tmp"
   ],
   "vitest": {

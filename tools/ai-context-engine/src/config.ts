@@ -16,8 +16,9 @@ import type {
 
 const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
 
-export const ENGINE_STORAGE_DIRNAME = ".ai-context-engine";
-export const ENGINE_CONFIG_FILENAME = "ai-context-engine.config.json";
+export const ENGINE_STORAGE_DIRNAME = ".astrograph";
+export const ENGINE_STORAGE_VERSION = 1;
+export const ENGINE_CONFIG_FILENAME = "astrograph.config.json";
 export const ENGINE_DISPLAY_NAME = "@astrograph";
 export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
 export const DEFAULT_OBSERVABILITY_HOST = "127.0.0.1";
@@ -71,6 +72,7 @@ export function resolveEnginePaths(repoRoot: string): EnginePaths {
     databasePath: path.join(storageDir, "index.sqlite"),
     repoMetaPath: path.join(storageDir, "repo-meta.json"),
     integrityPath: path.join(storageDir, "integrity.sha256"),
+    storageVersionPath: path.join(storageDir, "storage-version.json"),
     rawCacheDir: path.join(storageDir, "raw-cache"),
     eventsPath: path.join(storageDir, "events.jsonl"),
   };

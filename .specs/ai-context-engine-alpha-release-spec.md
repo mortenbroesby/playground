@@ -29,7 +29,7 @@ This slice should harden two specific gaps:
   file
 - keep observability opt-in and local-only
 - do not require Bun for normal indexing, CLI, or MCP use
-- keep the repo-root runtime contract under `.ai-context-engine/`
+- keep the repo-root runtime contract under `.astrograph/`
 - preserve current repo-root auto-resolution through the enclosing Git worktree
 
 ## 4. Non-Goals
@@ -45,7 +45,7 @@ This slice should harden two specific gaps:
 
 Add an optional root-level file:
 
-- `ai-context-engine.config.json`
+- `astrograph.config.json`
 
 The installed package should look for this file at the resolved repo root.
 
@@ -77,7 +77,7 @@ Rules:
 The package should expose a small config loader that:
 
 1. resolves the effective repo root
-2. checks for `ai-context-engine.config.json` at that root
+2. checks for `astrograph.config.json` at that root
 3. validates the file with a narrow schema
 4. returns merged defaults plus overrides
 
@@ -109,15 +109,25 @@ Scope:
 
 This page is an operator/debug surface only. It is not a framework app.
 
+## 5.5 Version contract
+
+Use `tools/ai-context-engine/package.json` as the single Astrograph version
+source, with npm-compatible prerelease semver:
+
+- `major.minor.patch-alpha.increment`
+
+This keeps npm publishing valid while still exposing the four numeric values
+the engine wants for cache, storage, and contract invalidation policy.
+
 ## 6. Acceptance Criteria
 
 1. `pnpm exec ai-context-engine observability --repo /abs/repo` serves a page
    at `/` that shows current health and live events.
 2. The viewer still works when the package is run through the published-style
    bin wrapper, not just source files.
-3. A repo with no `ai-context-engine.config.json` behaves like current default
+3. A repo with no `astrograph.config.json` behaves like current default
    behavior.
-4. A repo with `ai-context-engine.config.json` can set observability defaults
+4. A repo with `astrograph.config.json` can set observability defaults
    and summary strategy defaults.
 5. Explicit CLI flags override config-file defaults.
 6. Invalid config files fail with a narrow validation error instead of silent

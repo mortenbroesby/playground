@@ -32,7 +32,7 @@ const SKIP_SEGMENTS = new Set([
   ".next",
   ".turbo",
   ".vercel",
-  ".ai-context-engine",
+  ".astrograph",
   ".codeintel",
   "coverage",
   "dist",

@@ -1,0 +1,10 @@
+{
+  "summaryStrategy": "doc-comments-first",
+  "observability": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 34323,
+    "recentLimit": 100,
+    "snapshotIntervalMs": 1000
+  }
+}

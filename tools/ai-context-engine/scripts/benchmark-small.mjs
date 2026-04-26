@@ -24,7 +24,7 @@ const packageRoot = path.resolve(
 );
 
 const EXCLUDED_SEGMENTS = new Set([
-  ".ai-context-engine",
+  ".astrograph",
   ".stryker-tmp",
   ".vite",
   "coverage",
@@ -209,7 +209,7 @@ async function listSupportedSourceFiles(rootDir, currentDir = rootDir) {
 }
 
 async function benchmarkLibrarySurface(repoRoot) {
-  const storageDir = path.join(repoRoot, ".ai-context-engine");
+  const storageDir = path.join(repoRoot, ".astrograph");
   await rm(storageDir, { recursive: true, force: true });
   const scopedFiles = (await listSupportedSourceFiles(repoRoot)).filter((filePath) =>
     filePath.startsWith("src/"),

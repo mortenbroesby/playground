@@ -125,6 +125,13 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
+      engineVersion: "0.0.1-alpha.0",
+      engineVersionParts: {
+        major: 0,
+        minor: 0,
+        patch: 1,
+        increment: 0,
+      },
       summaryStrategy: "doc-comments-first",
       summarySources: {
         "doc-comment": 4,
@@ -273,11 +280,12 @@ module.exports = {
       totalSymbols: 5,
     });
     expect(health.storageDir).toBe(
-      path.join(canonicalRepoRoot, ".ai-context-engine"),
+      path.join(canonicalRepoRoot, ".astrograph"),
     );
     expect(health.databasePath).toBe(
-      path.join(canonicalRepoRoot, ".ai-context-engine", "index.sqlite"),
+      path.join(canonicalRepoRoot, ".astrograph", "index.sqlite"),
     );
+    expect(health.storageVersion).toBe(1);
   });
 
   it("supports symbol and text search plus exact retrieval", async () => {

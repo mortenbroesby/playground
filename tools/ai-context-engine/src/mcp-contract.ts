@@ -3,11 +3,12 @@ import * as zod from "zod";
 
 import { parseSummaryStrategy } from "./config.ts";
 import { parseQueryCodeMcpInput } from "./validation.ts";
+import { ASTROGRAPH_PACKAGE_VERSION } from "./version.ts";
 
 type EngineModule = typeof import("./index.ts");
 
 export const MCP_SERVER_NAME = "@playground/ai-context-engine";
-export const MCP_SERVER_VERSION = "0.0.1";
+export const MCP_SERVER_VERSION = ASTROGRAPH_PACKAGE_VERSION;
 
 type McpToolSchema = Record<string, z.ZodType>;
 type McpToolExecutor = (

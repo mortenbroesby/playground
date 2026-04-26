@@ -5,6 +5,7 @@ export {
   DEFAULT_OBSERVABILITY_RECENT_LIMIT,
   DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS,
   DEFAULT_SUMMARY_STRATEGY,
+  ENGINE_STORAGE_VERSION,
   ENGINE_DISPLAY_NAME,
   ENGINE_CONFIG_FILENAME,
   ENGINE_TOOLS,
@@ -18,6 +19,14 @@ export {
   resolveEngineRepoRoot,
   resolveEnginePaths,
 } from "./config.ts";
+export {
+  ASTROGRAPH_PACKAGE_VERSION,
+  ASTROGRAPH_VERSION_PARTS,
+  assessAstrographVersionBump,
+  formatAstrographVersion,
+  parseAstrographVersion,
+  parseAstrographVersionFromCommitBaseline,
+} from "./version.ts";
 export {
   clearStorageProcessCaches,
   diagnostics,
@@ -43,6 +52,7 @@ export {
 } from "./event-sink.ts";
 
 export type {
+  AstrographVersionParts,
   DiagnosticsOptions,
   DiagnosticsResult,
   EngineEventEnvelope,

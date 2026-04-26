@@ -3,7 +3,7 @@
 Local deterministic context engine for AI-assisted code exploration.
 
 `@astrograph` is the human-facing name for this engine inside the repo. The
-published package name, runtime directory, MCP server id, and CLI command stay
+published package name, MCP server id, and CLI command stay
 `ai-context-engine` for compatibility.
 
 ## What it does
@@ -25,7 +25,7 @@ server, with a CLI and small TypeScript API as secondary debug and development
 surfaces.
 
 The runtime artifacts for a given repo live at the repo root in
-`.ai-context-engine/`. That directory is the durable runtime contract for local
+`.astrograph/`. That directory is the durable runtime contract for local
 use:
 
 - `index.sqlite` for the current index backend
@@ -38,7 +38,7 @@ repo-root directory is for engine runtime state, not npm publishing artifacts.
 
 Current capabilities:
 
-- repo-local indexing under `.ai-context-engine/`
+- repo-local indexing under `.astrograph/`
 - exact symbol and source retrieval as the truth layer
 - ranked, budgeted context assembly for agent use
 - stdio MCP entrypoint backed by the official MCP TypeScript SDK
@@ -50,6 +50,27 @@ Current capabilities:
 The framing is intentionally "context engine", not generic code intelligence.
 The package exists to give agents the minimum high-signal code context they need
 without broad file reads.
+
+## Versioning
+
+Astrograph treats `tools/ai-context-engine/package.json` as its canonical
+version source.
+
+The package uses npm-compatible alpha prerelease semver:
+
+- `major.minor.patch-alpha.increment`
+
+That yields the four numeric values Astrograph uses internally:
+
+- `major` for breaking MCP, storage, or library contract changes
+- `minor` for backward-compatible feature additions
+- `patch` for backward-compatible fixes and internal changes
+- `increment` for every Astrograph commit, even when the base semver line does
+  not change
+
+Repo commits that stage changes under `tools/ai-context-engine/` are blocked by
+the pre-commit hook unless this version advances under that policy. Base semver
+bumps reset `increment` to `0`.
 
 ## How an agent uses it
 
@@ -219,7 +240,7 @@ developer debugging rather than agent retrieval.
   - `/health` for a live `diagnostics` snapshot
   - `/recent` for the current in-memory tail of recent JSONL events
   - `/events` for a read-only websocket stream
-- event producers append to `.ai-context-engine/events.jsonl`
+- event producers append to `.astrograph/events.jsonl`
 - the Bun server does not open SQLite directly; health snapshots are delegated
   to the normal Node CLI path so the transport runtime stays separate from the
   storage runtime
@@ -237,7 +258,7 @@ health drift without changing the MCP protocol contract.
 
 The package also supports an optional repo-root config file:
 
-- `ai-context-engine.config.json`
+- `astrograph.config.json`
 
 Initial supported shape:
 
@@ -297,7 +318,7 @@ internal index backend evolves.
 
 The next storage changes should preserve:
 
-- repo-root `.ai-context-engine/` artifacts as the runtime contract
+- repo-root `.astrograph/` artifacts as the runtime contract
 - exact retrieval semantics and source-anchored outputs
 - backend-specific details staying behind the engine's internal storage layer
 

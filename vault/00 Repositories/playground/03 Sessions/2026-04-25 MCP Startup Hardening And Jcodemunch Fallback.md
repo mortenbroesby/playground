@@ -132,7 +132,7 @@ a mandatory runtime concern for every MCP or CLI call.
 - Kept the server intentionally split-runtime: Bun owns HTTP plus websocket
   delivery, while live health snapshots delegate to the normal Node CLI
   `diagnostics` path instead of opening SQLite from Bun.
-- Added a repo-local append-only `.ai-context-engine/events.jsonl` sink and
+- Added a repo-local append-only `.astrograph/events.jsonl` sink and
   wired current MCP tool dispatch, watch lifecycle, child index worker, and
   periodic health snapshots into that shared event log.
 - Exposed three local-only endpoints:
@@ -145,9 +145,9 @@ a mandatory runtime concern for every MCP or CLI call.
 
 ## Alpha-readiness follow-up (2026-04-26)
 
-- Added a repo-root `ai-context-engine.config.json` contract so the installed
+- Added a repo-root `astrograph.config.json` contract so the installed
   package can inherit summary-strategy and observability defaults from the
-  enclosing repository without changing the core `.ai-context-engine/` runtime
+  enclosing repository without changing the core `.astrograph/` runtime
   artifact layout.
 - Kept observability optional for publishable alpha use:
   - no config file is required for normal CLI, MCP, or library use
@@ -214,3 +214,26 @@ a mandatory runtime concern for every MCP or CLI call.
 - Migrating that slice to shared `@playground/ui` `Panel`, `Badge`, and
   `Button` primitives was enough to make the main-site shell feel aligned with
   the rest of the design system without crossing into remote app styling.
+
+## Astrograph version policy and storage-root cleanup (2026-04-26)
+
+- Renamed the repo-local runtime directory from `.ai-context-engine/` to
+  `.astrograph/` and kept it gitignored as local cache/runtime state.
+- Added a storage version marker at `.astrograph/storage-version.json` so the
+  engine can backfill, reset, or eventually migrate repo-local storage
+  deliberately instead of guessing from file presence.
+- Renamed the repo-root config contract to `astrograph.config.json`.
+- Made `tools/ai-context-engine/package.json` the canonical Astrograph version
+  source and moved the package to npm-compatible alpha prerelease semver:
+  `major.minor.patch-alpha.increment`.
+- Added an Astrograph-specific pre-commit gate: commits staging
+  `tools/ai-context-engine/` must advance the version, and every Astrograph
+  commit must at least change the `increment` value.
+
+## Default ship behavior update (2026-04-26)
+
+- Updated the shared repo workflow so implementation work should normally end
+  with a commit and push instead of stopping at a local dirty tree.
+- The default branch rule is now explicit:
+  - if a feature branch was explicitly agreed, commit and push that branch
+  - otherwise commit on the current branch and push `main`

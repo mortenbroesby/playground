@@ -14,6 +14,7 @@ export interface EnginePaths {
   databasePath: string;
   repoMetaPath: string;
   integrityPath: string;
+  storageVersionPath: string;
   rawCacheDir: string;
   eventsPath: string;
 }
@@ -177,6 +178,13 @@ export interface SymbolSourceResult {
 
 export type QueryCodeIntent = "discover" | "source" | "assemble" | "auto";
 
+export interface AstrographVersionParts {
+  major: number;
+  minor: number;
+  patch: number;
+  increment: number;
+}
+
 export interface QueryCodeOptions {
   repoRoot: string;
   intent?: QueryCodeIntent;
@@ -270,8 +278,11 @@ export interface DiagnosticsOptions {
 }
 
 export interface DiagnosticsResult {
+  engineVersion: string;
+  engineVersionParts: AstrographVersionParts;
   storageDir: string;
   databasePath: string;
+  storageVersion: number;
   storageMode: StorageMode;
   storageBackend: IndexBackendName;
   staleStatus: StaleStatus;

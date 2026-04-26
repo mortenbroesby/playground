@@ -41,3 +41,10 @@ Thin bootstrap for coding agents in this repo.
   [codex/rules](codex/rules) as a docs-path compatibility symlink.
 - Claude loads the same shared commands, skills, hooks, and rules through
   `.claude/*` symlinks.
+
+## Ship Default
+
+- Default to finishing work by committing and pushing.
+- If the user and agent explicitly agreed on a feature branch, push that
+  branch.
+- Otherwise commit on the current branch and push `main`.

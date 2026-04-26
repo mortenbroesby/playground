@@ -31,7 +31,7 @@ export function spawnAiContextEngineCli(projectRoot, args, { detached = false } 
 }
 
 function aiContextEnginePaths(projectRoot) {
-  const storageDir = path.join(projectRoot, '.ai-context-engine');
+  const storageDir = path.join(projectRoot, '.astrograph');
 
   return {
     storageDir,

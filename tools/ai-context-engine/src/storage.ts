@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { watch as fsWatch } from "node:fs";
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,7 @@ import {
 
 import {
   createDefaultEngineConfig,
+  ENGINE_STORAGE_VERSION,
   loadRepoEngineConfig,
   normalizeSummaryStrategy,
   resolveEngineRepoRoot,
@@ -45,6 +46,10 @@ import type {
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
 import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
+import {
+  ASTROGRAPH_PACKAGE_VERSION,
+  ASTROGRAPH_VERSION_PARTS,
+} from "./version.ts";
 import {
   validateContextBundleOptions,
   validateRankedContextOptions,
@@ -110,6 +115,7 @@ interface DbSymbolRow {
 
 interface RepoMetaRecord {
   repoRoot: string;
+  storageVersion?: number;
   indexedAt: string;
   indexedFiles: number;
   indexedSymbols: number;
@@ -140,6 +146,7 @@ const ensuredStorageRoots = new Map<string, true>();
 const databaseConnectionCache = new Map<string, CachedDatabaseConnection>();
 const INDEX_WORKER_CHILD_ENV = "AI_CONTEXT_ENGINE_INDEX_WORKER_CHILD";
 const storageLogger = getLogger({ component: "storage" });
+const STORAGE_VERSION_FILENAME = "storage-version.json";
 
 const storageModulePath = fileURLToPath(import.meta.url);
 const storageModuleDir = path.dirname(storageModulePath);
@@ -575,6 +582,7 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
   });
   if (!getLruEntry(ensuredStorageRoots, resolvedRepoRoot)) {
     await mkdir(config.paths.storageDir, { recursive: true });
+    await ensureStorageVersion(config);
     await mkdir(config.paths.rawCacheDir, { recursive: true });
     setLruEntry(
       ensuredStorageRoots,
@@ -584,6 +592,110 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     );
   }
   return config;
+}
+
+async function ensureStorageVersion(
+  config: ReturnType<typeof createDefaultEngineConfig>,
+) {
+  const currentVersion = await readStorageVersion(config.paths.storageVersionPath);
+
+  if (currentVersion === ENGINE_STORAGE_VERSION) {
+    return;
+  }
+
+  if (currentVersion === null) {
+    if (await storageDirHasContents(config.paths.storageDir)) {
+      await writeStorageVersion(config.paths.storageVersionPath, ENGINE_STORAGE_VERSION);
+      storageLogger.info({
+        event: "storage.version.backfilled",
+        repoRoot: config.repoRoot,
+        storageDir: config.paths.storageDir,
+        storageVersion: ENGINE_STORAGE_VERSION,
+      });
+      return;
+    }
+
+    await writeStorageVersion(config.paths.storageVersionPath, ENGINE_STORAGE_VERSION);
+    return;
+  }
+
+  if (currentVersion > ENGINE_STORAGE_VERSION) {
+    throw new Error(
+      `Unsupported Astrograph storage version ${currentVersion} in ${config.paths.storageDir}. Current runtime supports ${ENGINE_STORAGE_VERSION}.`,
+    );
+  }
+
+  await resetStorageForVersionMismatch(config, currentVersion);
+}
+
+async function readStorageVersion(storageVersionPath: string): Promise<number | null> {
+  const contents = await readFile(storageVersionPath, "utf8").catch((error: unknown) => {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  });
+
+  if (contents === null) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(contents) as { version?: unknown };
+    return typeof parsed.version === "number" && Number.isInteger(parsed.version)
+      ? parsed.version
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeStorageVersion(
+  storageVersionPath: string,
+  version: number,
+) {
+  await writeFile(
+    storageVersionPath,
+    `${JSON.stringify(
+      {
+        version,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+async function storageDirHasContents(storageDir: string): Promise<boolean> {
+  const entries = await readdir(storageDir).catch((error: unknown) => {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  });
+
+  return entries.some((entry) => entry !== STORAGE_VERSION_FILENAME);
+}
+
+async function resetStorageForVersionMismatch(
+  config: ReturnType<typeof createDefaultEngineConfig>,
+  currentVersion: number,
+) {
+  storageLogger.warn({
+    event: "storage.version.reset",
+    repoRoot: config.repoRoot,
+    storageDir: config.paths.storageDir,
+    fromVersion: currentVersion,
+    toVersion: ENGINE_STORAGE_VERSION,
+  });
+
+  clearDatabaseConnectionCache(config.paths.databasePath);
+  ensuredStorageRoots.delete(config.repoRoot);
+  await rm(config.paths.storageDir, { recursive: true, force: true });
+  await mkdir(config.paths.storageDir, { recursive: true });
+  await mkdir(config.paths.rawCacheDir, { recursive: true });
+  await writeStorageVersion(config.paths.storageVersionPath, ENGINE_STORAGE_VERSION);
 }
 
 async function createEngineContext(input: {
@@ -662,6 +774,7 @@ async function writeSidecars(input: {
   const existingMeta = await readRepoMeta(config.paths.repoMetaPath);
   const meta = {
     repoRoot: input.repoRoot,
+    storageVersion: ENGINE_STORAGE_VERSION,
     indexedAt: input.indexedAt,
     indexedFiles: input.indexedFiles,
     indexedSymbols: input.totalSymbols,
@@ -766,6 +879,11 @@ async function readRepoMeta(
     const parsed = JSON.parse(content) as RepoMetaRecord;
     return {
       ...parsed,
+      storageVersion:
+        typeof parsed.storageVersion === "number" &&
+        Number.isInteger(parsed.storageVersion)
+          ? parsed.storageVersion
+          : ENGINE_STORAGE_VERSION,
       summaryStrategy: normalizeSummaryStrategy(parsed.summaryStrategy),
       watch: normalizeWatchDiagnostics(parsed.watch),
     };
@@ -2687,8 +2805,11 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
     ) as DiagnosticsResult["summarySources"];
 
     return {
+      engineVersion: ASTROGRAPH_PACKAGE_VERSION,
+      engineVersionParts: ASTROGRAPH_VERSION_PARTS,
       storageDir: config.paths.storageDir,
       databasePath: config.paths.databasePath,
+      storageVersion: meta?.storageVersion ?? ENGINE_STORAGE_VERSION,
       storageMode: config.storageMode,
       storageBackend: SQLITE_INDEX_BACKEND.backendName,
       staleStatus,

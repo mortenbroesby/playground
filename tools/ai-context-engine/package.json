@@ -1,6 +1,6 @@
 {
   "name": "@playground/ai-context-engine",
-  "version": "0.0.1",
+  "version": "0.0.1-alpha.0",
   "private": true,
   "type": "module",
   "description": "Local deterministic context engine for AI-assisted code exploration",
@@ -35,6 +35,7 @@
     "bench:cli": "node --experimental-strip-types ./scripts/benchmark-cli.mjs",
     "bench:corpus": "node --experimental-strip-types ./bench/src/cli.ts",
     "test:package-bin": "node ./scripts/smoke-package-bin.mjs",
+    "check:version-bump": "node --experimental-strip-types ./scripts/check-version-bump.mjs",
     "type-lint": "pnpm run type-check && tsc -p ./bench/tsconfig.json --noEmit && tsc -p ./tsconfig.build.json --noEmit && tsc -p ./observability/tsconfig.json --noEmit",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
