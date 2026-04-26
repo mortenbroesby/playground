@@ -244,8 +244,11 @@ developer debugging rather than agent retrieval.
 
 - start it with `pnpm exec ai-context-engine observability --repo /abs/repo`
 - in this repo, `pnpm astrograph:open` first tries to reuse an already-running
-  repo-local observability server and only starts a new one when no healthy
-  existing server is registered
+  repo-local observability server and otherwise starts one in the background
+  before opening the browser
+- in this repo's shared agent hooks, `observability.enabled: true` in
+  `astrograph.config.json` now auto-bootstraps the observability server on
+  session start
 - add `--dev` in workspace development to force the Vite dev client and React
   Fast Refresh path explicitly
 - it binds to `127.0.0.1` by default and uses Bun's uWebSockets-backed server
@@ -273,6 +276,37 @@ developer debugging rather than agent retrieval.
 This surface is intentionally local, metadata-first, and read-only. It exists
 to help inspect MCP requests, watch behavior, child index worker activity, and
 health drift without changing the MCP protocol contract.
+
+The current main view is intentionally narrow:
+
+- one readable stream of MCP tool calls instead of a multi-column dashboard
+- plain-English summaries of what each tool call did
+- estimated token savings only when Astrograph has a defensible baseline
+- raw health JSON moved behind `/health/view`
+
+The token numbers are estimates, not billing-accurate accounting. They are
+meant to show when Astrograph likely avoided sending larger raw-code payloads
+back to the model.
+
+## Smart refresh
+
+Astrograph now uses a hybrid refresh model:
+
+- live watch mode still handles active local edits
+- git checkpoints now trigger a background smart refresh:
+  - `post-commit`
+  - `post-checkout`
+  - `post-merge`
+  - `pre-push`
+- small supported-source change sets refresh through `index-file`
+- deletes, renames, and structural changes fall back to `index-folder`
+
+You can also trigger a manual full refresh for the current repo with:
+
+- `pnpm astrograph:refresh`
+
+This is the first slice only. It is git-diff-driven, not yet Merkle- or
+dependency-graph-driven.
 
 ## Repo config
 
@@ -303,6 +337,8 @@ Current behavior:
   override is passed
 - observability server defaults are picked up from this file, but explicit CLI
   flags still win
+- in this repo, `observability.enabled: true` also enables session-start
+  autostart for the local observability daemon
 - Bun is only required when the observability command is actually invoked
 
 ## Structured diagnostics

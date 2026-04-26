@@ -314,3 +314,35 @@ a mandatory runtime concern for every MCP or CLI call.
   the repo policy to source-only tracking plus local/generated build output.
 - Bumped Astrograph from `0.0.1-alpha.3` to `0.0.1-alpha.4` to record the repo
   packaging and git-tracking policy change under the package version gate.
+
+## Astrograph smart refresh and observability simplification (2026-04-26)
+
+- Added a first smart-refresh slice around git checkpoints instead of trying to
+  replace watch mode outright:
+  - `post-commit`
+  - `post-checkout`
+  - `post-merge`
+  - `pre-push`
+- The refresh planner is intentionally conservative:
+  - use `index-file` for small supported-source change sets
+  - fall back to `index-folder` for deletes, renames, or structural files
+- Captured the longer-term architecture in
+  `.specs/astrograph-smart-refresh-spec.md`: keep watch mode for immediacy,
+  then add Merkle hashes and dependency fan-out later instead of overbuilding a
+  realtime database now.
+- Simplified the observability viewer into a single readable ledger of MCP tool
+  calls, with plain-English summaries and estimated token-saved metrics only
+  when Astrograph has a defensible raw-vs-compact baseline.
+- Bumped Astrograph from `0.0.1-alpha.4` to `0.0.1-alpha.5` for the combined
+  observability and refresh behavior change.
+
+## Astrograph observability daemon bootstrap (2026-04-26)
+
+- The observability server no longer needs to keep a foreground terminal open
+  just to be useful in this repo.
+- `pnpm astrograph:open` now ensures a healthy background server exists, then
+  opens the browser against that daemon instead of attaching the terminal to a
+  long-lived child process.
+- SessionStart now also bootstraps Astrograph observability automatically when
+  `astrograph.config.json` sets `observability.enabled: true`, mirroring the
+  existing watcher bootstrap pattern.

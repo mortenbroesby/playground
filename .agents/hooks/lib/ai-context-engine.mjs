@@ -37,7 +37,23 @@ function aiContextEnginePaths(projectRoot) {
     storageDir,
     watchPidPath: path.join(storageDir, 'watch.pid'),
     watchLogPath: path.join(storageDir, 'watch.log'),
+    observabilityStatusPath: path.join(storageDir, 'observability-server.json'),
+    observabilityLogPath: path.join(storageDir, 'observability.log'),
   };
+}
+
+async function readJsonFile(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function loadObservabilityPreference(projectRoot) {
+  const configPath = path.join(projectRoot, 'astrograph.config.json');
+  const parsed = await readJsonFile(configPath);
+  return parsed?.observability?.enabled === true;
 }
 
 async function readWatchPid(watchPidPath) {
@@ -129,6 +145,123 @@ export async function ensureAiContextEngineWatch(projectRoot, { debounceMs = 150
       pid: actualPid ?? child.pid,
       watchPidPath,
       watchLogPath,
+    };
+  } finally {
+    closeSync(stdoutFd);
+    closeSync(stderrFd);
+  }
+}
+
+async function readObservabilityStatus(observabilityStatusPath) {
+  const parsed = await readJsonFile(observabilityStatusPath);
+  if (
+    !parsed
+    || typeof parsed.host !== 'string'
+    || typeof parsed.port !== 'number'
+    || !Number.isInteger(parsed.port)
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+async function isObservabilityHealthy(status) {
+  if (!status) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`http://${status.host}:${status.port}/health`, {
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForObservabilityStatus(observabilityStatusPath, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const status = await readObservabilityStatus(observabilityStatusPath);
+    if (await isObservabilityHealthy(status)) {
+      return status;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  return null;
+}
+
+export async function ensureAiContextEngineObservability(
+  projectRoot,
+  { force = false } = {},
+) {
+  const {
+    storageDir,
+    observabilityStatusPath,
+    observabilityLogPath,
+  } = aiContextEnginePaths(projectRoot);
+  await fs.mkdir(storageDir, { recursive: true });
+
+  if (!force) {
+    const enabled = await loadObservabilityPreference(projectRoot);
+    if (!enabled) {
+      return {
+        status: 'disabled',
+        observabilityStatusPath,
+        observabilityLogPath,
+      };
+    }
+  }
+
+  const existingStatus = await readObservabilityStatus(observabilityStatusPath);
+  if (await isObservabilityHealthy(existingStatus)) {
+    return {
+      status: 'already-running',
+      host: existingStatus.host,
+      port: existingStatus.port,
+      observabilityStatusPath,
+      observabilityLogPath,
+      url: `http://${existingStatus.host}:${existingStatus.port}/`,
+    };
+  }
+
+  const stdoutFd = openSync(observabilityLogPath, 'a');
+  const stderrFd = openSync(observabilityLogPath, 'a');
+  const invocation = resolveAiContextEngineInvocation(projectRoot);
+
+  try {
+    const child = spawn(invocation.command, [
+      ...invocation.prefixArgs,
+      'observability',
+      '--repo',
+      projectRoot,
+    ], {
+      cwd: projectRoot,
+      detached: true,
+      stdio: ['ignore', stdoutFd, stderrFd],
+    });
+
+    child.unref();
+
+    const status = await waitForObservabilityStatus(observabilityStatusPath);
+    if (!status) {
+      throw new Error('ai-context-engine observability server did not report healthy startup');
+    }
+
+    return {
+      status: 'started',
+      host: status.host,
+      port: status.port,
+      observabilityStatusPath,
+      observabilityLogPath,
+      url: `http://${status.host}:${status.port}/`,
     };
   } finally {
     closeSync(stdoutFd);

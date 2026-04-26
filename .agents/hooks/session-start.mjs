@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { ensureAiContextEngineWatch } from './lib/ai-context-engine.mjs';
+import {
+  ensureAiContextEngineObservability,
+  ensureAiContextEngineWatch,
+} from './lib/ai-context-engine.mjs';
 import {
   getProjectRoot,
   isDirectEntrypoint,
@@ -64,11 +67,21 @@ export async function handleSessionStart(payload) {
   const cwd = getProjectRoot(payload);
   const dynamicContext = buildDynamicGitContext(cwd);
   let watchStatus = null;
+  let observabilityStatus = null;
 
   try {
     watchStatus = await ensureAiContextEngineWatch(cwd);
   } catch (error) {
     watchStatus = {
+      status: 'error',
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  try {
+    observabilityStatus = await ensureAiContextEngineObservability(cwd);
+  } catch (error) {
+    observabilityStatus = {
       status: 'error',
       message: error instanceof Error ? error.message : String(error),
     };
@@ -93,6 +106,17 @@ export async function handleSessionStart(payload) {
     );
   } else if (watchStatus?.status === 'error') {
     baseContext.push(`ai-context-engine watch bootstrap failed: ${watchStatus.message}`);
+  }
+
+  if (
+    observabilityStatus?.status === 'started'
+    || observabilityStatus?.status === 'already-running'
+  ) {
+    baseContext.push(
+      `ai-context-engine observability: ${observabilityStatus.status === 'started' ? 'started' : 'already running'} at ${observabilityStatus.url}.`,
+    );
+  } else if (observabilityStatus?.status === 'error') {
+    baseContext.push(`ai-context-engine observability bootstrap failed: ${observabilityStatus.message}`);
   }
 
   return sessionContext(baseContext.join('\n'));

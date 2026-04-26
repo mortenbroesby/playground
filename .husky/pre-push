@@ -1,2 +1,3 @@
 pnpm lint:md || exit 1
 pnpm --filter @playground/ai-context-engine type-lint
+node scripts/astrograph-smart-refresh.mjs push >/dev/null 2>&1 || true

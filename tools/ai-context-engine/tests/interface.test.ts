@@ -717,22 +717,50 @@ export function circumference(radius: number): string {
 
       await handleCli(["index-folder", "--repo", repoRoot]);
 
+      await withMcpClient(async ({ client }) => {
+        await client.callTool({
+          name: "query_code",
+          arguments: {
+            repoRoot,
+            intent: "source",
+            filePath: "src/math.ts",
+          },
+        });
+      });
+
       await waitFor(() =>
         messages.some((message) =>
           message.type === "event"
-            && (message.event as { event?: string } | undefined)?.event === "index-worker.finished"
+            && (
+              (message.event as { event?: string } | undefined)?.event === "index-worker.finished"
+              || (message.event as { event?: string } | undefined)?.event === "mcp.tool.finished"
+            )
         ),
       );
 
       const recentResponse = await fetch(`http://${server.host}:${server.port}/recent`);
       const recent = await recentResponse.json() as {
         repoRoot: string;
-        events: Array<{ event: string; source: string }>;
+        events: Array<{
+          event: string;
+          source: string;
+          data?: {
+            summary?: string;
+            tokenEstimate?: {
+              savedTokens?: number;
+            };
+          };
+        }>;
       };
       expect(recent.repoRoot).toBe(canonicalRepoRoot);
       expect(recent.events.some((event) =>
         event.event === "index-worker.finished" && event.source === "index-worker",
       )).toBe(true);
+      const toolEvent = recent.events.find((event) =>
+        event.event === "mcp.tool.finished" && event.source === "mcp",
+      );
+      expect(toolEvent?.data?.summary).toContain("Returned source");
+      expect(toolEvent?.data?.tokenEstimate?.savedTokens).toBeGreaterThanOrEqual(0);
       expect(server.stderr()).toBe("");
     } finally {
       socket.close();
