@@ -16,6 +16,8 @@ Keep this file loose:
 
 ### Ideas
 
+- I want to release our first alpha to npm. Leverage git env secrets, instruct me what to do.
+
 - Maybe we use rxjs? streaming? consider what could make our MCP server and logic fast and efficient.
 
 - Consider adopting:

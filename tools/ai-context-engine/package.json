@@ -62,6 +62,7 @@
   "dependencies": {
     "@msgpack/msgpack": "^3.1.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@playground/ui": "workspace:*",
     "better-sqlite3": "^12.9.0",
     "oxc-parser": "^0.127.0",
     "oxc-resolver": "^11.19.1",

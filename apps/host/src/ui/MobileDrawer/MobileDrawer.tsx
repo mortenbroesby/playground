@@ -1,3 +1,4 @@
+import { Button } from '@playground/ui';
 import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import type { NavItem } from '@/infrastructure/nav';
@@ -59,52 +60,26 @@ export function MobileDrawer({
       <div
         data-testid="mobile-drawer"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 p-4',
-          variant === 'public'
-            ? 'border-r border-border/60 bg-background'
-            : 'border-r border-border/80 bg-card/95 backdrop-blur-sm'
+          'fixed inset-y-0 left-0 z-50 w-72 p-4',
+          variant === 'public' ? 'bg-transparent' : 'border-r border-border/80 bg-card/95 backdrop-blur-sm'
         )}
       >
-        <div
-          className={cn(
-            'flex h-full flex-col',
-            variant === 'public' ? 'p-0' : 'terminal-panel terminal-panel--quiet p-3'
-          )}
-        >
-          <div
-            className={cn(
-              'flex items-center justify-between pb-3',
-              variant === 'public' ? 'border-b border-border/60' : 'border-b border-border/70'
-            )}
-          >
+        <div className="terminal-panel terminal-panel--quiet flex h-full flex-col p-3">
+          <div className="flex items-center justify-between border-b border-border/70 pb-3">
             <div>
-              <p className={cn(variant === 'public' ? 'text-xs text-muted-foreground' : 'chrome-label')}>
-                {title}
-              </p>
-              <p
-                className={cn(
-                  'mt-1 text-sm text-foreground',
-                  variant === 'public' ? 'font-medium tracking-tight' : 'terminal-heading'
-                )}
-              >
-                {subtitle}
-              </p>
+              <p className="chrome-label">{title}</p>
+              <p className="terminal-heading mt-1 text-sm text-foreground">{subtitle}</p>
             </div>
-            <button
+            <Button
+              type="button"
+              variant="secondary"
               data-testid="mobile-drawer-close"
               onClick={onClose}
               aria-label="Close navigation menu"
-              className={cn(
-                'rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground',
-                variant === 'public'
-                  ? 'border border-border/50 bg-background'
-                  : 'border border-border/60 bg-background/30 hover:border-primary/30'
-              )}
+              className="min-h-0 px-3 py-2"
             >
-              <span className={cn('text-sm leading-none', variant === 'public' ? '' : 'chrome-label')}>
-                ✕
-              </span>
-            </button>
+              <span className="text-sm leading-none">Close</span>
+            </Button>
           </div>
 
           <nav className="mt-3 space-y-2">
@@ -114,11 +89,11 @@ export function MobileDrawer({
                 to={app.href}
                 className={({ isActive }) =>
                   cn(
-                    'group block rounded-md px-3 py-2 transition-colors',
+                    'group block rounded-md border px-3 py-2 transition-colors',
                     variant === 'public'
                       ? isActive
-                        ? 'bg-muted text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                        ? 'border-primary/50 bg-primary/10 text-foreground shadow-[inset_0_0_0_1px_rgba(110,255,184,0.08)]'
+                        : 'border-border/60 bg-background/20 text-muted-foreground hover:border-primary/30 hover:text-foreground'
                       : isActive
                         ? 'border border-primary/50 bg-primary/10 text-foreground shadow-[inset_0_0_0_1px_rgba(110,255,184,0.08)]'
                         : 'border border-border/60 bg-background/30 text-muted-foreground hover:border-primary/30 hover:text-foreground'
@@ -143,7 +118,7 @@ export function MobileDrawer({
                           className={cn(
                             'text-sm text-foreground',
                             variant === 'public'
-                              ? 'font-medium tracking-tight'
+                              ? 'terminal-heading uppercase tracking-[0.14em]'
                               : 'terminal-heading uppercase tracking-[0.16em]'
                           )}
                         >

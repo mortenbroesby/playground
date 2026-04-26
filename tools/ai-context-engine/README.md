@@ -1,8 +1,8 @@
-# Astrograph (`@playground/ai-context-engine`)
+# @astrograph (`@playground/ai-context-engine`)
 
 Local deterministic context engine for AI-assisted code exploration.
 
-`Astrograph` is the human-facing name for this engine inside the repo. The
+`@astrograph` is the human-facing name for this engine inside the repo. The
 published package name, runtime directory, MCP server id, and CLI command stay
 `ai-context-engine` for compatibility.
 
@@ -225,6 +225,9 @@ developer debugging rather than agent retrieval.
   storage runtime
 - the viewer now prefers MessagePack over both HTTP and websocket paths, while
   JSON remains available as a compatibility fallback
+- the React viewer imports `@playground/ui/theme.css`, so Astrograph now uses
+  the repo's shared terminal design tokens instead of a bespoke observability
+  theme
 
 This surface is intentionally local, metadata-first, and read-only. It exists
 to help inspect MCP requests, watch behavior, child index worker activity, and

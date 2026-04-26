@@ -693,7 +693,7 @@ export function circumference(radius: number): string {
 
       const viewerResponse = await fetch(`http://${server.host}:${server.port}/`);
       const viewerHtml = await viewerResponse.text();
-      expect(viewerHtml).toContain("Astrograph observability");
+      expect(viewerHtml).toContain("@astrograph observability");
       expect(viewerHtml).toContain("root");
 
       const healthResponse = await fetch(`http://${server.host}:${server.port}/health`);

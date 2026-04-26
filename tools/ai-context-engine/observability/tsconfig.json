@@ -6,6 +6,10 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
+    "paths": {
+      "@playground/ui": ["../../../packages/ui/src/index.ts"],
+      "@playground/ui/*": ["../../../packages/ui/src/*"]
+    },
     "types": ["vite/client"]
   },
   "include": ["./src", "./vite.config.ts"]

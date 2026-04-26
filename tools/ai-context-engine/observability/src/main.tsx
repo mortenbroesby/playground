@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 
+import "@playground/ui/theme.css";
+
 import { App } from "./App";
 import "./styles.css";
 

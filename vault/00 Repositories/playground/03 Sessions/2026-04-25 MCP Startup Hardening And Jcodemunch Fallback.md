@@ -187,3 +187,30 @@ a mandatory runtime concern for every MCP or CLI call.
   top-to-bottom Ralph-driven execution queue: pick the top item, spec if
   needed, implement, verify, update durable docs, delete the completed item,
   and continue until empty.
+
+## Shared theme adoption follow-up (2026-04-26)
+
+- The old top queue item in `IDEAS.md` was stale: the repo already had a shared
+  token and theme package in `packages/ui`, so the right first slice was
+  adoption, not creating another token system.
+- Astrograph observability is now the first consumer migration target:
+  - `tools/ai-context-engine` now depends on `@playground/ui`
+  - the React observability client imports the shared `theme.css`
+  - the viewer now uses the repo's terminal design language instead of its
+    previous standalone light theme
+- Rewrote the remaining design-system queue into smaller follow-ups:
+  - migrate `apps/host`
+  - migrate `apps/admin`
+  - then define the `@astrolux` branding and package-evolution plan
+
+## Host public shell adoption outcome (2026-04-26)
+
+- `apps/host` already had the shared theme import; the real remaining
+  inconsistency was host-owned public chrome rather than page-body content.
+- The highest-value adoption slice was `PublicLayout` plus the `public` branch
+  in `MobileDrawer`, because those two files still carried a simpler bespoke
+  nav, menu, and footer treatment while the playground shell already used the
+  terminal design language.
+- Migrating that slice to shared `@playground/ui` `Panel`, `Badge`, and
+  `Button` primitives was enough to make the main-site shell feel aligned with
+  the rest of the design system without crossing into remote app styling.

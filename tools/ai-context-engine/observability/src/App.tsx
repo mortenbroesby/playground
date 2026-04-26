@@ -41,14 +41,14 @@ function EventCard({ event }: { event: EventEnvelope }) {
 
 function HealthView({ snapshot }: { snapshot: HealthSnapshot | null }) {
   return (
-    <main className="page-shell">
-      <section className="panel">
+    <main className="page-shell terminal-app">
+      <section className="panel terminal-panel terminal-panel--quiet">
         <a className="back-link" href="/">
           ← observability
         </a>
-        <h1>Astrograph health inspect</h1>
+        <h1>@astrograph health inspect</h1>
       </section>
-      <section className="panel">
+      <section className="panel terminal-panel">
         <pre>{JSON.stringify(snapshot, null, 2)}</pre>
       </section>
     </main>
@@ -142,12 +142,12 @@ export function App() {
   }
 
   return (
-    <main className="page-shell">
-      <section className="hero">
+    <main className="page-shell terminal-app">
+      <section className="hero terminal-panel terminal-grid">
         <div className="hero-copy">
-          <h1>Astrograph live observability</h1>
+          <h1>@astrograph live observability</h1>
           <div className="meta">
-            same-origin API, MessagePack transport, React client
+            shared terminal theme, same-origin API, MessagePack transport
           </div>
         </div>
         <a className="health-badge" href={HEALTH_VIEW_ROUTE}>
@@ -156,12 +156,12 @@ export function App() {
         </a>
       </section>
 
-      <section className="status-row">
+      <section className="status-row terminal-panel terminal-panel--quiet">
         <div className={`status-pill ${status}`}>{status}</div>
       </section>
 
       <div className="columns">
-        <section className="panel">
+        <section className="panel terminal-panel">
           <h2>Recent</h2>
           <ul className="event-list">
             {recent.map((event, index) => (
@@ -169,7 +169,7 @@ export function App() {
             ))}
           </ul>
         </section>
-        <section className="panel">
+        <section className="panel terminal-panel">
           <h2>Live Stream</h2>
           <ul className="event-list">
             {events.map((event, index) => (
