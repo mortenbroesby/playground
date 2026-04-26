@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import type BetterSqlite3 from "better-sqlite3";
 
 import type {
   EngineIndexBackend,
@@ -9,25 +10,25 @@ import type {
 } from "./index-backend.ts";
 
 const require = createRequire(import.meta.url);
-const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
+const BetterSqlite3Database = require("better-sqlite3") as typeof BetterSqlite3;
 
 class SqliteStatement implements IndexStatement {
-  private readonly statement: import("node:sqlite").StatementSync;
+  private readonly statement: BetterSqlite3.Statement;
 
-  constructor(statement: import("node:sqlite").StatementSync) {
+  constructor(statement: BetterSqlite3.Statement) {
     this.statement = statement;
   }
 
   all(...params: IndexBackendValue[]): unknown[] {
-    return this.statement.all(...params) as unknown[];
+    return this.statement.all(...params as Parameters<BetterSqlite3.Statement["all"]>) as unknown[];
   }
 
   get(...params: IndexBackendValue[]): unknown {
-    return this.statement.get(...params);
+    return this.statement.get(...params as Parameters<BetterSqlite3.Statement["get"]>);
   }
 
   run(...params: IndexBackendValue[]): IndexStatementRunResult {
-    const result = this.statement.run(...params);
+    const result = this.statement.run(...params as Parameters<BetterSqlite3.Statement["run"]>);
     return {
       changes: result.changes,
       lastInsertRowid: result.lastInsertRowid,
@@ -37,10 +38,10 @@ class SqliteStatement implements IndexStatement {
 
 class SqliteConnection implements IndexBackendConnection {
   readonly backendName = "sqlite";
-  private readonly db: import("node:sqlite").DatabaseSync;
+  private readonly db: BetterSqlite3.Database;
   private readonly statementCache = new Map<string, SqliteStatement>();
 
-  constructor(db: import("node:sqlite").DatabaseSync) {
+  constructor(db: BetterSqlite3.Database) {
     this.db = db;
   }
 
@@ -68,7 +69,7 @@ class SqliteIndexBackend implements EngineIndexBackend {
   readonly backendName = "sqlite";
 
   open(databasePath: string): IndexBackendConnection {
-    return new SqliteConnection(new DatabaseSync(databasePath));
+    return new SqliteConnection(new BetterSqlite3Database(databasePath));
   }
 }
 

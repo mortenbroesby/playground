@@ -63,6 +63,9 @@ tags:
   for now after it produced `EMFILE` watch exhaustion in the repo’s mutation
   smoke coverage, keeping the existing native watch plus polling fallback as
   the event source
+- swapped the storage backend adapter from `node:sqlite` to `better-sqlite3`
+  while keeping the same internal `IndexBackendConnection` contract so the
+  engine no longer depends on Node’s experimental SQLite runtime surface
 - added an interface test that asserts MCP startup stays free of backend stderr
   side effects before the first tool call
 - restored a repo-local `jcodemunch` MCP server entry in `.codex/config.toml`
@@ -86,7 +89,8 @@ handling onto the supported SDK path, reduces future drift in the exposed tool
 surface, reintroduces a practical fallback path for code navigation when the
 primary engine is unavailable, and now also makes the long-lived watch path
 more explicit and maintainable without changing the repo’s proven watch-source
-fallback behavior.
+fallback behavior. The backend swap also removes an unnecessary dependency on
+Node experimental APIs from the core index path.
 
 ## Verification
 
@@ -94,5 +98,7 @@ fallback behavior.
 - `pnpm --filter @playground/ai-context-engine test -- --run tests/mutation-smoke.watch.test.ts tests/engine-behavior.test.ts tests/interface.test.ts`
 - `pnpm --filter @playground/ai-context-engine type-lint`
 - `pnpm --filter @playground/ai-context-engine type-check`
+- observed that the focused test run no longer emits the `node:sqlite`
+  experimental warning after the backend swap
 - manual stdio MCP repro for `initialize` plus `tools/list` against
   `tools/ai-context-engine/scripts/ai-context-engine.mjs mcp`
