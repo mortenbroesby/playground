@@ -142,3 +142,19 @@ a mandatory runtime concern for every MCP or CLI call.
 - Added interface coverage that boots the real Bun observability command,
   verifies websocket snapshot and event delivery, and checks `/health` plus
   `/recent` against a fixture repo.
+
+## Alpha-readiness follow-up (2026-04-26)
+
+- Added a repo-root `ai-context-engine.config.json` contract so the installed
+  package can inherit summary-strategy and observability defaults from the
+  enclosing repository without changing the core `.ai-context-engine/` runtime
+  artifact layout.
+- Kept observability optional for publishable alpha use:
+  - no config file is required for normal CLI, MCP, or library use
+  - Bun is only needed when the observability command is actually invoked
+  - explicit CLI flags still override repo-config defaults
+- Added the first built-in viewer page at `/` on the Bun observability server
+  so the existing `/health`, `/recent`, and `/events` surfaces are directly
+  inspectable in a browser without introducing a separate frontend app.
+- Captured the broader release-hardening direction in
+  `.specs/ai-context-engine-alpha-release-spec.md`.

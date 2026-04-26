@@ -28,6 +28,34 @@ export interface EngineConfig {
   paths: EnginePaths;
 }
 
+export interface RepoObservabilityConfig {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  recentLimit?: number;
+  snapshotIntervalMs?: number;
+}
+
+export interface RepoEngineConfig {
+  summaryStrategy?: SummaryStrategy;
+  observability?: RepoObservabilityConfig;
+}
+
+export interface ResolvedObservabilityConfig {
+  enabled: boolean;
+  host: string;
+  port: number;
+  recentLimit: number;
+  snapshotIntervalMs: number;
+}
+
+export interface ResolvedRepoEngineConfig {
+  configPath: string | null;
+  repoRoot: string;
+  summaryStrategy: SummaryStrategy;
+  observability: ResolvedObservabilityConfig;
+}
+
 export type SymbolKind =
   | "function"
   | "class"

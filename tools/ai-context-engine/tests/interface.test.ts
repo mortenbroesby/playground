@@ -35,7 +35,10 @@ async function waitFor(
   }
 }
 
-async function startObservabilityServer(repoRoot: string) {
+async function startObservabilityServer(
+  repoRoot: string,
+  extraArgs: string[] = [],
+) {
   const child = spawn(
     process.execPath,
     [
@@ -43,12 +46,7 @@ async function startObservabilityServer(repoRoot: string) {
       "observability",
       "--repo",
       repoRoot,
-      "--port",
-      "0",
-      "--snapshot-interval-ms",
-      "100",
-      "--recent-limit",
-      "20",
+      ...extraArgs,
     ],
     {
       cwd: packageRoot,
@@ -628,6 +626,17 @@ export function circumference(radius: number): string {
 
   it("serves Bun-backed live observability over health, recent, and websocket events", async () => {
     const repoRoot = await createFixtureRepo();
+    const canonicalRepoRoot = await realpath(repoRoot);
+    await writeFile(
+      path.join(repoRoot, "ai-context-engine.config.json"),
+      JSON.stringify({
+        observability: {
+          port: 0,
+          recentLimit: 20,
+          snapshotIntervalMs: 100,
+        },
+      }),
+    );
     const server = await startObservabilityServer(repoRoot);
     const messages: Array<Record<string, unknown>> = [];
     const socket = new WebSocket(`ws://${server.host}:${server.port}/events`);
@@ -643,6 +652,11 @@ export function circumference(radius: number): string {
 
     try {
       await waitFor(() => messages.some((message) => message.type === "snapshot"));
+
+      const viewerResponse = await fetch(`http://${server.host}:${server.port}/`);
+      const viewerHtml = await viewerResponse.text();
+      expect(viewerHtml).toContain("ai-context-engine live observability");
+      expect(viewerHtml).toContain(repoRoot);
 
       const healthResponse = await fetch(`http://${server.host}:${server.port}/health`);
       const health = await healthResponse.json() as { storageDir: string; watch: { status: string } };
@@ -663,7 +677,7 @@ export function circumference(radius: number): string {
         repoRoot: string;
         events: Array<{ event: string; source: string }>;
       };
-      expect(recent.repoRoot).toBe(repoRoot);
+      expect(recent.repoRoot).toBe(canonicalRepoRoot);
       expect(recent.events.some((event) =>
         event.event === "index-worker.finished" && event.source === "index-worker",
       )).toBe(true);

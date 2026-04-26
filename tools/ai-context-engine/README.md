@@ -204,6 +204,7 @@ developer debugging rather than agent retrieval.
 - it binds to `127.0.0.1` by default and uses Bun's uWebSockets-backed server
   runtime through `Bun.serve`
 - it exposes:
+  - `/` for a tiny built-in live viewer
   - `/health` for a live `diagnostics` snapshot
   - `/recent` for the current in-memory tail of recent JSONL events
   - `/events` for a read-only websocket stream
@@ -215,6 +216,37 @@ developer debugging rather than agent retrieval.
 This surface is intentionally local, metadata-first, and read-only. It exists
 to help inspect MCP requests, watch behavior, child index worker activity, and
 health drift without changing the MCP protocol contract.
+
+## Repo config
+
+The package also supports an optional repo-root config file:
+
+- `ai-context-engine.config.json`
+
+Initial supported shape:
+
+```json
+{
+  "summaryStrategy": "doc-comments-first",
+  "observability": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 4318,
+    "recentLimit": 100,
+    "snapshotIntervalMs": 1000
+  }
+}
+```
+
+Current behavior:
+
+- missing config behaves like the current defaults
+- invalid config fails clearly
+- summary strategy defaults are picked up by engine operations when no explicit
+  override is passed
+- observability server defaults are picked up from this file, but explicit CLI
+  flags still win
+- Bun is only required when the observability command is actually invoked
 
 ## Structured diagnostics
 

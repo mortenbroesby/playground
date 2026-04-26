@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { watch as fsWatch } from "node:fs";
 import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
@@ -17,7 +17,12 @@ import {
   share,
 } from "rxjs";
 
-import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
+import {
+  createDefaultEngineConfig,
+  loadRepoEngineConfig,
+  normalizeSummaryStrategy,
+  resolveEngineRepoRoot,
+} from "./config.ts";
 import { emitEngineEvent } from "./event-sink.ts";
 import {
   compactDirectoryRescanPaths,
@@ -547,23 +552,7 @@ async function resolveRepoRoot(repoRoot: string): Promise<string> {
   const absoluteRepoRoot = path.resolve(repoRoot);
   let cachedResolution = getLruEntry(repoRootResolutionCache, absoluteRepoRoot);
   if (!cachedResolution) {
-    cachedResolution = (async () => {
-      const resolvedRepoRoot = await realpath(absoluteRepoRoot).catch(
-        () => absoluteRepoRoot,
-      );
-
-      try {
-        const worktreeRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-          cwd: resolvedRepoRoot,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-        }).trim();
-
-        return await realpath(worktreeRoot).catch(() => worktreeRoot);
-      } catch {
-        return resolvedRepoRoot;
-      }
-    })();
+    cachedResolution = resolveEngineRepoRoot(absoluteRepoRoot);
     setLruEntry(
       repoRootResolutionCache,
       absoluteRepoRoot,
@@ -577,9 +566,12 @@ async function resolveRepoRoot(repoRoot: string): Promise<string> {
 
 async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy) {
   const resolvedRepoRoot = await resolveRepoRoot(repoRoot);
+  const repoConfig = await loadRepoEngineConfig(resolvedRepoRoot, {
+    repoRootResolved: true,
+  });
   const config = createDefaultEngineConfig({
     repoRoot: resolvedRepoRoot,
-    summaryStrategy,
+    summaryStrategy: summaryStrategy ?? repoConfig.summaryStrategy,
   });
   if (!getLruEntry(ensuredStorageRoots, resolvedRepoRoot)) {
     await mkdir(config.paths.storageDir, { recursive: true });

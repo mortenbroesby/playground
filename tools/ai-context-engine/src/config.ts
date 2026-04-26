@@ -1,8 +1,14 @@
+import { execFileSync } from "node:child_process";
+import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
+
+import { z } from "zod";
 
 import type {
   EngineConfig,
   EnginePaths,
+  RepoEngineConfig,
+  ResolvedRepoEngineConfig,
   EngineToolName,
   SymbolKind,
   SummaryStrategy,
@@ -11,7 +17,12 @@ import type {
 const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
 
 export const ENGINE_STORAGE_DIRNAME = ".ai-context-engine";
+export const ENGINE_CONFIG_FILENAME = "ai-context-engine.config.json";
 export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
+export const DEFAULT_OBSERVABILITY_HOST = "127.0.0.1";
+export const DEFAULT_OBSERVABILITY_PORT = 4318;
+export const DEFAULT_OBSERVABILITY_RECENT_LIMIT = 100;
+export const DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS = 1000;
 const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
   "doc-comments-first",
   "signature-only",
@@ -36,6 +47,19 @@ export const ENGINE_TOOLS: EngineToolName[] = [
   "diagnostics",
 ];
 
+const repoObservabilityConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  host: z.string().min(1).optional(),
+  port: z.number().int().nonnegative().optional(),
+  recentLimit: z.number().int().positive().optional(),
+  snapshotIntervalMs: z.number().int().positive().optional(),
+});
+
+const repoEngineConfigSchema = z.object({
+  summaryStrategy: z.enum(["doc-comments-first", "signature-only"]).optional(),
+  observability: repoObservabilityConfigSchema.optional(),
+}) satisfies z.ZodType<RepoEngineConfig>;
+
 export function resolveEnginePaths(repoRoot: string): EnginePaths {
   const storageDir = path.join(repoRoot, ENGINE_STORAGE_DIRNAME);
 
@@ -46,6 +70,95 @@ export function resolveEnginePaths(repoRoot: string): EnginePaths {
     integrityPath: path.join(storageDir, "integrity.sha256"),
     rawCacheDir: path.join(storageDir, "raw-cache"),
     eventsPath: path.join(storageDir, "events.jsonl"),
+  };
+}
+
+export async function resolveEngineRepoRoot(repoRoot: string): Promise<string> {
+  const absoluteRepoRoot = path.resolve(repoRoot);
+  const resolvedRepoRoot = await realpath(absoluteRepoRoot).catch(
+    () => absoluteRepoRoot,
+  );
+
+  try {
+    const worktreeRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: resolvedRepoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    return await realpath(worktreeRoot).catch(() => worktreeRoot);
+  } catch {
+    return resolvedRepoRoot;
+  }
+}
+
+function createDefaultResolvedRepoEngineConfig(
+  repoRoot: string,
+): ResolvedRepoEngineConfig {
+  return {
+    configPath: null,
+    repoRoot,
+    summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
+    observability: {
+      enabled: false,
+      host: DEFAULT_OBSERVABILITY_HOST,
+      port: DEFAULT_OBSERVABILITY_PORT,
+      recentLimit: DEFAULT_OBSERVABILITY_RECENT_LIMIT,
+      snapshotIntervalMs: DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS,
+    },
+  };
+}
+
+export async function loadRepoEngineConfig(
+  repoRoot: string,
+  options: { repoRootResolved?: boolean } = {},
+): Promise<ResolvedRepoEngineConfig> {
+  const resolvedRepoRoot = options.repoRootResolved
+    ? repoRoot
+    : await resolveEngineRepoRoot(repoRoot);
+  const defaults = createDefaultResolvedRepoEngineConfig(resolvedRepoRoot);
+  const configPath = path.join(resolvedRepoRoot, ENGINE_CONFIG_FILENAME);
+  const contents = await readFile(configPath, "utf8").catch((error: unknown) => {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  });
+
+  if (contents === null) {
+    return defaults;
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(contents);
+  } catch (error) {
+    throw new Error(
+      `Invalid ${ENGINE_CONFIG_FILENAME}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const parsed = repoEngineConfigSchema.safeParse(parsedJson);
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid ${ENGINE_CONFIG_FILENAME}: ${parsed.error.issues[0]?.message ?? "validation failed"}`,
+    );
+  }
+
+  return {
+    configPath,
+    repoRoot: resolvedRepoRoot,
+    summaryStrategy: parsed.data.summaryStrategy ?? defaults.summaryStrategy,
+    observability: {
+      enabled: parsed.data.observability?.enabled ?? defaults.observability.enabled,
+      host: parsed.data.observability?.host ?? defaults.observability.host,
+      port: parsed.data.observability?.port ?? defaults.observability.port,
+      recentLimit:
+        parsed.data.observability?.recentLimit ?? defaults.observability.recentLimit,
+      snapshotIntervalMs:
+        parsed.data.observability?.snapshotIntervalMs
+        ?? defaults.observability.snapshotIntervalMs,
+    },
   };
 }
 
