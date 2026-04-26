@@ -237,3 +237,28 @@ a mandatory runtime concern for every MCP or CLI call.
 - The default branch rule is now explicit:
   - if a feature branch was explicitly agreed, commit and push that branch
   - otherwise commit on the current branch and push `main`
+
+## Astrograph support posture and license note (2026-04-26)
+
+- Added an explicit status/disclaimer section to `tools/ai-context-engine/README.md`:
+  Astrograph is still a personal tool, support should not be expected yet, and
+  it is not intended to become a paid product.
+- Added a package-local MIT `LICENSE` file and declared `license: "MIT"` in
+  `tools/ai-context-engine/package.json` so the package carries its own license
+  artifact when published.
+- Bumped Astrograph from `0.0.1-alpha.0` to `0.0.1-alpha.1` because the
+  package-facing metadata and release posture changed.
+
+## Astrograph repo-local observability shortcuts (2026-04-26)
+
+- Added root package scripts for local Astrograph observability:
+  - `pnpm astrograph:observability` starts the viewer server for this repo
+  - `pnpm astrograph:open` starts the server, waits for the resolved fallback
+    port, and opens the viewer in the browser automatically
+- This keeps the repo-level entrypoint aligned with Astrograph's dynamic
+  `34323-35322` port scan instead of hardcoding a stale browser URL.
+- Refined `pnpm astrograph:open` so it now prefers an existing healthy
+  repo-local server recorded in `.astrograph/observability-server.json` and
+  only spawns a new server when that status file is missing or stale.
+- Bumped Astrograph from `0.0.1-alpha.1` to `0.0.1-alpha.2` for this
+  observability-process behavior change.

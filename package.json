@@ -9,6 +9,8 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "dev:web": "node scripts/dev-web.mjs",
+    "astrograph:observability": "pnpm exec ai-context-engine observability --repo .",
+    "astrograph:open": "node scripts/open-astrograph-observability.mjs",
     "docs:check": "pnpm knowledge:check",
     "knowledge:check": "node scripts/check-knowledge-reminder.mjs",
     "lint": "turbo lint && pnpm lint:md",

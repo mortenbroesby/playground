@@ -6,6 +6,21 @@ Local deterministic context engine for AI-assisted code exploration.
 published package name, MCP server id, and CLI command stay
 `ai-context-engine` for compatibility.
 
+## Status
+
+This package is currently a personal tool.
+
+- it exists first to support my own workflow in this repo
+- do not expect support, responsiveness, or active maintenance yet
+- I have not proved the external use case enough to treat it like a supported
+  public project
+- if it proves broadly useful, I may open source it properly and move it to a
+  separate repo later
+- it is not planned as a paid product and will not become one
+
+The code is MIT-licensed, but that is a permission grant, not a support
+commitment.
+
 ## What it does
 
 This package is the repo-owned code retrieval layer for agent workflows in this
@@ -200,6 +215,8 @@ JavaScript instead of repo-local TypeScript sources.
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo --scan-freshness`
 - `pnpm exec ai-context-engine mcp`
 - `pnpm exec ai-context-engine observability --repo /abs/repo`
+- `pnpm astrograph:observability`
+- `pnpm astrograph:open`
 - `pnpm --filter @playground/ai-context-engine bench:small`
 - `pnpm --filter @playground/ai-context-engine bench:cli`
 - `pnpm --filter @playground/ai-context-engine build`
@@ -226,6 +243,9 @@ The package now includes an opt-in local observability surface intended for
 developer debugging rather than agent retrieval.
 
 - start it with `pnpm exec ai-context-engine observability --repo /abs/repo`
+- in this repo, `pnpm astrograph:open` first tries to reuse an already-running
+  repo-local observability server and only starts a new one when no healthy
+  existing server is registered
 - add `--dev` in workspace development to force the Vite dev client and React
   Fast Refresh path explicitly
 - it binds to `127.0.0.1` by default and uses Bun's uWebSockets-backed server

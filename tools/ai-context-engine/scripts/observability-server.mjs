@@ -2,7 +2,7 @@
 
 import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir, open, readFile, realpath, stat } from "node:fs/promises";
+import { appendFile, mkdir, open, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import process from "node:process";
@@ -101,7 +101,21 @@ function resolveStoragePaths(repoRoot) {
   return {
     storageDir,
     eventsPath: path.join(storageDir, "events.jsonl"),
+    statusPath: path.join(storageDir, "observability-server.json"),
   };
+}
+
+async function writeObservabilityStatus(paths, payload) {
+  await mkdir(paths.storageDir, { recursive: true });
+  await writeFile(
+    paths.statusPath,
+    `${JSON.stringify(payload, null, 2)}\n`,
+    "utf8",
+  );
+}
+
+async function clearObservabilityStatus(paths) {
+  await rm(paths.statusPath, { force: true }).catch(() => undefined);
 }
 
 async function resolveRepoRoot(repoRoot) {
@@ -754,6 +768,16 @@ async function main() {
     viteOrigin: viteDev?.origin ?? null,
   })}\n`);
 
+  await writeObservabilityStatus(paths, {
+    host: server.hostname,
+    port: server.port,
+    repoRoot,
+    pid: process.pid,
+    devMode,
+    viteOrigin: viteDev?.origin ?? null,
+    startedAt: new Date().toISOString(),
+  });
+
   await publishHealthSnapshot(server, "startup").catch(() => null);
   await drainEventFile(server);
 
@@ -771,6 +795,7 @@ async function main() {
     clearInterval(tailInterval);
     clearInterval(snapshotInterval);
     viteDev?.child.kill("SIGTERM");
+    void clearObservabilityStatus(paths);
     server.stop(true);
     process.exit(0);
   };

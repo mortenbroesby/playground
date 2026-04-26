@@ -1,8 +1,9 @@
 {
   "name": "@playground/ai-context-engine",
-  "version": "0.0.1-alpha.0",
+  "version": "0.0.1-alpha.2",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "description": "Local deterministic context engine for AI-assisted code exploration",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,6 +12,7 @@
   },
   "files": [
     "README.md",
+    "LICENSE",
     "dist",
     "observability-dist",
     "scripts/ai-context-engine.mjs",
