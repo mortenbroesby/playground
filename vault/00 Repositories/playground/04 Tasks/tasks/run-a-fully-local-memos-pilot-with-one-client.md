@@ -21,6 +21,8 @@ A small MemOS pilot runs fully locally with one client, stores only safe
 preference-style memory, and confirms whether cross-session recall is useful
 enough to justify broader setup.
 
+## Details
+
 ## Constraints
 
 - fully local or self-hosted deployment only

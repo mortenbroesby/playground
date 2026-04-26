@@ -29,6 +29,8 @@ important places:
 The smoke-profile survivors are either killed by stronger tests or explicitly
 removed from the smoke mutate scope with a clear reason.
 
+## Details
+
 ## Acceptance Criteria
 
 - the current smoke survivors are reviewed one by one

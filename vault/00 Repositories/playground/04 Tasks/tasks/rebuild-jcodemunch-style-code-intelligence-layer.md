@@ -3,7 +3,7 @@ type: repo-task
 repo: playground
 id: rebuild-jcodemunch-style-code-intelligence-layer
 priority: P1
-status: Backlog
+status: In Progress
 ai_appetite: 80
 source: "synthesized from jCodeMunch, LSP systems, and Tree-sitter-based OSS patterns."
 ---

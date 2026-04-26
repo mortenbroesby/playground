@@ -21,6 +21,8 @@ A short recommendation identifies the best local-only model and embedder path
 for a first MemOS pilot in this environment, including tradeoffs and fallback
 options.
 
+## Details
+
 ## Constraints
 
 - local-only inference path

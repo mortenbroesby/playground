@@ -9,9 +9,7 @@ Example:
 
 Queue:
 
-- Refresh documentation in @astrolens package (./tools/ai-context-engine)
-
-- Create a React Component Library, barebones viewable standalone app like how <https://mantine.dev/core/package/> shows components.
+- Create or improve a repository wide React Component Library, barebones viewable standalone app like how <https://mantine.dev/core/package/> shows components.
 
 - Ensure our shared design token package is an actual design system. Reuseable, opinionated.
 
@@ -19,8 +17,8 @@ Queue:
 
 - Implement "@biomejs/biome" in astrolens for now, later to entire repository.
 
-- Do a round of refactor in @astrolens package (./tools/ai-context-engine), clean up tech debt
-
-- Do a round of refactor in @astrolens package (./tools/ai-context-engine), improve performance
+- Refresh documentation in @astrolens package (./tools/ai-context-engine).
+- Do a round of refactor in @astrolens package (./tools/ai-context-engine), clean up tech debt.
+- Do a round of refactor in @astrolens package (./tools/ai-context-engine), improve performance.
 
 - Implement a ralph loop that iterates through this IDEAS.md queue, adopt our ideas to done md file. Maybe make a system leveraging javascript/typescript?

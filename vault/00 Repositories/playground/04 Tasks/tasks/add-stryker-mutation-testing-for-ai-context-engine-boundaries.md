@@ -3,7 +3,7 @@ type: repo-task
 repo: playground
 id: add-stryker-mutation-testing-for-ai-context-engine-boundaries
 priority: P1
-status: In Progress
+status: Done
 ai_appetite: 85
 source: "Follow-up from `tools/ai-context-engine` runtime-boundary review and StrykerJS docs."
 ---
@@ -32,6 +32,8 @@ the tests fail when behavior is altered.
 A first StrykerJS setup exists for `tools/ai-context-engine`, runs against a
 small high-signal boundary slice, and produces a concrete list of surviving
 mutants that can drive immediate test hardening.
+
+## Details
 
 ## Constraints
 
