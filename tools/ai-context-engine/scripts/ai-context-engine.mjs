@@ -15,6 +15,7 @@ function usage() {
       "Usage:",
       "  ai-context-engine cli <args...>",
       "  ai-context-engine mcp",
+      "  ai-context-engine observability <args...>",
     ].join("\n") + "\n",
   );
 }
@@ -26,12 +27,16 @@ const sourceTarget =
     ? path.join(packageRoot, "src", "cli.ts")
     : mode === "mcp"
       ? path.join(packageRoot, "src", "mcp.ts")
+      : mode === "observability"
+        ? path.join(packageRoot, "scripts", "observability-server.mjs")
       : null;
 const distTarget =
   mode === "cli"
     ? path.join(packageRoot, "dist", "cli.js")
     : mode === "mcp"
       ? path.join(packageRoot, "dist", "mcp.js")
+      : mode === "observability"
+        ? path.join(packageRoot, "scripts", "observability-server.mjs")
       : null;
 
 if (!sourceTarget || !distTarget) {
@@ -43,13 +48,22 @@ if (!sourceTarget || !distTarget) {
 // Installed packages do not ship src/, so they naturally fall back to dist/.
 const useBuiltTarget = !existsSync(sourceTarget) && existsSync(distTarget);
 const nodeArgs = mode === "mcp" ? ["--no-warnings"] : [];
+const executable = mode === "observability" ? "bun" : process.execPath;
 const child = spawn(
-  process.execPath,
-  useBuiltTarget
-    ? [...nodeArgs, distTarget, ...args]
-    : [...nodeArgs, "--experimental-strip-types", sourceTarget, ...args],
+  executable,
+  mode === "observability"
+    ? [sourceTarget, ...args]
+    : useBuiltTarget
+      ? [...nodeArgs, distTarget, ...args]
+      : [...nodeArgs, "--experimental-strip-types", sourceTarget, ...args],
   {
     stdio: "inherit",
+    env: mode === "observability"
+      ? {
+          ...process.env,
+          AI_CONTEXT_ENGINE_NODE_BIN: process.execPath,
+        }
+      : process.env,
   },
 );
 
@@ -62,6 +76,10 @@ child.on("exit", (code, signal) => {
 });
 
 child.on("error", (error) => {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  if (mode === "observability" && error && "code" in error && error.code === "ENOENT") {
+    process.stderr.write("bun is required for ai-context-engine observability mode.\n");
+  } else {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  }
   process.exit(1);
 });

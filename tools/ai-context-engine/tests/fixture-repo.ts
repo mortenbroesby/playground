@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { clearStorageProcessCaches } from "../src/index.ts";
 
@@ -72,7 +73,22 @@ export async function cleanupFixtureRepos() {
   clearStorageProcessCaches();
   await Promise.all(
     createdDirs.splice(0).map(async (dir) => {
-      await rm(dir, { recursive: true, force: true });
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+          await rm(dir, { recursive: true, force: true });
+          return;
+        } catch (error) {
+          if (
+            !(error instanceof Error)
+            || !("code" in error)
+            || (error.code !== "ENOTEMPTY" && error.code !== "EBUSY")
+            || attempt === 4
+          ) {
+            throw error;
+          }
+          await delay(50 * (attempt + 1));
+        }
+      }
     }),
   );
 }

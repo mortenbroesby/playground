@@ -108,3 +108,37 @@ a mandatory runtime concern for every MCP or CLI call.
   experimental warning after the backend swap
 - manual stdio MCP repro for `initialize` plus `tools/list` against
   `tools/ai-context-engine/scripts/ai-context-engine.mjs mcp`
+
+## Durable follow-up conclusions (2026-04-26)
+
+- Effect is not the right next move for `@playground/ai-context-engine` core
+  code. The current retrieval and storage path is still better served by plain
+  Promise-first TypeScript plus the existing narrow RxJS watch pipeline.
+- A local developer observability surface is justified now because the package
+  already emits the right signals across MCP dispatch, watch lifecycle, child
+  index workers, and diagnostics, but those signals are split across stderr and
+  sidecar state.
+- The recommended next slice is an opt-in localhost websocket server backed by
+  a repo-local append-only event log plus diagnostics-derived health snapshots.
+- The no-go line is to keep that slice read-only, metadata-first, and local:
+  no MCP transport rewrite, no storage rewrite, no full tracing platform, and
+  no broad Effect migration as a prerequisite.
+
+## Observability implementation outcome (2026-04-26)
+
+- Implemented the first observability slice as `ai-context-engine
+  observability --repo <root>`, launched through Bun so the transport uses
+  Bun's uWebSockets-backed server runtime.
+- Kept the server intentionally split-runtime: Bun owns HTTP plus websocket
+  delivery, while live health snapshots delegate to the normal Node CLI
+  `diagnostics` path instead of opening SQLite from Bun.
+- Added a repo-local append-only `.ai-context-engine/events.jsonl` sink and
+  wired current MCP tool dispatch, watch lifecycle, child index worker, and
+  periodic health snapshots into that shared event log.
+- Exposed three local-only endpoints:
+  - `/health` for a current diagnostics snapshot
+  - `/recent` for a recent in-memory tail of event envelopes
+  - `/events` for a read-only websocket stream of appended events
+- Added interface coverage that boots the real Bun observability command,
+  verifies websocket snapshot and event delivery, and checks `/health` plus
+  `/recent` against a fixture repo.

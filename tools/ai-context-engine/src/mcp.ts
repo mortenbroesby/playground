@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import process from "node:process";
+import { randomUUID } from "node:crypto";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -10,6 +11,7 @@ import {
   MCP_SERVER_VERSION,
   MCP_TOOL_DEFINITIONS,
 } from "./mcp-contract.ts";
+import { emitEngineEvent } from "./event-sink.ts";
 import { getLogger } from "./logger.ts";
 
 type EngineModule = typeof import("./index.ts");
@@ -40,11 +42,26 @@ export async function dispatchTool(name: string, args: Record<string, unknown>) 
   }
 
   const startedAt = Date.now();
+  const correlationId = randomUUID();
+  const repoRoot = typeof args.repoRoot === "string" ? args.repoRoot : undefined;
   logger.debug({
     event: "tool_call_start",
     toolName: name,
     argKeys: Object.keys(args).sort(),
   });
+  if (repoRoot) {
+    emitEngineEvent({
+      repoRoot,
+      source: "mcp",
+      event: "mcp.tool.started",
+      level: "debug",
+      correlationId,
+      data: {
+        toolName: name,
+        argKeys: Object.keys(args).sort(),
+      },
+    });
+  }
 
   const engine = await loadEngineModule();
   try {
@@ -54,6 +71,19 @@ export async function dispatchTool(name: string, args: Record<string, unknown>) 
       toolName: name,
       durationMs: Date.now() - startedAt,
     });
+    if (repoRoot) {
+      emitEngineEvent({
+        repoRoot,
+        source: "mcp",
+        event: "mcp.tool.finished",
+        level: "info",
+        correlationId,
+        data: {
+          toolName: name,
+          durationMs: Date.now() - startedAt,
+        },
+      });
+    }
     return result;
   } catch (error) {
     logger.error({
@@ -62,6 +92,20 @@ export async function dispatchTool(name: string, args: Record<string, unknown>) 
       durationMs: Date.now() - startedAt,
       message: error instanceof Error ? error.message : String(error),
     });
+    if (repoRoot) {
+      emitEngineEvent({
+        repoRoot,
+        source: "mcp",
+        event: "mcp.tool.failed",
+        level: "error",
+        correlationId,
+        data: {
+          toolName: name,
+          durationMs: Date.now() - startedAt,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
     throw error;
   }
 }

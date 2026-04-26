@@ -26,6 +26,7 @@ use:
 
 - `index.sqlite` for the current index backend
 - `repo-meta.json` and `integrity.sha256` for repo-local metadata
+- `events.jsonl` for append-only observability events
 - `raw-cache/` for supporting source cache state
 
 By contrast, package build output stays inside this workspace at `dist/`. The
@@ -40,6 +41,7 @@ Current capabilities:
 - CLI entrypoint for local debugging and benchmarks
 - local benchmark scripts for latency and token-savings measurement
 - watch-mode refresh with native filesystem watching and polling fallback
+- opt-in localhost observability over Bun's uWebSockets-backed server runtime
 
 The framing is intentionally "context engine", not generic code intelligence.
 The package exists to give agents the minimum high-signal code context they need
@@ -145,6 +147,8 @@ You can use the engine through:
 - the stdio MCP server in `src/mcp.ts`, which is the primary agent interface
   and exposes indexing tools, structural outline tools, `query_code`, and
   `diagnostics`
+- the Bun-backed observability server in `scripts/observability-server.mjs`,
+  which exposes `/health`, `/recent`, and `/events` for local live debugging
 - the library exports in `src/index.ts`
 - the JSON CLI in `src/cli.ts` for local debugging, packaging smoke tests, and
   benchmarks
@@ -170,6 +174,7 @@ JavaScript instead of repo-local TypeScript sources.
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
 - `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo --scan-freshness`
 - `pnpm exec ai-context-engine mcp`
+- `pnpm exec ai-context-engine observability --repo /abs/repo`
 - `pnpm --filter @playground/ai-context-engine bench:small`
 - `pnpm --filter @playground/ai-context-engine bench:cli`
 - `pnpm --filter @playground/ai-context-engine build`
@@ -189,6 +194,27 @@ JavaScript instead of repo-local TypeScript sources.
 
 The CLI prints JSON for each command. The MCP server runs over stdio using the
 official MCP TypeScript SDK and a narrow repo-owned tool surface.
+
+## Live observability
+
+The package now includes an opt-in local observability surface intended for
+developer debugging rather than agent retrieval.
+
+- start it with `pnpm exec ai-context-engine observability --repo /abs/repo`
+- it binds to `127.0.0.1` by default and uses Bun's uWebSockets-backed server
+  runtime through `Bun.serve`
+- it exposes:
+  - `/health` for a live `diagnostics` snapshot
+  - `/recent` for the current in-memory tail of recent JSONL events
+  - `/events` for a read-only websocket stream
+- event producers append to `.ai-context-engine/events.jsonl`
+- the Bun server does not open SQLite directly; health snapshots are delegated
+  to the normal Node CLI path so the transport runtime stays separate from the
+  storage runtime
+
+This surface is intentionally local, metadata-first, and read-only. It exists
+to help inspect MCP requests, watch behavior, child index worker activity, and
+health drift without changing the MCP protocol contract.
 
 ## Structured diagnostics
 

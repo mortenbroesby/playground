@@ -45,6 +45,7 @@ export function resolveEnginePaths(repoRoot: string): EnginePaths {
     repoMetaPath: path.join(storageDir, "repo-meta.json"),
     integrityPath: path.join(storageDir, "integrity.sha256"),
     rawCacheDir: path.join(storageDir, "raw-cache"),
+    eventsPath: path.join(storageDir, "events.jsonl"),
   };
 }
 

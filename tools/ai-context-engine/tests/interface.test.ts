@@ -1,5 +1,6 @@
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { once } from "node:events";
 import { realpath, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
@@ -20,6 +21,78 @@ const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 5_000,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (!predicate()) {
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`Timed out after ${timeoutMs}ms`);
+    }
+    await delay(25);
+  }
+}
+
+async function startObservabilityServer(repoRoot: string) {
+  const child = spawn(
+    process.execPath,
+    [
+      path.join(packageRoot, "scripts", "ai-context-engine.mjs"),
+      "observability",
+      "--repo",
+      repoRoot,
+      "--port",
+      "0",
+      "--snapshot-interval-ms",
+      "100",
+      "--recent-limit",
+      "20",
+    ],
+    {
+      cwd: packageRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  const startup = await new Promise<{ host: string; port: number; repoRoot: string }>((resolve, reject) => {
+    let stdout = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      const newlineIndex = stdout.indexOf("\n");
+      if (newlineIndex === -1) {
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(stdout.slice(0, newlineIndex)) as { host: string; port: number; repoRoot: string });
+      } catch (error) {
+        reject(error);
+      }
+    });
+    child.once("error", reject);
+    child.once("exit", (code) => {
+      reject(new Error(`observability server exited before startup: ${code ?? "unknown"}`));
+    });
+  });
+
+  return {
+    ...startup,
+    stderr: () => stderr,
+    async close() {
+      child.kill("SIGTERM");
+      await once(child, "exit").catch(() => undefined);
+    },
+  };
+}
 
 function asTextResultForTest(value: unknown) {
   return JSON.stringify(value, null, 2);
@@ -552,6 +625,54 @@ export function circumference(radius: number): string {
       });
     });
   }, 15000);
+
+  it("serves Bun-backed live observability over health, recent, and websocket events", async () => {
+    const repoRoot = await createFixtureRepo();
+    const server = await startObservabilityServer(repoRoot);
+    const messages: Array<Record<string, unknown>> = [];
+    const socket = new WebSocket(`ws://${server.host}:${server.port}/events`);
+
+    socket.addEventListener("message", (event) => {
+      void (async () => {
+        const payload = event.data instanceof Blob
+          ? await event.data.text()
+          : String(event.data);
+        messages.push(JSON.parse(payload) as Record<string, unknown>);
+      })();
+    });
+
+    try {
+      await waitFor(() => messages.some((message) => message.type === "snapshot"));
+
+      const healthResponse = await fetch(`http://${server.host}:${server.port}/health`);
+      const health = await healthResponse.json() as { storageDir: string; watch: { status: string } };
+      expect(health.storageDir).toContain(".ai-context-engine");
+      expect(health.watch.status).toBe("idle");
+
+      await handleCli(["index-folder", "--repo", repoRoot]);
+
+      await waitFor(() =>
+        messages.some((message) =>
+          message.type === "event"
+            && (message.event as { event?: string } | undefined)?.event === "index-worker.finished"
+        ),
+      );
+
+      const recentResponse = await fetch(`http://${server.host}:${server.port}/recent`);
+      const recent = await recentResponse.json() as {
+        repoRoot: string;
+        events: Array<{ event: string; source: string }>;
+      };
+      expect(recent.repoRoot).toBe(repoRoot);
+      expect(recent.events.some((event) =>
+        event.event === "index-worker.finished" && event.source === "index-worker",
+      )).toBe(true);
+      expect(server.stderr()).toBe("");
+    } finally {
+      socket.close();
+      await server.close();
+    }
+  }, 30_000);
 
   it("rejects unsupported summary strategies at runtime boundaries", async () => {
     const repoRoot = await createFixtureRepo();

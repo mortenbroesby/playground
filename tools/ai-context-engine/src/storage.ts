@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { watch as fsWatch } from "node:fs";
 import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,6 +18,7 @@ import {
 } from "rxjs";
 
 import { createDefaultEngineConfig, normalizeSummaryStrategy } from "./config.ts";
+import { emitEngineEvent } from "./event-sink.ts";
 import {
   compactDirectoryRescanPaths,
   compareDirectoryStates,
@@ -363,6 +364,7 @@ async function runIndexCommandInChild(
   },
 ): Promise<IndexSummary> {
   const startedAt = Date.now();
+  const correlationId = randomUUID();
   const args = storageModulePath.endsWith(".ts")
     ? [
         "--no-warnings",
@@ -395,6 +397,18 @@ async function runIndexCommandInChild(
       filePath: input.filePath ?? null,
       summaryStrategy: input.summaryStrategy ?? null,
     });
+    emitEngineEvent({
+      repoRoot: input.repoRoot,
+      source: "index-worker",
+      event: "index-worker.started",
+      level: "debug",
+      correlationId,
+      data: {
+        command,
+        filePath: input.filePath ?? null,
+        summaryStrategy: input.summaryStrategy ?? null,
+      },
+    });
     const child = spawn(process.execPath, args, {
       env: {
         ...process.env,
@@ -421,6 +435,20 @@ async function runIndexCommandInChild(
         durationMs: Date.now() - startedAt,
         message: error instanceof Error ? error.message : String(error),
       });
+      emitEngineEvent({
+        repoRoot: input.repoRoot,
+        source: "index-worker",
+        event: "index-worker.failed",
+        level: "error",
+        correlationId,
+        data: {
+          command,
+          filePath: input.filePath ?? null,
+          durationMs: Date.now() - startedAt,
+          stage: "spawn",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
       reject(error);
     });
     child.on("close", (code) => {
@@ -434,6 +462,21 @@ async function runIndexCommandInChild(
           exitCode: code,
           stderrBytes: stderr.length,
           stdoutBytes: stdout.length,
+        });
+        emitEngineEvent({
+          repoRoot: input.repoRoot,
+          source: "index-worker",
+          event: "index-worker.failed",
+          level: "error",
+          correlationId,
+          data: {
+            command,
+            filePath: input.filePath ?? null,
+            durationMs: Date.now() - startedAt,
+            exitCode: code,
+            stderrBytes: stderr.length,
+            stdoutBytes: stdout.length,
+          },
         });
         reject(new Error(stderr.trim() || stdout.trim() || `${command} worker failed`));
         return;
@@ -449,6 +492,21 @@ async function runIndexCommandInChild(
           indexedFiles: parsed.indexedFiles,
           indexedSymbols: parsed.indexedSymbols,
         });
+        emitEngineEvent({
+          repoRoot: input.repoRoot,
+          source: "index-worker",
+          event: "index-worker.finished",
+          level: "info",
+          correlationId,
+          data: {
+            command,
+            filePath: input.filePath ?? null,
+            durationMs: Date.now() - startedAt,
+            indexedFiles: parsed.indexedFiles,
+            indexedSymbols: parsed.indexedSymbols,
+            staleStatus: parsed.staleStatus,
+          },
+        });
         resolve(parsed);
       } catch (error) {
         storageLogger.error({
@@ -459,6 +517,21 @@ async function runIndexCommandInChild(
           stdoutBytes: stdout.length,
           stderrBytes: stderr.length,
           message: error instanceof Error ? error.message : String(error),
+        });
+        emitEngineEvent({
+          repoRoot: input.repoRoot,
+          source: "index-worker",
+          event: "index-worker.parse-failed",
+          level: "error",
+          correlationId,
+          data: {
+            command,
+            filePath: input.filePath ?? null,
+            durationMs: Date.now() - startedAt,
+            stdoutBytes: stdout.length,
+            stderrBytes: stderr.length,
+            message: error instanceof Error ? error.message : String(error),
+          },
         });
         reject(
           new Error(
@@ -1719,6 +1792,17 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         indexedFiles: event.summary?.indexedFiles ?? null,
         indexedSymbols: event.summary?.indexedSymbols ?? null,
       });
+      emitEngineEvent({
+        repoRoot,
+        source: "watch",
+        event: "watch.ready",
+        level: "info",
+        data: {
+          indexedFiles: event.summary?.indexedFiles ?? null,
+          indexedSymbols: event.summary?.indexedSymbols ?? null,
+          staleStatus: event.summary?.staleStatus ?? null,
+        },
+      });
     } else if (event.type === "reindex") {
       watchLogger.debug({
         event: "watch_reindex",
@@ -1726,17 +1810,49 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         indexedFiles: event.summary?.indexedFiles ?? null,
         indexedSymbols: event.summary?.indexedSymbols ?? null,
       });
+      emitEngineEvent({
+        repoRoot,
+        source: "watch",
+        event: "watch.reindex",
+        level: "info",
+        data: {
+          changedPaths: event.changedPaths,
+          indexedFiles: event.summary?.indexedFiles ?? null,
+          indexedSymbols: event.summary?.indexedSymbols ?? null,
+          staleStatus: event.summary?.staleStatus ?? null,
+        },
+      });
     } else if (event.type === "error") {
       watchLogger.warn({
         event: "watch_error",
         changedPathCount: event.changedPaths.length,
         message: event.message ?? "Unknown watch error",
       });
+      emitEngineEvent({
+        repoRoot,
+        source: "watch",
+        event: "watch.error",
+        level: "warn",
+        data: {
+          changedPaths: event.changedPaths,
+          message: event.message ?? "Unknown watch error",
+        },
+      });
     } else if (event.type === "close") {
       watchLogger.info({
         event: "watch_close",
         reindexCount,
         lastError,
+      });
+      emitEngineEvent({
+        repoRoot,
+        source: "watch",
+        event: "watch.closed",
+        level: "info",
+        data: {
+          reindexCount,
+          lastError,
+        },
       });
     }
   };

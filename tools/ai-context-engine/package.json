@@ -12,7 +12,8 @@
   "files": [
     "README.md",
     "dist",
-    "scripts/ai-context-engine.mjs"
+    "scripts/ai-context-engine.mjs",
+    "scripts/observability-server.mjs"
   ],
   "exports": {
     ".": {
@@ -26,6 +27,7 @@
     "build:types": "tsc -p tsconfig.build.json",
     "cli": "node --experimental-strip-types ./src/cli.ts",
     "mcp": "node --no-warnings --experimental-strip-types ./src/mcp.ts",
+    "observability": "bun ./scripts/observability-server.mjs",
     "bench:small": "node --experimental-strip-types ./scripts/benchmark-small.mjs",
     "bench:cli": "node --experimental-strip-types ./scripts/benchmark-cli.mjs",
     "bench:corpus": "node --experimental-strip-types ./bench/src/cli.ts",

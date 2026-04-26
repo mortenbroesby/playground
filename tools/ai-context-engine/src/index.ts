@@ -28,10 +28,18 @@ export {
   suggestInitialQueries,
   watchFolder,
 } from "./storage.ts";
+export {
+  appendEngineEvent,
+  emitEngineEvent,
+  readRecentEngineEvents,
+} from "./event-sink.ts";
 
 export type {
   DiagnosticsOptions,
   DiagnosticsResult,
+  EngineEventEnvelope,
+  EngineEventLevel,
+  EngineEventSource,
   EngineConfig,
   EnginePaths,
   EngineToolName,

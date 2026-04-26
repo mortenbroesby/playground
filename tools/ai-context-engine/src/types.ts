@@ -15,6 +15,7 @@ export interface EnginePaths {
   repoMetaPath: string;
   integrityPath: string;
   rawCacheDir: string;
+  eventsPath: string;
 }
 
 export interface EngineConfig {
@@ -262,6 +263,20 @@ export interface DiagnosticsResult {
   currentSnapshotHash: string | null;
   staleReasons: string[];
   watch: WatchDiagnostics;
+}
+
+export type EngineEventSource = "mcp" | "watch" | "index-worker" | "health";
+export type EngineEventLevel = "debug" | "info" | "warn" | "error";
+
+export interface EngineEventEnvelope {
+  id: string;
+  ts: string;
+  repoRoot: string;
+  source: EngineEventSource;
+  event: string;
+  level: EngineEventLevel;
+  correlationId?: string;
+  data: Record<string, unknown>;
 }
 
 export type EngineToolName =
