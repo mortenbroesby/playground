@@ -157,6 +157,9 @@ Current implementation includes:
   `symbol_signature_hash`, and `import_hash`, which lets refresh paths skip
   obvious no-op files before rereading source and backfills stronger
   incremental-index metadata for later phases
+- direct `index-file` refreshes now also cleanly remove stale index rows when
+  the target path was deleted, renamed away, ignored, or no longer supported,
+  which keeps commit-hook and one-file repair flows aligned with watch mode
 - symbol search now supports `language` and `filePattern` filters, and text
   search supports `filePattern`
 - repo inputs anchored to any Git subdirectory resolve to the enclosing worktree

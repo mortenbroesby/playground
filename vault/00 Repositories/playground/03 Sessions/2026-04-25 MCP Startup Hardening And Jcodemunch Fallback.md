@@ -533,3 +533,15 @@ a mandatory runtime concern for every MCP or CLI call.
   branch work without relying on a rebuilt `dist/`.
 - Bumped Astrograph from `0.0.1-alpha.13` to `0.0.1-alpha.14` for this first
   Phase 5 slice.
+
+## Astrograph single-file deletion cleanup follow-up (2026-04-27)
+
+- Tightened the next incremental-refresh edge case after Phase 5A:
+  `index-file` now removes an existing index row cleanly when the targeted path
+  was deleted, renamed away, newly ignored, or otherwise no longer indexable,
+  instead of surfacing a missing-file error.
+- That makes one-file repair flows line up with existing watch-mode and
+  full-folder cleanup behavior, which is important for commit-hook and
+  selective-refresh automation.
+- Added focused behavior coverage for the deleted/renamed case and bumped
+  Astrograph from `0.0.1-alpha.14` to `0.0.1-alpha.15`.

@@ -1141,6 +1141,28 @@ async function readRepoFileMetadata(repoRoot: string, filePath: string) {
   };
 }
 
+async function resolveRepoFileRefreshState(
+  repoRoot: string,
+  filePath: string,
+): Promise<{
+  relativePath: string;
+  exists: boolean;
+  supported: boolean;
+  ignored: boolean;
+}> {
+  const { absolutePath, relativePath } = normalizeRepoRelativePath(repoRoot, filePath);
+  const exists = await stat(absolutePath)
+    .then((entry) => entry.isFile())
+    .catch(() => false);
+
+  return {
+    relativePath,
+    exists,
+    supported: Boolean(supportedLanguageForFile(relativePath)),
+    ignored: isGitIgnored(repoRoot, relativePath),
+  };
+}
+
 function countRows(db: IndexBackendConnection, sql: string): number {
   const row = db.prepare(sql).get() as { count: number };
   return row.count;
@@ -2260,6 +2282,18 @@ async function indexFileDirect(input: {
 
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
+    const fileState = await resolveRepoFileRefreshState(repoRoot, input.filePath);
+    if (!fileState.exists || !fileState.supported || fileState.ignored) {
+      const removed = removeFileIndex(db, fileState.relativePath);
+      const indexedAt = new Date().toISOString();
+      await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+
+      return {
+        indexedFiles: removed ? 1 : 0,
+        indexedSymbols: 0,
+        staleStatus: "fresh",
+      };
+    }
     const result = await upsertFileIndex(db, {
       repoRoot,
       filePath: input.filePath,

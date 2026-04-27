@@ -159,12 +159,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.14",
+      engineVersion: "0.0.1-alpha.15",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 14,
+        increment: 15,
       },
       schemaVersion: 2,
       summaryStrategy: "doc-comments-first",
@@ -1084,6 +1084,56 @@ export function circumference(radius: number): string {
     expect(health).toMatchObject({
       freshnessMode: "metadata",
       freshnessScanned: false,
+    });
+  });
+
+  it("removes stale index entries when single-file refresh targets a deleted or renamed file", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "math-renamed.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export function perimeter(radius: number): string {
+  return formatLabel(2 * radius);
+}
+`,
+    );
+    await rm(path.join(repoRoot, "src", "math.ts"));
+
+    const removed = await indexFile({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+    expect(removed).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 0,
+      staleStatus: "fresh",
+    });
+    const fileTreeAfterRemoval = await getFileTree({ repoRoot });
+    expect(fileTreeAfterRemoval.map((entry) => entry.path)).not.toContain(
+      "src/math.ts",
+    );
+
+    const added = await indexFile({
+      repoRoot,
+      filePath: "src/math-renamed.ts",
+    });
+    expect(added).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 1,
+      staleStatus: "fresh",
+    });
+
+    const perimeterMatches = await searchSymbols({
+      repoRoot,
+      query: "perimeter",
+    });
+    expect(perimeterMatches[0]).toMatchObject({
+      name: "perimeter",
+      filePath: "src/math-renamed.ts",
     });
   });
 
