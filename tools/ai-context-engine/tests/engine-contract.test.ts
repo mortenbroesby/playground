@@ -15,6 +15,7 @@ import {
   DEFAULT_RANKING_WEIGHTS,
   DEFAULT_MAX_SYMBOL_RESULTS,
   DEFAULT_MAX_TEXT_RESULTS,
+  DEFAULT_OBSERVABILITY_RETENTION_DAYS,
   DEFAULT_SUMMARY_STRATEGY,
   DEFAULT_WATCH_DEBOUNCE_MS,
   ENGINE_SCHEMA_VERSION,
@@ -100,18 +101,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.1.0-alpha.46");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.1.0-alpha.47");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 1,
       patch: 0,
-      increment: 46,
+      increment: 47,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 1,
       patch: 0,
-      increment: 46,
+      increment: 47,
     });
   });
 
@@ -245,6 +246,7 @@ describe("ai-context-engine contract", () => {
           enabled: true,
           port: 0,
           recentLimit: 17,
+          retentionDays: 5,
           snapshotIntervalMs: 250,
           redactSourceText: false,
         },
@@ -287,6 +289,7 @@ describe("ai-context-engine contract", () => {
       host: "127.0.0.1",
       port: 0,
       recentLimit: 17,
+      retentionDays: 5,
       snapshotIntervalMs: 250,
       redactSourceText: false,
     });
@@ -361,6 +364,9 @@ describe("ai-context-engine contract", () => {
       enabled: false,
       maxWorkers: expect.any(Number),
     });
+    expect(autoConfig.observability.retentionDays).toBe(
+      DEFAULT_OBSERVABILITY_RETENTION_DAYS,
+    );
     expect(autoConfig.watch).toEqual({
       backend: "auto",
       debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,

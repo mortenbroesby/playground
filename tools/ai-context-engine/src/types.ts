@@ -62,6 +62,7 @@ export interface RepoObservabilityConfig {
   host?: string;
   port?: number;
   recentLimit?: number;
+  retentionDays?: number;
   snapshotIntervalMs?: number;
   redactSourceText?: boolean;
 }
@@ -119,6 +120,7 @@ export interface ResolvedObservabilityConfig {
   host: string;
   port: number;
   recentLimit: number;
+  retentionDays: number;
   snapshotIntervalMs: number;
   redactSourceText: boolean;
 }

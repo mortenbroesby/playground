@@ -29,6 +29,7 @@ export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
 export const DEFAULT_OBSERVABILITY_HOST = "127.0.0.1";
 export const DEFAULT_OBSERVABILITY_PORT = 34323;
 export const DEFAULT_OBSERVABILITY_RECENT_LIMIT = 100;
+export const DEFAULT_OBSERVABILITY_RETENTION_DAYS = 3;
 export const DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS = 1000;
 export const DEFAULT_WATCH_DEBOUNCE_MS = 100;
 export const DEFAULT_MAX_FILES_DISCOVERED = 100_000;
@@ -83,6 +84,7 @@ const repoObservabilityConfigSchema = z.object({
   host: z.string().min(1).optional(),
   port: z.number().int().nonnegative().optional(),
   recentLimit: z.number().int().positive().optional(),
+  retentionDays: z.number().int().positive().optional(),
   snapshotIntervalMs: z.number().int().positive().optional(),
   redactSourceText: z.boolean().optional(),
 });
@@ -245,6 +247,7 @@ function createDefaultResolvedRepoEngineConfig(
       host: DEFAULT_OBSERVABILITY_HOST,
       port: DEFAULT_OBSERVABILITY_PORT,
       recentLimit: DEFAULT_OBSERVABILITY_RECENT_LIMIT,
+      retentionDays: DEFAULT_OBSERVABILITY_RETENTION_DAYS,
       snapshotIntervalMs: DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS,
       redactSourceText: true,
     },
@@ -321,6 +324,9 @@ export async function loadRepoEngineConfig(
       port: parsed.data.observability?.port ?? defaults.observability.port,
       recentLimit:
         parsed.data.observability?.recentLimit ?? defaults.observability.recentLimit,
+      retentionDays:
+        parsed.data.observability?.retentionDays
+        ?? defaults.observability.retentionDays,
       snapshotIntervalMs:
         parsed.data.observability?.snapshotIntervalMs
         ?? defaults.observability.snapshotIntervalMs,

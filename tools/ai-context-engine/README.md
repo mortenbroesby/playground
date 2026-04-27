@@ -185,6 +185,7 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   "summaryStrategy": "doc-comments-first",
   "storageMode": "wal",
   "observability": {
+    "retentionDays": 3,
     "redactSourceText": true
   },
   "ranking": {
@@ -225,6 +226,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   and ranked-context seed selection
 - `observability.redactSourceText` keeps observability event payloads privacy-safe
   by default while still allowing an explicit local opt-out
+- `observability.retentionDays` keeps local observability history for a bounded
+  time window; the default is 3 days
 - `performance.include` and `performance.exclude` apply the compiled picomatch
   path matcher to indexed discovery, freshness scans, and watch-triggered subtree rescans
 - `performance.workerPool.enabled` opt-ins CPU-heavy parse/hash analysis through

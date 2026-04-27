@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -75,5 +75,93 @@ describe("event sink privacy", () => {
     const paths = resolveEnginePaths(repoRoot);
     const rawLog = await readFile(paths.eventsPath, "utf8");
     expect(rawLog).not.toContain("sk-123456789012345678901234");
+  });
+
+  it("retains at least three days of observability history by default", async () => {
+    const repoRoot = await createFixtureRepo();
+    const paths = resolveEnginePaths(repoRoot);
+    await mkdir(path.dirname(paths.eventsPath), { recursive: true });
+
+    await writeFile(
+      paths.eventsPath,
+      [
+        JSON.stringify({
+          id: "old-event",
+          ts: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+          repoRoot,
+          source: "mcp",
+          event: "test.old",
+          level: "info",
+          data: {},
+        }),
+        JSON.stringify({
+          id: "recent-event",
+          ts: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          repoRoot,
+          source: "mcp",
+          event: "test.recent",
+          level: "info",
+          data: {},
+        }),
+        "",
+      ].join("\n"),
+    );
+
+    await appendEngineEvent({
+      repoRoot,
+      source: "mcp",
+      event: "test.now",
+      level: "info",
+    });
+
+    const rawLog = await readFile(paths.eventsPath, "utf8");
+    expect(rawLog).not.toContain('"id":"old-event"');
+    expect(rawLog).toContain('"id":"recent-event"');
+    expect(rawLog).toContain('"event":"test.now"');
+  });
+
+  it("uses repo-configured observability retention windows", async () => {
+    const repoRoot = await createFixtureRepo();
+    const paths = resolveEnginePaths(repoRoot);
+    await mkdir(path.dirname(paths.eventsPath), { recursive: true });
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        observability: {
+          retentionDays: 5,
+        },
+      }),
+    );
+
+    await writeFile(
+      paths.eventsPath,
+      [
+        JSON.stringify({
+          id: "kept-event",
+          ts: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+          repoRoot,
+          source: "mcp",
+          event: "test.kept",
+          level: "info",
+          data: {},
+        }),
+        "",
+      ].join("\n"),
+    );
+
+    await appendEngineEvent({
+      repoRoot,
+      source: "mcp",
+      event: "test.now",
+      level: "info",
+    });
+
+    const [keptEvent, currentEvent] = await readRecentEngineEvents({
+      repoRoot,
+      limit: 2,
+    });
+    expect(keptEvent?.id).toBe("kept-event");
+    expect(currentEvent?.event).toBe("test.now");
   });
 });

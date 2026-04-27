@@ -138,6 +138,8 @@ backend so regressions are visible without guesswork.
 Observability payloads are privacy-safe by default.
 
 - `observability.redactSourceText` defaults to `true`
+- `observability.retentionDays` defaults to `3`, so local event history is kept
+  for at least three days without growing unbounded forever
 - source-like event fields such as `source`, `content`, `preview`, and `text`
   are redacted before they are written to `events.jsonl`
 - obvious secret-shaped tokens are scrubbed even when source-text redaction is

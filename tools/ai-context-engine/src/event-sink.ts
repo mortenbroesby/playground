@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { loadRepoEngineConfig, resolveEnginePaths } from "./config.ts";
 import { redactSecretLikeString } from "./privacy.ts";
@@ -38,6 +38,26 @@ function buildEventEnvelope(input: EngineEventInput): EngineEventEnvelope {
     correlationId: input.correlationId,
     data: input.data ?? {},
   };
+}
+
+function resolveRetentionCutoffIso(retentionDays: number): string {
+  return new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function retainEventLine(
+  line: string,
+  cutoffIso: string,
+): boolean {
+  if (line.trim() === "") {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(line) as { ts?: unknown };
+    return typeof parsed.ts !== "string" || parsed.ts >= cutoffIso;
+  } catch {
+    return true;
+  }
 }
 
 function sanitizeEventValue(
@@ -91,7 +111,15 @@ export async function appendEngineEvent(
 
   writeQueue = writeQueue.then(async () => {
     await mkdir(paths.storageDir, { recursive: true });
-    await appendFile(paths.eventsPath, line, "utf8");
+    const cutoffIso = resolveRetentionCutoffIso(
+      repoConfig.observability.retentionDays,
+    );
+    const existingContents = await readFile(paths.eventsPath, "utf8").catch(() => "");
+    const retainedLines = existingContents
+      .split("\n")
+      .filter((existingLine) => retainEventLine(existingLine, cutoffIso));
+    retainedLines.push(line.trimEnd());
+    await writeFile(paths.eventsPath, `${retainedLines.join("\n")}\n`, "utf8");
   });
 
   await writeQueue;
