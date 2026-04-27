@@ -13,193 +13,237 @@
 
 # playground
 
-A monorepo for experimenting with multi-agent workflows, injected microfrontends, and the ongoing
-personal-site direction for `@mortenbroesby`.
+`playground` is a `pnpm` + Turborepo monorepo for three connected tracks:
 
-## Current state
+- a real personal-site host
+- a narrower but still intentional microfrontend composition seam
+- local tooling for multi-agent code and memory workflows
 
-The repo currently centers on one Vite host app with two clear modes:
+The repo is opinionated by design: one host owns the main experience, one live remote still proves
+the host-to-remote contract, and the supporting tooling is built inside the same workspace instead
+of being treated as throwaway experiments.
+
+## Table of Contents
+
+- [About](#about)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Security](#security)
+- [How to Contribute](#how-to-contribute)
+- [What's Next](#whats-next)
+- [Documentation](#documentation)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+- [Author](#author)
+
+## About
+
+The current repo centers on a Vite host app with two route-level shells:
 
 - a calmer public-site shell for `/`, `/about`, `/writing`, and `/uses`
 - a denser playground shell for `/playground`, `/playground/system`, `/playground/todo`, and `/playground/uplink`
 
-The host now acts as the public personal site, with:
-
-- a real home page at `/`
-- MDX-backed writing posts under `/writing`
-- a canonical `/uses` route, with `/uses/gear` kept as a legacy redirect
-- shared page metadata and a unified public-page layout across the main public routes
-
 The microfrontend boundary is still present, but it is intentionally narrower now:
 
-- `todo-app` is the sole live injected remote and remains the main host-to-remote contract demo
-- `uplink` is still part of the repo, but it now runs as a host-local playground surface instead of as the primary remote example
+- `@playground/todo-app` is the sole live injected remote and the main mount-contract proof
+- `@playground/uplink-game` stays in the repo as a host-local playground surface instead of the
+  primary remote example
 
-Current repo surfaces:
+Alongside the product surfaces, the monorepo also contains repo-owned agent tooling:
 
-- [Host app](./apps/host) for the public site, playground shell, and route composition
-- [Todo remote](./packages/remotes/todo-app) for the sole injected microfrontend example
-- [Uplink game package](./packages/remotes/uplink-game) for the game surface that now plugs into the host-local playground flow
-- [Shared UI](./packages/ui) for reusable React components
-- [Shared types](./packages/types) for host and remote contracts
-- [Shared config](./packages/config) for TypeScript and ESLint setup
+- `@astrograph/astrograph` for local indexed code retrieval
+- `@playground/obsidian-memory` for repo-local architecture and decision memory
 
-## Contributing guidelines
+## Features
 
-- Use `pnpm` only for package management and scripts.
-- Prefer small, workspace-scoped changes over broad repo edits.
-- Treat the root README as the overview and keep evolving direction in `docs/`.
-- Leave `docs/superpowers` alone unless the work is explicitly about that track.
-- When a change alters behavior, architecture, workflow, setup, or a public route, update the
-  matching README or docs note in the same commit.
+- Public-site host with shared layout, route composition, and MDX-backed writing
+- Distinct playground routes that keep experiments separate from the public shell
+- Workspace-mounted todo microfrontend with a deliberate host-to-remote contract
+- Host-local game surface that avoids forcing every feature through the remote seam
+- Shared UI, type, and config packages for reuse across workspaces
+- Repo-local tooling for code indexing, observability, and Obsidian-backed memory retrieval
+- Markdown, workflow, and agent documentation kept in-repo instead of scattered externally
 
-## Monorepo
+## Tech Stack
 
-This repo uses:
+- `pnpm` workspaces for package management
+- `Turborepo` for task orchestration and caching
+- `TypeScript` across apps, packages, and tools
+- `React` + `Vite` for app surfaces
+- `Vitest` for workspace tests
+- `ESLint`, `Prettier`, and `markdownlint-cli2` for code and docs hygiene
+- `SQLite` inside Astrograph for local symbol and file indexing
+- `Obsidian` vault content plus local retrieval tooling for durable repo memory
 
-- [pnpm workspaces](https://pnpm.io/workspaces) to split the codebase into focused packages
-- [Turborepo](https://turbo.build/repo) to run and cache build, lint, test, and type-check tasks
+## Architecture
 
-## Getting started
+At a high level, the repo is split into four layers:
+
+1. `apps/host` owns the real user-facing shell, routing, page composition, and public-site
+   experience.
+2. `packages/remotes/*` holds domain-specific product surfaces that the host can mount or consume.
+3. `packages/ui`, `packages/types`, and `packages/config` provide the shared primitives and
+   contracts that keep the workspace consistent.
+4. `tools/*` provides repo-owned agent infrastructure for code retrieval and durable memory.
+
+Current route and package shape:
+
+- `/` and the public routes live in the host
+- `/playground/todo` mounts the todo remote from the workspace with a client-side dynamic import
+- `/playground/uplink` uses the game package as a host-local surface
+- the admin app exists as a separate workspace for visualizing the vault task board
+
+## Project Structure
+
+```text
+apps/
+  admin/                  Admin board for visualizing the vault task board
+  host/                   Public site, playground shell, routes, and composition
+packages/
+  config/                 Shared TypeScript and ESLint presets
+  remotes/
+    todo-app/             Sole live injected microfrontend example
+    uplink-game/          Host-local gameplay package used by the playground
+  types/                  Shared contracts between host and feature packages
+  ui/                     Shared React UI primitives
+tools/
+  ai-context-engine/      Repo-owned local code retrieval engine
+  obsidian-memory/        Repo-local memory indexing and retrieval tools
+docs/
+  ideas/                  Lightweight roadmap and parking-lot notes
+  obsidian/               Vault bootstrap and memory-model documentation
+  superpowers/            Separate deeper planning/spec track
+vault/                    Durable repo notes, decisions, sessions, and tasks
+```
+
+## Getting Started
+
+### Requirements
+
+- Node `24.x` via [`.nvmrc`](./.nvmrc)
+- `pnpm` `9.15.0` via the root `packageManager` field
+
+### Install
 
 ```bash
 corepack enable
 nvm use
 pnpm install
-pnpm turbo lint && pnpm lint:md
-pnpm turbo type-check
 ```
 
-Useful local commands:
+### Common Commands
 
 ```bash
-pnpm turbo dev
 pnpm dev:web
+pnpm turbo dev
+pnpm turbo type-check
+pnpm turbo lint
 pnpm test
 pnpm test:integration
+pnpm lint:md
 ```
 
-Runtime expectations:
+### Verification Baseline
 
-- Node `24.x` via [`.nvmrc`](./.nvmrc)
-- pnpm `9.15.0` via the root `packageManager` field
+For a normal local sanity pass:
+
+```bash
+pnpm turbo type-check
+pnpm turbo lint
+pnpm test
+```
+
+For docs-only changes, `pnpm lint:md` is usually enough.
+
+## Configuration
+
+The main optional local configuration is the Spotify now-playing widget used by the host footer.
+
+Create a local env file:
+
+```bash
+cp apps/host/.env.example apps/host/.env.local
+```
+
+Required variables:
+
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
+- `SPOTIFY_REFRESH_TOKEN`
+
+If those values are absent, the widget stays hidden and the related API surface reports a
+non-playing state.
+
+Useful repo-level tooling commands:
+
+- `pnpm astrograph:observability` starts Astrograph observability for the repo
+- `pnpm astrograph:open` opens the Astrograph observability helper
+- `pnpm rag:index` refreshes the Obsidian memory index
+- `pnpm agents:check` validates expected local agent setup
+
+## Security
+
+- Do not commit `.env.local` files or credentials.
+- Keep Spotify credentials local to `apps/host/.env.local`.
+- Treat repo-owned memory and observability output as local workspace tooling, not a place to store
+  secrets.
+- Leave generated output untouched: `dist/`, `.next/`, `.turbo/`, and `coverage/`.
+
+## How to Contribute
+
+- Use `pnpm` only. Do not introduce `npm` or `yarn`.
+- Keep changes scoped to the workspace that owns the behavior.
+- Prefer small, reviewable changes over broad repo-wide edits.
+- Update the relevant README, rule, hook doc, vault note, or AGENTS file when behavior,
+  architecture, workflow, or setup expectations change.
+- Unless the work is explicitly about that track, leave `docs/superpowers/` alone.
+
+If you are working locally, these docs are the fastest entry points:
+
+- [Root AGENTS guide](./AGENTS.md)
+- [Repo workflow rules](./.agents/rules/repo-workflow.md)
+- [Host README](./apps/host/README.md)
+
+## What's Next?
+
+The repo's current direction is intentionally focused:
+
+- keep the host strong as a real personal site, not just a shell for demos
+- preserve the playground as a distinct lab with a narrow remote seam
+- keep growing the shared UI and contract layers incrementally
+- continue proving the repo-owned agent tooling against real daily workflow use
+
+For active planning and deferred ideas, start here:
+
+- [Docs index](./docs/README.md)
+- [Roadmap](./docs/ideas/roadmap.md)
+- [Parking lot](./docs/ideas/parking-lot.md)
 
 ## Documentation
 
-The root README is the front door. The more detailed and more fluid thinking lives in `docs/`.
+The root README is the front door. Deeper repo context lives in:
 
-### Start here
-
-- [Docs index](./docs/README.md) for the docs map
-- [Obsidian repository brain](./docs/obsidian/README.md) for the vault bootstrap and note model used to keep structured repo memory
-- [Roadmap](./docs/ideas/roadmap.md) for where the repo is now and the most believable next steps
-- [Parking lot](./docs/ideas/parking-lot.md) for good ideas that are intentionally not active
-- [Host README](./apps/host/README.md) for the current shell and microfrontend setup
-
-### Planning tracks
-
-- [`docs/ideas/`](./docs/ideas/) is the lightweight planning layer for current direction
-- [`docs/superpowers/`](./docs/superpowers/) is a separate deeper planning and spec workstream
-
-## Table of contents
-
-### Development
-
-- [Getting started](#getting-started)
-- [Documentation](#documentation)
-- [Commands](#commands)
-- [Repository structure](#repository-structure)
-- [Adding a workspace](#adding-a-workspace)
-- [How this is structured](#how-this-is-structured)
-
-### Planning
-
-- [Roadmap](./docs/ideas/roadmap.md)
-  - **TLDR**: The repo is strongest as a personal-site host plus one deliberate injected remote,
-    with the next likely steps being stronger public-site structure, project surfaces, and better
-    shared UI primitives.
-- [Parking lot](./docs/ideas/parking-lot.md)
-  - **TLDR**: Personal website refinements, a hacker-inspired UI pass, and possible realtime ideas
-    are worth keeping around without treating them as immediate priorities.
-- [Superpowers docs](./docs/superpowers/)
-  - **TLDR**: This is a separate planning track and should be left alone unless the work is
-    explicitly about Superpowers.
-
-### Workspaces
-
-- [Host app](./apps/host)
-- [Host setup notes](./apps/host/README.md)
-- [Todo remote](./packages/remotes/todo-app)
-- [Shared UI](./packages/ui)
-- [Shared types](./packages/types)
-- [Shared config](./packages/config)
-
-## Commands
-
-| Command                 | Description                                                                   |
-| :---------------------- | :---------------------------------------------------------------------------- |
-| `pnpm turbo build`      | Build all packages in dependency order                                        |
-| `pnpm turbo type-check` | TypeScript check across all workspaces                                        |
-| `pnpm turbo lint`       | ESLint across all workspaces                                                  |
-| `pnpm turbo dev`        | Start all dev servers in parallel                                             |
-| `pnpm dev:web`          | Start the host app and open `/`                                               |
-| `pnpm test`             | Run workspace tests through Turborepo                                         |
-| `pnpm test:integration` | Run the todo remote integration test suite                                    |
-| `pnpm lint:md`          | Lint root docs, workspace READMEs, and active planning docs with markdownlint |
-
-## Repository structure
-
-```text
-apps/
-  host/                   Vite host with public routes, playground routes, and page composition
-packages/
-  remotes/todo-app/       Injected todo microfrontend package
-  remotes/uplink-game/    Uplink gameplay package used by the host playground route
-  ui/                     Shared React components
-  types/                  Shared host and remote contracts
-  config/                 Shared TypeScript and ESLint configuration
-docs/
-  ideas/                  Lightweight roadmap and parking-lot notes
-  superpowers/            Separate planning and spec workstream
-```
-
-## Adding a workspace
-
-```bash
-mkdir apps/my-app && cd apps/my-app && pnpm init
-mkdir packages/my-package && cd packages/my-package && pnpm init
-```
-
-Add shared configs to the new workspace `package.json`:
-
-```json
-{
-  "devDependencies": {
-    "@playground/tsconfig": "workspace:*",
-    "@playground/eslint-config": "workspace:*"
-  }
-}
-```
-
-Workspace script baseline:
-
-- App and feature workspaces should expose `build` and `type-check`.
-- Add `lint` when the workspace has local ESLint wiring.
-- Add `test` when the workspace owns behavior worth verifying in isolation.
-- Config-only packages may omit runtime scripts when they only publish shared presets.
-
-## How this is structured
-
-The repo is intentionally small right now:
-
-- one deployable host app that now serves both the public personal site and the playground shell
-- one injected remote that still proves the host-to-remote boundary without turning the repo into a remote zoo
-- one host-local game surface that keeps the playground expressive without forcing every module through the same composition model
-- shared UI, type, and config packages that keep experiments reusable
-- docs that separate active direction from parked ideas and deeper planning tracks
-
-That keeps the repo flexible enough to explore without collapsing into a pile of disconnected demos.
+- [Docs index](./docs/README.md)
+- [Obsidian repository brain](./docs/obsidian/README.md)
+- [Host README](./apps/host/README.md)
+- [Astrograph README](./tools/ai-context-engine/README.md)
+- [Obsidian memory README](./tools/obsidian-memory/README.md)
 
 ## License
 
-MIT — see [LICENSE](./LICENSE)
+MIT. See [LICENSE](./LICENSE).
+
+## Acknowledgements
+
+- `pnpm`, `Turborepo`, `Vite`, `React`, and `Vitest` for the core workspace foundation
+- `Obsidian` for the repo-memory authoring model
+- the repo-owned `Astrograph` and `obsidian-memory` tools for keeping agent workflows grounded in
+  local context
+
+## Author
+
+Built and maintained by [Morten Broesby](https://github.com/mortenbroesby).
