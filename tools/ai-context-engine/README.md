@@ -311,6 +311,8 @@ Current priorities are clear:
 The main entry points are:
 
 - this README for package overview and usage
+- [docs/performance.md](./docs/performance.md) for dependency-specific
+  performance workflow and profiling guidance
 - the root [README](../../README.md) for repo context
 - the root [AGENTS.md](../../AGENTS.md) for agent workflow expectations
 
