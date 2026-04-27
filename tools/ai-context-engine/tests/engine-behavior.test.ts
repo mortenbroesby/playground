@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.30",
+      engineVersion: "0.0.1-alpha.31",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 30,
+        increment: 31,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -581,6 +581,36 @@ export class Greeter {
 
     expect(textMatches[0]).toMatchObject({
       filePath: "src/strings.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
+    });
+  });
+
+  it("applies repo-config live search limits during ripgrep fallback", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxLiveSearchMatches: 1,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "many.ts"),
+      Array.from({ length: 5 }, () => "export const repeated = 'hello';").join("\n"),
+    );
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "hello",
+    });
+
+    expect(textMatches).toHaveLength(1);
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/many.ts",
       source: "live_disk_match",
       reason: "ripgrep_fallback",
     });

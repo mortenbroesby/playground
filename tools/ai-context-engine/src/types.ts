@@ -29,6 +29,10 @@ export interface EngineConfig {
   fileProcessingConcurrency: number;
   workerPoolEnabled: boolean;
   workerPoolMaxWorkers: number;
+  maxFilesDiscovered: number;
+  maxFileBytes: number;
+  maxChildProcessOutputBytes: number;
+  maxLiveSearchMatches: number;
   paths: EnginePaths;
 }
 
@@ -58,6 +62,12 @@ export interface RepoEngineConfig {
   observability?: RepoObservabilityConfig;
   performance?: RepoPerformanceConfig;
   watch?: RepoWatchConfig;
+  limits?: {
+    maxFilesDiscovered?: number;
+    maxFileBytes?: number;
+    maxChildProcessOutputBytes?: number;
+    maxLiveSearchMatches?: number;
+  };
 }
 
 export interface ResolvedObservabilityConfig {
@@ -81,6 +91,13 @@ export interface ResolvedWatchConfig {
   debounceMs: number;
 }
 
+export interface ResolvedLimitsConfig {
+  maxFilesDiscovered: number;
+  maxFileBytes: number;
+  maxChildProcessOutputBytes: number;
+  maxLiveSearchMatches: number;
+}
+
 export interface ResolvedRepoEngineConfig {
   configPath: string | null;
   repoRoot: string;
@@ -88,6 +105,7 @@ export interface ResolvedRepoEngineConfig {
   observability: ResolvedObservabilityConfig;
   performance: ResolvedPerformanceConfig;
   watch: ResolvedWatchConfig;
+  limits: ResolvedLimitsConfig;
 }
 
 export type SymbolKind =

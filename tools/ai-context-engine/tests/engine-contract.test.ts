@@ -7,6 +7,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   ASTROGRAPH_PACKAGE_VERSION,
   ASTROGRAPH_VERSION_PARTS,
+  DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+  DEFAULT_MAX_FILE_BYTES,
+  DEFAULT_MAX_FILES_DISCOVERED,
+  DEFAULT_MAX_LIVE_SEARCH_MATCHES,
   DEFAULT_SUMMARY_STRATEGY,
   DEFAULT_WATCH_DEBOUNCE_MS,
   ENGINE_SCHEMA_VERSION,
@@ -59,6 +63,10 @@ describe("ai-context-engine contract", () => {
       storageMode: "wal",
       staleStatus: "unknown",
       summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
+      maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
+      maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+      maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
     });
 
     expect(config.paths.databasePath).toContain(".astrograph/index.sqlite");
@@ -82,18 +90,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.30");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.31");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 30,
+      increment: 31,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 30,
+      increment: 31,
     });
   });
 
@@ -178,6 +186,12 @@ describe("ai-context-engine contract", () => {
           backend: "polling",
           debounceMs: 175,
         },
+        limits: {
+          maxFilesDiscovered: 1234,
+          maxFileBytes: 4321,
+          maxChildProcessOutputBytes: 7654,
+          maxLiveSearchMatches: 3,
+        },
       }),
     );
 
@@ -199,6 +213,12 @@ describe("ai-context-engine contract", () => {
     expect(config.watch).toEqual({
       backend: "polling",
       debounceMs: 175,
+    });
+    expect(config.limits).toEqual({
+      maxFilesDiscovered: 1234,
+      maxFileBytes: 4321,
+      maxChildProcessOutputBytes: 7654,
+      maxLiveSearchMatches: 3,
     });
     expect(config.configPath).toContain("astrograph.config.json");
   });
@@ -243,6 +263,12 @@ describe("ai-context-engine contract", () => {
     expect(autoConfig.watch).toEqual({
       backend: "auto",
       debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
+    });
+    expect(autoConfig.limits).toEqual({
+      maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
+      maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+      maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
     });
 
     await writeFile(

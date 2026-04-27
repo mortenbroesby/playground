@@ -29,6 +29,10 @@ export const DEFAULT_OBSERVABILITY_PORT = 34323;
 export const DEFAULT_OBSERVABILITY_RECENT_LIMIT = 100;
 export const DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS = 1000;
 export const DEFAULT_WATCH_DEBOUNCE_MS = 100;
+export const DEFAULT_MAX_FILES_DISCOVERED = 100_000;
+export const DEFAULT_MAX_FILE_BYTES = 250_000;
+export const DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES = 1_000_000;
+export const DEFAULT_MAX_LIVE_SEARCH_MATCHES = 100;
 
 const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
   "doc-comments-first",
@@ -82,11 +86,19 @@ const repoWatchConfigSchema = z.object({
   debounceMs: z.number().int().positive().optional(),
 });
 
+const repoLimitsConfigSchema = z.object({
+  maxFilesDiscovered: z.number().int().positive().optional(),
+  maxFileBytes: z.number().int().positive().optional(),
+  maxChildProcessOutputBytes: z.number().int().positive().optional(),
+  maxLiveSearchMatches: z.number().int().positive().optional(),
+});
+
 const repoEngineConfigSchema = z.object({
   summaryStrategy: z.enum(["doc-comments-first", "signature-only"]).optional(),
   observability: repoObservabilityConfigSchema.optional(),
   performance: repoPerformanceConfigSchema.optional(),
   watch: repoWatchConfigSchema.optional(),
+  limits: repoLimitsConfigSchema.optional(),
 }) satisfies z.ZodType<RepoEngineConfig>;
 
 type WorkerPoolMaxWorkersValue = number | "auto" | undefined;
@@ -177,6 +189,12 @@ function createDefaultResolvedRepoEngineConfig(
       backend: "auto",
       debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
     },
+    limits: {
+      maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
+      maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+      maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+    },
   };
 }
 
@@ -245,6 +263,17 @@ export async function loadRepoEngineConfig(
       backend: parsed.data.watch?.backend ?? defaults.watch.backend,
       debounceMs: parsed.data.watch?.debounceMs ?? defaults.watch.debounceMs,
     },
+    limits: {
+      maxFilesDiscovered:
+        parsed.data.limits?.maxFilesDiscovered ?? defaults.limits.maxFilesDiscovered,
+      maxFileBytes:
+        parsed.data.limits?.maxFileBytes ?? defaults.limits.maxFileBytes,
+      maxChildProcessOutputBytes:
+        parsed.data.limits?.maxChildProcessOutputBytes
+        ?? defaults.limits.maxChildProcessOutputBytes,
+      maxLiveSearchMatches:
+        parsed.data.limits?.maxLiveSearchMatches ?? defaults.limits.maxLiveSearchMatches,
+    },
   };
 }
 
@@ -292,6 +321,10 @@ export function createDefaultEngineConfig(input: {
   fileProcessingConcurrency?: number;
   workerPoolEnabled?: boolean;
   workerPoolMaxWorkers?: number;
+  maxFilesDiscovered?: number;
+  maxFileBytes?: number;
+  maxChildProcessOutputBytes?: number;
+  maxLiveSearchMatches?: number;
 }): EngineConfig {
   return {
     repoRoot: input.repoRoot,
@@ -307,6 +340,11 @@ export function createDefaultEngineConfig(input: {
       input.fileProcessingConcurrency ?? defaultFileProcessingConcurrency(),
     workerPoolEnabled: input.workerPoolEnabled ?? false,
     workerPoolMaxWorkers: input.workerPoolMaxWorkers ?? defaultWorkerPoolMaxWorkers(),
+    maxFilesDiscovered: input.maxFilesDiscovered ?? DEFAULT_MAX_FILES_DISCOVERED,
+    maxFileBytes: input.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
+    maxChildProcessOutputBytes:
+      input.maxChildProcessOutputBytes ?? DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+    maxLiveSearchMatches: input.maxLiveSearchMatches ?? DEFAULT_MAX_LIVE_SEARCH_MATCHES,
     paths: resolveEnginePaths(input.repoRoot),
   };
 }

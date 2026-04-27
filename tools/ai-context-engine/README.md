@@ -189,6 +189,12 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   "watch": {
     "backend": "auto",
     "debounceMs": 100
+  },
+  "limits": {
+    "maxFilesDiscovered": 100000,
+    "maxFileBytes": 250000,
+    "maxChildProcessOutputBytes": 1000000,
+    "maxLiveSearchMatches": 100
   }
 }
 ```
@@ -199,6 +205,12 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   Piscina worker threads during folder indexing
 - `performance.workerPool.maxWorkers` bounds the worker pool when that path is
   enabled
+- `limits.maxLiveSearchMatches` caps ripgrep fallback matches when the index is
+  missing or stale
+- `limits.maxChildProcessOutputBytes` caps ripgrep fallback stdout before the
+  child is terminated
+- `limits.maxFilesDiscovered` and `limits.maxFileBytes` are config-ready limits
+  reserved for later enforcement slices
 - explicit library or CLI options still override repo-config defaults
 
 ### Standalone Codex Install

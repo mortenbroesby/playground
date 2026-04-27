@@ -876,6 +876,10 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     fileProcessingConcurrency: repoConfig.performance.fileProcessingConcurrency,
     workerPoolEnabled: repoConfig.performance.workerPool.enabled,
     workerPoolMaxWorkers: repoConfig.performance.workerPool.maxWorkers,
+    maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
+    maxFileBytes: repoConfig.limits.maxFileBytes,
+    maxChildProcessOutputBytes: repoConfig.limits.maxChildProcessOutputBytes,
+    maxLiveSearchMatches: repoConfig.limits.maxLiveSearchMatches,
   });
   if (!getLruEntry(ensuredStorageRoots, resolvedRepoRoot)) {
     await mkdir(config.paths.storageDir, { recursive: true });
@@ -3229,10 +3233,13 @@ export async function searchText(
   input: SearchTextOptions,
 ): Promise<SearchTextMatch[]> {
   if (await shouldUseLiveTextSearchFallback({ repoRoot: input.repoRoot })) {
+    const config = await ensureStorage(input.repoRoot);
     return searchLiveText({
-      repoRoot: input.repoRoot,
+      repoRoot: config.repoRoot,
       query: input.query,
       filePattern: input.filePattern,
+      maxMatches: config.maxLiveSearchMatches,
+      maxOutputBytes: config.maxChildProcessOutputBytes,
     });
   }
 
@@ -3256,10 +3263,13 @@ export async function queryCode(
       repoRoot: input.repoRoot,
     })
   ) {
+    const config = await ensureStorage(input.repoRoot);
     const textMatches = await searchLiveText({
-      repoRoot: input.repoRoot,
+      repoRoot: config.repoRoot,
       query: input.query ?? "",
       filePattern: input.filePattern,
+      maxMatches: config.maxLiveSearchMatches,
+      maxOutputBytes: config.maxChildProcessOutputBytes,
     });
     return {
       intent: "discover",
