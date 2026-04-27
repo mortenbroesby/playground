@@ -29,11 +29,11 @@ const packageRoot = path.resolve(
 );
 
 async function waitFor(
-  predicate: () => boolean,
+  predicate: () => boolean | Promise<boolean>,
   timeoutMs = 5_000,
 ): Promise<void> {
   const startedAt = Date.now();
-  while (!predicate()) {
+  while (!(await predicate())) {
     if (Date.now() - startedAt > timeoutMs) {
       throw new Error(`Timed out after ${timeoutMs}ms`);
     }
@@ -655,9 +655,18 @@ export function circumference(radius: number): string {
       expect(latestDiscoverEvent?.data?.tokenEstimate).toMatchObject({
         baselineTokens: expect.any(Number),
         returnedTokens: expect.any(Number),
-        savedTokens: 0,
-        savedPercent: 0,
+        savedTokens: expect.any(Number),
+        savedPercent: expect.any(Number),
+        mode: "heuristic",
+        tokenizer: "tokenx",
+        sampleEvery: 10,
+        sampleOrdinal: expect.any(Number),
       });
+      expect(
+        (
+          latestDiscoverEvent?.data?.tokenEstimate as { savedPercent?: number } | undefined
+        )?.savedPercent ?? 0,
+      ).toBeGreaterThan(0);
 
       const autoAssembleResponse = await dispatchTool("query_code", {
         repoRoot,
@@ -679,6 +688,37 @@ export function circumference(radius: number): string {
           query: "Greeter",
         }),
       ).rejects.toThrow(/unknown tool: search_symbols/i);
+
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await dispatchTool("get_repo_outline", { repoRoot });
+      }
+      let sampledRepoOutlineEvent:
+        | Awaited<ReturnType<typeof readRecentEngineEvents>>[number]
+        | undefined;
+      await waitFor(async () => {
+        const sampledEvents = await readRecentEngineEvents({ repoRoot, limit: 40 });
+        sampledRepoOutlineEvent = [...sampledEvents].reverse().find((event) =>
+          event.event === "mcp.tool.finished"
+          && event.source === "mcp"
+          && event.data?.toolName === "get_repo_outline"
+          && typeof event.data?.tokenEstimate === "object"
+          && typeof (event.data.tokenEstimate as { sampledExact?: unknown }).sampledExact === "object",
+        );
+        return sampledRepoOutlineEvent !== undefined;
+      });
+      expect(sampledRepoOutlineEvent?.data?.tokenEstimate).toMatchObject({
+        mode: "heuristic",
+        tokenizer: "cl100k_base",
+        sampleEvery: 10,
+        sampleOrdinal: expect.any(Number),
+        sampledExact: {
+          tokenizer: "cl100k_base",
+          baselineTokens: expect.any(Number),
+          returnedTokens: expect.any(Number),
+          savedTokens: expect.any(Number),
+          savedPercent: expect.any(Number),
+        },
+      });
     });
   }, 20_000);
 
@@ -809,6 +849,9 @@ export function circumference(radius: number): string {
               returnedTokens?: number;
               savedTokens?: number;
               savedPercent?: number;
+              tokenizer?: string;
+              sampleEvery?: number;
+              sampleOrdinal?: number;
             };
           };
         }>;
@@ -825,6 +868,9 @@ export function circumference(radius: number): string {
       expect(toolEvent?.data?.tokenEstimate?.returnedTokens).toBeGreaterThanOrEqual(1);
       expect(toolEvent?.data?.tokenEstimate?.savedTokens).toBeGreaterThanOrEqual(0);
       expect(toolEvent?.data?.tokenEstimate?.savedPercent).toBeGreaterThanOrEqual(0);
+      expect(toolEvent?.data?.tokenEstimate?.tokenizer).toBeTruthy();
+      expect(toolEvent?.data?.tokenEstimate?.sampleEvery).toBe(10);
+      expect(toolEvent?.data?.tokenEstimate?.sampleOrdinal).toBeGreaterThanOrEqual(1);
       expect(server.stderr()).toBe("");
     } finally {
       socket.close();

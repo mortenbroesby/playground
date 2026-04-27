@@ -13,11 +13,28 @@ import {
 } from "./mcp-contract.ts";
 import { emitEngineEvent } from "./event-sink.ts";
 import { getLogger } from "./logger.ts";
+import {
+  APPROXIMATE_BENCHMARK_TOKENIZER,
+  BENCHMARK_TOKENIZER,
+  countTokens,
+  estimateTokens,
+} from "./tokenizer.ts";
 
 type EngineModule = typeof import("./index.ts");
 
 let engineModulePromise: Promise<EngineModule> | null = null;
 const logger = getLogger({ component: "mcp" });
+const EXACT_SAMPLE_EVERY = 10;
+const toolObservationCounts = new Map<string, number>();
+
+const HEURISTIC_SAVED_PCT_BY_TOOL: Record<string, number> = {
+  diagnostics: 40,
+  get_file_outline: 65,
+  get_file_tree: 85,
+  get_repo_outline: 90,
+  query_code_discover: 55,
+  suggest_initial_queries: 92,
+};
 
 function asTextResult(value: unknown) {
   return {
@@ -35,17 +52,31 @@ function loadEngineModule(): Promise<EngineModule> {
   return engineModulePromise;
 }
 
-function estimateTokenCount(value: unknown): number {
+function serializeTokenValue(value: unknown): string {
   if (typeof value === "string") {
-    return Math.max(1, Math.ceil(value.length / 4));
+    return value;
   }
 
   const serialized = JSON.stringify(value);
-  if (!serialized) {
+  return serialized ?? "";
+}
+
+function estimateTokenCount(value: unknown): number {
+  const serialized = serializeTokenValue(value);
+  if (serialized.length === 0) {
     return 0;
   }
 
-  return Math.max(1, Math.ceil(serialized.length / 4));
+  return Math.max(1, estimateTokens(serialized));
+}
+
+function countExactTokens(value: unknown): number {
+  const serialized = serializeTokenValue(value);
+  if (serialized.length === 0) {
+    return 0;
+  }
+
+  return Math.max(1, countTokens(serialized));
 }
 
 interface ToolTokenEstimate {
@@ -53,12 +84,30 @@ interface ToolTokenEstimate {
   returnedTokens: number;
   savedTokens: number;
   savedPercent: number;
+  mode: "heuristic" | "exact";
+  tokenizer: string;
+  sampleEvery: number;
+  sampleOrdinal: number;
+  sampledExact?: {
+    baselineTokens: number;
+    returnedTokens: number;
+    savedTokens: number;
+    savedPercent: number;
+    tokenizer: string;
+  };
 }
 
 interface ToolCompletionSummary {
   summary: string;
   detail: string[];
   tokenEstimate: ToolTokenEstimate;
+}
+
+interface ToolTokenEstimateInput {
+  toolKey: string;
+  baselineValue?: unknown;
+  heuristicSavedPercent?: number;
+  returnedValue: unknown;
 }
 
 function toSavedPercent(savedTokens: number, baselineTokens: number): number {
@@ -69,19 +118,26 @@ function toSavedPercent(savedTokens: number, baselineTokens: number): number {
   return Math.max(0, Math.round((savedTokens / baselineTokens) * 100));
 }
 
-function buildTokenEstimate(
-  baselineTokens: number | null,
+function baselineFromSavedPercent(
   returnedTokens: number,
-): ToolTokenEstimate {
-  if (baselineTokens === null || baselineTokens <= 0) {
-    return {
-      baselineTokens: returnedTokens,
-      returnedTokens,
-      savedTokens: 0,
-      savedPercent: 0,
-    };
+  savedPercent: number,
+): number {
+  const normalizedSavedPercent = Math.max(0, Math.min(99, savedPercent));
+  if (normalizedSavedPercent === 0) {
+    return returnedTokens;
   }
 
+  const keptPercent = Math.max(1, 100 - normalizedSavedPercent);
+  return Math.max(
+    returnedTokens,
+    Math.round((returnedTokens * 100) / keptPercent),
+  );
+}
+
+function normalizeEstimate(
+  baselineTokens: number,
+  returnedTokens: number,
+) {
   const normalizedBaseline = Math.max(baselineTokens, returnedTokens);
   const savedTokens = Math.max(0, normalizedBaseline - returnedTokens);
   return {
@@ -89,6 +145,63 @@ function buildTokenEstimate(
     returnedTokens,
     savedTokens,
     savedPercent: toSavedPercent(savedTokens, normalizedBaseline),
+  };
+}
+
+function nextToolObservationCount(toolKey: string): number {
+  const next = (toolObservationCounts.get(toolKey) ?? 0) + 1;
+  toolObservationCounts.set(toolKey, next);
+  return next;
+}
+
+function buildTokenEstimate(input: ToolTokenEstimateInput): ToolTokenEstimate {
+  const sampleOrdinal = nextToolObservationCount(input.toolKey);
+  const shouldSampleExact = sampleOrdinal % EXACT_SAMPLE_EVERY === 0;
+  const returnedApproxTokens = estimateTokenCount(input.returnedValue);
+  const baselineApproxTokens = input.baselineValue !== undefined
+    ? estimateTokenCount(input.baselineValue)
+    : baselineFromSavedPercent(
+      returnedApproxTokens,
+      input.heuristicSavedPercent ?? 0,
+    );
+
+  const approximate = normalizeEstimate(
+    baselineApproxTokens,
+    returnedApproxTokens,
+  );
+
+  if (!shouldSampleExact) {
+    return {
+      ...approximate,
+      mode: input.baselineValue !== undefined ? "exact" : "heuristic",
+      tokenizer: APPROXIMATE_BENCHMARK_TOKENIZER,
+      sampleEvery: EXACT_SAMPLE_EVERY,
+      sampleOrdinal,
+    };
+  }
+
+  const returnedExactTokens = countExactTokens(input.returnedValue);
+  const baselineExactTokens = input.baselineValue !== undefined
+    ? countExactTokens(input.baselineValue)
+    : baselineFromSavedPercent(
+      returnedExactTokens,
+      input.heuristicSavedPercent ?? 0,
+    );
+  const exact = normalizeEstimate(
+    baselineExactTokens,
+    returnedExactTokens,
+  );
+
+  return {
+    ...exact,
+    mode: input.baselineValue !== undefined ? "exact" : "heuristic",
+    tokenizer: BENCHMARK_TOKENIZER,
+    sampleEvery: EXACT_SAMPLE_EVERY,
+    sampleOrdinal,
+    sampledExact: {
+      ...exact,
+      tokenizer: BENCHMARK_TOKENIZER,
+    },
   };
 }
 
@@ -110,7 +223,10 @@ function summarizeToolCompletion(
         `stale status: ${summary.staleStatus ?? "unknown"}`,
         `returned ~${returnedTokens} tokens`,
       ],
-      tokenEstimate: buildTokenEstimate(null, returnedTokens),
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+      }),
     };
   }
 
@@ -126,7 +242,10 @@ function summarizeToolCompletion(
         `stale status: ${summary.staleStatus ?? "unknown"}`,
         `returned ~${returnedTokens} tokens`,
       ],
-      tokenEstimate: buildTokenEstimate(null, returnedTokens),
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+      }),
     };
   }
 
@@ -142,7 +261,11 @@ function summarizeToolCompletion(
         `languages: ${Object.keys(outline.languages ?? {}).length}`,
         `returned ~${returnedTokens} tokens`,
       ],
-      tokenEstimate: buildTokenEstimate(null, returnedTokens),
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.get_repo_outline,
+      }),
     };
   }
 
@@ -150,7 +273,11 @@ function summarizeToolCompletion(
     return {
       summary: `Returned ${result.length} indexed files`,
       detail: [`returned ~${returnedTokens} tokens`],
-      tokenEstimate: buildTokenEstimate(null, returnedTokens),
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.get_file_tree,
+      }),
     };
   }
 
@@ -162,7 +289,11 @@ function summarizeToolCompletion(
     return {
       summary: `Outlined ${outline.symbols?.length ?? 0} symbols in ${outline.filePath ?? "file"}`,
       detail: [`returned ~${returnedTokens} tokens`],
-      tokenEstimate: buildTokenEstimate(null, returnedTokens),
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.get_file_outline,
+      }),
     };
   }
 
@@ -170,7 +301,11 @@ function summarizeToolCompletion(
     return {
       summary: `Suggested ${result.length} starting queries`,
       detail: [`returned ~${returnedTokens} tokens`],
-      tokenEstimate: buildTokenEstimate(null, returnedTokens),
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.suggest_initial_queries,
+      }),
     };
   }
 
@@ -192,23 +327,28 @@ function summarizeToolCompletion(
           `query: ${queryResult.query ?? "none"}`,
           `returned ~${returnedTokens} tokens`,
         ],
-        tokenEstimate: buildTokenEstimate(null, returnedTokens),
+        tokenEstimate: buildTokenEstimate({
+          toolKey: `${name}_discover`,
+          returnedValue: result,
+          heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.query_code_discover,
+        }),
       };
     }
 
     if (queryResult.intent === "source") {
-      const sourceTokens = queryResult.fileContent?.content
-        ? estimateTokenCount(queryResult.fileContent.content)
-        : queryResult.symbolSource?.items?.reduce(
-          (total, item) => total + estimateTokenCount(item.source ?? ""),
-          0,
-        ) ?? estimateTokenCount(queryResult.symbolSource?.source ?? "");
       return {
         summary: queryResult.fileContent?.filePath
           ? `Returned source for ${queryResult.fileContent.filePath}`
           : `Returned ${queryResult.symbolSource?.items?.length ?? 1} source snippets`,
         detail: [`returned ~${returnedTokens} tokens`],
-        tokenEstimate: buildTokenEstimate(sourceTokens || null, returnedTokens),
+        tokenEstimate: buildTokenEstimate({
+          toolKey: `${name}_source`,
+          baselineValue: queryResult.fileContent?.content
+            ?? queryResult.symbolSource?.items?.map((item) => item.source ?? "")
+            ?? queryResult.symbolSource?.source
+            ?? "",
+          returnedValue: result,
+        }),
       };
     }
 
@@ -220,7 +360,11 @@ function summarizeToolCompletion(
           `query: ${queryResult.query ?? "none"}`,
           `bundle budget used: ${queryResult.bundle.usedTokens ?? 0}/${baselineTokens ?? 0}`,
         ],
-        tokenEstimate: buildTokenEstimate(baselineTokens, returnedTokens),
+        tokenEstimate: buildTokenEstimate({
+          toolKey: `${name}_assemble`,
+          baselineValue: queryResult.bundle.items ?? [],
+          returnedValue: result,
+        }),
       };
     }
   }
@@ -238,14 +382,22 @@ function summarizeToolCompletion(
         `stale status: ${diagnostics.staleStatus ?? "unknown"}`,
         `changed files: ${diagnostics.changedFiles ?? 0}`,
       ],
-      tokenEstimate: buildTokenEstimate(null, returnedTokens),
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.diagnostics,
+      }),
     };
   }
 
   return {
     summary: `${name} completed`,
     detail: [`returned ~${returnedTokens} tokens`],
-    tokenEstimate: buildTokenEstimate(null, returnedTokens),
+    tokenEstimate: buildTokenEstimate({
+      toolKey: name,
+      returnedValue: result,
+      heuristicSavedPercent: 25,
+    }),
   };
 }
 
@@ -322,10 +474,11 @@ export async function dispatchTool(name: string, args: Record<string, unknown>) 
           toolName: name,
           durationMs: Date.now() - startedAt,
           message: failureMessage,
-          tokenEstimate: buildTokenEstimate(
-            null,
-            estimateTokenCount(failureMessage),
-          ),
+          tokenEstimate: buildTokenEstimate({
+            toolKey: `${name}_failed`,
+            returnedValue: failureMessage,
+            heuristicSavedPercent: 0,
+          }),
         },
       });
     }

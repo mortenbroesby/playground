@@ -142,6 +142,8 @@ Observability payloads are privacy-safe by default.
   for at least three days without growing unbounded forever
 - source-like event fields such as `source`, `content`, `preview`, and `text`
   are redacted before they are written to `events.jsonl`
+- MCP token savings use `tokenx` as the default guestimate path and rerun every
+  10th matching tool event through `cl100k_base` for an exact comparison sample
 - obvious secret-shaped tokens are scrubbed even when source-text redaction is
   explicitly disabled for local debugging
 

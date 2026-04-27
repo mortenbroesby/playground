@@ -89,7 +89,7 @@ Runtime artifacts for a given repo live under `.astrograph/`:
 
 - `index.sqlite` for the current index backend
 - `repo-meta.json` and `integrity.sha256` for repo-local metadata
-- `events.jsonl` for append-only observability events
+- `events.jsonl` for retained local observability events
 - `raw-cache/` for supporting source cache state
 
 Package build output stays in `dist/`. Repo-root `.astrograph/` data is runtime state, not npm
@@ -228,6 +228,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   by default while still allowing an explicit local opt-out
 - `observability.retentionDays` keeps local observability history for a bounded
   time window; the default is 3 days
+- MCP observability token savings are heuristic by default and recalculated with
+  the benchmark tokenizer every 10th matching tool event
 - `performance.include` and `performance.exclude` apply the compiled picomatch
   path matcher to indexed discovery, freshness scans, and watch-triggered subtree rescans
 - `performance.workerPool.enabled` opt-ins CPU-heavy parse/hash analysis through
