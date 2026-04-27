@@ -15,7 +15,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { handleCli } from "../src/cli.ts";
 import { MCP_SERVER_NAME, MCP_TOOL_DEFINITIONS } from "../src/mcp-contract.ts";
 import { dispatchTool } from "../src/mcp.ts";
-import { ASTROGRAPH_PACKAGE_VERSION, indexFolder } from "../src/index.ts";
+import {
+  ASTROGRAPH_PACKAGE_VERSION,
+  indexFolder,
+  readRecentEngineEvents,
+} from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
 const execFileAsync = promisify(execFile);
@@ -641,6 +645,19 @@ export function circumference(radius: number): string {
       expect(JSON.parse(queryCodeContent).symbolMatches[0]).toMatchObject({
         name: "Greeter",
       });
+      const recentEvents = await readRecentEngineEvents({ repoRoot, limit: 10 });
+      const latestDiscoverEvent = [...recentEvents].reverse().find((event) =>
+        event.event === "mcp.tool.finished"
+        && event.source === "mcp"
+        && (event.data?.toolName === "query_code")
+        && (event.data?.summary === "Found 1 symbols and 0 text matches"),
+      );
+      expect(latestDiscoverEvent?.data?.tokenEstimate).toMatchObject({
+        baselineTokens: expect.any(Number),
+        returnedTokens: expect.any(Number),
+        savedTokens: 0,
+        savedPercent: 0,
+      });
 
       const autoAssembleResponse = await dispatchTool("query_code", {
         repoRoot,
@@ -763,8 +780,8 @@ export function circumference(radius: number): string {
           name: "query_code",
           arguments: {
             repoRoot,
-            intent: "source",
-            filePath: "src/math.ts",
+            intent: "discover",
+            query: "area",
           },
         });
       });
@@ -788,7 +805,10 @@ export function circumference(radius: number): string {
           data?: {
             summary?: string;
             tokenEstimate?: {
+              baselineTokens?: number;
+              returnedTokens?: number;
               savedTokens?: number;
+              savedPercent?: number;
             };
           };
         }>;
@@ -800,8 +820,11 @@ export function circumference(radius: number): string {
       const toolEvent = recent.events.find((event) =>
         event.event === "mcp.tool.finished" && event.source === "mcp",
       );
-      expect(toolEvent?.data?.summary).toContain("Returned source");
+      expect(toolEvent?.data?.summary).toContain("Found");
+      expect(toolEvent?.data?.tokenEstimate?.baselineTokens).toBeGreaterThanOrEqual(1);
+      expect(toolEvent?.data?.tokenEstimate?.returnedTokens).toBeGreaterThanOrEqual(1);
       expect(toolEvent?.data?.tokenEstimate?.savedTokens).toBeGreaterThanOrEqual(0);
+      expect(toolEvent?.data?.tokenEstimate?.savedPercent).toBeGreaterThanOrEqual(0);
       expect(server.stderr()).toBe("");
     } finally {
       socket.close();

@@ -58,7 +58,7 @@ interface ToolTokenEstimate {
 interface ToolCompletionSummary {
   summary: string;
   detail: string[];
-  tokenEstimate?: ToolTokenEstimate;
+  tokenEstimate: ToolTokenEstimate;
 }
 
 function toSavedPercent(savedTokens: number, baselineTokens: number): number {
@@ -72,9 +72,14 @@ function toSavedPercent(savedTokens: number, baselineTokens: number): number {
 function buildTokenEstimate(
   baselineTokens: number | null,
   returnedTokens: number,
-): ToolTokenEstimate | undefined {
+): ToolTokenEstimate {
   if (baselineTokens === null || baselineTokens <= 0) {
-    return undefined;
+    return {
+      baselineTokens: returnedTokens,
+      returnedTokens,
+      savedTokens: 0,
+      savedPercent: 0,
+    };
   }
 
   const normalizedBaseline = Math.max(baselineTokens, returnedTokens);
@@ -105,6 +110,7 @@ function summarizeToolCompletion(
         `stale status: ${summary.staleStatus ?? "unknown"}`,
         `returned ~${returnedTokens} tokens`,
       ],
+      tokenEstimate: buildTokenEstimate(null, returnedTokens),
     };
   }
 
@@ -120,6 +126,7 @@ function summarizeToolCompletion(
         `stale status: ${summary.staleStatus ?? "unknown"}`,
         `returned ~${returnedTokens} tokens`,
       ],
+      tokenEstimate: buildTokenEstimate(null, returnedTokens),
     };
   }
 
@@ -135,6 +142,7 @@ function summarizeToolCompletion(
         `languages: ${Object.keys(outline.languages ?? {}).length}`,
         `returned ~${returnedTokens} tokens`,
       ],
+      tokenEstimate: buildTokenEstimate(null, returnedTokens),
     };
   }
 
@@ -142,6 +150,7 @@ function summarizeToolCompletion(
     return {
       summary: `Returned ${result.length} indexed files`,
       detail: [`returned ~${returnedTokens} tokens`],
+      tokenEstimate: buildTokenEstimate(null, returnedTokens),
     };
   }
 
@@ -153,6 +162,7 @@ function summarizeToolCompletion(
     return {
       summary: `Outlined ${outline.symbols?.length ?? 0} symbols in ${outline.filePath ?? "file"}`,
       detail: [`returned ~${returnedTokens} tokens`],
+      tokenEstimate: buildTokenEstimate(null, returnedTokens),
     };
   }
 
@@ -160,6 +170,7 @@ function summarizeToolCompletion(
     return {
       summary: `Suggested ${result.length} starting queries`,
       detail: [`returned ~${returnedTokens} tokens`],
+      tokenEstimate: buildTokenEstimate(null, returnedTokens),
     };
   }
 
@@ -181,6 +192,7 @@ function summarizeToolCompletion(
           `query: ${queryResult.query ?? "none"}`,
           `returned ~${returnedTokens} tokens`,
         ],
+        tokenEstimate: buildTokenEstimate(null, returnedTokens),
       };
     }
 
@@ -226,12 +238,14 @@ function summarizeToolCompletion(
         `stale status: ${diagnostics.staleStatus ?? "unknown"}`,
         `changed files: ${diagnostics.changedFiles ?? 0}`,
       ],
+      tokenEstimate: buildTokenEstimate(null, returnedTokens),
     };
   }
 
   return {
     summary: `${name} completed`,
     detail: [`returned ~${returnedTokens} tokens`],
+    tokenEstimate: buildTokenEstimate(null, returnedTokens),
   };
 }
 
@@ -297,6 +311,7 @@ export async function dispatchTool(name: string, args: Record<string, unknown>) 
       message: error instanceof Error ? error.message : String(error),
     });
     if (repoRoot) {
+      const failureMessage = error instanceof Error ? error.message : String(error);
       emitEngineEvent({
         repoRoot,
         source: "mcp",
@@ -306,7 +321,11 @@ export async function dispatchTool(name: string, args: Record<string, unknown>) 
         data: {
           toolName: name,
           durationMs: Date.now() - startedAt,
-          message: error instanceof Error ? error.message : String(error),
+          message: failureMessage,
+          tokenEstimate: buildTokenEstimate(
+            null,
+            estimateTokenCount(failureMessage),
+          ),
         },
       });
     }
