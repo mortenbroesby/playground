@@ -51,6 +51,8 @@ The package is currently a personal tool:
 - `query_code` umbrella surface for discovery, source retrieval, and assembly
 - `diagnostics` and `doctor` flows for freshness, health, and repair guidance
 - Watch-mode refresh with `@parcel/watcher`, `fs.watch`, and polling fallback paths
+- Live-disk text fallback via ripgrep when discovery text search is requested on
+  a missing or stale index
 - Stdio MCP server backed by the official MCP TypeScript SDK
 - CLI and library entry points for local debugging, benchmarks, and packaging checks
 - Local observability server for recent events and watch health

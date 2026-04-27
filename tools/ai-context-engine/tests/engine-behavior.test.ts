@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.27",
+      engineVersion: "0.0.1-alpha.28",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 27,
+        increment: 28,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -483,6 +483,106 @@ module.exports = {
     });
     expect(textMatches[0]).toMatchObject({
       filePath: "src/strings.ts",
+    });
+  });
+
+  it("falls back to live-disk text search when the index is missing", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "Hello",
+    });
+
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
+    });
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "Hello",
+      includeTextMatches: true,
+    });
+
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(discoverResult.symbolMatches).toEqual([]);
+    expect(discoverResult.textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
+    });
+    expect(discoverResult.textMatchResults[0]).toMatchObject({
+      reasons: ["ripgrep_fallback"],
+    });
+  });
+
+  it("falls back to live-disk text search when index metadata is stale", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const paths = resolveEnginePaths(repoRoot);
+    await writeFile(
+      paths.repoMetaPath,
+      `${JSON.stringify({
+        repoRoot,
+        storageVersion: 1,
+        indexedAt: new Date().toISOString(),
+        indexedFiles: 2,
+        indexedSymbols: 5,
+        indexedSnapshotHash: "stale",
+        storageMode: "wal",
+        storageBackend: "sqlite",
+        staleStatus: "stale",
+        summaryStrategy: "doc-comments-first",
+        watch: {
+          status: "idle",
+          backend: null,
+          debounceMs: null,
+          pollMs: null,
+          startedAt: null,
+          lastEvent: null,
+          lastEventAt: null,
+          lastChangedPaths: [],
+          reindexCount: 0,
+          lastError: null,
+          lastSummary: null,
+        },
+      }, null, 2)}\n`,
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "strings.ts"),
+      `// Format an area label for display.
+export function formatLabel(value: number): string {
+  return \`Area: \${value.toFixed(2)}\`;
+}
+
+/** Friendly greeter for string output. */
+export class Greeter {
+  // Return a greeting for the provided name.
+  greet(name: string): string {
+    return "Bonjour " + name;
+  }
+}
+`,
+    );
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "Bonjour",
+    });
+
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
     });
   });
 

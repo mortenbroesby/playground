@@ -182,6 +182,8 @@ export interface SearchTextMatch {
   filePath: string;
   line: number;
   preview: string;
+  source?: "index" | "live_disk_match";
+  reason?: "ripgrep_fallback";
 }
 
 export interface SearchTextOptions {
@@ -248,6 +250,7 @@ export type QueryCodeMatchReason =
   | "exact_symbol_match"
   | "query_match"
   | "text_match"
+  | "ripgrep_fallback"
   | "imports_matched_file"
   | "imported_by_match"
   | "reexport_match";

@@ -30,6 +30,7 @@ import {
 import { emitEngineEvent } from "./event-sink.ts";
 import { analyzeFileContent } from "./file-analysis.ts";
 import type { FileAnalysisTaskInput, FileAnalysisTaskOutput } from "./file-analysis.ts";
+import { searchLiveText } from "./live-search.ts";
 import {
   compactDirectoryRescanPaths,
   compareDirectoryStates,
@@ -2296,8 +2297,20 @@ function buildTextMatchResults(
 ): QueryCodeTextMatch[] {
   return textMatches.map((match) => ({
     match,
-    reasons: ["text_match"],
+    reasons:
+      match.reason === "ripgrep_fallback"
+        ? ["ripgrep_fallback"]
+        : ["text_match"],
   }));
+}
+
+async function shouldUseLiveTextSearchFallback(input: {
+  repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
+}): Promise<boolean> {
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
+  const meta = await readRepoMeta(config.paths.repoMetaPath);
+  return !meta || meta.staleStatus !== "fresh";
 }
 
 function buildRankedContextResult(
@@ -3215,6 +3228,14 @@ function searchTextInContext(
 export async function searchText(
   input: SearchTextOptions,
 ): Promise<SearchTextMatch[]> {
+  if (await shouldUseLiveTextSearchFallback({ repoRoot: input.repoRoot })) {
+    return searchLiveText({
+      repoRoot: input.repoRoot,
+      query: input.query,
+      filePattern: input.filePattern,
+    });
+  }
+
   const context = await createEngineContext(input);
 
   try {
@@ -3227,10 +3248,33 @@ export async function searchText(
 export async function queryCode(
   input: QueryCodeOptions,
 ): Promise<QueryCodeResult> {
+  const resolvedIntent = resolveQueryCodeIntent(input);
+  if (
+    resolvedIntent === "discover"
+    && input.includeTextMatches
+    && await shouldUseLiveTextSearchFallback({
+      repoRoot: input.repoRoot,
+    })
+  ) {
+    const textMatches = await searchLiveText({
+      repoRoot: input.repoRoot,
+      query: input.query ?? "",
+      filePattern: input.filePattern,
+    });
+    return {
+      intent: "discover",
+      query: input.query ?? "",
+      symbolMatches: [],
+      textMatches,
+      matches: [],
+      textMatchResults: buildTextMatchResults(textMatches),
+    };
+  }
+
   const context = await createEngineContext(input);
 
   try {
-    switch (resolveQueryCodeIntent(input)) {
+    switch (resolvedIntent) {
       case "discover": {
         const symbolMatches = searchSymbolsInContext(context, {
           repoRoot: context.config.repoRoot,
