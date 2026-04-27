@@ -3462,6 +3462,11 @@ function buildDoctorWarnings(result: DoctorResult): string[] {
       `Parser fallback was used for ${result.parser.fallbackFileCount} of ${result.parser.indexedFileCount} indexed file(s).`,
     );
   }
+  if (result.dependencyGraph.brokenRelativeImportCount > 0) {
+    warnings.push(
+      `Dependency graph contains ${result.dependencyGraph.brokenRelativeImportCount} unresolved relative import(s) across ${result.dependencyGraph.affectedImporterCount} importer file(s).`,
+    );
+  }
   if (result.observability.enabled && result.observability.status !== "running") {
     warnings.push(
       `Observability is enabled but currently ${result.observability.status}.`,
@@ -3486,6 +3491,14 @@ function buildDoctorSuggestedActions(result: DoctorResult): string[] {
   if (result.parser.unknownFileCount > 0) {
     actions.push("Reindex the repository to backfill parser health metrics on older indexed files.");
   }
+  if (result.dependencyGraph.brokenRelativeImportCount > 0) {
+    const sample = result.dependencyGraph.sampleImporterPaths[0];
+    actions.push(
+      sample
+        ? `Fix or reindex importer paths such as \`${sample}\` so Astrograph can resolve their relative dependencies again.`
+        : "Fix or reindex importer paths with unresolved relative dependencies.",
+    );
+  }
   if (result.observability.enabled && result.observability.status !== "running") {
     actions.push(`Run \`pnpm exec astrograph observability --repo ${result.repoRoot}\` to start the local observability server.`);
   }
@@ -3506,6 +3519,25 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
 
   try {
     const importCount = countRows(db, "SELECT COUNT(*) AS count FROM imports");
+    const brokenDependencyRows = typedAll<{
+      importer_path: string;
+      source: string;
+    }>(
+      db.prepare(`
+        SELECT files.path AS importer_path, imports.source AS source
+        FROM imports
+        INNER JOIN files ON files.id = imports.file_id
+        LEFT JOIN file_dependencies
+          ON file_dependencies.importer_file_id = imports.file_id
+          AND file_dependencies.source = imports.source
+        WHERE (imports.source LIKE './%' OR imports.source LIKE '../%' OR imports.source LIKE '/%')
+          AND file_dependencies.target_path IS NULL
+        ORDER BY files.path ASC, imports.source ASC
+      `),
+    );
+    const affectedImporters = [...new Set(
+      brokenDependencyRows.map((row) => row.importer_path),
+    )];
     const observability = await resolveDoctorObservability(
       resolvedRepoRoot,
       health.storageDir,
@@ -3540,6 +3572,11 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
       },
       parser: {
         ...health.parser,
+      },
+      dependencyGraph: {
+        brokenRelativeImportCount: brokenDependencyRows.length,
+        affectedImporterCount: affectedImporters.length,
+        sampleImporterPaths: affectedImporters.slice(0, 5),
       },
       observability,
       watch: health.watch,

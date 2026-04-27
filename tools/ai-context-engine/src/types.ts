@@ -352,6 +352,12 @@ export interface DoctorObservabilityHealth {
   url: string | null;
 }
 
+export interface DoctorDependencyGraphHealth {
+  brokenRelativeImportCount: number;
+  affectedImporterCount: number;
+  sampleImporterPaths: string[];
+}
+
 export interface DoctorResult {
   repoRoot: string;
   storageDir: string;
@@ -376,6 +382,7 @@ export interface DoctorResult {
     extraFiles: number;
   };
   parser: ParserHealthDiagnostics;
+  dependencyGraph: DoctorDependencyGraphHealth;
   observability: DoctorObservabilityHealth;
   watch: WatchDiagnostics;
   warnings: string[];

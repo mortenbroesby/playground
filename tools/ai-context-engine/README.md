@@ -144,6 +144,8 @@ Current implementation includes:
 - diagnostics now also reports a separate `schemaVersion` alongside the
   repo-root storage version so agents can tell storage resets apart from
   in-place database migrations
+- `doctor` now also reports unresolved relative-import health so affected
+  importer files are visible when dependency edges can no longer be resolved
 - diagnostics now also reports parser-health coverage, fallback rates, and
   grouped fallback reasons from indexed files
 - diagnostics also persists the latest watch-session state so agents can inspect

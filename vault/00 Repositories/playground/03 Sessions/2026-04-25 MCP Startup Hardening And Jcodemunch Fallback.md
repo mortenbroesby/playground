@@ -562,3 +562,18 @@ a mandatory runtime concern for every MCP or CLI call.
   Astrograph now returns the new dependency and stops returning the old one.
 - Bumped Astrograph from `0.0.1-alpha.15` to `0.0.1-alpha.16` for this
   dependency-edge invalidation slice.
+
+## Astrograph unresolved importer warnings follow-up (2026-04-27)
+
+- Extended `doctor` with dependency-graph health for unresolved relative
+  imports.
+- The doctor surface now reports:
+  - `brokenRelativeImportCount`
+  - `affectedImporterCount`
+  - `sampleImporterPaths`
+- Added warnings and suggested actions when relative imports no longer resolve,
+  so broken importer files are visible even before broader dependent-file
+  orchestration lands.
+- Added a focused regression around `src/broken-consumer.ts` importing a
+  missing target and bumped Astrograph from `0.0.1-alpha.16` to
+  `0.0.1-alpha.17`.

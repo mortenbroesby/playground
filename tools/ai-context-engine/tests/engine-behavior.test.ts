@@ -103,6 +103,10 @@ describe("ai-context-engine behavior", () => {
         fallbackFileCount: 0,
         fallbackRate: null,
       },
+      dependencyGraph: {
+        brokenRelativeImportCount: 0,
+        affectedImporterCount: 0,
+      },
       observability: {
         enabled: false,
         status: "disabled",
@@ -159,12 +163,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.16",
+      engineVersion: "0.0.1-alpha.17",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 16,
+        increment: 17,
       },
       schemaVersion: 3,
       summaryStrategy: "doc-comments-first",
@@ -1112,6 +1116,38 @@ export function renderValue(value: number): string {
     expect(updatedBundle.items.some((item) => item.symbol.name === "bestFormatter")).toBe(
       false,
     );
+  });
+
+  it("doctor surfaces unresolved relative imports and affected importers", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "broken-consumer.ts"),
+      `import { missingValue } from "./missing.js";
+
+export function renderBroken(): string {
+  return String(missingValue);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const result = await doctor({ repoRoot });
+
+    expect(result.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/broken-consumer.ts"],
+    });
+    expect(result.warnings).toContain(
+      "Dependency graph contains 1 unresolved relative import(s) across 1 importer file(s).",
+    );
+    expect(
+      result.suggestedActions.some((entry) =>
+        entry.includes("src/broken-consumer.ts"),
+      ),
+    ).toBe(true);
   });
 
   it("can refresh a single file without a full rebuild", async () => {
