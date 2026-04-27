@@ -1,8 +1,9 @@
-# Astrograph (`astrograph`)
+# @astrograph (`@astrograph/astrograph`)
 
 Local deterministic context engine for AI-assisted code exploration.
 
-`astrograph` is now the standalone package name and primary CLI command.
+`@astrograph/astrograph` is the standalone npm package name and `astrograph` is
+the primary CLI command.
 `ai-context-engine` remains as a compatibility bin alias during the transition.
 
 ## Status
@@ -217,22 +218,22 @@ compatibility alias.
 - `pnpm exec astrograph observability --repo /abs/repo`
 - `pnpm astrograph:observability`
 - `pnpm astrograph:open`
-- `pnpm --filter astrograph bench:small`
-- `pnpm --filter astrograph bench:cli`
-- `pnpm --filter astrograph build`
-- `pnpm --filter astrograph test:package-bin`
-- `pnpm --filter astrograph cli -- index-folder --repo /abs/repo`
-- `pnpm --filter astrograph cli -- get-repo-outline --repo /abs/repo`
-- `pnpm --filter astrograph cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
-- `pnpm --filter astrograph cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
-- `pnpm --filter astrograph cli -- query-code --repo /abs/repo --query Greeter --include-text`
-- `pnpm --filter astrograph cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
-- `pnpm --filter astrograph cli -- query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
-- `pnpm --filter astrograph cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
-- `pnpm --filter astrograph cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
-- `pnpm --filter astrograph cli -- diagnostics --repo /abs/repo`
-- `pnpm --filter astrograph cli -- diagnostics --repo /abs/repo --scan-freshness`
-- `pnpm --filter astrograph mcp`
+- `pnpm --filter @astrograph/astrograph bench:small`
+- `pnpm --filter @astrograph/astrograph bench:cli`
+- `pnpm --filter @astrograph/astrograph build`
+- `pnpm --filter @astrograph/astrograph test:package-bin`
+- `pnpm --filter @astrograph/astrograph cli -- index-folder --repo /abs/repo`
+- `pnpm --filter @astrograph/astrograph cli -- get-repo-outline --repo /abs/repo`
+- `pnpm --filter @astrograph/astrograph cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
+- `pnpm --filter @astrograph/astrograph cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
+- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query Greeter --include-text`
+- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
+- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
+- `pnpm --filter @astrograph/astrograph cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
+- `pnpm --filter @astrograph/astrograph cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
+- `pnpm --filter @astrograph/astrograph cli -- diagnostics --repo /abs/repo`
+- `pnpm --filter @astrograph/astrograph cli -- diagnostics --repo /abs/repo --scan-freshness`
+- `pnpm --filter @astrograph/astrograph mcp`
 
 The CLI prints JSON for each command. The MCP server runs over stdio using the
 official MCP TypeScript SDK and a narrow repo-owned tool surface.
@@ -241,7 +242,7 @@ official MCP TypeScript SDK and a narrow repo-owned tool surface.
 
 Astrograph now supports a standalone Codex bootstrap flow:
 
-- `npx astrograph install --ide codex`
+- `npx @astrograph/astrograph install --ide codex`
 
 That installer:
 
@@ -252,7 +253,7 @@ That installer:
 The generated Codex config uses:
 
 - `command = "npx"`
-- `args = ["astrograph", "mcp"]`
+- `args = ["@astrograph/astrograph", "mcp"]`
 
 That keeps the install path portable outside this monorepo.
 
@@ -264,8 +265,8 @@ Astrograph now treats built JavaScript in `dist/` as the default runtime path.
 - the `astrograph` wrapper prefers `dist/*` whenever those files exist
 - source-mode execution is now an explicit dev opt-in:
   - `ASTROGRAPH_USE_SOURCE=1 pnpm exec astrograph ...`
-  - `pnpm --filter astrograph dev:cli -- ...`
-  - `pnpm --filter astrograph dev:mcp`
+  - `pnpm --filter @astrograph/astrograph dev:cli -- ...`
+  - `pnpm --filter @astrograph/astrograph dev:mcp`
 
 That means normal users no longer need Node's `--experimental-strip-types`
 path just to run the package. We keep source-mode only for local development.

@@ -12,7 +12,7 @@ importers:
         specifier: ^0.41.4
         version: 0.41.4
     devDependencies:
-      astrograph:
+      '@astrograph/astrograph':
         specifier: workspace:*
         version: link:tools/ai-context-engine
       husky:

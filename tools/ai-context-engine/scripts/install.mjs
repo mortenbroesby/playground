@@ -14,6 +14,7 @@ const packageJson = JSON.parse(
 );
 const PACKAGE_NAME = packageJson.name;
 const PACKAGE_VERSION = packageJson.version;
+const LEGACY_PACKAGE_NAME = "astrograph";
 const MCP_TOOLS = [
   "index_folder",
   "index_file",
@@ -29,7 +30,7 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  astrograph install --ide codex [--repo /abs/repo] [--dry-run]",
+      "  npx @astrograph/astrograph install --ide codex [--repo /abs/repo] [--dry-run]",
     ].join("\n") + "\n",
   );
 }
@@ -99,9 +100,12 @@ function hasLocalAstrographDependency(repoRoot) {
     );
 
     return Boolean(
-      packageData.dependencies?.astrograph
-      || packageData.devDependencies?.astrograph
-      || packageData.optionalDependencies?.astrograph,
+      packageData.dependencies?.[PACKAGE_NAME]
+      || packageData.devDependencies?.[PACKAGE_NAME]
+      || packageData.optionalDependencies?.[PACKAGE_NAME]
+      || packageData.dependencies?.[LEGACY_PACKAGE_NAME]
+      || packageData.devDependencies?.[LEGACY_PACKAGE_NAME]
+      || packageData.optionalDependencies?.[LEGACY_PACKAGE_NAME],
     );
   } catch {
     return false;
@@ -117,7 +121,7 @@ function astrographConfigBlock() {
   return `${MARKER_BEGIN}
 [mcp_servers.astrograph]
 command = "npx"
-args = ["astrograph", "mcp"]
+args = ["${PACKAGE_NAME}", "mcp"]
 cwd = "."
 startup_timeout_sec = 90
 enabled_tools = [${enabledTools}]

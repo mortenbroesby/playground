@@ -78,18 +78,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.7");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.8");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 7,
+      increment: 8,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 7,
+      increment: 8,
     });
   });
 
@@ -186,10 +186,10 @@ describe("ai-context-engine contract", () => {
 
     const result = await installForCodex(repoRoot, { dryRun: true });
 
-    expect(result.packageName).toBe("astrograph");
+    expect(result.packageName).toBe("@astrograph/astrograph");
     expect(result.configPath).toContain(path.join(".codex", "config.toml"));
     expect(result.configPreview).toContain("[mcp_servers.astrograph]");
     expect(result.configPreview).toContain('command = "npx"');
-    expect(result.configPreview).toContain('args = ["astrograph", "mcp"]');
+    expect(result.configPreview).toContain('args = ["@astrograph/astrograph", "mcp"]');
   });
 });

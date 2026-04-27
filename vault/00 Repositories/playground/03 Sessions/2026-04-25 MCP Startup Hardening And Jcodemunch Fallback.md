@@ -378,3 +378,16 @@ a mandatory runtime concern for every MCP or CLI call.
   `--experimental-strip-types` for normal users.
 - Bumped Astrograph from `0.0.1-alpha.6` to `0.0.1-alpha.7` for the runtime
   contract change.
+
+## Astrograph scoped package identity (2026-04-27)
+
+- Kept the product and CLI command as `@astrograph` and `astrograph`, but moved
+  the publishable npm package identity from the unscoped `astrograph` to the
+  scoped `@astrograph/astrograph`.
+- Updated the standalone installer to write
+  `args = ["@astrograph/astrograph", "mcp"]` into the managed Codex MCP block
+  so external repos resolve the intended scoped package.
+- Switched repo-local workspace references and hook verification commands to
+  target the scoped package name while preserving the existing `astrograph` bin.
+- Bumped Astrograph from `0.0.1-alpha.7` to `0.0.1-alpha.8` for the package
+  identity change.
