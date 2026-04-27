@@ -873,6 +873,8 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
   const config = createDefaultEngineConfig({
     repoRoot: resolvedRepoRoot,
     summaryStrategy: summaryStrategy ?? repoConfig.summaryStrategy,
+    indexInclude: repoConfig.performance.include,
+    indexExclude: repoConfig.performance.exclude,
     fileProcessingConcurrency: repoConfig.performance.fileProcessingConcurrency,
     workerPoolEnabled: repoConfig.performance.workerPool.enabled,
     workerPoolMaxWorkers: repoConfig.performance.workerPool.maxWorkers,
@@ -2401,6 +2403,8 @@ async function indexFolderDirect(input: {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
     const supportedFiles = await listSupportedFiles(repoRoot, repoRoot, {
+      include: config.indexInclude,
+      exclude: config.indexExclude,
       maxFilesDiscovered: config.maxFilesDiscovered,
       maxFileBytes: config.maxFileBytes,
     });
@@ -2862,6 +2866,8 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
           repoRoot,
           directoryPath,
           {
+            include: repoConfig.performance.include,
+            exclude: repoConfig.performance.exclude,
             maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
             maxFileBytes: repoConfig.limits.maxFileBytes,
           },
@@ -3025,6 +3031,8 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     summary: initialSummary,
   } satisfies WatchEvent;
   observedState = await loadFilesystemStateSnapshot(repoRoot, {
+    include: repoConfig.performance.include,
+    exclude: repoConfig.performance.exclude,
     maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
     maxFileBytes: repoConfig.limits.maxFileBytes,
   });
@@ -3620,6 +3628,8 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       ? compareSnapshots(
           indexedEntries,
           await loadFilesystemSnapshot(repoRoot, {
+            include: config.indexInclude,
+            exclude: config.indexExclude,
             maxFilesDiscovered: config.maxFilesDiscovered,
             maxFileBytes: config.maxFileBytes,
           }),

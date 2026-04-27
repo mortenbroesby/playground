@@ -26,6 +26,8 @@ export interface EngineConfig {
   storageMode: StorageMode;
   staleStatus: StaleStatus;
   summaryStrategy: SummaryStrategy;
+  indexInclude: string[];
+  indexExclude: string[];
   fileProcessingConcurrency: number;
   workerPoolEnabled: boolean;
   workerPoolMaxWorkers: number;
@@ -46,6 +48,8 @@ export interface RepoObservabilityConfig {
 }
 
 export interface RepoPerformanceConfig {
+  include?: string[];
+  exclude?: string[];
   fileProcessingConcurrency?: number | "auto";
   workerPool?: {
     enabled?: boolean;
@@ -81,6 +85,8 @@ export interface ResolvedObservabilityConfig {
 }
 
 export interface ResolvedPerformanceConfig {
+  include: string[];
+  exclude: string[];
   fileProcessingConcurrency: number;
   workerPool: {
     enabled: boolean;

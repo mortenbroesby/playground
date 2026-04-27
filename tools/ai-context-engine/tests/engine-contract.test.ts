@@ -63,6 +63,8 @@ describe("ai-context-engine contract", () => {
       storageMode: "wal",
       staleStatus: "unknown",
       summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
+      indexInclude: [],
+      indexExclude: [],
       maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
       maxFileBytes: DEFAULT_MAX_FILE_BYTES,
       maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
@@ -90,18 +92,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.34");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.35");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 34,
+      increment: 35,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 34,
+      increment: 35,
     });
   });
 
@@ -177,6 +179,8 @@ describe("ai-context-engine contract", () => {
           redactSourceText: false,
         },
         performance: {
+          include: ["src/**/*.ts"],
+          exclude: ["**/*.test.ts"],
           fileProcessingConcurrency: 1,
           workerPool: {
             enabled: true,
@@ -208,6 +212,8 @@ describe("ai-context-engine contract", () => {
       redactSourceText: false,
     });
     expect(config.performance.fileProcessingConcurrency).toBe(1);
+    expect(config.performance.include).toEqual(["src/**/*.ts"]);
+    expect(config.performance.exclude).toEqual(["**/*.test.ts"]);
     expect(config.performance.workerPool).toEqual({
       enabled: true,
       maxWorkers: 2,
@@ -257,6 +263,8 @@ describe("ai-context-engine contract", () => {
     );
 
     const autoConfig = await loadRepoEngineConfig(repoRoot);
+    expect(autoConfig.performance.include).toEqual([]);
+    expect(autoConfig.performance.exclude).toEqual([]);
     expect(autoConfig.performance.fileProcessingConcurrency).toBeGreaterThanOrEqual(2);
     expect(autoConfig.performance.workerPool).toEqual({
       enabled: false,

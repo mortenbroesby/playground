@@ -38,6 +38,8 @@ export interface DiscoveredSourceFile {
 }
 
 export interface DiscoveryLimits {
+  include?: string[];
+  exclude?: string[];
   maxFilesDiscovered?: number;
   maxFileBytes?: number;
 }
@@ -298,6 +300,8 @@ export async function loadSupportedFileStatesForSubtree(
 ): Promise<FilesystemStateEntry[]> {
   const config = createDefaultEngineConfig({
     repoRoot: rootDir,
+    indexInclude: limits.include,
+    indexExclude: limits.exclude,
     maxFilesDiscovered: limits.maxFilesDiscovered,
     maxFileBytes: limits.maxFileBytes,
   });
@@ -305,6 +309,8 @@ export async function loadSupportedFileStatesForSubtree(
     repoRoot: rootDir,
     startRelativePath,
     respectGitIgnore: config.respectGitIgnore,
+    include: config.indexInclude,
+    exclude: config.indexExclude,
     maxFilesDiscovered: config.maxFilesDiscovered,
     maxFileBytes: config.maxFileBytes,
   });
@@ -370,6 +376,8 @@ export async function listSupportedFiles(
 ): Promise<string[]> {
   const config = createDefaultEngineConfig({
     repoRoot: rootDir,
+    indexInclude: limits.include,
+    indexExclude: limits.exclude,
     maxFilesDiscovered: limits.maxFilesDiscovered,
     maxFileBytes: limits.maxFileBytes,
   });
@@ -377,6 +385,8 @@ export async function listSupportedFiles(
     repoRoot: rootDir,
     startRelativePath: path.relative(rootDir, currentDir),
     respectGitIgnore: config.respectGitIgnore,
+    include: config.indexInclude,
+    exclude: config.indexExclude,
     maxFilesDiscovered: config.maxFilesDiscovered,
     maxFileBytes: config.maxFileBytes,
   });

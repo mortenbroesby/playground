@@ -183,6 +183,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
     "redactSourceText": true
   },
   "performance": {
+    "include": ["src/**/*.{ts,tsx,js,jsx}"],
+    "exclude": ["**/*.test.ts"],
     "fileProcessingConcurrency": "auto",
     "workerPool": {
       "enabled": false,
@@ -206,6 +208,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 - `watch.debounceMs` sets the default debounce window for `watchFolder()`
 - `observability.redactSourceText` keeps observability event payloads privacy-safe
   by default while still allowing an explicit local opt-out
+- `performance.include` and `performance.exclude` apply the compiled picomatch
+  path matcher to indexed discovery, freshness scans, and watch-triggered subtree rescans
 - `performance.workerPool.enabled` opt-ins CPU-heavy parse/hash analysis through
   Piscina worker threads during folder indexing
 - `performance.workerPool.maxWorkers` bounds the worker pool when that path is

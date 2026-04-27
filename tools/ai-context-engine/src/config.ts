@@ -69,6 +69,8 @@ const repoObservabilityConfigSchema = z.object({
 });
 
 const repoPerformanceConfigSchema = z.object({
+  include: z.array(z.string().min(1)).optional(),
+  exclude: z.array(z.string().min(1)).optional(),
   fileProcessingConcurrency: z.union([
     z.literal("auto"),
     z.number().int().positive(),
@@ -181,6 +183,8 @@ function createDefaultResolvedRepoEngineConfig(
       redactSourceText: true,
     },
     performance: {
+      include: [],
+      exclude: [],
       fileProcessingConcurrency: defaultFileProcessingConcurrency(),
       workerPool: {
         enabled: false,
@@ -254,6 +258,8 @@ export async function loadRepoEngineConfig(
         ?? defaults.observability.redactSourceText,
     },
     performance: {
+      include: parsed.data.performance?.include ?? defaults.performance.include,
+      exclude: parsed.data.performance?.exclude ?? defaults.performance.exclude,
       fileProcessingConcurrency: normalizeFileProcessingConcurrency(
         parsed.data.performance?.fileProcessingConcurrency,
       ),
@@ -323,6 +329,8 @@ export function parseSymbolKind(
 export function createDefaultEngineConfig(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
+  indexInclude?: string[];
+  indexExclude?: string[];
   fileProcessingConcurrency?: number;
   workerPoolEnabled?: boolean;
   workerPoolMaxWorkers?: number;
@@ -341,6 +349,8 @@ export function createDefaultEngineConfig(input: {
       input.summaryStrategy === undefined
         ? DEFAULT_SUMMARY_STRATEGY
         : parseSummaryStrategy(input.summaryStrategy),
+    indexInclude: [...(input.indexInclude ?? [])],
+    indexExclude: [...(input.indexExclude ?? [])],
     fileProcessingConcurrency:
       input.fileProcessingConcurrency ?? defaultFileProcessingConcurrency(),
     workerPoolEnabled: input.workerPoolEnabled ?? false,

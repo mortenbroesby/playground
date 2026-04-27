@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.34",
+      engineVersion: "0.0.1-alpha.35",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 34,
+        increment: 35,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -641,6 +641,30 @@ export class Greeter {
 
     const fileTree = await getFileTree({ repoRoot });
     expect(fileTree.map((entry) => entry.path)).not.toContain("src/large.ts");
+  });
+
+  it("applies repo-config include and exclude globs during indexed discovery", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          include: ["src/**/*.ts"],
+          exclude: ["src/math.ts"],
+        },
+      }),
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    expect(summary).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 3,
+      staleStatus: "fresh",
+    });
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).toEqual(["src/strings.ts"]);
   });
 
   it("stores routine fingerprint hashes separately from integrity content hashes", async () => {
