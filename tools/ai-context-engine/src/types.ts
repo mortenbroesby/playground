@@ -304,6 +304,52 @@ export interface DiagnosticsResult {
   watch: WatchDiagnostics;
 }
 
+export interface DoctorParserHealth {
+  primaryBackend: "oxc";
+  fallbackBackend: "tree-sitter";
+  indexedFileCount: number;
+  fallbackFileCount: number;
+  fallbackRate: number | null;
+  unknownFileCount: number;
+}
+
+export interface DoctorObservabilityHealth {
+  enabled: boolean;
+  configuredHost: string;
+  configuredPort: number;
+  status: "disabled" | "running" | "not-running" | "unhealthy";
+  url: string | null;
+}
+
+export interface DoctorResult {
+  repoRoot: string;
+  storageDir: string;
+  databasePath: string;
+  storageVersion: number;
+  storageBackend: IndexBackendName;
+  storageMode: StorageMode;
+  indexStatus: "not-indexed" | "indexed" | "stale";
+  freshness: {
+    status: StaleStatus;
+    mode: "metadata" | "scan";
+    scanned: boolean;
+    indexedAt: string | null;
+    indexAgeMs: number | null;
+    indexedFiles: number;
+    currentFiles: number;
+    indexedSymbols: number;
+    indexedImports: number;
+    missingFiles: number;
+    changedFiles: number;
+    extraFiles: number;
+  };
+  parser: DoctorParserHealth;
+  observability: DoctorObservabilityHealth;
+  watch: WatchDiagnostics;
+  warnings: string[];
+  suggestedActions: string[];
+}
+
 export type EngineEventSource = "mcp" | "watch" | "index-worker" | "health";
 export type EngineEventLevel = "debug" | "info" | "warn" | "error";
 

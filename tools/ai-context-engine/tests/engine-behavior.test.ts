@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import {
   diagnostics,
+  doctor,
   getContextBundle,
   getFileContent,
   getFileOutline,
@@ -80,6 +81,36 @@ describe("ai-context-engine behavior", () => {
     expect(suggestions[0]).toContain("Greeter");
   });
 
+  it("doctor gives useful guidance before the repo has been indexed", async () => {
+    const repoRoot = await createFixtureRepo();
+    const resolvedRepoRoot = await realpath(repoRoot);
+
+    const result = await doctor({ repoRoot });
+
+    expect(result).toMatchObject({
+      repoRoot: resolvedRepoRoot,
+      indexStatus: "not-indexed",
+      freshness: {
+        indexedFiles: 0,
+        indexedSymbols: 0,
+        indexedImports: 0,
+      },
+      parser: {
+        indexedFileCount: 0,
+        fallbackFileCount: 0,
+        fallbackRate: null,
+      },
+      observability: {
+        enabled: false,
+        status: "disabled",
+      },
+    });
+    expect(result.warnings).toContain(
+      "No Astrograph index was found for this repository yet.",
+    );
+    expect(result.suggestedActions[0]).toContain("index-folder");
+  });
+
   it("prefers leading doc comments for symbol summaries by default", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -125,12 +156,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.8",
+      engineVersion: "0.0.1-alpha.11",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 8,
+        increment: 11,
       },
       summaryStrategy: "doc-comments-first",
       summarySources: {

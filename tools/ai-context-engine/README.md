@@ -33,6 +33,7 @@ In practice it helps an agent answer questions like:
 - "Show me the exact source for these symbols."
 - "Give me a bounded bundle of the most relevant code under a token budget."
 - "Is the local index fresh, and is watch mode healthy?"
+- "What should I do next if the local Astrograph state looks off?"
 
 It does that by indexing a repo locally, storing symbol and file metadata in
 SQLite, and exposing retrieval surfaces over that index through a stdio MCP
@@ -59,6 +60,7 @@ Current capabilities:
 - stdio MCP entrypoint backed by the official MCP TypeScript SDK
 - CLI entrypoint for local debugging and benchmarks
 - local benchmark scripts for latency and token-savings measurement
+- a `doctor` command for repo-local health, parser, and observability checks
 - watch-mode refresh with native filesystem watching and polling fallback
 - opt-in localhost observability over Bun's uWebSockets-backed server runtime
 
@@ -104,6 +106,7 @@ The typical flow is:
    fall back to
    `get-context-bundle`, or `get-ranked-context`
 6. check freshness or watch status with `diagnostics`
+7. run `doctor` when you want concise warnings and suggested local actions
 
 This keeps retrieval discovery-first and source-anchored instead of jumping
 straight to broad file reads.
@@ -126,7 +129,7 @@ Current implementation includes:
 - `search_symbols` and `search_text`
 - `get_context_bundle` for bounded, query-driven context assembly
 - `get_ranked_context` for inspectable query ranking plus bounded selection
-- `get_file_content`, batched `get_symbol_source`, and `diagnostics`
+- `get_file_content`, batched `get_symbol_source`, `diagnostics`, and `doctor`
 - direct ranked candidate retrieval and bounded context benchmarking in
   `bench:small`
 - fixture-backed tests proving indexing and exact retrieval
@@ -157,6 +160,8 @@ The main retrieval surfaces are:
   the provided arguments.
 - `diagnostics`
   metadata-first health and freshness reporting, with optional full drift scan
+- `doctor`
+  operator-friendly repo health output with warnings and suggested actions
 
 The package is optimized around exact retrieval first. Ranking and assembly sit
 on top of exact indexed source; they do not replace it.
@@ -214,6 +219,8 @@ compatibility alias.
 - `pnpm exec astrograph cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm exec astrograph cli diagnostics --repo /abs/repo`
 - `pnpm exec astrograph cli diagnostics --repo /abs/repo --scan-freshness`
+- `pnpm exec astrograph cli doctor --repo /abs/repo`
+- `pnpm exec astrograph cli doctor --repo /abs/repo --json`
 - `pnpm exec astrograph mcp`
 - `pnpm exec astrograph observability --repo /abs/repo`
 - `pnpm astrograph:observability`
@@ -233,6 +240,8 @@ compatibility alias.
 - `pnpm --filter @astrograph/astrograph cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
 - `pnpm --filter @astrograph/astrograph cli -- diagnostics --repo /abs/repo`
 - `pnpm --filter @astrograph/astrograph cli -- diagnostics --repo /abs/repo --scan-freshness`
+- `pnpm --filter @astrograph/astrograph cli -- doctor --repo /abs/repo`
+- `pnpm --filter @astrograph/astrograph cli -- doctor --repo /abs/repo --json`
 - `pnpm --filter @astrograph/astrograph mcp`
 
 The CLI prints JSON for each command. The MCP server runs over stdio using the

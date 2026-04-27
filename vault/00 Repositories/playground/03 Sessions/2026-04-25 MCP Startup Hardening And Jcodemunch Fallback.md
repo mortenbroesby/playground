@@ -442,3 +442,23 @@ a mandatory runtime concern for every MCP or CLI call.
   instead of appending duplicate Astrograph sections when re-run.
 - Bumped Astrograph from `0.0.1-alpha.9` to `0.0.1-alpha.10` for the Codex
   installer and config repair.
+
+## Astrograph doctor command Phase 2 (2026-04-27)
+
+- Added `astrograph cli doctor --repo ...` with a text report for engineers and
+  `astrograph cli doctor --repo ... --json` for machine-readable output.
+- Kept `doctor` thin by building it on top of `diagnostics` plus direct SQLite
+  counts for indexed import totals and parser-health metadata.
+- Extended file indexing metadata to persist:
+  - `parser_backend`
+  - `parser_fallback_used`
+  - `parser_fallback_reason`
+- `doctor` now reports:
+  - repo root, storage path, storage backend/mode, schema version
+  - index status and freshness counts
+  - indexed file, symbol, and import totals
+  - parser fallback rate and unknown parser-health coverage
+  - observability status and watch status
+  - warnings plus suggested next actions
+- Bumped Astrograph from `0.0.1-alpha.10` to `0.0.1-alpha.11` for the Phase 2
+  doctor contract and parser-health metadata slice.

@@ -59,6 +59,7 @@ import {
 import type {
   DiagnosticsOptions,
   DiagnosticsResult,
+  DoctorResult,
   ContextBundle,
   ContextBundleItem,
   ContextBundleItemRole,
@@ -125,6 +126,11 @@ interface RepoMetaRecord {
   staleStatus: "fresh" | "stale" | "unknown";
   summaryStrategy?: SummaryStrategy;
   watch?: WatchDiagnostics;
+}
+
+interface ObservabilityStatusRecord {
+  host: string;
+  port: number;
 }
 
 interface EngineContext {
@@ -241,6 +247,9 @@ function initializeDatabase(db: IndexBackendConnection) {
       path TEXT NOT NULL UNIQUE,
       language TEXT NOT NULL,
       content_hash TEXT NOT NULL,
+      parser_backend TEXT,
+      parser_fallback_used INTEGER NOT NULL DEFAULT 0,
+      parser_fallback_reason TEXT,
       symbol_count INTEGER NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -300,6 +309,21 @@ function initializeDatabase(db: IndexBackendConnection) {
     db.exec(
       "ALTER TABLE symbols ADD COLUMN summary_source TEXT NOT NULL DEFAULT 'signature'",
     );
+  }
+
+  const fileColumns = typedAll<{ name: string }>(
+    db.prepare("PRAGMA table_info(files)"),
+  );
+  if (!fileColumns.some((column) => column.name === "parser_backend")) {
+    db.exec("ALTER TABLE files ADD COLUMN parser_backend TEXT");
+  }
+  if (!fileColumns.some((column) => column.name === "parser_fallback_used")) {
+    db.exec(
+      "ALTER TABLE files ADD COLUMN parser_fallback_used INTEGER NOT NULL DEFAULT 0",
+    );
+  }
+  if (!fileColumns.some((column) => column.name === "parser_fallback_reason")) {
+    db.exec("ALTER TABLE files ADD COLUMN parser_fallback_reason TEXT");
   }
 }
 
@@ -1593,12 +1617,15 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
     db.prepare(
       `
         UPDATE files
-        SET language = ?, content_hash = ?, symbol_count = ?, updated_at = ?
+        SET language = ?, content_hash = ?, parser_backend = ?, parser_fallback_used = ?, parser_fallback_reason = ?, symbol_count = ?, updated_at = ?
         WHERE id = ?
       `,
     ).run(
       parsed.language,
       parsed.contentHash,
+      parsed.backend,
+      parsed.fallbackUsed ? 1 : 0,
+      parsed.fallbackReason,
       parsed.symbols.length,
       new Date().toISOString(),
       existing.id,
@@ -1606,13 +1633,19 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   } else {
     db.prepare(
       `
-        INSERT INTO files (path, language, content_hash, symbol_count, updated_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO files (
+          path, language, content_hash, parser_backend, parser_fallback_used,
+          parser_fallback_reason, symbol_count, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
     ).run(
       file.relativePath,
       parsed.language,
       parsed.contentHash,
+      parsed.backend,
+      parsed.fallbackUsed ? 1 : 0,
+      parsed.fallbackReason,
       parsed.symbols.length,
       new Date().toISOString(),
     );
@@ -2752,7 +2785,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
     const indexedSnapshotHash =
       meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? snapshotHash(indexedEntries) : null);
     const scanFreshness = input.scanFreshness === true;
-    const drift = scanFreshness
+  const drift = scanFreshness
       ? compareSnapshots(indexedEntries, await loadFilesystemSnapshot(repoRoot))
       : {
           missingPaths: [] as string[],
@@ -2834,6 +2867,201 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       staleReasons,
       watch: meta?.watch ?? createDefaultWatchDiagnostics(),
     };
+  } finally {
+    db.close();
+  }
+}
+
+async function readObservabilityStatusFile(storageDir: string): Promise<ObservabilityStatusRecord | null> {
+  try {
+    const parsed = JSON.parse(
+      await readFile(path.join(storageDir, "observability-server.json"), "utf8"),
+    ) as Record<string, unknown>;
+    return typeof parsed.host === "string" && typeof parsed.port === "number"
+      ? { host: parsed.host, port: parsed.port }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function isObservabilityHealthy(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${url}health`, {
+      signal: AbortSignal.timeout(750),
+      headers: { Accept: "application/json" },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveDoctorObservability(
+  repoRoot: string,
+  storageDir: string,
+): Promise<DoctorResult["observability"]> {
+  const repoConfig = await loadRepoEngineConfig(repoRoot, { repoRootResolved: true });
+
+  if (!repoConfig.observability.enabled) {
+    return {
+      enabled: false,
+      configuredHost: repoConfig.observability.host,
+      configuredPort: repoConfig.observability.port,
+      status: "disabled",
+      url: null,
+    };
+  }
+
+  const status = await readObservabilityStatusFile(storageDir);
+  const host = status?.host ?? repoConfig.observability.host;
+  const port = status?.port ?? repoConfig.observability.port;
+  const url = `http://${host}:${port}/`;
+  const healthy = await isObservabilityHealthy(url);
+
+  return {
+    enabled: true,
+    configuredHost: repoConfig.observability.host,
+    configuredPort: repoConfig.observability.port,
+    status: healthy ? "running" : status ? "unhealthy" : "not-running",
+    url,
+  };
+}
+
+function buildDoctorWarnings(result: DoctorResult): string[] {
+  const warnings: string[] = [];
+
+  if (result.indexStatus === "not-indexed") {
+    warnings.push("No Astrograph index was found for this repository yet.");
+  }
+  if (result.indexStatus === "stale") {
+    warnings.push("Indexed repository data is stale.");
+  }
+  if (result.parser.unknownFileCount > 0) {
+    warnings.push(
+      `Parser health is unavailable for ${result.parser.unknownFileCount} indexed file(s) created before parser metrics were recorded.`,
+    );
+  }
+  if ((result.parser.fallbackRate ?? 0) > 0) {
+    warnings.push(
+      `Parser fallback was used for ${result.parser.fallbackFileCount} of ${result.parser.indexedFileCount} indexed file(s).`,
+    );
+  }
+  if (result.observability.enabled && result.observability.status !== "running") {
+    warnings.push(
+      `Observability is enabled but currently ${result.observability.status}.`,
+    );
+  }
+  if (result.watch.status !== "watching") {
+    warnings.push("Watch mode is not currently running.");
+  }
+
+  return warnings;
+}
+
+function buildDoctorSuggestedActions(result: DoctorResult): string[] {
+  const actions: string[] = [];
+
+  if (result.indexStatus === "not-indexed") {
+    actions.push(`Run \`pnpm exec astrograph cli index-folder --repo ${result.repoRoot}\` to create the initial index.`);
+  }
+  if (result.indexStatus === "stale") {
+    actions.push(`Run \`pnpm exec astrograph cli index-folder --repo ${result.repoRoot}\` to refresh the stale index.`);
+  }
+  if (result.parser.unknownFileCount > 0) {
+    actions.push("Reindex the repository to backfill parser health metrics on older indexed files.");
+  }
+  if (result.observability.enabled && result.observability.status !== "running") {
+    actions.push(`Run \`pnpm exec astrograph observability --repo ${result.repoRoot}\` to start the local observability server.`);
+  }
+  if (result.watch.status !== "watching") {
+    actions.push(`Run \`pnpm exec astrograph cli watch --repo ${result.repoRoot}\` if you want automatic local refresh while editing.`);
+  }
+
+  return actions;
+}
+
+export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
+  const resolvedRepoRoot = await resolveEngineRepoRoot(input.repoRoot);
+  const health = await diagnostics({
+    ...input,
+    repoRoot: resolvedRepoRoot,
+  });
+  const db = openDatabase(health.databasePath);
+
+  try {
+    const importCount = countRows(db, "SELECT COUNT(*) AS count FROM imports");
+    const parserStats = typedGet<{
+      indexed_file_count: number;
+      known_file_count: number;
+      fallback_file_count: number;
+      unknown_file_count: number;
+    }>(
+      db.prepare(`
+        SELECT
+          COUNT(*) AS indexed_file_count,
+          SUM(CASE WHEN parser_backend IS NOT NULL THEN 1 ELSE 0 END) AS known_file_count,
+          SUM(CASE WHEN parser_fallback_used = 1 THEN 1 ELSE 0 END) AS fallback_file_count,
+          SUM(CASE WHEN parser_backend IS NULL THEN 1 ELSE 0 END) AS unknown_file_count
+        FROM files
+      `),
+    ) ?? {
+      indexed_file_count: 0,
+      known_file_count: 0,
+      fallback_file_count: 0,
+      unknown_file_count: 0,
+    };
+    const observability = await resolveDoctorObservability(
+      resolvedRepoRoot,
+      health.storageDir,
+    );
+
+    const knownFileCount = parserStats.known_file_count ?? 0;
+    const fallbackFileCount = parserStats.fallback_file_count ?? 0;
+    const result: DoctorResult = {
+      repoRoot: resolvedRepoRoot,
+      storageDir: health.storageDir,
+      databasePath: health.databasePath,
+      storageVersion: health.storageVersion,
+      storageBackend: health.storageBackend,
+      storageMode: health.storageMode,
+      indexStatus:
+        health.indexedAt === null && health.indexedFiles === 0
+          ? "not-indexed"
+          : health.staleStatus === "stale"
+            ? "stale"
+            : "indexed",
+      freshness: {
+        status: health.staleStatus,
+        mode: health.freshnessMode,
+        scanned: health.freshnessScanned,
+        indexedAt: health.indexedAt,
+        indexAgeMs: health.indexAgeMs,
+        indexedFiles: health.indexedFiles,
+        currentFiles: health.currentFiles,
+        indexedSymbols: health.indexedSymbols,
+        indexedImports: importCount,
+        missingFiles: health.missingFiles,
+        changedFiles: health.changedFiles,
+        extraFiles: health.extraFiles,
+      },
+      parser: {
+        primaryBackend: "oxc",
+        fallbackBackend: "tree-sitter",
+        indexedFileCount: parserStats.indexed_file_count ?? 0,
+        fallbackFileCount,
+        fallbackRate: knownFileCount > 0 ? fallbackFileCount / knownFileCount : null,
+        unknownFileCount: parserStats.unknown_file_count ?? 0,
+      },
+      observability,
+      watch: health.watch,
+      warnings: [],
+      suggestedActions: [],
+    };
+
+    result.warnings = buildDoctorWarnings(result);
+    result.suggestedActions = buildDoctorSuggestedActions(result);
+    return result;
   } finally {
     db.close();
   }

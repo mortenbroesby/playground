@@ -12,6 +12,7 @@ import {
 } from "./validation.ts";
 import {
   diagnostics,
+  doctor,
   getFileContent,
   getFileOutline,
   getFileTree,
@@ -37,6 +38,7 @@ const BOOLEAN_FLAGS = new Set([
   "scan-freshness",
   "include-text",
   "include-ranked",
+  "json",
 ]);
 
 const commands: Record<string, CliHandler> = {
@@ -112,6 +114,13 @@ const commands: Record<string, CliHandler> = {
       repoRoot: required(args, "repo"),
       scanFreshness: args["scan-freshness"] === "true",
     }),
+  doctor: async (args) => {
+    const result = await doctor({
+      repoRoot: required(args, "repo"),
+      scanFreshness: args["scan-freshness"] === "true",
+    });
+    return args.json === "true" ? result : formatDoctorReport(result);
+  },
 };
 
 function required(args: Record<string, string>, key: string): string {
@@ -307,7 +316,63 @@ export async function handleCli(argv: string[]): Promise<string> {
   }
 
   const result = await handler(args);
-  return JSON.stringify(result, null, 2);
+  return typeof result === "string" ? result : JSON.stringify(result, null, 2);
+}
+
+function formatAge(indexAgeMs: number | null): string {
+  if (indexAgeMs === null) {
+    return "unknown";
+  }
+  if (indexAgeMs < 1_000) {
+    return `${indexAgeMs}ms`;
+  }
+  const seconds = indexAgeMs / 1_000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  const minutes = seconds / 60;
+  if (minutes < 60) {
+    return `${minutes.toFixed(1)}m`;
+  }
+  const hours = minutes / 60;
+  return `${hours.toFixed(1)}h`;
+}
+
+function formatPercent(rate: number | null): string {
+  return rate === null ? "unknown" : `${(rate * 100).toFixed(1)}%`;
+}
+
+function formatDoctorReport(result: Awaited<ReturnType<typeof doctor>>): string {
+  const lines = [
+    "Astrograph Doctor",
+    `Repo: ${result.repoRoot}`,
+    `Storage: ${result.storageDir}`,
+    `Database: ${result.databasePath}`,
+    `Index: ${result.indexStatus} (${result.freshness.status}, ${result.freshness.mode})`,
+    `Schema: v${result.storageVersion} (${result.storageBackend}/${result.storageMode})`,
+    `Freshness: indexed ${result.freshness.indexedFiles} file(s), current ${result.freshness.currentFiles}, symbols ${result.freshness.indexedSymbols}, imports ${result.freshness.indexedImports}`,
+    `Drift: missing ${result.freshness.missingFiles}, changed ${result.freshness.changedFiles}, extra ${result.freshness.extraFiles}`,
+    `Age: ${formatAge(result.freshness.indexAgeMs)}`,
+    `Parser: fallback ${formatPercent(result.parser.fallbackRate)} (${result.parser.fallbackFileCount}/${result.parser.indexedFileCount}), unknown ${result.parser.unknownFileCount}`,
+    `Observability: ${result.observability.status}${result.observability.url ? ` (${result.observability.url})` : ""}`,
+    `Watch: ${result.watch.status}`,
+  ];
+
+  if (result.warnings.length > 0) {
+    lines.push("", "Warnings:");
+    for (const warning of result.warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+
+  if (result.suggestedActions.length > 0) {
+    lines.push("", "Suggested actions:");
+    for (const action of result.suggestedActions) {
+      lines.push(`- ${action}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 async function main() {

@@ -30,6 +30,7 @@ export {
 export {
   clearStorageProcessCaches,
   diagnostics,
+  doctor,
   getFileContent,
   getFileOutline,
   getFileTree,
@@ -55,6 +56,7 @@ export type {
   AstrographVersionParts,
   DiagnosticsOptions,
   DiagnosticsResult,
+  DoctorResult,
   EngineEventEnvelope,
   EngineEventLevel,
   EngineEventSource,
