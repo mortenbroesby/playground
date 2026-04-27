@@ -462,3 +462,21 @@ a mandatory runtime concern for every MCP or CLI call.
   - warnings plus suggested next actions
 - Bumped Astrograph from `0.0.1-alpha.10` to `0.0.1-alpha.11` for the Phase 2
   doctor contract and parser-health metadata slice.
+
+## Astrograph parser coverage Phase 3 (2026-04-27)
+
+- Broadened the primary Oxc parser path to cover more of the JS/TS constructs
+  from the refactor spec without needing a new parser layer:
+  - export specifiers that mark prior declarations as exported
+  - named re-exports like `export { foo as bar } from "./dep"`
+  - anonymous default function/class exports
+  - class constructors, accessors, fields, and methods
+  - object-literal callable members on exported constants
+  - TypeScript namespaces with nested exported declarations
+- Added a focused parser golden test to lock those constructs down directly at
+  the parser layer instead of relying only on indexing behavior tests.
+- Promoted parser health into `diagnostics` so the lower-level engine surface
+  now reports fallback counts, unknown coverage, and grouped fallback reasons
+  per indexed repository.
+- Bumped Astrograph from `0.0.1-alpha.11` to `0.0.1-alpha.12` for the Phase 3
+  parser coverage and diagnostics slice.

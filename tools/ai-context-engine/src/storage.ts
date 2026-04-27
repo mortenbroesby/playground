@@ -133,6 +133,55 @@ interface ObservabilityStatusRecord {
   port: number;
 }
 
+function loadParserHealth(db: IndexBackendConnection): DiagnosticsResult["parser"] {
+  const parserStats = typedGet<{
+    indexed_file_count: number;
+    known_file_count: number;
+    fallback_file_count: number;
+    unknown_file_count: number;
+  }>(
+    db.prepare(`
+      SELECT
+        COUNT(*) AS indexed_file_count,
+        SUM(CASE WHEN parser_backend IS NOT NULL THEN 1 ELSE 0 END) AS known_file_count,
+        SUM(CASE WHEN parser_fallback_used = 1 THEN 1 ELSE 0 END) AS fallback_file_count,
+        SUM(CASE WHEN parser_backend IS NULL THEN 1 ELSE 0 END) AS unknown_file_count
+      FROM files
+    `),
+  ) ?? {
+    indexed_file_count: 0,
+    known_file_count: 0,
+    fallback_file_count: 0,
+    unknown_file_count: 0,
+  };
+
+  const fallbackReasons = Object.fromEntries(
+    typedAll<{ reason: string; count: number }>(
+      db.prepare(`
+        SELECT parser_fallback_reason AS reason, COUNT(*) AS count
+        FROM files
+        WHERE parser_fallback_used = 1
+          AND parser_fallback_reason IS NOT NULL
+          AND parser_fallback_reason != ''
+        GROUP BY parser_fallback_reason
+      `),
+    ).map((row) => [row.reason, row.count]),
+  ) as Record<string, number>;
+
+  const knownFileCount = parserStats.known_file_count ?? 0;
+  const fallbackFileCount = parserStats.fallback_file_count ?? 0;
+
+  return {
+    primaryBackend: "oxc",
+    fallbackBackend: "tree-sitter",
+    indexedFileCount: parserStats.indexed_file_count ?? 0,
+    fallbackFileCount,
+    fallbackRate: knownFileCount > 0 ? fallbackFileCount / knownFileCount : null,
+    unknownFileCount: parserStats.unknown_file_count ?? 0,
+    fallbackReasons,
+  };
+}
+
 interface EngineContext {
   config: Awaited<ReturnType<typeof ensureStorage>>;
   db: IndexBackendConnection;
@@ -2865,6 +2914,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       indexedSnapshotHash,
       currentSnapshotHash: drift.currentSnapshotHash,
       staleReasons,
+      parser: loadParserHealth(db),
       watch: meta?.watch ?? createDefaultWatchDiagnostics(),
     };
   } finally {
@@ -2991,33 +3041,10 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
 
   try {
     const importCount = countRows(db, "SELECT COUNT(*) AS count FROM imports");
-    const parserStats = typedGet<{
-      indexed_file_count: number;
-      known_file_count: number;
-      fallback_file_count: number;
-      unknown_file_count: number;
-    }>(
-      db.prepare(`
-        SELECT
-          COUNT(*) AS indexed_file_count,
-          SUM(CASE WHEN parser_backend IS NOT NULL THEN 1 ELSE 0 END) AS known_file_count,
-          SUM(CASE WHEN parser_fallback_used = 1 THEN 1 ELSE 0 END) AS fallback_file_count,
-          SUM(CASE WHEN parser_backend IS NULL THEN 1 ELSE 0 END) AS unknown_file_count
-        FROM files
-      `),
-    ) ?? {
-      indexed_file_count: 0,
-      known_file_count: 0,
-      fallback_file_count: 0,
-      unknown_file_count: 0,
-    };
     const observability = await resolveDoctorObservability(
       resolvedRepoRoot,
       health.storageDir,
     );
-
-    const knownFileCount = parserStats.known_file_count ?? 0;
-    const fallbackFileCount = parserStats.fallback_file_count ?? 0;
     const result: DoctorResult = {
       repoRoot: resolvedRepoRoot,
       storageDir: health.storageDir,
@@ -3046,12 +3073,7 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
         extraFiles: health.extraFiles,
       },
       parser: {
-        primaryBackend: "oxc",
-        fallbackBackend: "tree-sitter",
-        indexedFileCount: parserStats.indexed_file_count ?? 0,
-        fallbackFileCount,
-        fallbackRate: knownFileCount > 0 ? fallbackFileCount / knownFileCount : null,
-        unknownFileCount: parserStats.unknown_file_count ?? 0,
+        ...health.parser,
       },
       observability,
       watch: health.watch,

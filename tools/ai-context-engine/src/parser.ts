@@ -724,6 +724,48 @@ function createOxcSymbol(input: {
   };
 }
 
+function updateExportedSymbol(
+  symbols: ParsedSymbol[],
+  localName: string,
+): boolean {
+  let updated = false;
+  for (const symbol of symbols) {
+    if (symbol.name === localName || symbol.qualifiedName === localName) {
+      symbol.exported = true;
+      updated = true;
+    }
+  }
+  return updated;
+}
+
+function createSyntheticOxcExportSymbol(input: {
+  sourceText: string;
+  relativePath: string;
+  name: string;
+  exportedName?: string | null;
+  kind?: SymbolKind;
+  startByte: number;
+  endByte: number;
+  lineOffsets: number[];
+  summaryStrategy: SummaryStrategy;
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+}): ParsedSymbol {
+  const exportedName = input.exportedName ?? input.name;
+  return createOxcSymbol({
+    sourceText: input.sourceText,
+    relativePath: input.relativePath,
+    kind: input.kind ?? "constant",
+    name: exportedName,
+    qualifiedName: exportedName,
+    startByte: input.startByte,
+    endByte: input.endByte,
+    exported: true,
+    lineOffsets: input.lineOffsets,
+    summaryStrategy: input.summaryStrategy,
+    comments: input.comments,
+  });
+}
+
 function collectOxcClassMembers(input: {
   node: any;
   sourceText: string;
@@ -739,7 +781,82 @@ function collectOxcClassMembers(input: {
   }
 
   return members.flatMap((member) => {
-    if (member?.type !== "MethodDefinition" || member.key?.type !== "Identifier") {
+    if (member?.type === "MethodDefinition" && member.key?.type === "Identifier") {
+      const memberName =
+        member.kind === "constructor"
+          ? "constructor"
+          : member.key.name;
+      return [
+        createOxcSymbol({
+          sourceText: input.sourceText,
+          relativePath: input.relativePath,
+          kind: "method",
+          name: memberName,
+          qualifiedName: `${input.className}.${memberName}`,
+          startByte: member.start,
+          endByte: member.end,
+          exported: false,
+          lineOffsets: input.lineOffsets,
+          summaryStrategy: input.summaryStrategy,
+          comments: input.comments,
+        }),
+      ];
+    }
+
+    if (
+      (member?.type === "PropertyDefinition" || member?.type === "AccessorProperty")
+      && member.key?.type === "Identifier"
+    ) {
+      return [
+        createOxcSymbol({
+          sourceText: input.sourceText,
+          relativePath: input.relativePath,
+          kind: "constant",
+          name: member.key.name,
+          qualifiedName: `${input.className}.${member.key.name}`,
+          startByte: member.start,
+          endByte: member.end,
+          exported: false,
+          lineOffsets: input.lineOffsets,
+          summaryStrategy: input.summaryStrategy,
+          comments: input.comments,
+        }),
+      ];
+    }
+
+    return [];
+  });
+}
+
+function collectOxcObjectMembers(input: {
+  objectName: string;
+  objectNode: any;
+  sourceText: string;
+  relativePath: string;
+  summaryStrategy: SummaryStrategy;
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+  lineOffsets: number[];
+  exported: boolean;
+}): ParsedSymbol[] {
+  const properties = input.objectNode?.properties;
+  if (!Array.isArray(properties)) {
+    return [];
+  }
+
+  return properties.flatMap((property) => {
+    if (property?.key?.type !== "Identifier") {
+      return [];
+    }
+
+    const propertyName = property.key.name;
+    const isMethod =
+      property.type === "Property"
+        ? property.method === true
+          || property.value?.type === "ArrowFunctionExpression"
+          || property.value?.type === "FunctionExpression"
+        : property.type === "ObjectMethod";
+
+    if (!isMethod) {
       return [];
     }
 
@@ -748,11 +865,11 @@ function collectOxcClassMembers(input: {
         sourceText: input.sourceText,
         relativePath: input.relativePath,
         kind: "method",
-        name: member.key.name,
-        qualifiedName: `${input.className}.${member.key.name}`,
-        startByte: member.start,
-        endByte: member.end,
-        exported: false,
+        name: propertyName,
+        qualifiedName: `${input.objectName}.${propertyName}`,
+        startByte: property.start,
+        endByte: property.end,
+        exported: input.exported,
         lineOffsets: input.lineOffsets,
         summaryStrategy: input.summaryStrategy,
         comments: input.comments,
@@ -782,19 +899,35 @@ function collectOxcVariableSymbols(input: {
       return [];
     }
 
+    const variableSymbol = createOxcSymbol({
+      sourceText: input.sourceText,
+      relativePath: input.relativePath,
+      kind: "constant",
+      name: declarator.id.name,
+      startByte: input.rangeStart,
+      endByte: input.rangeEnd,
+      exported: input.exported,
+      lineOffsets: input.lineOffsets,
+      summaryStrategy: input.summaryStrategy,
+      comments: input.comments,
+    });
+    const objectMembers =
+      declarator.init?.type === "ObjectExpression"
+        ? collectOxcObjectMembers({
+            objectName: declarator.id.name,
+            objectNode: declarator.init,
+            sourceText: input.sourceText,
+            relativePath: input.relativePath,
+            summaryStrategy: input.summaryStrategy,
+            comments: input.comments,
+            lineOffsets: input.lineOffsets,
+            exported: input.exported,
+          })
+        : [];
+
     return [
-      createOxcSymbol({
-        sourceText: input.sourceText,
-        relativePath: input.relativePath,
-        kind: "constant",
-        name: declarator.id.name,
-        startByte: input.rangeStart,
-        endByte: input.rangeEnd,
-        exported: input.exported,
-        lineOffsets: input.lineOffsets,
-        summaryStrategy: input.summaryStrategy,
-        comments: input.comments,
-      }),
+      variableSymbol,
+      ...objectMembers,
     ];
   });
 }
@@ -819,6 +952,30 @@ function collectOxcImports(moduleInfo: any): ParsedImport[] {
           .filter(Boolean)
       : [],
   }));
+}
+
+function appendOxcReExportImport(
+  imports: ParsedImport[],
+  statement: any,
+) {
+  const source = statement?.source?.value;
+  if (typeof source !== "string" || source.length === 0) {
+    return;
+  }
+
+  const specifiers = Array.isArray(statement?.specifiers)
+    ? statement.specifiers
+        .map((specifier: any) =>
+          specifier.local?.name
+          ?? specifier.local?.value
+          ?? specifier.exported?.name
+          ?? specifier.exported?.value
+          ?? "",
+        )
+        .filter(Boolean)
+    : [];
+
+  imports.push({ source, specifiers });
 }
 
 function collectOxcDeclarationSymbols(input: {
@@ -905,11 +1062,100 @@ function collectOxcDeclarationSymbols(input: {
         }),
       ];
     }
+    case "TSModuleDeclaration": {
+      const name =
+        input.node.id?.name
+        ?? input.node.id?.value;
+      if (!name) {
+        return [];
+      }
+      const namespaceSymbol = createOxcSymbol({
+        sourceText: input.sourceText,
+        relativePath: input.relativePath,
+        kind: "type",
+        name,
+        startByte: input.rangeStart,
+        endByte: input.rangeEnd,
+        exported: input.exported,
+        lineOffsets: input.lineOffsets,
+        summaryStrategy: input.summaryStrategy,
+        comments: input.comments,
+      });
+      const bodyStatements = input.node.body?.body;
+      const nested = Array.isArray(bodyStatements)
+        ? bodyStatements.flatMap((statement: any) => {
+            const targetNode =
+              statement?.type === "ExportNamedDeclaration" && statement.declaration
+                ? statement.declaration
+                : statement;
+            const nestedSymbols = collectOxcDeclarationSymbols({
+              ...input,
+              node: targetNode,
+              exported: input.exported || statement?.type === "ExportNamedDeclaration",
+              rangeStart: statement.start,
+              rangeEnd: statement.end,
+            });
+            return nestedSymbols.map((symbol) => {
+              const baseName = symbol.qualifiedName ?? symbol.name;
+              return {
+                ...symbol,
+                qualifiedName: `${name}.${baseName}`,
+              };
+            });
+          })
+        : [];
+      return [namespaceSymbol, ...nested];
+    }
     case "VariableDeclaration":
       return collectOxcVariableSymbols(input);
     default:
       return [];
   }
+}
+
+function collectOxcExportSpecifiers(input: {
+  statement: any;
+  sourceText: string;
+  relativePath: string;
+  summaryStrategy: SummaryStrategy;
+  comments: Array<{ type: "Line" | "Block"; value: string; start: number; end: number }>;
+  lineOffsets: number[];
+  symbols: ParsedSymbol[];
+}): ParsedSymbol[] {
+  const specifiers = Array.isArray(input.statement?.specifiers)
+    ? input.statement.specifiers
+    : [];
+  const syntheticSymbols: ParsedSymbol[] = [];
+  const isReExport = Boolean(input.statement?.source);
+
+  for (const specifier of specifiers) {
+    const localName = specifier.local?.name ?? specifier.local?.value;
+    const exportedName = specifier.exported?.name ?? specifier.exported?.value ?? localName;
+
+    if (!localName || !exportedName) {
+      continue;
+    }
+
+    if (!isReExport && updateExportedSymbol(input.symbols, localName)) {
+      continue;
+    }
+
+    syntheticSymbols.push(
+      createSyntheticOxcExportSymbol({
+        sourceText: input.sourceText,
+        relativePath: input.relativePath,
+        name: localName,
+        exportedName,
+        startByte: specifier.start ?? input.statement.start,
+        endByte: specifier.end ?? input.statement.end,
+        lineOffsets: input.lineOffsets,
+        summaryStrategy: input.summaryStrategy,
+        comments: input.comments,
+      }),
+    );
+  }
+
+  return syntheticSymbols;
 }
 
 function parseWithOxc(input: {
@@ -923,6 +1169,7 @@ function parseWithOxc(input: {
   const comments = Array.isArray(result.comments) ? result.comments : [];
   const lineOffsets = buildLineOffsets(input.content);
   const symbols: ParsedSymbol[] = [];
+  const imports = collectOxcImports(result.module);
 
   for (const statement of result.program?.body ?? []) {
     switch (statement?.type) {
@@ -943,24 +1190,78 @@ function parseWithOxc(input: {
               rangeEnd: statement.end,
             }),
           );
-        }
-        break;
-      }
-      case "ExportDefaultDeclaration": {
-        if (statement.declaration) {
+        } else {
+          appendOxcReExportImport(imports, statement);
           symbols.push(
-            ...collectOxcDeclarationSymbols({
-              node: statement.declaration,
+            ...collectOxcExportSpecifiers({
+              statement,
               sourceText: input.content,
               relativePath: input.relativePath,
               summaryStrategy,
               comments,
               lineOffsets,
-              exported: true,
-              rangeStart: statement.start,
-              rangeEnd: statement.end,
+              symbols,
             }),
           );
+        }
+        break;
+      }
+      case "ExportAllDeclaration":
+        appendOxcReExportImport(imports, statement);
+        break;
+      case "ExportDefaultDeclaration": {
+        if (statement.declaration) {
+          const declarationSymbols = collectOxcDeclarationSymbols({
+            node: statement.declaration,
+            sourceText: input.content,
+            relativePath: input.relativePath,
+            summaryStrategy,
+            comments,
+            lineOffsets,
+            exported: true,
+            rangeStart: statement.start,
+            rangeEnd: statement.end,
+          });
+
+          if (declarationSymbols.length > 0) {
+            symbols.push(...declarationSymbols);
+          } else if (statement.declaration.type === "Identifier") {
+            if (!updateExportedSymbol(symbols, statement.declaration.name)) {
+              symbols.push(
+                createSyntheticOxcExportSymbol({
+                  sourceText: input.content,
+                  relativePath: input.relativePath,
+                  name: statement.declaration.name,
+                  exportedName: "default",
+                  startByte: statement.start,
+                  endByte: statement.end,
+                  lineOffsets,
+                  summaryStrategy,
+                  comments,
+                }),
+              );
+            }
+          } else {
+            const anonymousDefaultKind: SymbolKind =
+              statement.declaration.type === "FunctionDeclaration"
+                ? "function"
+                : statement.declaration.type === "ClassDeclaration"
+                  ? "class"
+                  : "constant";
+            symbols.push(
+              createSyntheticOxcExportSymbol({
+                sourceText: input.content,
+                relativePath: input.relativePath,
+                name: "default",
+                kind: anonymousDefaultKind,
+                startByte: statement.start,
+                endByte: statement.end,
+                lineOffsets,
+                summaryStrategy,
+                comments,
+              }),
+            );
+          }
         }
         break;
       }
@@ -985,7 +1286,7 @@ function parseWithOxc(input: {
     language: input.language,
     contentHash: sha256(input.content),
     symbols,
-    imports: collectOxcImports(result.module),
+    imports,
     backend: "oxc",
     fallbackUsed: false,
     fallbackReason: null,

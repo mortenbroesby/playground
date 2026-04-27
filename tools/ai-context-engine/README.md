@@ -119,6 +119,9 @@ Current implementation includes:
 - Oxc as the primary parser for TypeScript and JavaScript source, including
   `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, and `.jsx`
 - temporary Tree-sitter fallback contained behind the parser facade
+- parser coverage for export specifiers, anonymous default exports, re-exported
+  names, class constructors/accessors/fields, object-literal callable members,
+  and TypeScript namespaces on the primary Oxc path
 - SQLite as the current index backend behind an internal storage boundary
 - WAL-mode file, symbol, import, and content-blob storage for the current
   backend
@@ -137,6 +140,8 @@ Current implementation includes:
   scanning when callers explicitly request freshness checks
 - diagnostics includes indexed timestamps, snapshot hashes, and live drift
   counts so stale metadata can be distinguished from a fresh index
+- diagnostics now also reports parser-health coverage, fallback rates, and
+  grouped fallback reasons from indexed files
 - diagnostics also persists the latest watch-session state so agents can inspect
   recent watch health without being attached to the live CLI event stream
 - watch mode now prefers a native filesystem watcher and falls back to the

@@ -301,16 +301,18 @@ export interface DiagnosticsResult {
   indexedSnapshotHash: string | null;
   currentSnapshotHash: string | null;
   staleReasons: string[];
+  parser: ParserHealthDiagnostics;
   watch: WatchDiagnostics;
 }
 
-export interface DoctorParserHealth {
+export interface ParserHealthDiagnostics {
   primaryBackend: "oxc";
   fallbackBackend: "tree-sitter";
   indexedFileCount: number;
   fallbackFileCount: number;
   fallbackRate: number | null;
   unknownFileCount: number;
+  fallbackReasons: Record<string, number>;
 }
 
 export interface DoctorObservabilityHealth {
@@ -343,7 +345,7 @@ export interface DoctorResult {
     changedFiles: number;
     extraFiles: number;
   };
-  parser: DoctorParserHealth;
+  parser: ParserHealthDiagnostics;
   observability: DoctorObservabilityHealth;
   watch: WatchDiagnostics;
   warnings: string[];

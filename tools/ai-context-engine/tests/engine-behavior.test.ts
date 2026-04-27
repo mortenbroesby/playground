@@ -156,17 +156,25 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.11",
+      engineVersion: "0.0.1-alpha.12",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 11,
+        increment: 12,
       },
       summaryStrategy: "doc-comments-first",
       summarySources: {
         "doc-comment": 4,
         signature: 1,
+      },
+      parser: {
+        primaryBackend: "oxc",
+        fallbackBackend: "tree-sitter",
+        indexedFileCount: 2,
+        fallbackFileCount: 0,
+        fallbackRate: 0,
+        unknownFileCount: 0,
       },
       watch: {
         status: "idle",
