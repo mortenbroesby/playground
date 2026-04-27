@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -25,6 +26,7 @@ const MCP_TOOLS = [
   "query_code",
   "diagnostics",
 ];
+const WORKSPACE_WRAPPER_RELATIVE_PATH = "tools/ai-context-engine/scripts/ai-context-engine.mjs";
 
 function usage() {
   process.stderr.write(
@@ -112,16 +114,34 @@ function hasLocalAstrographDependency(repoRoot) {
   }
 }
 
-function astrographConfigBlock() {
+function resolveManagedInvocation(repoRoot) {
+  const workspaceWrapper = path.join(repoRoot, WORKSPACE_WRAPPER_RELATIVE_PATH);
+
+  if (existsSync(workspaceWrapper)) {
+    return {
+      command: "node",
+      args: [WORKSPACE_WRAPPER_RELATIVE_PATH, "mcp"],
+    };
+  }
+
+  return {
+    command: "npx",
+    args: [PACKAGE_NAME, "mcp"],
+  };
+}
+
+function astrographConfigBlock(repoRoot) {
   const enabledTools = MCP_TOOLS.map((tool) => `"${tool}"`).join(", ");
   const toolApprovals = MCP_TOOLS.map((tool) =>
     `[mcp_servers.astrograph.tools.${tool}]\napproval_mode = "approve"`,
   ).join("\n\n");
+  const invocation = resolveManagedInvocation(repoRoot);
+  const args = invocation.args.map((arg) => `"${arg}"`).join(", ");
 
   return `${MARKER_BEGIN}
 [mcp_servers.astrograph]
-command = "npx"
-args = ["${PACKAGE_NAME}", "mcp"]
+command = "${invocation.command}"
+args = [${args}]
 cwd = "."
 startup_timeout_sec = 90
 enabled_tools = [${enabledTools}]
@@ -138,6 +158,13 @@ function replaceManagedBlock(contents, block) {
     );
   }
 
+  const legacyBlockPattern =
+    /^\[mcp_servers\.astrograph\][\s\S]*?(?=^\[(?!mcp_servers\.astrograph\b).+\]|\Z)/m;
+
+  if (legacyBlockPattern.test(contents)) {
+    return contents.replace(legacyBlockPattern, block);
+  }
+
   const normalized = contents.trimEnd();
   return normalized.length === 0 ? `${block}\n` : `${normalized}\n\n${block}\n`;
 }
@@ -147,7 +174,7 @@ export async function installForCodex(repoRoot, { dryRun = false } = {}) {
   const codexDir = path.join(resolvedRepoRoot, ".codex");
   const configPath = path.join(codexDir, "config.toml");
   const currentContents = await readFile(configPath, "utf8").catch(() => "");
-  const nextContents = replaceManagedBlock(currentContents, astrographConfigBlock());
+  const nextContents = replaceManagedBlock(currentContents, astrographConfigBlock(resolvedRepoRoot));
 
   if (!dryRun) {
     await mkdir(codexDir, { recursive: true });

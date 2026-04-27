@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -78,18 +78,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.8");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.10");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 8,
+      increment: 10,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 8,
+      increment: 10,
     });
   });
 
@@ -191,5 +191,48 @@ describe("ai-context-engine contract", () => {
     expect(result.configPreview).toContain("[mcp_servers.astrograph]");
     expect(result.configPreview).toContain('command = "npx"');
     expect(result.configPreview).toContain('args = ["@astrograph/astrograph", "mcp"]');
+  });
+
+  it("replaces a legacy repo-local astrograph block with the workspace wrapper command", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "astrograph-install-workspace-"));
+    tempDirs.push(repoRoot);
+
+    await import("node:child_process").then(({ execFileSync }) => {
+      execFileSync("git", ["init"], {
+        cwd: repoRoot,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    });
+
+    await mkdir(path.join(repoRoot, "tools", "ai-context-engine", "scripts"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(repoRoot, "tools", "ai-context-engine", "scripts", "ai-context-engine.mjs"),
+      "#!/usr/bin/env node\n",
+    );
+    await mkdir(path.join(repoRoot, ".codex"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".codex", "config.toml"),
+      [
+        "[mcp_servers.astrograph]",
+        'command = "pnpm"',
+        'args = ["exec", "astrograph", "mcp"]',
+        'cwd = "."',
+        "",
+        "[features]",
+        "codex_hooks = true",
+        "",
+      ].join("\n"),
+    );
+
+    const result = await installForCodex(repoRoot, { dryRun: true });
+
+    expect(result.configPreview).toContain('command = "node"');
+    expect(result.configPreview).toContain(
+      'args = ["tools/ai-context-engine/scripts/ai-context-engine.mjs", "mcp"]',
+    );
+    expect(result.configPreview.match(/\[mcp_servers\.astrograph\]/g)).toHaveLength(1);
+    expect(result.configPreview).toContain("[features]");
   });
 });

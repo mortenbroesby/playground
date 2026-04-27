@@ -428,3 +428,17 @@ a mandatory runtime concern for every MCP or CLI call.
 - Session bootstrap now treats known local-environment limitations like
   `Failed to listen at 127.0.0.1` as `unavailable` rather than as a misleading
   hard error, while explicit force-start paths still fail loudly.
+
+## Astrograph Codex install block repair (2026-04-27)
+
+- Repaired the repo-local Codex MCP block so Astrograph no longer relies on the
+  broken workspace-root command `pnpm exec astrograph mcp`.
+- Local workspace repos now install Astrograph into Codex through the
+  deterministic wrapper command:
+  `node tools/ai-context-engine/scripts/ai-context-engine.mjs mcp`
+- Standalone external repos still receive the npm-oriented install block using
+  `npx @astrograph/astrograph mcp`.
+- The installer now replaces legacy unmarked `[mcp_servers.astrograph]` blocks
+  instead of appending duplicate Astrograph sections when re-run.
+- Bumped Astrograph from `0.0.1-alpha.9` to `0.0.1-alpha.10` for the Codex
+  installer and config repair.
