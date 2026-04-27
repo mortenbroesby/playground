@@ -163,12 +163,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.17",
+      engineVersion: "0.0.1-alpha.18",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 17,
+        increment: 18,
       },
       schemaVersion: 3,
       summaryStrategy: "doc-comments-first",
@@ -183,6 +183,10 @@ describe("ai-context-engine behavior", () => {
         fallbackFileCount: 0,
         fallbackRate: 0,
         unknownFileCount: 0,
+      },
+      dependencyGraph: {
+        brokenRelativeImportCount: 0,
+        affectedImporterCount: 0,
       },
       watch: {
         status: "idle",
@@ -1148,6 +1152,32 @@ export function renderBroken(): string {
         entry.includes("src/broken-consumer.ts"),
       ),
     ).toBe(true);
+  });
+
+  it("diagnostics marks unresolved relative imports as stale dependency drift", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "broken-consumer.ts"),
+      `import { missingValue } from "./missing.js";
+
+export function renderBroken(): string {
+  return String(missingValue);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const health = await diagnostics({ repoRoot });
+
+    expect(health.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/broken-consumer.ts"],
+    });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("unresolved relative imports");
   });
 
   it("can refresh a single file without a full rebuild", async () => {

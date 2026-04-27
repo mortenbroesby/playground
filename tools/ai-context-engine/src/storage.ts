@@ -3295,6 +3295,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const indexedEntries = loadIndexedSnapshot(db);
+    const dependencyGraph = loadDependencyGraphHealth(db);
     const indexedSnapshotHash =
       meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? snapshotHash(indexedEntries) : null);
     const scanFreshness = input.scanFreshness === true;
@@ -3320,6 +3321,9 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
     if (!meta) {
       staleReasons.push("index metadata missing");
     }
+    if (dependencyGraph.brokenRelativeImportCount > 0) {
+      staleReasons.push("unresolved relative imports");
+    }
     if (scanFreshness) {
       if (drift.missingFiles > 0) {
         staleReasons.push("missing files");
@@ -3339,7 +3343,11 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
           : meta
             ? "stale"
             : "unknown"
-        : meta?.staleStatus ?? "unknown";
+        : staleReasons.length > 0
+          ? meta
+            ? "stale"
+            : "unknown"
+          : meta?.staleStatus ?? "unknown";
     const summarySources = Object.fromEntries(
       typedAll<{ summary_source: SummarySource; count: number }>(
         db.prepare(
@@ -3380,6 +3388,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       currentSnapshotHash: drift.currentSnapshotHash,
       staleReasons,
       parser: loadParserHealth(db),
+      dependencyGraph,
       watch: meta?.watch ?? createDefaultWatchDiagnostics(),
     };
   } finally {
@@ -3440,6 +3449,36 @@ async function resolveDoctorObservability(
     configuredPort: repoConfig.observability.port,
     status: healthy ? "running" : status ? "unhealthy" : "not-running",
     url,
+  };
+}
+
+function loadDependencyGraphHealth(
+  db: IndexBackendConnection,
+): DoctorResult["dependencyGraph"] {
+  const brokenDependencyRows = typedAll<{
+    importer_path: string;
+    source: string;
+  }>(
+    db.prepare(`
+      SELECT files.path AS importer_path, imports.source AS source
+      FROM imports
+      INNER JOIN files ON files.id = imports.file_id
+      LEFT JOIN file_dependencies
+        ON file_dependencies.importer_file_id = imports.file_id
+        AND file_dependencies.source = imports.source
+      WHERE (imports.source LIKE './%' OR imports.source LIKE '../%' OR imports.source LIKE '/%')
+        AND file_dependencies.target_path IS NULL
+      ORDER BY files.path ASC, imports.source ASC
+    `),
+  );
+  const affectedImporters = [...new Set(
+    brokenDependencyRows.map((row) => row.importer_path),
+  )];
+
+  return {
+    brokenRelativeImportCount: brokenDependencyRows.length,
+    affectedImporterCount: affectedImporters.length,
+    sampleImporterPaths: affectedImporters.slice(0, 5),
   };
 }
 
@@ -3519,25 +3558,7 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
 
   try {
     const importCount = countRows(db, "SELECT COUNT(*) AS count FROM imports");
-    const brokenDependencyRows = typedAll<{
-      importer_path: string;
-      source: string;
-    }>(
-      db.prepare(`
-        SELECT files.path AS importer_path, imports.source AS source
-        FROM imports
-        INNER JOIN files ON files.id = imports.file_id
-        LEFT JOIN file_dependencies
-          ON file_dependencies.importer_file_id = imports.file_id
-          AND file_dependencies.source = imports.source
-        WHERE (imports.source LIKE './%' OR imports.source LIKE '../%' OR imports.source LIKE '/%')
-          AND file_dependencies.target_path IS NULL
-        ORDER BY files.path ASC, imports.source ASC
-      `),
-    );
-    const affectedImporters = [...new Set(
-      brokenDependencyRows.map((row) => row.importer_path),
-    )];
+    const dependencyGraph = loadDependencyGraphHealth(db);
     const observability = await resolveDoctorObservability(
       resolvedRepoRoot,
       health.storageDir,
@@ -3573,11 +3594,7 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
       parser: {
         ...health.parser,
       },
-      dependencyGraph: {
-        brokenRelativeImportCount: brokenDependencyRows.length,
-        affectedImporterCount: affectedImporters.length,
-        sampleImporterPaths: affectedImporters.slice(0, 5),
-      },
+      dependencyGraph,
       observability,
       watch: health.watch,
       warnings: [],

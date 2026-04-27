@@ -577,3 +577,13 @@ a mandatory runtime concern for every MCP or CLI call.
 - Added a focused regression around `src/broken-consumer.ts` importing a
   missing target and bumped Astrograph from `0.0.1-alpha.16` to
   `0.0.1-alpha.17`.
+
+## Astrograph unresolved importer diagnostics follow-up (2026-04-27)
+
+- Promoted unresolved relative imports from a `doctor`-only warning into the
+  core `diagnostics` surface.
+- `diagnostics` now returns dependency-graph health and marks the index stale
+  with `staleReasons: ["unresolved relative imports"]` when importer edges are
+  broken, even without an explicit filesystem drift scan.
+- Added a focused diagnostics regression for the broken-import case and bumped
+  Astrograph from `0.0.1-alpha.17` to `0.0.1-alpha.18`.

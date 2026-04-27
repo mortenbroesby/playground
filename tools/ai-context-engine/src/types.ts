@@ -331,6 +331,7 @@ export interface DiagnosticsResult {
   currentSnapshotHash: string | null;
   staleReasons: string[];
   parser: ParserHealthDiagnostics;
+  dependencyGraph: DoctorDependencyGraphHealth;
   watch: WatchDiagnostics;
 }
 

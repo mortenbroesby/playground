@@ -146,6 +146,9 @@ Current implementation includes:
   in-place database migrations
 - `doctor` now also reports unresolved relative-import health so affected
   importer files are visible when dependency edges can no longer be resolved
+- `diagnostics` now treats unresolved relative imports as a first-class stale
+  signal, not just a doctor warning, so agents can react to broken dependency
+  edges through the core health surface
 - diagnostics now also reports parser-health coverage, fallback rates, and
   grouped fallback reasons from indexed files
 - diagnostics also persists the latest watch-session state so agents can inspect
