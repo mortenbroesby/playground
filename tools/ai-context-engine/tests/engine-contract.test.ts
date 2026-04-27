@@ -100,18 +100,65 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.44");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.45");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-        increment: 44,
+      increment: 45,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 44,
+      increment: 45,
+    });
+  });
+
+  it("publishes package metadata that makes the local-first alpha intent explicit", async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    ) as {
+      description: string;
+      keywords: string[];
+      homepage: string;
+      repository: {
+        type: string;
+        url: string;
+        directory: string;
+      };
+      bugs: {
+        url: string;
+      };
+      engines: {
+        node: string;
+      };
+    };
+
+    expect(packageJson.description).toBe(
+      "Local deterministic context engine for AI-assisted code exploration",
+    );
+    expect(packageJson.keywords).toEqual(
+      expect.arrayContaining([
+        "astrograph",
+        "mcp",
+        "code-indexing",
+        "code-search",
+        "local-first",
+        "sqlite",
+      ]),
+    );
+    expect(packageJson.homepage).toContain("/tools/ai-context-engine");
+    expect(packageJson.repository).toEqual({
+      type: "git",
+      url: "https://github.com/mortenbroesby/playground.git",
+      directory: "tools/ai-context-engine",
+    });
+    expect(packageJson.bugs).toEqual({
+      url: "https://github.com/mortenbroesby/playground/issues",
+    });
+    expect(packageJson.engines).toEqual({
+      node: ">=24",
     });
   });
 

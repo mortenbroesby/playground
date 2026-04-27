@@ -1,9 +1,29 @@
 {
   "name": "@astrograph/astrograph",
-  "version": "0.0.1-alpha.44",
+  "version": "0.0.1-alpha.45",
   "type": "module",
   "license": "MIT",
   "description": "Local deterministic context engine for AI-assisted code exploration",
+  "keywords": [
+    "astrograph",
+    "mcp",
+    "code-indexing",
+    "code-search",
+    "local-first",
+    "sqlite"
+  ],
+  "homepage": "https://github.com/mortenbroesby/playground/tree/main/tools/ai-context-engine",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mortenbroesby/playground.git",
+    "directory": "tools/ai-context-engine"
+  },
+  "bugs": {
+    "url": "https://github.com/mortenbroesby/playground/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {

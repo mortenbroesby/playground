@@ -37,11 +37,13 @@ It exists to answer questions like:
 It does that by indexing a repo locally, storing file and symbol metadata in SQLite, and exposing
 retrieval surfaces through a stdio MCP server, JSON CLI, and small TypeScript API.
 
-The package is currently a personal tool:
+The package is currently a local-first npm alpha:
 
-- it exists first to support workflow inside this repo
+- it exists first to support workflow inside this repo and similar local agent setups
 - it is MIT-licensed, but that is not a support commitment
-- it is not positioned as a supported public product yet
+- it is not positioned as a supported hosted product or managed service
+- normal indexing, CLI, MCP, and library use target Node only
+- Bun is only required when you explicitly invoke the observability server
 
 ## Features
 
