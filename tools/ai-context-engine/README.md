@@ -414,16 +414,36 @@ The next storage changes should preserve:
 
 ## Benchmarks
 
-Two benchmark layers exist today:
+Three benchmark layers exist today:
 
-- `pnpm --filter @playground/ai-context-engine bench:small`
+- `pnpm --filter @astrograph/astrograph bench:corpus`
+  checked-in retrieval benchmark corpus for the Phase 1 harness
+- `pnpm --filter @astrograph/astrograph bench:small`
   in-process engine benchmark with parser microbench, retrieval latency, token
   savings, parser backend, and fallback metadata
-- `pnpm --filter @playground/ai-context-engine bench:cli`
+- `pnpm --filter @astrograph/astrograph bench:cli`
   command-level benchmark wrapper intended to run through `hyperfine`
 
-`bench:small` is the main product benchmark. It exists to measure retrieval
-value, not just raw parse speed.
+`bench:corpus` is the default retrieval-quality benchmark. It runs the
+checked-in corpus at
+`.specs/benchmarks/ai-context-engine-benchmark-corpus.json` and writes:
+
+- `.benchmarks/ai-context-engine/latest/results.json`
+- `.benchmarks/ai-context-engine/latest/report.md`
+- `.benchmarks/ai-context-engine/latest/corpus.lock.json`
+
+The Phase 1 report now tracks:
+
+- per-task and per-workflow recall-like target hit rates
+- first relevant rank, reciprocal rank, and precision at 3
+- exact plus estimated token use
+- tool-call counts and latency
+
+Use that command when you want one reproducible local benchmark run against the
+golden corpus.
+
+`bench:small` is still the main product microbenchmark. It exists to measure
+retrieval value, not just raw parse speed.
 
 `bench:cli` uses `hyperfine` and expects that binary to already be installed on
 the machine. If it is missing, the script fails with an install hint instead of

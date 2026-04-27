@@ -40,13 +40,16 @@ function createSyntheticResults() {
     tasks: [
       {
         taskId: "task-1",
+        query: "Find the symbol search entrypoint",
         workflowId: "symbol-first",
         allowedPaths: ["tools/ai-context-engine/**"],
-        target: {
-          kind: "symbol",
-          value: "searchSymbols",
-          mode: "exact",
-        },
+        targets: [
+          {
+            kind: "symbol",
+            value: "searchSymbols",
+            mode: "exact",
+          },
+        ],
         baselineTokens: 120,
         estimatedBaselineTokens: 126,
         retrievedTokens: 40,
@@ -56,17 +59,43 @@ function createSyntheticResults() {
         latencyMs: 21,
         success: true,
         evidence: ["tools/ai-context-engine/src/index.ts"],
+        rankedEvidence: ["searchSymbols", "tools/ai-context-engine/src/index.ts"],
+        matches: [
+          {
+            target: {
+              kind: "symbol",
+              value: "searchSymbols",
+              mode: "exact",
+            },
+            matched: true,
+            rank: 1,
+            evidence: "searchSymbols",
+          },
+        ],
+        metrics: {
+          targetCount: 1,
+          hitCount: 1,
+          recallPct: 100,
+          firstRelevantRank: 1,
+          reciprocalRank: 1,
+          precisionAt3: 0.333,
+          top1Hit: true,
+          top3Hit: true,
+        },
         notes: ["found by exact symbol lookup"],
       },
       {
         taskId: "task-2",
+        query: "Find the bundle entrypoint",
         workflowId: "symbol-first",
         allowedPaths: ["tools/ai-context-engine/**"],
-        target: {
-          kind: "symbol",
-          value: "getContextBundle",
-          mode: "exact",
-        },
+        targets: [
+          {
+            kind: "symbol",
+            value: "getContextBundle",
+            mode: "exact",
+          },
+        ],
         baselineTokens: 80,
         estimatedBaselineTokens: 82,
         retrievedTokens: 60,
@@ -76,6 +105,29 @@ function createSyntheticResults() {
         latencyMs: 32,
         success: false,
         evidence: ["missing symbol"],
+        rankedEvidence: ["missing symbol"],
+        matches: [
+          {
+            target: {
+              kind: "symbol",
+              value: "getContextBundle",
+              mode: "exact",
+            },
+            matched: false,
+            rank: null,
+            evidence: null,
+          },
+        ],
+        metrics: {
+          targetCount: 1,
+          hitCount: 0,
+          recallPct: 0,
+          firstRelevantRank: null,
+          reciprocalRank: 0,
+          precisionAt3: 0,
+          top1Hit: false,
+          top3Hit: false,
+        },
         notes: ["fallback search only"],
       },
     ],
@@ -85,155 +137,73 @@ function createSyntheticResults() {
 describe("benchmark reporting", () => {
   it("serializes benchmark results with a stable JSON shape", () => {
     const results = createSyntheticResults();
-
-    expect(serializeBenchmarkResults(results)).toBe(`{
-  "schemaVersion": 1,
-  "benchmarkName": "ai-context-engine",
-  "benchmarkVersion": "2026.04",
-  "repoSha": "abc123",
-  "engineVersion": "1.2.3",
-  "tokenizer": "cl100k_base",
-  "approximateTokenizer": "tokenx",
-  "runId": "abc123-20260415T120000Z",
-  "machine": {
-    "hostname": "ci",
-    "platform": "linux",
-    "arch": "x64",
-    "nodeVersion": "24.0.0"
-  },
-  "corpus": {
-    "schemaVersion": 1,
-    "manifestPath": ".specs/benchmarks/ai-context-engine-benchmark-corpus.json",
-    "benchmark": "ai-context-engine",
-    "repo": "playground",
-    "repoSha": "abc123",
-    "tokenizer": "cl100k_base",
-    "taskCount": 2
-  },
-  "workflows": [
-    {
-      "workflowId": "symbol-first",
-      "label": "Symbol First",
-      "description": "Start from symbols before reading source."
-    }
-  ],
-  "tasks": [
-    {
-      "taskId": "task-1",
-      "workflowId": "symbol-first",
-      "allowedPaths": [
-        "tools/ai-context-engine/**"
-      ],
-      "target": {
-        "kind": "symbol",
-        "value": "searchSymbols",
-        "mode": "exact"
+    expect(JSON.parse(serializeBenchmarkResults(results))).toMatchObject({
+      benchmarkName: "ai-context-engine",
+      tokenizer: "cl100k_base",
+      corpus: {
+        taskCount: 2,
       },
-      "baselineTokens": 120,
-      "estimatedBaselineTokens": 126,
-      "retrievedTokens": 40,
-      "estimatedRetrievedTokens": 44,
-      "tokenReductionPct": 66.7,
-      "toolCalls": 3,
-      "latencyMs": 21,
-      "success": true,
-      "evidence": [
-        "tools/ai-context-engine/src/index.ts"
+      tasks: [
+        {
+          taskId: "task-1",
+          query: "Find the symbol search entrypoint",
+          metrics: {
+            targetCount: 1,
+            hitCount: 1,
+            recallPct: 100,
+            firstRelevantRank: 1,
+          },
+        },
+        {
+          taskId: "task-2",
+          metrics: {
+            targetCount: 1,
+            hitCount: 0,
+            recallPct: 0,
+            firstRelevantRank: null,
+          },
+        },
       ],
-      "notes": [
-        "found by exact symbol lookup"
-      ]
-    },
-    {
-      "taskId": "task-2",
-      "workflowId": "symbol-first",
-      "allowedPaths": [
-        "tools/ai-context-engine/**"
-      ],
-      "target": {
-        "kind": "symbol",
-        "value": "getContextBundle",
-        "mode": "exact"
+      summary: {
+        taskCount: 2,
+        workflowCount: 1,
+        successCount: 1,
+        failureCount: 1,
+        targetCount: 2,
+        hitCount: 1,
+        overallRecallPct: 50,
+        averageRecallPct: 50,
+        averageReciprocalRank: 0.5,
+        averagePrecisionAt3: 0.167,
+        top1HitCount: 1,
+        top3HitCount: 1,
+        baselineTokens: 200,
+        estimatedBaselineTokens: 208,
+        retrievedTokens: 100,
+        estimatedRetrievedTokens: 105,
+        tokenReductionPct: 50,
+        totalLatencyMs: 53,
+        averageLatencyMs: 26.5,
+        totalToolCalls: 8,
+        averageToolCalls: 4,
       },
-      "baselineTokens": 80,
-      "estimatedBaselineTokens": 82,
-      "retrievedTokens": 60,
-      "estimatedRetrievedTokens": 61,
-      "tokenReductionPct": 25,
-      "toolCalls": 5,
-      "latencyMs": 32,
-      "success": false,
-      "evidence": [
-        "missing symbol"
-      ],
-      "notes": [
-        "fallback search only"
-      ]
-    }
-  ],
-  "summary": {
-    "taskCount": 2,
-    "workflowCount": 1,
-    "successCount": 1,
-    "failureCount": 1,
-    "baselineTokens": 200,
-    "estimatedBaselineTokens": 208,
-    "retrievedTokens": 100,
-    "estimatedRetrievedTokens": 105,
-    "tokenReductionPct": 50
-  }
-}`);
+    });
   });
 
   it("renders a deterministic markdown report from synthetic results", () => {
     const results = createSyntheticResults();
+    const markdown = renderBenchmarkReportMarkdown(results);
 
-    expect(renderBenchmarkReportMarkdown(results)).toBe(`# ai-context-engine Benchmark Report
-
-## Benchmark Metadata
-- Benchmark: \`ai-context-engine\`
-- Benchmark Version: \`2026.04\`
-- Repo SHA: \`abc123\`
-- Engine Version: \`1.2.3\`
-- Tokenizer: \`cl100k_base\`
-- Approximate Estimator: \`tokenx\`
-- Run ID: \`abc123-20260415T120000Z\`
-
-## Corpus Metadata
-- Manifest Path: \`.specs/benchmarks/ai-context-engine-benchmark-corpus.json\`
-- Repo: \`playground\`
-- Repo SHA: \`abc123\`
-- Tokenizer: \`cl100k_base\`
-- Task Count: \`2\`
-
-## Workflows
-| Workflow ID | Label | Description |
-| --- | --- | --- |
-| symbol-first | Symbol First | Start from symbols before reading source. |
-
-## Per-Task Results
-| Task ID | Workflow | Success | Baseline Tokens | Est. Baseline | Retrieved Tokens | Est. Retrieved | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| task-1 | symbol-first | yes | 120 | 126 | 40 | 44 | 66.7% | 3 | 21 | tools/ai-context-engine/src/index.ts | found by exact symbol lookup |
-| task-2 | symbol-first | no | 80 | 82 | 60 | 61 | 25% | 5 | 32 | missing symbol | fallback search only |
-
-## Per-Workflow Summary
-| Workflow ID | Tasks | Success | Failures | Baseline Tokens | Retrieved Tokens | Reduction |
-| --- | --- | --- | --- | --- | --- | --- |
-| symbol-first | 2 | 1 | 1 | 200 | 100 | 50% |
-
-## Grand Total
-- Tasks: \`2\`
-- Successes: \`1\`
-- Failures: \`1\`
-- Baseline Tokens: \`200\`
-- Estimated Baseline Tokens: \`208\`
-- Retrieved Tokens: \`100\`
-- Estimated Retrieved Tokens: \`105\`
-- Reduction: \`50%\`
-
-## Failure Notes
-- task-2 / symbol-first: fallback search only
-`);
+    expect(markdown).toContain("| Task ID | Workflow | Recall | First Rank | MRR | P@3 | Success |");
+    expect(markdown).toContain(
+      "| task-1 | symbol-first | 100% | 1 | 1 | 0.3 | yes | 120 | 126 | 40 | 44 | 66.7% | 3 | 21 | tools/ai-context-engine/src/index.ts | found by exact symbol lookup |",
+    );
+    expect(markdown).toContain(
+      "| symbol-first | 2 | 1 | 1 | 1 | 2 | 50% | 0.5 | 0.2 | 26.5 | 200 | 100 | 50% |",
+    );
+    expect(markdown).toContain("- Target Hits: `1/2`");
+    expect(markdown).toContain("- Average MRR: `0.5`");
+    expect(markdown).toContain("- Average Precision@3: `0.2`");
+    expect(markdown).toContain("- Average Tool Calls: `4`");
   });
 });

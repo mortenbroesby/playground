@@ -391,3 +391,24 @@ a mandatory runtime concern for every MCP or CLI call.
   target the scoped package name while preserving the existing `astrograph` bin.
 - Bumped Astrograph from `0.0.1-alpha.7` to `0.0.1-alpha.8` for the package
   identity change.
+
+## Astrograph benchmark harness Phase 1 contract (2026-04-27)
+
+- Expanded the checked-in corpus benchmark from a single smoke task to six
+  golden queries covering corpus loading, runner artifacts, token accounting,
+  the CLI entrypoint, bundle retrieval, and strict snapshot enforcement.
+- Kept the existing `tools/ai-context-engine/bench` scaffold, but changed the
+  Phase 1 result contract to report more than pass/fail:
+  - recall-like target hit rates
+  - first relevant rank, reciprocal rank, and precision at 3
+  - exact and estimated token totals
+  - tool-call counts and latency
+- Documented `pnpm --filter @astrograph/astrograph bench:corpus` as the
+  default one-command local benchmark entrypoint.
+- Standardized the corpus-run artifacts under
+  `.benchmarks/ai-context-engine/latest/`:
+  - `results.json`
+  - `report.md`
+  - `corpus.lock.json`
+- Bumped Astrograph from `0.0.1-alpha.8` to `0.0.1-alpha.9` for the benchmark
+  contract and docs update.

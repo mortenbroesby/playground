@@ -21,11 +21,73 @@ import {
   getWorkflowDefinition,
   runWorkflowTask,
 } from "./workflows.ts";
-import type { BenchmarkRunOptions, BenchmarkRunOutcome } from "./types.ts";
+import type {
+  BenchmarkRunOptions,
+  BenchmarkRunOutcome,
+  BenchmarkTargetMatch,
+  BenchmarkTaskMetrics,
+  BenchmarkTaskTarget,
+} from "./types.ts";
 
 function makeRunId(repoSha: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   return `${repoSha.slice(0, 7)}-${timestamp}`;
+}
+
+function roundTo(value: number, decimals: number): number {
+  const scale = 10 ** decimals;
+  return Math.round(value * scale) / scale;
+}
+
+function evidenceMatchesTarget(
+  target: BenchmarkTaskTarget,
+  evidence: string,
+): boolean {
+  return target.mode === "exact"
+    ? evidence === target.value
+    : evidence.includes(target.value);
+}
+
+function buildTargetMatches(
+  targets: readonly BenchmarkTaskTarget[],
+  rankedEvidence: readonly string[],
+): BenchmarkTargetMatch[] {
+  return targets.map((target) => {
+    const index = rankedEvidence.findIndex((evidence) =>
+      evidenceMatchesTarget(target, evidence),
+    );
+    return {
+      target,
+      matched: index >= 0,
+      rank: index >= 0 ? index + 1 : null,
+      evidence: index >= 0 ? rankedEvidence[index] ?? null : null,
+    };
+  });
+}
+
+function buildTaskMetrics(matches: readonly BenchmarkTargetMatch[]): BenchmarkTaskMetrics {
+  const targetCount = matches.length;
+  const hitCount = matches.filter((match) => match.matched).length;
+  const firstRelevantRank = matches.reduce<number | null>((best, match) => {
+    if (!match.rank) {
+      return best;
+    }
+    return best === null ? match.rank : Math.min(best, match.rank);
+  }, null);
+  const ranksWithinTop3 = matches.filter(
+    (match) => typeof match.rank === "number" && match.rank <= 3,
+  ).length;
+
+  return {
+    targetCount,
+    hitCount,
+    recallPct: targetCount === 0 ? 0 : roundTo((hitCount / targetCount) * 100, 1),
+    firstRelevantRank,
+    reciprocalRank: firstRelevantRank === null ? 0 : roundTo(1 / firstRelevantRank, 3),
+    precisionAt3: roundTo(ranksWithinTop3 / 3, 3),
+    top1Hit: firstRelevantRank === 1,
+    top3Hit: firstRelevantRank !== null && firstRelevantRank <= 3,
+  };
 }
 
 export async function runBenchmark(
@@ -71,15 +133,21 @@ export async function runBenchmark(
         workflowId,
       });
       const latencyMs = Date.now() - startedAt;
+      const matches = buildTargetMatches(task.manifest.targets, result.rankedEvidence);
+      const metrics = buildTaskMetrics(matches);
       const tokenReductionPct =
         baselineTokens === 0
           ? 0
-          : Math.round(((baselineTokens - result.retrievedTokens) / baselineTokens) * 1000) / 10;
+          : roundTo(
+              ((baselineTokens - result.retrievedTokens) / baselineTokens) * 100,
+              1,
+            );
       taskResults.push({
         taskId: task.manifest.id,
+        query: task.frontmatter.query,
         workflowId,
         allowedPaths: [...task.manifest.allowedPaths],
-        target: task.manifest.targets[0],
+        targets: [...task.manifest.targets],
         baselineTokens,
         estimatedBaselineTokens,
         retrievedTokens: result.retrievedTokens,
@@ -89,6 +157,9 @@ export async function runBenchmark(
         latencyMs,
         success: result.success,
         evidence: result.evidence,
+        rankedEvidence: result.rankedEvidence,
+        matches,
+        metrics,
         notes: result.notes,
       });
     }

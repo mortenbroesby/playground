@@ -50,6 +50,22 @@ function summarizeTasks(tasks: readonly BenchmarkTaskResult[]) {
   );
   const successCount = tasks.filter((task) => task.success).length;
   const failureCount = tasks.length - successCount;
+  const targetCount = tasks.reduce((sum, task) => sum + task.metrics.targetCount, 0);
+  const hitCount = tasks.reduce((sum, task) => sum + task.metrics.hitCount, 0);
+  const totalLatencyMs = tasks.reduce((sum, task) => sum + task.latencyMs, 0);
+  const totalToolCalls = tasks.reduce((sum, task) => sum + task.toolCalls, 0);
+  const averageRecallPct =
+    tasks.length === 0
+      ? 0
+      : tasks.reduce((sum, task) => sum + task.metrics.recallPct, 0) / tasks.length;
+  const averageReciprocalRank =
+    tasks.length === 0
+      ? 0
+      : tasks.reduce((sum, task) => sum + task.metrics.reciprocalRank, 0) / tasks.length;
+  const averagePrecisionAt3 =
+    tasks.length === 0
+      ? 0
+      : tasks.reduce((sum, task) => sum + task.metrics.precisionAt3, 0) / tasks.length;
   const tokenReductionPct =
     baselineTokens === 0
       ? 0
@@ -59,11 +75,26 @@ function summarizeTasks(tasks: readonly BenchmarkTaskResult[]) {
     taskCount: tasks.length,
     successCount,
     failureCount,
+    targetCount,
+    hitCount,
+    overallRecallPct:
+      targetCount === 0 ? 0 : Math.round((hitCount / targetCount) * 1000) / 10,
+    averageRecallPct: Math.round(averageRecallPct * 10) / 10,
+    averageReciprocalRank: Math.round(averageReciprocalRank * 1000) / 1000,
+    averagePrecisionAt3: Math.round(averagePrecisionAt3 * 1000) / 1000,
+    top1HitCount: tasks.filter((task) => task.metrics.top1Hit).length,
+    top3HitCount: tasks.filter((task) => task.metrics.top3Hit).length,
     baselineTokens,
     estimatedBaselineTokens,
     retrievedTokens,
     estimatedRetrievedTokens,
     tokenReductionPct,
+    totalLatencyMs,
+    averageLatencyMs:
+      tasks.length === 0 ? 0 : Math.round((totalLatencyMs / tasks.length) * 10) / 10,
+    totalToolCalls,
+    averageToolCalls:
+      tasks.length === 0 ? 0 : Math.round((totalToolCalls / tasks.length) * 10) / 10,
   };
 }
 
@@ -105,13 +136,14 @@ export function createBenchmarkResultsArtifact(
     })),
     tasks: input.tasks.map((task) => ({
       taskId: task.taskId,
+      query: task.query,
       workflowId: task.workflowId,
       allowedPaths: [...task.allowedPaths],
-      target: {
-        kind: task.target.kind,
-        value: task.target.value,
-        mode: task.target.mode,
-      },
+      targets: task.targets.map((target) => ({
+        kind: target.kind,
+        value: target.value,
+        mode: target.mode,
+      })),
       baselineTokens: task.baselineTokens,
       ...(typeof task.estimatedBaselineTokens === "number"
         ? { estimatedBaselineTokens: task.estimatedBaselineTokens }
@@ -125,6 +157,27 @@ export function createBenchmarkResultsArtifact(
       latencyMs: task.latencyMs,
       success: task.success,
       evidence: [...task.evidence],
+      rankedEvidence: [...task.rankedEvidence],
+      matches: task.matches.map((match) => ({
+        target: {
+          kind: match.target.kind,
+          value: match.target.value,
+          mode: match.target.mode,
+        },
+        matched: match.matched,
+        rank: match.rank,
+        evidence: match.evidence,
+      })),
+      metrics: {
+        targetCount: task.metrics.targetCount,
+        hitCount: task.metrics.hitCount,
+        recallPct: task.metrics.recallPct,
+        firstRelevantRank: task.metrics.firstRelevantRank,
+        reciprocalRank: task.metrics.reciprocalRank,
+        precisionAt3: task.metrics.precisionAt3,
+        top1Hit: task.metrics.top1Hit,
+        top3Hit: task.metrics.top3Hit,
+      },
       notes: [...task.notes],
     })),
     summary: {
@@ -132,11 +185,23 @@ export function createBenchmarkResultsArtifact(
       workflowCount: input.workflows.length,
       successCount: summary.successCount,
       failureCount: summary.failureCount,
+      targetCount: summary.targetCount,
+      hitCount: summary.hitCount,
+      overallRecallPct: summary.overallRecallPct,
+      averageRecallPct: summary.averageRecallPct,
+      averageReciprocalRank: summary.averageReciprocalRank,
+      averagePrecisionAt3: summary.averagePrecisionAt3,
+      top1HitCount: summary.top1HitCount,
+      top3HitCount: summary.top3HitCount,
       baselineTokens: summary.baselineTokens,
       estimatedBaselineTokens: summary.estimatedBaselineTokens,
       retrievedTokens: summary.retrievedTokens,
       estimatedRetrievedTokens: summary.estimatedRetrievedTokens,
       tokenReductionPct: summary.tokenReductionPct,
+      totalLatencyMs: summary.totalLatencyMs,
+      averageLatencyMs: summary.averageLatencyMs,
+      totalToolCalls: summary.totalToolCalls,
+      averageToolCalls: summary.averageToolCalls,
     },
   };
 }
@@ -194,32 +259,41 @@ export function renderBenchmarkReportMarkdown(results: BenchmarkResults): string
     ),
     "",
     "## Per-Task Results",
-    "| Task ID | Workflow | Success | Baseline Tokens | Est. Baseline | Retrieved Tokens | Est. Retrieved | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Task ID | Workflow | Recall | First Rank | MRR | P@3 | Success | Baseline Tokens | Est. Baseline | Retrieved Tokens | Est. Retrieved | Reduction | Tool Calls | Latency (ms) | Evidence | Notes |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...results.tasks.map(
       (task) =>
-        `| ${escapeTableCell(task.taskId)} | ${escapeTableCell(task.workflowId)} | ${
-          task.success ? "yes" : "no"
-        } | ${task.baselineTokens} | ${task.estimatedBaselineTokens ?? "-"} | ${task.retrievedTokens} | ${task.estimatedRetrievedTokens ?? "-"} | ${normalizePercentage(task.tokenReductionPct)}% | ${task.toolCalls} | ${task.latencyMs} | ${joinCellValues(task.evidence)} | ${joinCellValues(task.notes)} |`,
+        `| ${escapeTableCell(task.taskId)} | ${escapeTableCell(task.workflowId)} | ${normalizePercentage(task.metrics.recallPct)}% | ${task.metrics.firstRelevantRank ?? "-"} | ${normalizePercentage(task.metrics.reciprocalRank)} | ${normalizePercentage(task.metrics.precisionAt3)} | ${task.success ? "yes" : "no"} | ${task.baselineTokens} | ${task.estimatedBaselineTokens ?? "-"} | ${task.retrievedTokens} | ${task.estimatedRetrievedTokens ?? "-"} | ${normalizePercentage(task.tokenReductionPct)}% | ${task.toolCalls} | ${task.latencyMs} | ${joinCellValues(task.evidence)} | ${joinCellValues(task.notes)} |`,
     ),
     "",
     "## Per-Workflow Summary",
-    "| Workflow ID | Tasks | Success | Failures | Baseline Tokens | Retrieved Tokens | Reduction |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| Workflow ID | Tasks | Success | Failures | Hits | Targets | Recall | Avg. MRR | Avg. P@3 | Avg. Latency (ms) | Baseline Tokens | Retrieved Tokens | Reduction |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...workflowSummaries.map(
       ({ workflow, summary }) =>
-        `| ${escapeTableCell(workflow.workflowId)} | ${summary.taskCount} | ${summary.successCount} | ${summary.failureCount} | ${summary.baselineTokens} | ${summary.retrievedTokens} | ${normalizePercentage(summary.tokenReductionPct)}% |`,
+        `| ${escapeTableCell(workflow.workflowId)} | ${summary.taskCount} | ${summary.successCount} | ${summary.failureCount} | ${summary.hitCount} | ${summary.targetCount} | ${normalizePercentage(summary.overallRecallPct)}% | ${normalizePercentage(summary.averageReciprocalRank)} | ${normalizePercentage(summary.averagePrecisionAt3)} | ${normalizePercentage(summary.averageLatencyMs)} | ${summary.baselineTokens} | ${summary.retrievedTokens} | ${normalizePercentage(summary.tokenReductionPct)}% |`,
     ),
     "",
     "## Grand Total",
     `- Tasks: \`${results.summary.taskCount}\``,
     `- Successes: \`${results.summary.successCount}\``,
     `- Failures: \`${results.summary.failureCount}\``,
+    `- Target Hits: \`${results.summary.hitCount}/${results.summary.targetCount}\``,
+    `- Overall Recall: \`${normalizePercentage(results.summary.overallRecallPct)}%\``,
+    `- Average Recall: \`${normalizePercentage(results.summary.averageRecallPct)}%\``,
+    `- Average MRR: \`${normalizePercentage(results.summary.averageReciprocalRank)}\``,
+    `- Average Precision@3: \`${normalizePercentage(results.summary.averagePrecisionAt3)}\``,
+    `- Top-1 Hits: \`${results.summary.top1HitCount}\``,
+    `- Top-3 Hits: \`${results.summary.top3HitCount}\``,
     `- Baseline Tokens: \`${results.summary.baselineTokens}\``,
     `- Estimated Baseline Tokens: \`${results.summary.estimatedBaselineTokens ?? 0}\``,
     `- Retrieved Tokens: \`${results.summary.retrievedTokens}\``,
     `- Estimated Retrieved Tokens: \`${results.summary.estimatedRetrievedTokens ?? 0}\``,
     `- Reduction: \`${normalizePercentage(results.summary.tokenReductionPct)}%\``,
+    `- Total Latency (ms): \`${results.summary.totalLatencyMs}\``,
+    `- Average Latency (ms): \`${normalizePercentage(results.summary.averageLatencyMs)}\``,
+    `- Total Tool Calls: \`${results.summary.totalToolCalls}\``,
+    `- Average Tool Calls: \`${normalizePercentage(results.summary.averageToolCalls)}\``,
     "",
     "## Failure Notes",
     ...(

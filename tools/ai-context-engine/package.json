@@ -1,6 +1,6 @@
 {
   "name": "@astrograph/astrograph",
-  "version": "0.0.1-alpha.8",
+  "version": "0.0.1-alpha.9",
   "type": "module",
   "license": "MIT",
   "description": "Local deterministic context engine for AI-assisted code exploration",
@@ -43,7 +43,7 @@
     "check:version-bump": "node --experimental-strip-types ./scripts/check-version-bump.mjs",
     "type-lint": "pnpm run type-check && tsc -p ./bench/tsconfig.json --noEmit && tsc -p ./tsconfig.build.json --noEmit && tsc -p ./observability/tsconfig.json --noEmit",
     "type-check": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "node ./scripts/run-vitest.mjs",
     "test:mutation": "node ./scripts/mutation-opt-in.mjs",
     "test:mutation:full": "node ./scripts/mutation-opt-in.mjs full",
     "mutation:smoke": "node ./scripts/run-stryker.mjs stryker.config.json",
