@@ -150,6 +150,11 @@ type AnalyzedFileIndexResult =
     existing: TrackedFileRow;
   }
   | {
+    kind: "symbol-limit-exceeded";
+    existing: TrackedFileRow | undefined;
+    symbolCount: number;
+  }
+  | {
     kind: "content-unchanged";
     existing: TrackedFileRow;
     file: Awaited<ReturnType<typeof readRepoFile>>;
@@ -897,6 +902,7 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     workerPoolMaxWorkers: repoConfig.performance.workerPool.maxWorkers,
     maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
     maxFileBytes: repoConfig.limits.maxFileBytes,
+    maxSymbolsPerFile: repoConfig.limits.maxSymbolsPerFile,
     maxSymbolResults: repoConfig.limits.maxSymbolResults,
     maxTextResults: repoConfig.limits.maxTextResults,
     maxChildProcessOutputBytes: repoConfig.limits.maxChildProcessOutputBytes,
@@ -1374,6 +1380,10 @@ function exceedsMaxFileBytes(size: number, maxFileBytes: number): boolean {
   return size > maxFileBytes;
 }
 
+function exceedsMaxSymbolsPerFile(symbolCount: number, maxSymbolsPerFile: number): boolean {
+  return symbolCount > maxSymbolsPerFile;
+}
+
 async function resolveRepoFileRefreshState(
   repoRoot: string,
   filePath: string,
@@ -1432,6 +1442,7 @@ async function analyzeFileIndexResult(input: {
   summaryStrategy?: SummaryStrategy;
   forceRefresh?: boolean;
   existing?: TrackedFileRow;
+  maxSymbolsPerFile: number;
   workerPool?: {
     enabled: boolean;
     maxWorkers: number;
@@ -1468,6 +1479,14 @@ async function analyzeFileIndexResult(input: {
   const reparsed = analysis.parsed;
   const { symbolSignatureHash, importHash } = analysis;
 
+  if (exceedsMaxSymbolsPerFile(reparsed.symbols.length, input.maxSymbolsPerFile)) {
+    return {
+      kind: "symbol-limit-exceeded",
+      existing: input.existing,
+      symbolCount: reparsed.symbols.length,
+    };
+  }
+
   if (!input.forceRefresh && input.existing?.content_hash === reparsed.contentHash) {
     return {
       kind: "content-unchanged",
@@ -1497,6 +1516,18 @@ function persistFileIndexResult(
     return {
       indexed: false,
       symbolCount: persistedSymbolCount(db, analyzed.existing.id),
+    };
+  }
+
+  if (analyzed.kind === "symbol-limit-exceeded") {
+    if (analyzed.existing) {
+      clearFileSearchRows(db, analyzed.existing.id);
+      db.prepare("DELETE FROM files WHERE id = ?").run(analyzed.existing.id);
+    }
+
+    return {
+      indexed: false,
+      symbolCount: 0,
     };
   }
 
@@ -2641,6 +2672,7 @@ async function indexFolderDirect(input: {
           summaryStrategy: config.summaryStrategy,
           forceRefresh,
           existing: trackedRows.get(filePath),
+          maxSymbolsPerFile: config.maxSymbolsPerFile,
           workerPool: {
             enabled: config.workerPoolEnabled,
             maxWorkers: config.workerPoolMaxWorkers,
@@ -2675,6 +2707,7 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   filePath: string;
   summaryStrategy?: SummaryStrategy;
   forceRefresh?: boolean;
+  maxSymbolsPerFile: number;
   workerPool?: {
     enabled: boolean;
     maxWorkers: number;
@@ -2694,6 +2727,7 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
     summaryStrategy: input.summaryStrategy,
     forceRefresh: input.forceRefresh,
     existing,
+    maxSymbolsPerFile: input.maxSymbolsPerFile,
     workerPool: input.workerPool,
   });
   return persistFileIndexResult(db, analyzed);
@@ -2756,6 +2790,7 @@ async function indexFileDirect(input: {
       filePath: input.filePath,
       summaryStrategy: config.summaryStrategy,
       forceRefresh: meta?.summaryStrategy !== config.summaryStrategy,
+      maxSymbolsPerFile: config.maxSymbolsPerFile,
       workerPool: {
         enabled: config.workerPoolEnabled,
         maxWorkers: config.workerPoolMaxWorkers,
@@ -2979,6 +3014,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
             filePath,
             summaryStrategy: config.summaryStrategy,
             forceRefresh,
+            maxSymbolsPerFile: config.maxSymbolsPerFile,
             workerPool: {
               enabled: config.workerPoolEnabled,
               maxWorkers: config.workerPoolMaxWorkers,

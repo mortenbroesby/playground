@@ -218,12 +218,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.43",
+      engineVersion: "0.0.1-alpha.44",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 43,
+        increment: 44,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -701,6 +701,37 @@ export class Greeter {
 
     const fileTree = await getFileTree({ repoRoot });
     expect(fileTree.map((entry) => entry.path)).not.toContain("src/large.ts");
+  });
+
+  it("skips symbol-heavy files during indexed discovery when maxSymbolsPerFile is configured", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxSymbolsPerFile: 3,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "crowded.ts"),
+      `export const one = 1;
+export const two = 2;
+export const three = 3;
+export const four = 4;
+`,
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    expect(summary).toMatchObject({
+      indexedFiles: 2,
+      staleStatus: "fresh",
+    });
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).not.toContain("src/crowded.ts");
   });
 
   it("applies repo-config include and exclude globs during indexed discovery", async () => {
@@ -1975,6 +2006,49 @@ export function circumference(radius: number): string {
       freshnessMode: "metadata",
       freshnessScanned: false,
     });
+  });
+
+  it("removes existing indexed rows when single-file refresh exceeds maxSymbolsPerFile", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxSymbolsPerFile: 3,
+        },
+      }),
+    );
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `export const PI = 3.14;
+export const TAU = 6.28;
+export function area(radius: number): number {
+  return PI * radius * radius;
+}
+export function circumference(radius: number): number {
+  return TAU * radius;
+}
+`,
+    );
+
+    const update = await indexFile({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+
+    expect(update).toMatchObject({
+      indexedFiles: 0,
+      indexedSymbols: 0,
+      staleStatus: "fresh",
+    });
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).not.toContain("src/math.ts");
+    expect(await searchSymbols({ repoRoot, query: "circumference" })).toHaveLength(0);
   });
 
   it("marks single-file refresh stale when an exporter change breaks downstream symbol imports", async () => {

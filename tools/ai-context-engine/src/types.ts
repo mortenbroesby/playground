@@ -48,6 +48,7 @@ export interface EngineConfig {
   workerPoolMaxWorkers: number;
   maxFilesDiscovered: number;
   maxFileBytes: number;
+  maxSymbolsPerFile: number;
   maxSymbolResults: number;
   maxTextResults: number;
   maxChildProcessOutputBytes: number;
@@ -105,6 +106,7 @@ export interface RepoEngineConfig {
   limits?: {
     maxFilesDiscovered?: number;
     maxFileBytes?: number;
+    maxSymbolsPerFile?: number;
     maxSymbolResults?: number;
     maxTextResults?: number;
     maxChildProcessOutputBytes?: number;
@@ -141,6 +143,7 @@ export interface ResolvedRankingConfig extends RankingWeights {}
 export interface ResolvedLimitsConfig {
   maxFilesDiscovered: number;
   maxFileBytes: number;
+  maxSymbolsPerFile: number;
   maxSymbolResults: number;
   maxTextResults: number;
   maxChildProcessOutputBytes: number;

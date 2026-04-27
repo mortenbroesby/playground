@@ -205,6 +205,7 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   "limits": {
     "maxFilesDiscovered": 100000,
     "maxFileBytes": 250000,
+    "maxSymbolsPerFile": 2000,
     "maxSymbolResults": 20,
     "maxTextResults": 100,
     "maxChildProcessOutputBytes": 1000000,
@@ -234,6 +235,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 - `limits.maxFilesDiscovered` fails discovery when the supported-file set grows
   beyond the configured ceiling
 - `limits.maxFileBytes` excludes oversized files from discovery and indexing
+- `limits.maxSymbolsPerFile` excludes symbol-explosive files from indexing once
+  parsing reveals more than the configured ceiling
 - `limits.maxSymbolResults` caps symbol retrieval, including over-large explicit
   `searchSymbols()` and `query_code` discover requests
 - `limits.maxTextResults` caps indexed text retrieval and also bounds live ripgrep

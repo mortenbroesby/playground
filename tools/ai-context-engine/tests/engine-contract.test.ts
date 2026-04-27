@@ -11,6 +11,7 @@ import {
   DEFAULT_MAX_FILE_BYTES,
   DEFAULT_MAX_FILES_DISCOVERED,
   DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+  DEFAULT_MAX_SYMBOLS_PER_FILE,
   DEFAULT_RANKING_WEIGHTS,
   DEFAULT_MAX_SYMBOL_RESULTS,
   DEFAULT_MAX_TEXT_RESULTS,
@@ -70,6 +71,7 @@ describe("ai-context-engine contract", () => {
       indexExclude: [],
       maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
       maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolsPerFile: DEFAULT_MAX_SYMBOLS_PER_FILE,
       maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
       maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
       maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
@@ -98,18 +100,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.43");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.44");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-        increment: 43,
+        increment: 44,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 43,
+      increment: 44,
     });
   });
 
@@ -205,6 +207,7 @@ describe("ai-context-engine contract", () => {
         limits: {
           maxFilesDiscovered: 1234,
           maxFileBytes: 4321,
+          maxSymbolsPerFile: 7,
           maxSymbolResults: 9,
           maxTextResults: 8,
           maxChildProcessOutputBytes: 7654,
@@ -244,6 +247,7 @@ describe("ai-context-engine contract", () => {
     expect(config.limits).toEqual({
       maxFilesDiscovered: 1234,
       maxFileBytes: 4321,
+      maxSymbolsPerFile: 7,
       maxSymbolResults: 9,
       maxTextResults: 8,
       maxChildProcessOutputBytes: 7654,
@@ -307,6 +311,7 @@ describe("ai-context-engine contract", () => {
     expect(autoConfig.limits).toEqual({
       maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
       maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolsPerFile: DEFAULT_MAX_SYMBOLS_PER_FILE,
       maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
       maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
       maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
