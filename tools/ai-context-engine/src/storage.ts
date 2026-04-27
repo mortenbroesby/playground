@@ -880,6 +880,8 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     workerPoolMaxWorkers: repoConfig.performance.workerPool.maxWorkers,
     maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
     maxFileBytes: repoConfig.limits.maxFileBytes,
+    maxSymbolResults: repoConfig.limits.maxSymbolResults,
+    maxTextResults: repoConfig.limits.maxTextResults,
     maxChildProcessOutputBytes: repoConfig.limits.maxChildProcessOutputBytes,
     maxLiveSearchMatches: repoConfig.limits.maxLiveSearchMatches,
   });
@@ -3174,6 +3176,10 @@ function searchSymbolsInContext(
   context: EngineContext,
   input: SearchSymbolsOptions,
 ): SymbolSummary[] {
+  const resultLimit = Math.min(
+    input.limit ?? context.config.maxSymbolResults,
+    context.config.maxSymbolResults,
+  );
   const rows = loadSymbolRows(context.db, {
     query: input.query,
     kind: input.kind,
@@ -3196,7 +3202,7 @@ function searchSymbolsInContext(
         left.row.start_line - right.row.start_line ||
         left.row.name.localeCompare(right.row.name),
     )
-    .slice(0, input.limit ?? 20)
+    .slice(0, resultLimit)
     .map((entry) => mapSymbolRow(entry.row));
 }
 
@@ -3254,6 +3260,7 @@ function searchTextInContext(
   );
   const lowerQuery = input.query.toLowerCase();
   const matches: SearchTextMatch[] = [];
+  const maxTextResults = context.config.maxTextResults;
 
   for (const row of rows) {
     if (!matchesFilePattern(row.file_path, input.filePattern)) {
@@ -3261,6 +3268,9 @@ function searchTextInContext(
     }
     const lines = row.content.split("\n");
     lines.forEach((line, index) => {
+      if (matches.length >= maxTextResults) {
+        return;
+      }
       if (line.toLowerCase().includes(lowerQuery)) {
         matches.push({
           filePath: row.file_path,
@@ -3269,6 +3279,9 @@ function searchTextInContext(
         });
       }
     });
+    if (matches.length >= maxTextResults) {
+      break;
+    }
   }
 
   return matches;
@@ -3283,7 +3296,7 @@ export async function searchText(
       repoRoot: config.repoRoot,
       query: input.query,
       filePattern: input.filePattern,
-      maxMatches: config.maxLiveSearchMatches,
+      maxMatches: Math.min(config.maxLiveSearchMatches, config.maxTextResults),
       maxOutputBytes: config.maxChildProcessOutputBytes,
     });
   }
@@ -3313,7 +3326,7 @@ export async function queryCode(
       repoRoot: config.repoRoot,
       query: input.query ?? "",
       filePattern: input.filePattern,
-      maxMatches: config.maxLiveSearchMatches,
+      maxMatches: Math.min(config.maxLiveSearchMatches, config.maxTextResults),
       maxOutputBytes: config.maxChildProcessOutputBytes,
     });
     return {

@@ -33,6 +33,8 @@ export interface EngineConfig {
   workerPoolMaxWorkers: number;
   maxFilesDiscovered: number;
   maxFileBytes: number;
+  maxSymbolResults: number;
+  maxTextResults: number;
   maxChildProcessOutputBytes: number;
   maxLiveSearchMatches: number;
   paths: EnginePaths;
@@ -70,6 +72,8 @@ export interface RepoEngineConfig {
   limits?: {
     maxFilesDiscovered?: number;
     maxFileBytes?: number;
+    maxSymbolResults?: number;
+    maxTextResults?: number;
     maxChildProcessOutputBytes?: number;
     maxLiveSearchMatches?: number;
   };
@@ -102,6 +106,8 @@ export interface ResolvedWatchConfig {
 export interface ResolvedLimitsConfig {
   maxFilesDiscovered: number;
   maxFileBytes: number;
+  maxSymbolResults: number;
+  maxTextResults: number;
   maxChildProcessOutputBytes: number;
   maxLiveSearchMatches: number;
 }

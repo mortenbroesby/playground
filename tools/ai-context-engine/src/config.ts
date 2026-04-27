@@ -31,6 +31,8 @@ export const DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS = 1000;
 export const DEFAULT_WATCH_DEBOUNCE_MS = 100;
 export const DEFAULT_MAX_FILES_DISCOVERED = 100_000;
 export const DEFAULT_MAX_FILE_BYTES = 250_000;
+export const DEFAULT_MAX_SYMBOL_RESULTS = 20;
+export const DEFAULT_MAX_TEXT_RESULTS = 100;
 export const DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES = 1_000_000;
 export const DEFAULT_MAX_LIVE_SEARCH_MATCHES = 100;
 
@@ -92,6 +94,8 @@ const repoWatchConfigSchema = z.object({
 const repoLimitsConfigSchema = z.object({
   maxFilesDiscovered: z.number().int().positive().optional(),
   maxFileBytes: z.number().int().positive().optional(),
+  maxSymbolResults: z.number().int().positive().optional(),
+  maxTextResults: z.number().int().positive().optional(),
   maxChildProcessOutputBytes: z.number().int().positive().optional(),
   maxLiveSearchMatches: z.number().int().positive().optional(),
 });
@@ -198,6 +202,8 @@ function createDefaultResolvedRepoEngineConfig(
     limits: {
       maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
       maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
+      maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
       maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
       maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
     },
@@ -279,6 +285,10 @@ export async function loadRepoEngineConfig(
         parsed.data.limits?.maxFilesDiscovered ?? defaults.limits.maxFilesDiscovered,
       maxFileBytes:
         parsed.data.limits?.maxFileBytes ?? defaults.limits.maxFileBytes,
+      maxSymbolResults:
+        parsed.data.limits?.maxSymbolResults ?? defaults.limits.maxSymbolResults,
+      maxTextResults:
+        parsed.data.limits?.maxTextResults ?? defaults.limits.maxTextResults,
       maxChildProcessOutputBytes:
         parsed.data.limits?.maxChildProcessOutputBytes
         ?? defaults.limits.maxChildProcessOutputBytes,
@@ -336,6 +346,8 @@ export function createDefaultEngineConfig(input: {
   workerPoolMaxWorkers?: number;
   maxFilesDiscovered?: number;
   maxFileBytes?: number;
+  maxSymbolResults?: number;
+  maxTextResults?: number;
   maxChildProcessOutputBytes?: number;
   maxLiveSearchMatches?: number;
 }): EngineConfig {
@@ -357,6 +369,8 @@ export function createDefaultEngineConfig(input: {
     workerPoolMaxWorkers: input.workerPoolMaxWorkers ?? defaultWorkerPoolMaxWorkers(),
     maxFilesDiscovered: input.maxFilesDiscovered ?? DEFAULT_MAX_FILES_DISCOVERED,
     maxFileBytes: input.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
+    maxSymbolResults: input.maxSymbolResults ?? DEFAULT_MAX_SYMBOL_RESULTS,
+    maxTextResults: input.maxTextResults ?? DEFAULT_MAX_TEXT_RESULTS,
     maxChildProcessOutputBytes:
       input.maxChildProcessOutputBytes ?? DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
     maxLiveSearchMatches: input.maxLiveSearchMatches ?? DEFAULT_MAX_LIVE_SEARCH_MATCHES,

@@ -198,6 +198,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   "limits": {
     "maxFilesDiscovered": 100000,
     "maxFileBytes": 250000,
+    "maxSymbolResults": 20,
+    "maxTextResults": 100,
     "maxChildProcessOutputBytes": 1000000,
     "maxLiveSearchMatches": 100
   }
@@ -221,7 +223,11 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 - `limits.maxFilesDiscovered` fails discovery when the supported-file set grows
   beyond the configured ceiling
 - `limits.maxFileBytes` excludes oversized files from discovery and indexing
-- explicit library or CLI options still override repo-config defaults
+- `limits.maxSymbolResults` caps symbol retrieval, including over-large explicit
+  `searchSymbols()` and `query_code` discover requests
+- `limits.maxTextResults` caps indexed text retrieval and also bounds live ripgrep
+  fallback together with `limits.maxLiveSearchMatches`
+- explicit library or CLI options still apply, but repo-config ceilings remain enforced
 
 ### Standalone Codex Install
 

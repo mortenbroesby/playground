@@ -11,6 +11,8 @@ import {
   DEFAULT_MAX_FILE_BYTES,
   DEFAULT_MAX_FILES_DISCOVERED,
   DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+  DEFAULT_MAX_SYMBOL_RESULTS,
+  DEFAULT_MAX_TEXT_RESULTS,
   DEFAULT_SUMMARY_STRATEGY,
   DEFAULT_WATCH_DEBOUNCE_MS,
   ENGINE_SCHEMA_VERSION,
@@ -67,6 +69,8 @@ describe("ai-context-engine contract", () => {
       indexExclude: [],
       maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
       maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
+      maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
       maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
       maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
     });
@@ -92,18 +96,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.35");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.36");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 35,
+      increment: 36,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 35,
+      increment: 36,
     });
   });
 
@@ -194,6 +198,8 @@ describe("ai-context-engine contract", () => {
         limits: {
           maxFilesDiscovered: 1234,
           maxFileBytes: 4321,
+          maxSymbolResults: 9,
+          maxTextResults: 8,
           maxChildProcessOutputBytes: 7654,
           maxLiveSearchMatches: 3,
         },
@@ -225,6 +231,8 @@ describe("ai-context-engine contract", () => {
     expect(config.limits).toEqual({
       maxFilesDiscovered: 1234,
       maxFileBytes: 4321,
+      maxSymbolResults: 9,
+      maxTextResults: 8,
       maxChildProcessOutputBytes: 7654,
       maxLiveSearchMatches: 3,
     });
@@ -277,6 +285,8 @@ describe("ai-context-engine contract", () => {
     expect(autoConfig.limits).toEqual({
       maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
       maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
+      maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
       maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
       maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
     });

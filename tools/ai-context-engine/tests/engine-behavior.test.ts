@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.35",
+      engineVersion: "0.0.1-alpha.36",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 35,
+        increment: 36,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -614,6 +614,64 @@ export class Greeter {
       source: "live_disk_match",
       reason: "ripgrep_fallback",
     });
+  });
+
+  it("applies repo-config result limits to indexed symbol and text retrieval", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxSymbolResults: 1,
+          maxTextResults: 2,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "greeter-utils.ts"),
+      `export function greetAgain(name: string): string {
+  return "Hello again " + name;
+}
+`,
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "many.ts"),
+      [
+        "export const first = 'hello';",
+        "export const second = 'hello';",
+        "export const third = 'hello';",
+      ].join("\n"),
+    );
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "greet",
+      limit: 5,
+    });
+    expect(symbolMatches).toHaveLength(1);
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "hello",
+    });
+    expect(textMatches).toHaveLength(2);
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      query: "hello",
+      includeTextMatches: true,
+    });
+
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(discoverResult.textMatches).toHaveLength(2);
   });
 
   it("skips oversized files during indexed discovery when maxFileBytes is configured", async () => {
