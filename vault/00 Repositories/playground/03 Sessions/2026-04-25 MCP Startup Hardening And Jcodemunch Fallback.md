@@ -648,3 +648,17 @@ a mandatory runtime concern for every MCP or CLI call.
 - Left the repo-local `.codex/config.toml` MCP blocks intact for both engines;
   this slice changes agent preference and guardrails, not the parallel install
   topology.
+
+## Repo-scoped jCodemunch init for Codex-safe use (2026-04-27)
+
+- Checked `jcodemunch-mcp init --help` and confirmed it has no native Codex
+  client target; it only knows MCP client registrations such as Claude Code,
+  Claude Desktop, Cursor, Windsurf, and Continue.
+- Used the Codex-safe subset instead of broad client registration:
+  - `jcodemunch-mcp init --client none --claude-md project --index --audit --yes`
+- That kept the existing repo-local `.codex/config.toml` setup untouched,
+  avoided new global client registration, avoided new Claude hook changes, and
+  limited repo changes to the local `CLAUDE.md` policy append plus a fresh
+  index/audit run.
+- The audit reported no issues and the project-local `CLAUDE.md` now contains
+  the generated jCodemunch code exploration policy block.
