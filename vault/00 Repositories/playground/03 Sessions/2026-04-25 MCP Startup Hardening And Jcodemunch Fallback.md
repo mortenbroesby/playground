@@ -412,3 +412,19 @@ a mandatory runtime concern for every MCP or CLI call.
   - `corpus.lock.json`
 - Bumped Astrograph from `0.0.1-alpha.8` to `0.0.1-alpha.9` for the benchmark
   contract and docs update.
+
+## Astrograph hook invocation and observability bootstrap fix (2026-04-27)
+
+- Fixed the shared hook helper to resolve Astrograph through the repo-local
+  workspace wrapper at
+  `tools/ai-context-engine/scripts/ai-context-engine.mjs` before falling back
+  to `node_modules/.bin/astrograph` or `pnpm exec astrograph`.
+- This removes the false `Command "astrograph" not found` failures from the
+  repo refresh hooks in workspace development, where the root-level bin shim is
+  not guaranteed to exist.
+- Tightened observability bootstrap reporting so it surfaces the actual startup
+  failure reason from `.astrograph/observability.log` instead of timing out with
+  a generic unhealthy-startup message.
+- Session bootstrap now treats known local-environment limitations like
+  `Failed to listen at 127.0.0.1` as `unavailable` rather than as a misleading
+  hard error, while explicit force-start paths still fail loudly.
