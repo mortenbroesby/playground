@@ -52,6 +52,7 @@ import type {
 } from "./index-backend.ts";
 import { createPathMatcher } from "./path-matcher.ts";
 import { supportedLanguageForFile } from "./parser.ts";
+import { containsSecretLikeText } from "./privacy.ts";
 import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
 import { subscribeRepo } from "./watch-backend.ts";
@@ -3828,6 +3829,37 @@ function loadDependencyGraphHealth(
   };
 }
 
+function loadPrivacyHealth(
+  db: IndexBackendConnection,
+): DoctorResult["privacy"] {
+  const rows = typedAll<{ file_path: string; content: string }>(
+    db.prepare(`
+      SELECT files.path AS file_path, content_blobs.content AS content
+      FROM content_blobs
+      INNER JOIN files ON files.id = content_blobs.file_id
+      ORDER BY files.path ASC
+    `),
+  );
+  const sampleFilePaths: string[] = [];
+  let secretLikeFileCount = 0;
+
+  for (const row of rows) {
+    if (!containsSecretLikeText(row.content)) {
+      continue;
+    }
+
+    secretLikeFileCount += 1;
+    if (sampleFilePaths.length < 5) {
+      sampleFilePaths.push(row.file_path);
+    }
+  }
+
+  return {
+    secretLikeFileCount,
+    sampleFilePaths,
+  };
+}
+
 function buildDoctorWarnings(result: DoctorResult): string[] {
   const warnings: string[] = [];
 
@@ -3855,6 +3887,11 @@ function buildDoctorWarnings(result: DoctorResult): string[] {
   if (result.observability.enabled && result.observability.status !== "running") {
     warnings.push(
       `Observability is enabled but currently ${result.observability.status}.`,
+    );
+  }
+  if (result.privacy.secretLikeFileCount > 0) {
+    warnings.push(
+      `Indexed source contains ${result.privacy.secretLikeFileCount} file(s) with obvious secret-like content.`,
     );
   }
   if (result.watch.status !== "watching") {
@@ -3887,6 +3924,14 @@ function buildDoctorSuggestedActions(result: DoctorResult): string[] {
   if (result.observability.enabled && result.observability.status !== "running") {
     actions.push(`Run \`pnpm exec astrograph observability --repo ${result.repoRoot}\` to start the local observability server.`);
   }
+  if (result.privacy.secretLikeFileCount > 0) {
+    const sample = result.privacy.sampleFilePaths[0];
+    actions.push(
+      sample
+        ? `Review indexed file(s) such as \`${sample}\` and remove or rotate any real secrets that should not live in source.`
+        : "Review indexed files with secret-like content and remove or rotate any real secrets that should not live in source.",
+    );
+  }
   if (result.watch.status !== "watching") {
     actions.push(`Run \`pnpm exec astrograph cli watch --repo ${result.repoRoot}\` if you want automatic local refresh while editing.`);
   }
@@ -3905,6 +3950,7 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
   try {
     const importCount = countRows(db, "SELECT COUNT(*) AS count FROM imports");
     const dependencyGraph = loadDependencyGraphHealth(db);
+    const privacy = loadPrivacyHealth(db);
     const observability = await resolveDoctorObservability(
       resolvedRepoRoot,
       health.storageDir,
@@ -3942,6 +3988,7 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
       },
       dependencyGraph,
       observability,
+      privacy,
       watch: health.watch,
       warnings: [],
       suggestedActions: [],

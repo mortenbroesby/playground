@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.36",
+      engineVersion: "0.0.1-alpha.37",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 36,
+        increment: 37,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1637,6 +1637,35 @@ export function renderBroken(): string {
         entry.includes("src/broken-consumer.ts"),
       ),
     ).toBe(true);
+  });
+
+  it("doctor warns on obvious secret-like indexed source content without marking the index stale", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "secrets.ts"),
+      `export const leakedKey = "sk-abcdefghijklmnopqrstuvwxyz123456";
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const result = await doctor({ repoRoot });
+
+    expect(result.privacy).toMatchObject({
+      secretLikeFileCount: 1,
+      sampleFilePaths: ["src/secrets.ts"],
+    });
+    expect(result.warnings).toContain(
+      "Indexed source contains 1 file(s) with obvious secret-like content.",
+    );
+    expect(
+      result.suggestedActions.some((entry) =>
+        entry.includes("src/secrets.ts"),
+      ),
+    ).toBe(true);
+    expect(result.indexStatus).toBe("indexed");
+    expect(result.freshness.status).toBe("fresh");
   });
 
   it("diagnostics marks unresolved relative imports as stale dependency drift", async () => {

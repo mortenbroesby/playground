@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 
 import { loadRepoEngineConfig, resolveEnginePaths } from "./config.ts";
+import { redactSecretLikeString } from "./privacy.ts";
 import type {
   EngineEventEnvelope,
   EngineEventLevel,
@@ -19,20 +20,12 @@ export interface EngineEventInput {
 
 let writeQueue = Promise.resolve();
 const REDACTED_SOURCE_TEXT = "[REDACTED:source-text]";
-const REDACTED_SECRET = "[REDACTED:secret]";
 const SOURCE_LIKE_KEYS = new Set([
   "content",
   "preview",
   "source",
   "text",
 ]);
-const SECRET_VALUE_PATTERNS = [
-  /sk-[A-Za-z0-9]{20,}/g,
-  /ghp_[A-Za-z0-9]{20,}/g,
-  /AIza[0-9A-Za-z\-_]{20,}/g,
-  /AKIA[0-9A-Z]{16}/g,
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----/g,
-];
 
 function buildEventEnvelope(input: EngineEventInput): EngineEventEnvelope {
   return {
@@ -47,14 +40,6 @@ function buildEventEnvelope(input: EngineEventInput): EngineEventEnvelope {
   };
 }
 
-function redactSecretLikeString(value: string): string {
-  let nextValue = value;
-  for (const pattern of SECRET_VALUE_PATTERNS) {
-    nextValue = nextValue.replace(pattern, REDACTED_SECRET);
-  }
-  return nextValue;
-}
-
 function sanitizeEventValue(
   value: unknown,
   pathSegments: string[],
@@ -66,7 +51,7 @@ function sanitizeEventValue(
       redactSourceText
       && pathSegments.some((segment) => SOURCE_LIKE_KEYS.has(segment))
     ) {
-      return secretRedacted === value ? REDACTED_SOURCE_TEXT : REDACTED_SECRET;
+      return secretRedacted === value ? REDACTED_SOURCE_TEXT : "[REDACTED:secret]";
     }
     return secretRedacted;
   }

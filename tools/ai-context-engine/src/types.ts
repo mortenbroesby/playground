@@ -425,6 +425,11 @@ export interface DoctorObservabilityHealth {
   url: string | null;
 }
 
+export interface DoctorPrivacyHealth {
+  secretLikeFileCount: number;
+  sampleFilePaths: string[];
+}
+
 export interface DoctorDependencyGraphHealth {
   brokenRelativeImportCount: number;
   affectedImporterCount: number;
@@ -457,6 +462,7 @@ export interface DoctorResult {
   parser: ParserHealthDiagnostics;
   dependencyGraph: DoctorDependencyGraphHealth;
   observability: DoctorObservabilityHealth;
+  privacy: DoctorPrivacyHealth;
   watch: WatchDiagnostics;
   warnings: string[];
   suggestedActions: string[];

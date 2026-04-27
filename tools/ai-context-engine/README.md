@@ -260,6 +260,8 @@ Those values map to:
 - Do not store credentials in observability output or test fixtures.
 - Observability event payloads redact source-like text by default and always scrub
   obvious secret-shaped tokens before they are persisted.
+- `doctor` emits non-blocking warnings when indexed source contains obvious
+  secret-like content so local leaks are surfaced without being treated as index drift.
 - Keep repo-root runtime artifacts separate from package build output in `dist/`.
 - Prefer local-only observability when debugging repo indexing and watch behavior.
 
