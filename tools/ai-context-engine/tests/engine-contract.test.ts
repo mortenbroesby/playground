@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -82,19 +82,43 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.29");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.30");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 29,
+      increment: 30,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 29,
+      increment: 30,
     });
+  });
+
+  it("advertises profiling scripts and ignores generated profiling artifacts", async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    ) as {
+      scripts: Record<string, string>;
+    };
+    const rootGitignore = await readFile(
+      new URL("../../../.gitignore", import.meta.url),
+      "utf8",
+    );
+
+    expect(packageJson.scripts).toMatchObject({
+      "profile:index:clinic":
+        "clinic flame --dest .profiles/clinic/index --name astrograph-index -- node --experimental-strip-types ./scripts/perf-index.mjs",
+      "profile:query:clinic":
+        "clinic doctor --dest .profiles/clinic/query --name astrograph-query -- node --experimental-strip-types ./scripts/perf-query.mjs",
+      "profile:index:0x":
+        "0x --output-dir .profiles/0x/index -- node --experimental-strip-types ./scripts/perf-index.mjs",
+      "profile:query:0x":
+        "0x --output-dir .profiles/0x/query -- node --experimental-strip-types ./scripts/perf-query.mjs",
+    });
+    expect(rootGitignore).toContain(".profiles/");
   });
 
   it("enforces Astrograph bump rules for increment and semver resets", () => {

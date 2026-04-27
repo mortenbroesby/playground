@@ -249,7 +249,40 @@ Useful local commands:
 - `pnpm --filter @astrograph/astrograph type-check`
 - `pnpm --filter @astrograph/astrograph bench:perf -- --repo /abs/repo --runs 10`
 - `pnpm --filter @astrograph/astrograph bench:perf:serialize -- --repo /abs/repo --runs 250`
+- `pnpm --filter @astrograph/astrograph profile:index:clinic`
+- `pnpm --filter @astrograph/astrograph profile:query:0x`
 - `pnpm --filter @astrograph/astrograph mcp`
+
+## Profiling
+
+Use the profiling scripts when baseline benchmarks show a regression and you need
+stack-level evidence instead of just timings.
+
+- `Clinic Flame`:
+  `pnpm --filter @astrograph/astrograph profile:index:clinic`
+  Use this first for cold indexing and warm refresh analysis from
+  `scripts/perf-index.mjs`. It writes collected data under
+  `tools/ai-context-engine/.profiles/clinic/index/`.
+- `Clinic Doctor`:
+  `pnpm --filter @astrograph/astrograph profile:query:clinic`
+  Use this when `query_code` latency regresses and you want a higher-level event
+  loop and CPU diagnosis. It writes under
+  `tools/ai-context-engine/.profiles/clinic/query/`.
+- `0x`:
+  `pnpm --filter @astrograph/astrograph profile:index:0x` or
+  `pnpm --filter @astrograph/astrograph profile:query:0x`
+  Use this when you specifically want a flamegraph artifact and direct stack-hot
+  paths. It writes under `tools/ai-context-engine/.profiles/0x/`.
+
+Notes:
+
+- `scripts/perf-index.mjs` already includes cold index, warm noop refresh, and
+  warm changed-file refresh in one run, so the index profilers cover both cold
+  and warm paths.
+- Compare before and after dependency changes by running the same profiling
+  command on both revisions and comparing the generated HTML/report artifacts in
+  `.profiles/`.
+- Profiling artifacts are intentionally gitignored.
 
 ## What's Next?
 
