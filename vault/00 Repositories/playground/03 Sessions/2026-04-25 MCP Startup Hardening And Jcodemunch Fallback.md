@@ -662,3 +662,11 @@ a mandatory runtime concern for every MCP or CLI call.
   index/audit run.
 - The audit reported no issues and the project-local `CLAUDE.md` now contains
   the generated jCodemunch code exploration policy block.
+
+## AGENTS.md jCodemunch policy mirror (2026-04-27)
+
+- Added a compact `Code Exploration Policy` section to `AGENTS.md` so the
+  Codex-facing repo bootstrap now mirrors the practical jCodemunch navigation
+  rules that `jcodemunch-mcp init` appended into `CLAUDE.md`.
+- Kept the `AGENTS.md` version shorter and repo-specific rather than copying
+  the entire generated Claude block verbatim.

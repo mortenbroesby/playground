@@ -35,6 +35,20 @@ Thin bootstrap for coding agents in this repo.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
 
+## Code Exploration Policy
+
+- Use `jcodemunch` MCP tools for code navigation instead of broad `Read`,
+  `Grep`, `Glob`, or shell exploration.
+- Exception: use `Read` when you need exact file content for an edit, because
+  the harness expects a read before write-style file changes.
+- Start by confirming the repo/index route with `plan_turn`, then use:
+  `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`,
+  `get_context_bundle`, `get_file_tree`, and `get_repo_outline`.
+- If a search result returns strong negative evidence, do not keep re-searching
+  with random variations hoping the implementation exists. Report the gap.
+- After edits, prefer `register_edit` for the touched paths when you need to
+  keep the `jcodemunch` index fresh.
+
 ## Hooks And Rules
 
 - Shared agent docs live under [`.agents/`](.agents/).
