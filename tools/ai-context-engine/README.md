@@ -53,6 +53,7 @@ The package is currently a personal tool:
 - Watch-mode refresh with `@parcel/watcher`, `fs.watch`, and polling fallback paths
 - Live-disk text fallback via ripgrep when discovery text search is requested on
   a missing or stale index
+- Serialization benchmark gate for evaluating stable machine-result envelopes
 - Stdio MCP server backed by the official MCP TypeScript SDK
 - CLI and library entry points for local debugging, benchmarks, and packaging checks
 - Local observability server for recent events and watch health
@@ -247,6 +248,7 @@ Useful local commands:
 - `pnpm --filter @astrograph/astrograph test`
 - `pnpm --filter @astrograph/astrograph type-check`
 - `pnpm --filter @astrograph/astrograph bench:perf -- --repo /abs/repo --runs 10`
+- `pnpm --filter @astrograph/astrograph bench:perf:serialize -- --repo /abs/repo --runs 250`
 - `pnpm --filter @astrograph/astrograph mcp`
 
 ## What's Next?
