@@ -90,18 +90,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.33");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.34");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 33,
+      increment: 34,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 33,
+      increment: 34,
     });
   });
 
@@ -174,6 +174,7 @@ describe("ai-context-engine contract", () => {
           port: 0,
           recentLimit: 17,
           snapshotIntervalMs: 250,
+          redactSourceText: false,
         },
         performance: {
           fileProcessingConcurrency: 1,
@@ -204,6 +205,7 @@ describe("ai-context-engine contract", () => {
       port: 0,
       recentLimit: 17,
       snapshotIntervalMs: 250,
+      redactSourceText: false,
     });
     expect(config.performance.fileProcessingConcurrency).toBe(1);
     expect(config.performance.workerPool).toEqual({

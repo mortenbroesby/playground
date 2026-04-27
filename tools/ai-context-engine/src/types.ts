@@ -42,6 +42,7 @@ export interface RepoObservabilityConfig {
   port?: number;
   recentLimit?: number;
   snapshotIntervalMs?: number;
+  redactSourceText?: boolean;
 }
 
 export interface RepoPerformanceConfig {
@@ -76,6 +77,7 @@ export interface ResolvedObservabilityConfig {
   port: number;
   recentLimit: number;
   snapshotIntervalMs: number;
+  redactSourceText: boolean;
 }
 
 export interface ResolvedPerformanceConfig {

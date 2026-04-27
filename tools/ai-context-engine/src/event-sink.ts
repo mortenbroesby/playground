@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 
-import { createDefaultEngineConfig } from "./config.ts";
+import { loadRepoEngineConfig, resolveEnginePaths } from "./config.ts";
 import type {
   EngineEventEnvelope,
   EngineEventLevel,
@@ -18,6 +18,21 @@ export interface EngineEventInput {
 }
 
 let writeQueue = Promise.resolve();
+const REDACTED_SOURCE_TEXT = "[REDACTED:source-text]";
+const REDACTED_SECRET = "[REDACTED:secret]";
+const SOURCE_LIKE_KEYS = new Set([
+  "content",
+  "preview",
+  "source",
+  "text",
+]);
+const SECRET_VALUE_PATTERNS = [
+  /sk-[A-Za-z0-9]{20,}/g,
+  /ghp_[A-Za-z0-9]{20,}/g,
+  /AIza[0-9A-Za-z\-_]{20,}/g,
+  /AKIA[0-9A-Z]{16}/g,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/g,
+];
 
 function buildEventEnvelope(input: EngineEventInput): EngineEventEnvelope {
   return {
@@ -32,16 +47,66 @@ function buildEventEnvelope(input: EngineEventInput): EngineEventEnvelope {
   };
 }
 
+function redactSecretLikeString(value: string): string {
+  let nextValue = value;
+  for (const pattern of SECRET_VALUE_PATTERNS) {
+    nextValue = nextValue.replace(pattern, REDACTED_SECRET);
+  }
+  return nextValue;
+}
+
+function sanitizeEventValue(
+  value: unknown,
+  pathSegments: string[],
+  redactSourceText: boolean,
+): unknown {
+  if (typeof value === "string") {
+    const secretRedacted = redactSecretLikeString(value);
+    if (
+      redactSourceText
+      && pathSegments.some((segment) => SOURCE_LIKE_KEYS.has(segment))
+    ) {
+      return secretRedacted === value ? REDACTED_SOURCE_TEXT : REDACTED_SECRET;
+    }
+    return secretRedacted;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) =>
+      sanitizeEventValue(entry, pathSegments, redactSourceText));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        sanitizeEventValue(entry, [...pathSegments, key], redactSourceText),
+      ]),
+    );
+  }
+
+  return value;
+}
+
 export async function appendEngineEvent(
   input: EngineEventInput,
 ): Promise<EngineEventEnvelope> {
-  const envelope = buildEventEnvelope(input);
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const repoConfig = await loadRepoEngineConfig(input.repoRoot);
+  const envelope = buildEventEnvelope({
+    ...input,
+    repoRoot: repoConfig.repoRoot,
+    data: sanitizeEventValue(
+      input.data ?? {},
+      [],
+      repoConfig.observability.redactSourceText,
+    ) as Record<string, unknown>,
+  });
+  const paths = resolveEnginePaths(repoConfig.repoRoot);
   const line = `${JSON.stringify(envelope)}\n`;
 
   writeQueue = writeQueue.then(async () => {
-    await mkdir(config.paths.storageDir, { recursive: true });
-    await appendFile(config.paths.eventsPath, line, "utf8");
+    await mkdir(paths.storageDir, { recursive: true });
+    await appendFile(paths.eventsPath, line, "utf8");
   });
 
   await writeQueue;
@@ -58,9 +123,10 @@ export async function readRecentEngineEvents(input: {
   repoRoot: string;
   limit?: number;
 }): Promise<EngineEventEnvelope[]> {
-  const config = createDefaultEngineConfig({ repoRoot: input.repoRoot });
+  const repoConfig = await loadRepoEngineConfig(input.repoRoot);
+  const paths = resolveEnginePaths(repoConfig.repoRoot);
   const limit = Math.max(1, input.limit ?? 100);
-  const contents = await readFile(config.paths.eventsPath, "utf8").catch(() => "");
+  const contents = await readFile(paths.eventsPath, "utf8").catch(() => "");
 
   if (contents.trim() === "") {
     return [];

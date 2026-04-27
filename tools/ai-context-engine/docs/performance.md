@@ -133,6 +133,16 @@ Watch mode prefers the configured native backend:
 Polling remains the safety net. Diagnostics and watch events record the active
 backend so regressions are visible without guesswork.
 
+## Observability Privacy
+
+Observability payloads are privacy-safe by default.
+
+- `observability.redactSourceText` defaults to `true`
+- source-like event fields such as `source`, `content`, `preview`, and `text`
+  are redacted before they are written to `events.jsonl`
+- obvious secret-shaped tokens are scrubbed even when source-text redaction is
+  explicitly disabled for local debugging
+
 ## Hashing Policy
 
 Astrograph uses `xxHash` only for non-security fingerprints:

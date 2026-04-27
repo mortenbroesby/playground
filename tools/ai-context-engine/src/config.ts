@@ -65,6 +65,7 @@ const repoObservabilityConfigSchema = z.object({
   port: z.number().int().nonnegative().optional(),
   recentLimit: z.number().int().positive().optional(),
   snapshotIntervalMs: z.number().int().positive().optional(),
+  redactSourceText: z.boolean().optional(),
 });
 
 const repoPerformanceConfigSchema = z.object({
@@ -177,6 +178,7 @@ function createDefaultResolvedRepoEngineConfig(
       port: DEFAULT_OBSERVABILITY_PORT,
       recentLimit: DEFAULT_OBSERVABILITY_RECENT_LIMIT,
       snapshotIntervalMs: DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS,
+      redactSourceText: true,
     },
     performance: {
       fileProcessingConcurrency: defaultFileProcessingConcurrency(),
@@ -247,6 +249,9 @@ export async function loadRepoEngineConfig(
       snapshotIntervalMs:
         parsed.data.observability?.snapshotIntervalMs
         ?? defaults.observability.snapshotIntervalMs,
+      redactSourceText:
+        parsed.data.observability?.redactSourceText
+        ?? defaults.observability.redactSourceText,
     },
     performance: {
       fileProcessingConcurrency: normalizeFileProcessingConcurrency(

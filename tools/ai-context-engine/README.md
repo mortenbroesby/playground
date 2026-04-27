@@ -179,6 +179,9 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 ```json
 {
   "summaryStrategy": "doc-comments-first",
+  "observability": {
+    "redactSourceText": true
+  },
   "performance": {
     "fileProcessingConcurrency": "auto",
     "workerPool": {
@@ -201,6 +204,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 
 - `watch.backend` can force `parcel`, `node-fs-watch`, or `polling`
 - `watch.debounceMs` sets the default debounce window for `watchFolder()`
+- `observability.redactSourceText` keeps observability event payloads privacy-safe
+  by default while still allowing an explicit local opt-out
 - `performance.workerPool.enabled` opt-ins CPU-heavy parse/hash analysis through
   Piscina worker threads during folder indexing
 - `performance.workerPool.maxWorkers` bounds the worker pool when that path is
@@ -243,6 +248,8 @@ Those values map to:
 
 - Treat `.astrograph/` as local runtime state, not a place for secrets.
 - Do not store credentials in observability output or test fixtures.
+- Observability event payloads redact source-like text by default and always scrub
+  obvious secret-shaped tokens before they are persisted.
 - Keep repo-root runtime artifacts separate from package build output in `dist/`.
 - Prefer local-only observability when debugging repo indexing and watch behavior.
 
