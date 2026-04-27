@@ -1288,6 +1288,10 @@ async function readRepoFileMetadata(repoRoot: string, filePath: string) {
   };
 }
 
+function exceedsMaxFileBytes(size: number, maxFileBytes: number): boolean {
+  return size > maxFileBytes;
+}
+
 async function resolveRepoFileRefreshState(
   repoRoot: string,
   filePath: string,
@@ -2396,7 +2400,10 @@ async function indexFolderDirect(input: {
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
-    const supportedFiles = await listSupportedFiles(repoRoot);
+    const supportedFiles = await listSupportedFiles(repoRoot, repoRoot, {
+      maxFilesDiscovered: config.maxFilesDiscovered,
+      maxFileBytes: config.maxFileBytes,
+    });
     const tracked = db.prepare(
       `
         SELECT id, path, content_hash, integrity_hash, size_bytes, mtime_ms
@@ -2512,6 +2519,18 @@ async function indexFileDirect(input: {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const fileState = await resolveRepoFileRefreshState(repoRoot, input.filePath);
     if (!fileState.exists || !fileState.supported || fileState.ignored) {
+      const removed = removeFileIndex(db, fileState.relativePath);
+      const indexedAt = new Date().toISOString();
+      await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+
+      return {
+        indexedFiles: removed ? 1 : 0,
+        indexedSymbols: 0,
+        staleStatus: "fresh",
+      };
+    }
+    const fileMetadata = await readRepoFileMetadata(repoRoot, input.filePath);
+    if (exceedsMaxFileBytes(fileMetadata.size, config.maxFileBytes)) {
       const removed = removeFileIndex(db, fileState.relativePath);
       const indexedAt = new Date().toISOString();
       await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
@@ -2737,6 +2756,14 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
             continue;
           }
 
+          const fileMetadata = await readRepoFileMetadata(repoRoot, filePath);
+          if (exceedsMaxFileBytes(fileMetadata.size, config.maxFileBytes)) {
+            if (removeFileIndex(db, filePath)) {
+              indexedFiles += 1;
+            }
+            continue;
+          }
+
           const result = await upsertFileIndex(db, {
             repoRoot,
             filePath,
@@ -2831,7 +2858,14 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       ]);
 
       for (const directoryPath of directoriesToRescan) {
-        const subtreeState = await loadSupportedFileStatesForSubtree(repoRoot, directoryPath);
+        const subtreeState = await loadSupportedFileStatesForSubtree(
+          repoRoot,
+          directoryPath,
+          {
+            maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
+            maxFileBytes: repoConfig.limits.maxFileBytes,
+          },
+        );
         for (const entry of subtreeState) {
           currentStateMap.set(entry.path, entry);
           if (!previousStateMap.has(entry.path)) {
@@ -2990,7 +3024,10 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     changedPaths: [],
     summary: initialSummary,
   } satisfies WatchEvent;
-  observedState = await loadFilesystemStateSnapshot(repoRoot);
+  observedState = await loadFilesystemStateSnapshot(repoRoot, {
+    maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
+    maxFileBytes: repoConfig.limits.maxFileBytes,
+  });
   observedDirectories = await scanDirectoryStateSnapshot(repoRoot);
   await startNativeWatcher();
   await persistWatchEvent(readyEvent);
@@ -3580,7 +3617,13 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? snapshotHash(indexedEntries) : null);
     const scanFreshness = input.scanFreshness === true;
   const drift = scanFreshness
-      ? compareSnapshots(indexedEntries, await loadFilesystemSnapshot(repoRoot))
+      ? compareSnapshots(
+          indexedEntries,
+          await loadFilesystemSnapshot(repoRoot, {
+            maxFilesDiscovered: config.maxFilesDiscovered,
+            maxFileBytes: config.maxFileBytes,
+          }),
+        )
       : {
           missingPaths: [] as string[],
           extraPaths: [] as string[],

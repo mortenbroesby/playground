@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.31",
+      engineVersion: "0.0.1-alpha.32",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 31,
+        increment: 32,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -614,6 +614,33 @@ export class Greeter {
       source: "live_disk_match",
       reason: "ripgrep_fallback",
     });
+  });
+
+  it("skips oversized files during indexed discovery when maxFileBytes is configured", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxFileBytes: 512,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "large.ts"),
+      `export const large = "${"x".repeat(2048)}";\n`,
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    expect(summary.indexedFiles).toBe(2);
+
+    const outline = await getRepoOutline({ repoRoot });
+    expect(outline.totalFiles).toBe(2);
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).not.toContain("src/large.ts");
   });
 
   it("stores routine fingerprint hashes separately from integrity content hashes", async () => {

@@ -209,8 +209,9 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   missing or stale
 - `limits.maxChildProcessOutputBytes` caps ripgrep fallback stdout before the
   child is terminated
-- `limits.maxFilesDiscovered` and `limits.maxFileBytes` are config-ready limits
-  reserved for later enforcement slices
+- `limits.maxFilesDiscovered` fails discovery when the supported-file set grows
+  beyond the configured ceiling
+- `limits.maxFileBytes` excludes oversized files from discovery and indexing
 - explicit library or CLI options still override repo-config defaults
 
 ### Standalone Codex Install

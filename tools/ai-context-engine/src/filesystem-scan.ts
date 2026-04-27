@@ -37,6 +37,11 @@ export interface DiscoveredSourceFile {
   sizeBytes: number;
 }
 
+export interface DiscoveryLimits {
+  maxFilesDiscovered?: number;
+  maxFileBytes?: number;
+}
+
 const SKIP_SEGMENTS = new Set([
   ".git",
   ".next",
@@ -144,6 +149,8 @@ export async function discoverSourceFiles(options: {
   respectGitIgnore?: boolean;
   include?: string[];
   exclude?: string[];
+  maxFilesDiscovered?: number;
+  maxFileBytes?: number;
 }): Promise<DiscoveredSourceFile[]> {
   const startRelativePath = options.startRelativePath ?? "";
   const startDir = startRelativePath
@@ -193,6 +200,8 @@ export async function discoverSourceFiles(options: {
     (entry): entry is DiscoveredSourceFile => entry !== null,
   );
   const respectGitIgnore = options.respectGitIgnore ?? true;
+  const maxFilesDiscovered = options.maxFilesDiscovered ?? Infinity;
+  const maxFileBytes = options.maxFileBytes ?? Infinity;
   const ignoredPaths = respectGitIgnore
     ? resolveGitIgnoredPaths(
         options.repoRoot,
@@ -200,15 +209,25 @@ export async function discoverSourceFiles(options: {
       )
     : new Set<string>();
 
-  return filteredDiscoveredFiles
+  const limitedDiscoveredFiles = filteredDiscoveredFiles
+    .filter((entry) => entry.sizeBytes <= maxFileBytes)
     .filter((entry) => !ignoredPaths.has(entry.relativePath))
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+
+  if (limitedDiscoveredFiles.length > maxFilesDiscovered) {
+    throw new Error(
+      `Discovered ${limitedDiscoveredFiles.length} supported files, exceeding maxFilesDiscovered=${maxFilesDiscovered}`,
+    );
+  }
+
+  return limitedDiscoveredFiles;
 }
 
 export async function loadFilesystemSnapshot(
   repoRoot: string,
+  limits: DiscoveryLimits = {},
 ): Promise<SnapshotEntry[]> {
-  const files = await listSupportedFiles(repoRoot);
+  const files = await listSupportedFiles(repoRoot, repoRoot, limits);
   const entries: SnapshotEntry[] = [];
 
   for (const filePath of files) {
@@ -275,12 +294,19 @@ export async function loadKnownDirectoryStateSnapshot(
 export async function loadSupportedFileStatesForSubtree(
   rootDir: string,
   startRelativePath = "",
+  limits: DiscoveryLimits = {},
 ): Promise<FilesystemStateEntry[]> {
-  const config = createDefaultEngineConfig({ repoRoot: rootDir });
+  const config = createDefaultEngineConfig({
+    repoRoot: rootDir,
+    maxFilesDiscovered: limits.maxFilesDiscovered,
+    maxFileBytes: limits.maxFileBytes,
+  });
   const discoveredFiles = await discoverSourceFiles({
     repoRoot: rootDir,
     startRelativePath,
     respectGitIgnore: config.respectGitIgnore,
+    maxFilesDiscovered: config.maxFilesDiscovered,
+    maxFileBytes: config.maxFileBytes,
   });
   const results: FilesystemStateEntry[] = [];
 
@@ -298,8 +324,9 @@ export async function loadSupportedFileStatesForSubtree(
 
 export async function loadFilesystemStateSnapshot(
   rootDir: string,
+  limits: DiscoveryLimits = {},
 ): Promise<FilesystemStateEntry[]> {
-  return loadSupportedFileStatesForSubtree(rootDir);
+  return loadSupportedFileStatesForSubtree(rootDir, "", limits);
 }
 
 export function compareDirectoryStates(
@@ -339,12 +366,19 @@ export function compactDirectoryRescanPaths(paths: string[]): string[] {
 export async function listSupportedFiles(
   rootDir: string,
   currentDir = rootDir,
+  limits: DiscoveryLimits = {},
 ): Promise<string[]> {
-  const config = createDefaultEngineConfig({ repoRoot: rootDir });
+  const config = createDefaultEngineConfig({
+    repoRoot: rootDir,
+    maxFilesDiscovered: limits.maxFilesDiscovered,
+    maxFileBytes: limits.maxFileBytes,
+  });
   const discoveredFiles = await discoverSourceFiles({
     repoRoot: rootDir,
     startRelativePath: path.relative(rootDir, currentDir),
     respectGitIgnore: config.respectGitIgnore,
+    maxFilesDiscovered: config.maxFilesDiscovered,
+    maxFileBytes: config.maxFileBytes,
   });
   return discoveredFiles.map((entry) => entry.relativePath);
 }

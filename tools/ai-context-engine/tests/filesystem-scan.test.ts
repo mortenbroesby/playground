@@ -132,4 +132,32 @@ describe("astrograph filesystem scan", () => {
     expect(snapshot[0]?.contentHash).toMatch(/^xxh64:[0-9a-f]{16}$/u);
     expect(snapshotHash(snapshot)).toMatch(/^xxh64:[0-9a-f]{16}$/u);
   });
+
+  it("skips files that exceed maxFileBytes during discovery", async () => {
+    const repoRoot = await makeRepo();
+    await mkdir(path.join(repoRoot, "src"), { recursive: true });
+    await writeFile(path.join(repoRoot, "src", "small.ts"), "export const small = 1;\n");
+    await writeFile(path.join(repoRoot, "src", "large.ts"), "x".repeat(64));
+
+    const result = await discoverSourceFiles({
+      repoRoot,
+      maxFileBytes: 32,
+    });
+
+    expect(result.map((entry) => entry.relativePath)).toEqual(["src/small.ts"]);
+  });
+
+  it("fails clearly when discovered files exceed maxFilesDiscovered", async () => {
+    const repoRoot = await makeRepo();
+    await mkdir(path.join(repoRoot, "src"), { recursive: true });
+    await writeFile(path.join(repoRoot, "src", "one.ts"), "export const one = 1;\n");
+    await writeFile(path.join(repoRoot, "src", "two.ts"), "export const two = 2;\n");
+
+    await expect(
+      discoverSourceFiles({
+        repoRoot,
+        maxFilesDiscovered: 1,
+      }),
+    ).rejects.toThrow(/exceeding maxFilesDiscovered=1/i);
+  });
 });
