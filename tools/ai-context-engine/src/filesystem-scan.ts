@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fdir } from "fdir";
 
 import { createDefaultEngineConfig } from "./config.ts";
+import { hashString } from "./hash.ts";
+import { createPathMatcher } from "./path-matcher.ts";
 import { supportedLanguageForFile } from "./parser.ts";
 import type { SupportedLanguage } from "./types.ts";
 
@@ -48,17 +49,14 @@ const SKIP_SEGMENTS = new Set([
   "node_modules",
 ]);
 
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 export function snapshotHash(entries: SnapshotEntry[]): string {
-  return sha256(
+  return hashString(
     entries
       .slice()
       .sort((left, right) => left.path.localeCompare(right.path))
       .map((entry) => `${entry.path}:${entry.contentHash}`)
       .join("\n"),
+    "directory_snapshot",
   );
 }
 
@@ -144,11 +142,17 @@ export async function discoverSourceFiles(options: {
   repoRoot: string;
   startRelativePath?: string;
   respectGitIgnore?: boolean;
+  include?: string[];
+  exclude?: string[];
 }): Promise<DiscoveredSourceFile[]> {
   const startRelativePath = options.startRelativePath ?? "";
   const startDir = startRelativePath
     ? path.join(options.repoRoot, startRelativePath)
     : options.repoRoot;
+  const pathMatcher = createPathMatcher({
+    include: options.include,
+    exclude: options.exclude,
+  });
 
   const crawledPaths = await new fdir()
     .withFullPaths()
@@ -165,6 +169,9 @@ export async function discoverSourceFiles(options: {
 
       const language = supportedLanguageForFile(relativePath);
       if (!language) {
+        return null;
+      }
+      if (!pathMatcher.matches(relativePath)) {
         return null;
       }
 
@@ -208,7 +215,7 @@ export async function loadFilesystemSnapshot(
     const content = await readFile(path.join(repoRoot, filePath), "utf8");
     entries.push({
       path: filePath,
-      contentHash: sha256(content),
+      contentHash: hashString(content, "content_fingerprint"),
     });
   }
 

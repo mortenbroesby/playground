@@ -5,7 +5,12 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { discoverSourceFiles, listSupportedFiles } from "../src/filesystem-scan.ts";
+import {
+  discoverSourceFiles,
+  listSupportedFiles,
+  loadFilesystemSnapshot,
+  snapshotHash,
+} from "../src/filesystem-scan.ts";
 
 const tempDirs: string[] = [];
 
@@ -88,5 +93,43 @@ describe("astrograph filesystem scan", () => {
     const result = await discoverSourceFiles({ repoRoot });
 
     expect(result.map((entry) => entry.relativePath)).toEqual(["src/safe.ts"]);
+  });
+
+  it("supports compiled include and exclude globs during discovery", async () => {
+    const repoRoot = await makeRepo();
+    await mkdir(path.join(repoRoot, "src", "nested"), { recursive: true });
+
+    await writeFile(path.join(repoRoot, "src", "keep.ts"), "export const keep = true;\n");
+    await writeFile(
+      path.join(repoRoot, "src", "skip.test.ts"),
+      "export const skip = true;\n",
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "nested", ".hidden.ts"),
+      "export const hidden = true;\n",
+    );
+
+    const result = await discoverSourceFiles({
+      repoRoot,
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.test.ts"],
+    });
+
+    expect(result.map((entry) => entry.relativePath)).toEqual([
+      "src/keep.ts",
+      "src/nested/.hidden.ts",
+    ]);
+  });
+
+  it("uses routine fingerprint hashes for filesystem snapshots", async () => {
+    const repoRoot = await makeRepo();
+    await mkdir(path.join(repoRoot, "src"), { recursive: true });
+    await writeFile(path.join(repoRoot, "src", "alpha.ts"), "export const alpha = 1;\n");
+
+    const snapshot = await loadFilesystemSnapshot(repoRoot);
+
+    expect(snapshot).toHaveLength(1);
+    expect(snapshot[0]?.contentHash).toMatch(/^xxh64:[0-9a-f]{16}$/u);
+    expect(snapshotHash(snapshot)).toMatch(/^xxh64:[0-9a-f]{16}$/u);
   });
 });

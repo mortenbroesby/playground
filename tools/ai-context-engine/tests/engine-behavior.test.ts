@@ -1,4 +1,4 @@
-import { realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -91,7 +91,7 @@ describe("ai-context-engine behavior", () => {
 
     expect(result).toMatchObject({
       repoRoot: resolvedRepoRoot,
-      schemaVersion: 3,
+      schemaVersion: 4,
       indexStatus: "not-indexed",
       freshness: {
         indexedFiles: 0,
@@ -163,14 +163,14 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.20",
+      engineVersion: "0.0.1-alpha.22",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 20,
+        increment: 22,
       },
-      schemaVersion: 3,
+      schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
       summarySources: {
         "doc-comment": 4,
@@ -337,7 +337,7 @@ module.exports = {
       path.join(canonicalRepoRoot, ".astrograph", "index.sqlite"),
     );
     expect(health.storageVersion).toBe(1);
-    expect(health.schemaVersion).toBe(3);
+    expect(health.schemaVersion).toBe(4);
   });
 
   it("migrates legacy Astrograph schema state before serving diagnostics", async () => {
@@ -366,7 +366,7 @@ module.exports = {
     legacyDb.close();
 
     const health = await diagnostics({ repoRoot });
-    expect(health.schemaVersion).toBe(3);
+    expect(health.schemaVersion).toBe(4);
 
     const migratedDb = new Database(paths.databasePath, { readonly: true });
     const fileColumns = migratedDb
@@ -384,12 +384,13 @@ module.exports = {
       expect.arrayContaining([
         "size_bytes",
         "mtime_ms",
+        "integrity_hash",
         "symbol_signature_hash",
         "import_hash",
       ]),
     );
     expect(dependencyTable?.name).toBe("file_dependencies");
-    expect(schemaVersionRow?.value).toBe("3");
+    expect(schemaVersionRow?.value).toBe("4");
   });
 
   it("supports symbol and text search plus exact retrieval", async () => {
@@ -429,6 +430,43 @@ module.exports = {
     expect(textMatches[0]).toMatchObject({
       filePath: "src/strings.ts",
     });
+  });
+
+  it("stores routine fingerprint hashes separately from integrity content hashes", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const paths = resolveEnginePaths(repoRoot);
+    const db = new Database(paths.databasePath, { readonly: true });
+    const rows = db
+      .prepare(
+        `
+          SELECT path, content_hash, integrity_hash, symbol_signature_hash, import_hash
+          FROM files
+          ORDER BY path ASC
+        `,
+      )
+      .all() as Array<{
+      path: string;
+      content_hash: string;
+      integrity_hash: string | null;
+      symbol_signature_hash: string | null;
+      import_hash: string | null;
+    }>;
+    db.close();
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => /^xxh64:[0-9a-f]{16}$/u.test(row.content_hash))).toBe(true);
+    expect(rows.every((row) => /^sha256:[0-9a-f]{64}$/u.test(row.integrity_hash ?? ""))).toBe(
+      true,
+    );
+    expect(
+      rows.every((row) => /^xxh64:[0-9a-f]{16}$/u.test(row.symbol_signature_hash ?? "")),
+    ).toBe(true);
+    expect(rows.every((row) => /^xxh64:[0-9a-f]{16}$/u.test(row.import_hash ?? ""))).toBe(
+      true,
+    );
   });
 
   it("offers a unified query surface for discovery, source retrieval, and assembly", async () => {
@@ -842,6 +880,46 @@ module.exports = {
     expect(textMatches[0]).toMatchObject({
       filePath: "src/widget.jsx",
     });
+  });
+
+  it("accepts windows-style file patterns in search filters", async () => {
+    const repoRoot = await createFixtureRepo();
+    await mkdir(path.join(repoRoot, "src", "nested"), { recursive: true });
+
+    await writeFile(
+      path.join(repoRoot, "src", "nested", "widget.ts"),
+      `export function nestedWidget() {
+  return "nested";
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "nestedWidget",
+      filePattern: "src\\**\\*.ts",
+    });
+    const textMatches = await searchText({
+      repoRoot,
+      query: "nested",
+      filePattern: "src\\**\\*.ts",
+    });
+
+    expect(symbolMatches).toEqual([
+      expect.objectContaining({
+        name: "nestedWidget",
+        filePath: "src/nested/widget.ts",
+      }),
+    ]);
+    expect(textMatches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          filePath: "src/nested/widget.ts",
+        }),
+      ]),
+    );
   });
 
   it("preserves substring search behavior when FTS shortlists are too narrow", async () => {

@@ -39,11 +39,13 @@ import {
   scanDirectoryStateSnapshot,
   snapshotHash,
 } from "./filesystem-scan.ts";
+import { hashString } from "./hash.ts";
 import type {
   IndexBackendConnection,
   IndexBackendValue,
   IndexStatement,
 } from "./index-backend.ts";
+import { createPathMatcher } from "./path-matcher.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
 import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
@@ -116,6 +118,12 @@ interface DbSymbolRow {
   start_byte: number;
   end_byte: number;
   exported: number;
+}
+
+interface DbFileContentRow extends DbSymbolRow {
+  content_hash: string;
+  integrity_hash: string | null;
+  content: string;
 }
 
 interface RepoMetaRecord {
@@ -382,6 +390,14 @@ const SCHEMA_MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    toVersion: 4,
+    run(db) {
+      if (!hasTableColumn(db, "files", "integrity_hash")) {
+        db.exec("ALTER TABLE files ADD COLUMN integrity_hash TEXT");
+      }
+    },
+  },
 ];
 
 function runSchemaMigrations(db: IndexBackendConnection) {
@@ -416,6 +432,7 @@ function initializeDatabase(db: IndexBackendConnection) {
       path TEXT NOT NULL UNIQUE,
       language TEXT NOT NULL,
       content_hash TEXT NOT NULL,
+      integrity_hash TEXT,
       size_bytes INTEGER,
       mtime_ms INTEGER,
       symbol_signature_hash TEXT,
@@ -1214,8 +1231,9 @@ function hashSymbolSignatures(
     signature: string;
   }>,
 ): string {
-  return sha256(
+  return hashString(
     JSON.stringify(symbols.map((symbol) => [symbol.id, symbol.signature])),
+    "symbol_signature",
   );
 }
 
@@ -1225,10 +1243,11 @@ function hashImports(
     specifiers: string[];
   }>,
 ): string {
-  return sha256(
+  return hashString(
     JSON.stringify(
       imports.map((entry) => [entry.source, [...entry.specifiers].sort()]),
     ),
+    "import_graph",
   );
 }
 
@@ -1255,17 +1274,9 @@ function escapeRegExp(value: string): string {
 }
 
 function matchesFilePattern(filePath: string, pattern?: string): boolean {
-  if (!pattern) {
-    return true;
-  }
-
-  const normalizedPattern = pattern.replaceAll("\\", "/");
-  const regexPattern = escapeRegExp(normalizedPattern)
-    .replace(/\\\*\\\*/g, ".*")
-    .replace(/\\\*/g, "[^/]*")
-    .replace(/\\\?/g, "[^/]");
-
-  return new RegExp(`^${regexPattern}$`, "u").test(filePath);
+  return createPathMatcher({ include: pattern ? [pattern] : undefined }).matches(
+    filePath,
+  );
 }
 
 function estimateTokens(value: string): number {
@@ -1453,7 +1464,7 @@ function loadSymbolSourceRow(
   db: IndexBackendConnection,
   symbolId: string,
 ) {
-  return typedGet<DbSymbolRow & { content_hash: string; content: string }>(
+  return typedGet<DbFileContentRow>(
     db.prepare(
       `
         SELECT
@@ -1461,7 +1472,7 @@ function loadSymbolSourceRow(
           symbols.signature, symbols.summary, symbols.summary_source,
           symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
           symbols.exported,
-          files.content_hash, content_blobs.content
+          files.content_hash, files.integrity_hash, content_blobs.content
         FROM symbols
         INNER JOIN files ON files.id = symbols.file_id
         INNER JOIN content_blobs ON content_blobs.file_id = files.id
@@ -1706,7 +1717,7 @@ function makeContextBundleItem(
 }
 
 function buildSymbolSourceItem(
-  row: DbSymbolRow & { content_hash: string; content: string },
+  row: DbFileContentRow,
   verify: boolean,
   contextLines = 0,
 ): SymbolSourceItem {
@@ -1717,14 +1728,17 @@ function buildSymbolSourceItem(
   return {
     symbol: mapSymbolRow(row),
     source: lines.slice(startLine - 1, endLine).join("\n"),
-    verified: verify ? sha256(row.content) === row.content_hash : false,
+    verified: verify
+      ? row.integrity_hash === hashString(row.content, "integrity")
+        || sha256(row.content) === row.content_hash
+      : false,
     startLine,
     endLine,
   };
 }
 
 interface RankedSeedCandidate {
-  row: DbSymbolRow & { content_hash: string; content: string };
+  row: DbFileContentRow;
   reason: QueryCodeMatchReason;
   score: number;
 }
@@ -1750,8 +1764,7 @@ function resolveRankedSeedCandidates(
     return input.symbolIds
       .map((symbolId) => loadSymbolSourceRow(db, symbolId))
       .filter(
-        (row): row is DbSymbolRow & { content_hash: string; content: string } =>
-          Boolean(row),
+        (row): row is DbFileContentRow => Boolean(row),
       )
       .map((row, index) => ({
         row,
@@ -1895,7 +1908,7 @@ function buildDiscoverGraphMatches(
   const query = normalizeQuery(input.query ?? "");
   const seedRows = seedSymbols
     .map((symbol) => loadSymbolSourceRow(db, symbol.id))
-    .filter((row): row is DbSymbolRow & { content_hash: string; content: string } => Boolean(row));
+    .filter((row): row is DbFileContentRow => Boolean(row));
 
   for (const symbol of seedSymbols) {
     matches.set(symbol.id, {
@@ -2012,13 +2025,14 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
   const existing = db.prepare(
     `
-      SELECT id, content_hash, size_bytes, mtime_ms
+      SELECT id, content_hash, integrity_hash, size_bytes, mtime_ms
       FROM files
       WHERE path = ?
     `,
   ).get(fileMetadata.relativePath) as {
     id: number;
     content_hash: string;
+    integrity_hash: string | null;
     size_bytes: number | null;
     mtime_ms: number | null;
   } | undefined;
@@ -2082,12 +2096,13 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
     db.prepare(
       `
         UPDATE files
-        SET language = ?, content_hash = ?, parser_backend = ?, parser_fallback_used = ?, parser_fallback_reason = ?, symbol_count = ?, updated_at = ?
+        SET language = ?, content_hash = ?, integrity_hash = ?, parser_backend = ?, parser_fallback_used = ?, parser_fallback_reason = ?, symbol_count = ?, updated_at = ?
         WHERE id = ?
       `,
     ).run(
       reparsed.language,
       reparsed.contentHash,
+      reparsed.integrityHash,
       reparsed.backend,
       reparsed.fallbackUsed ? 1 : 0,
       reparsed.fallbackReason,
@@ -2113,16 +2128,17 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
     db.prepare(
       `
         INSERT INTO files (
-          path, language, content_hash, size_bytes, mtime_ms,
+          path, language, content_hash, integrity_hash, size_bytes, mtime_ms,
           symbol_signature_hash, import_hash, parser_backend, parser_fallback_used,
           parser_fallback_reason, symbol_count, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
     ).run(
       file.relativePath,
       reparsed.language,
       reparsed.contentHash,
+      reparsed.integrityHash,
       file.size,
       Math.trunc(file.mtimeMs),
       symbolSignatureHash,
@@ -3238,16 +3254,13 @@ function getSymbolSourceFromContext(context: EngineContext, input: {
           symbols.signature, symbols.summary, symbols.summary_source,
           symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
           symbols.exported,
-          files.content_hash, content_blobs.content
+          files.content_hash, files.integrity_hash, content_blobs.content
         FROM symbols
         INNER JOIN files ON files.id = symbols.file_id
         INNER JOIN content_blobs ON content_blobs.file_id = files.id
         WHERE symbols.id = ?
       `,
-    ).get(symbolId) as (DbSymbolRow & {
-      content_hash: string;
-      content: string;
-    }) | undefined;
+    ).get(symbolId) as DbFileContentRow | undefined;
 
     if (!row) {
       throw new Error(`Symbol not indexed: ${symbolId}`);

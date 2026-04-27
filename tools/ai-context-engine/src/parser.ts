@@ -6,6 +6,7 @@ import javascript from "tree-sitter-javascript";
 import tsLanguages from "tree-sitter-typescript";
 import { parseSync as parseOxcSync } from "oxc-parser";
 
+import { hashString } from "./hash.ts";
 import type {
   SummarySource,
   SummaryStrategy,
@@ -36,6 +37,7 @@ interface ParsedSymbol {
 export interface ParsedFile {
   language: SupportedLanguage;
   contentHash: string;
+  integrityHash: string;
   symbols: ParsedSymbol[];
   imports: ParsedImport[];
   backend: "oxc" | "tree-sitter";
@@ -1284,7 +1286,8 @@ function parseWithOxc(input: {
 
   return {
     language: input.language,
-    contentHash: sha256(input.content),
+    contentHash: hashString(input.content, "content_fingerprint"),
+    integrityHash: hashString(input.content, "integrity"),
     symbols,
     imports,
     backend: "oxc",
@@ -1355,7 +1358,8 @@ function parseWithTreeSitter(input: {
 
   return {
     language: input.language,
-    contentHash: sha256(input.content),
+    contentHash: hashString(input.content, "content_fingerprint"),
+    integrityHash: hashString(input.content, "integrity"),
     symbols,
     imports,
     backend: "tree-sitter",
