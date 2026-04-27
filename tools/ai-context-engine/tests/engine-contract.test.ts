@@ -11,6 +11,7 @@ import {
   DEFAULT_MAX_FILE_BYTES,
   DEFAULT_MAX_FILES_DISCOVERED,
   DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+  DEFAULT_RANKING_WEIGHTS,
   DEFAULT_MAX_SYMBOL_RESULTS,
   DEFAULT_MAX_TEXT_RESULTS,
   DEFAULT_SUMMARY_STRATEGY,
@@ -73,6 +74,7 @@ describe("ai-context-engine contract", () => {
       maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
       maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
       maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+      rankingWeights: DEFAULT_RANKING_WEIGHTS,
     });
 
     expect(config.paths.databasePath).toContain(".astrograph/index.sqlite");
@@ -96,18 +98,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.38");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.39");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 38,
+      increment: 39,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 38,
+      increment: 39,
     });
   });
 
@@ -176,6 +178,10 @@ describe("ai-context-engine contract", () => {
       JSON.stringify({
         summaryStrategy: "signature-only",
         storageMode: "wal",
+        ranking: {
+          exactName: 0,
+          filePathContains: 2000,
+        },
         observability: {
           enabled: true,
           port: 0,
@@ -211,6 +217,11 @@ describe("ai-context-engine contract", () => {
 
     expect(config.summaryStrategy).toBe("signature-only");
     expect(config.storageMode).toBe("wal");
+    expect(config.ranking).toMatchObject({
+      exactName: 0,
+      filePathContains: 2000,
+      exportedBonus: DEFAULT_RANKING_WEIGHTS.exportedBonus,
+    });
     expect(config.observability).toMatchObject({
       enabled: true,
       host: "127.0.0.1",
@@ -267,6 +278,9 @@ describe("ai-context-engine contract", () => {
       path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         storageMode: "wal",
+        ranking: {
+          exportedBonus: 5,
+        },
         performance: {
           fileProcessingConcurrency: "auto",
         },
@@ -278,6 +292,10 @@ describe("ai-context-engine contract", () => {
     expect(autoConfig.performance.exclude).toEqual([]);
     expect(autoConfig.performance.fileProcessingConcurrency).toBeGreaterThanOrEqual(2);
     expect(autoConfig.storageMode).toBe("wal");
+    expect(autoConfig.ranking).toEqual({
+      ...DEFAULT_RANKING_WEIGHTS,
+      exportedBonus: 5,
+    });
     expect(autoConfig.performance.workerPool).toEqual({
       enabled: false,
       maxWorkers: expect.any(Number),

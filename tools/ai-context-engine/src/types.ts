@@ -9,6 +9,21 @@ export type SummaryStrategy = "doc-comments-first" | "signature-only";
 
 export type SummarySource = "doc-comment" | "signature";
 
+export interface RankingWeights {
+  exactName: number;
+  exactQualifiedName: number;
+  prefixName: number;
+  prefixQualifiedName: number;
+  containsName: number;
+  containsQualifiedName: number;
+  signatureContains: number;
+  summaryContains: number;
+  filePathContains: number;
+  exactWord: number;
+  tokenMatch: number;
+  exportedBonus: number;
+}
+
 export interface EnginePaths {
   storageDir: string;
   databasePath: string;
@@ -37,6 +52,7 @@ export interface EngineConfig {
   maxTextResults: number;
   maxChildProcessOutputBytes: number;
   maxLiveSearchMatches: number;
+  rankingWeights: RankingWeights;
   paths: EnginePaths;
 }
 
@@ -64,11 +80,27 @@ export interface RepoWatchConfig {
   debounceMs?: number;
 }
 
+export interface RepoRankingConfig {
+  exactName?: number;
+  exactQualifiedName?: number;
+  prefixName?: number;
+  prefixQualifiedName?: number;
+  containsName?: number;
+  containsQualifiedName?: number;
+  signatureContains?: number;
+  summaryContains?: number;
+  filePathContains?: number;
+  exactWord?: number;
+  tokenMatch?: number;
+  exportedBonus?: number;
+}
+
 export interface RepoEngineConfig {
   summaryStrategy?: SummaryStrategy;
   storageMode?: StorageMode;
   observability?: RepoObservabilityConfig;
   performance?: RepoPerformanceConfig;
+  ranking?: RepoRankingConfig;
   watch?: RepoWatchConfig;
   limits?: {
     maxFilesDiscovered?: number;
@@ -104,6 +136,8 @@ export interface ResolvedWatchConfig {
   debounceMs: number;
 }
 
+export interface ResolvedRankingConfig extends RankingWeights {}
+
 export interface ResolvedLimitsConfig {
   maxFilesDiscovered: number;
   maxFileBytes: number;
@@ -120,6 +154,7 @@ export interface ResolvedRepoEngineConfig {
   storageMode: StorageMode;
   observability: ResolvedObservabilityConfig;
   performance: ResolvedPerformanceConfig;
+  ranking: ResolvedRankingConfig;
   watch: ResolvedWatchConfig;
   limits: ResolvedLimitsConfig;
 }

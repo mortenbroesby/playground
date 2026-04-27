@@ -87,6 +87,7 @@ import type {
   QueryCodeOptions,
   QueryCodeResult,
   QueryCodeSourceResult,
+  RankingWeights,
   RankedContextCandidate,
   RankedContextResult,
   RepoOutline,
@@ -877,6 +878,7 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     storageMode: repoConfig.storageMode,
     indexInclude: repoConfig.performance.include,
     indexExclude: repoConfig.performance.exclude,
+    rankingWeights: repoConfig.ranking,
     fileProcessingConcurrency: repoConfig.performance.fileProcessingConcurrency,
     workerPoolEnabled: repoConfig.performance.workerPool.enabled,
     workerPoolMaxWorkers: repoConfig.performance.workerPool.maxWorkers,
@@ -1624,7 +1626,11 @@ function rowText(row: DbSymbolRow): string {
     .toLowerCase();
 }
 
-function scoreSymbolRow(row: DbSymbolRow, query: string): number {
+function scoreSymbolRow(
+  row: DbSymbolRow,
+  query: string,
+  weights: RankingWeights,
+): number {
   const normalized = normalizeQuery(query);
   if (!normalized) {
     return 0;
@@ -1640,46 +1646,46 @@ function scoreSymbolRow(row: DbSymbolRow, query: string): number {
   let score = 0;
 
   if (name === normalized) {
-    score += 1000;
+    score += weights.exactName;
   }
   if (qualifiedName === normalized) {
-    score += 900;
+    score += weights.exactQualifiedName;
   }
   if (name.startsWith(normalized)) {
-    score += 700;
+    score += weights.prefixName;
   }
   if (qualifiedName.startsWith(normalized)) {
-    score += 650;
+    score += weights.prefixQualifiedName;
   }
   if (name.includes(normalized)) {
-    score += 500;
+    score += weights.containsName;
   }
   if (qualifiedName.includes(normalized)) {
-    score += 450;
+    score += weights.containsQualifiedName;
   }
   if (signature.includes(normalized)) {
-    score += 250;
+    score += weights.signatureContains;
   }
   if (summary.includes(normalized)) {
-    score += 200;
+    score += weights.summaryContains;
   }
   if (filePath.includes(normalized)) {
-    score += 120;
+    score += weights.filePathContains;
   }
 
   const exactWord = new RegExp(`\\b${escapeRegExp(normalized)}\\b`, "i");
   if (exactWord.test(rowText(row))) {
-    score += 180;
+    score += weights.exactWord;
   }
 
   for (const token of tokens) {
     if (haystack.includes(token)) {
-      score += 70;
+      score += weights.tokenMatch;
     }
   }
 
   if (score > 0 && row.exported) {
-    score += 20;
+    score += weights.exportedBonus;
   }
 
   return score;
@@ -2084,12 +2090,12 @@ function sortRankedSymbolEntries(
 }
 
 function resolveRankedSeedCandidates(
-  db: IndexBackendConnection,
+  context: EngineContext,
   input: ContextBundleOptions,
 ): RankedSeedCandidate[] {
   if (input.symbolIds?.length) {
     return input.symbolIds
-      .map((symbolId) => loadSymbolSourceRow(db, symbolId))
+      .map((symbolId) => loadSymbolSourceRow(context.db, symbolId))
       .filter(
         (row): row is DbFileContentRow => Boolean(row),
       )
@@ -2104,16 +2110,16 @@ function resolveRankedSeedCandidates(
     return [];
   }
 
-  return loadSymbolRows(db, { query: input.query })
+  return loadSymbolRows(context.db, { query: input.query })
     .map((row) => ({
       row,
-      score: scoreSymbolRow(row, input.query ?? ""),
+      score: scoreSymbolRow(row, input.query ?? "", context.config.rankingWeights),
     }))
     .filter((entry) => entry.score > 0)
     .sort(sortRankedSymbolEntries)
     .slice(0, 5)
     .map((entry) => ({
-      row: loadSymbolSourceRow(db, entry.row.id),
+      row: loadSymbolSourceRow(context.db, entry.row.id),
       reason:
         normalizeQuery(input.query ?? "") === normalizeQuery(entry.row.name)
         || normalizeQuery(input.query ?? "") === normalizeQuery(entry.row.qualified_name ?? "")
@@ -3193,7 +3199,7 @@ function searchSymbolsInContext(
   return rows
     .map((row) => ({
       row,
-      score: scoreSymbolRow(row, normalizedQuery),
+      score: scoreSymbolRow(row, normalizedQuery, context.config.rankingWeights),
     }))
     .filter((entry) => entry.score > 0)
     .sort(
@@ -3471,7 +3477,7 @@ function getContextBundleFromContext(
     repoRoot: context.config.repoRoot,
     ...normalizedSeeds,
   };
-  const seedCandidates = resolveRankedSeedCandidates(context.db, normalizedInput).slice(0, 3);
+  const seedCandidates = resolveRankedSeedCandidates(context, normalizedInput).slice(0, 3);
   return buildContextBundleFromSeeds(context.db, normalizedInput, seedCandidates);
 }
 
@@ -3500,7 +3506,7 @@ function getRankedContextFromContext(context: EngineContext, input: {
     ...input,
     repoRoot: context.config.repoRoot,
   };
-  const seedCandidates = resolveRankedSeedCandidates(context.db, normalizedInput);
+  const seedCandidates = resolveRankedSeedCandidates(context, normalizedInput);
   const bundle = buildContextBundleFromSeeds(context.db, normalizedInput, seedCandidates.slice(0, 3));
   return buildRankedContextResult(normalizedInput, seedCandidates, bundle);
 }

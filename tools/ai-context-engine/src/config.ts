@@ -9,9 +9,11 @@ import type {
   EngineConfig,
   EnginePaths,
   RepoPerformanceConfig,
+  RepoRankingConfig,
   RepoEngineConfig,
   ResolvedRepoEngineConfig,
   EngineToolName,
+  RankingWeights,
   SymbolKind,
   SummaryStrategy,
 } from "./types.ts";
@@ -35,6 +37,20 @@ export const DEFAULT_MAX_SYMBOL_RESULTS = 20;
 export const DEFAULT_MAX_TEXT_RESULTS = 100;
 export const DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES = 1_000_000;
 export const DEFAULT_MAX_LIVE_SEARCH_MATCHES = 100;
+export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
+  exactName: 1000,
+  exactQualifiedName: 900,
+  prefixName: 700,
+  prefixQualifiedName: 650,
+  containsName: 500,
+  containsQualifiedName: 450,
+  signatureContains: 250,
+  summaryContains: 200,
+  filePathContains: 120,
+  exactWord: 180,
+  tokenMatch: 70,
+  exportedBonus: 20,
+};
 
 const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
   "doc-comments-first",
@@ -91,6 +107,21 @@ const repoWatchConfigSchema = z.object({
   debounceMs: z.number().int().positive().optional(),
 });
 
+const repoRankingConfigSchema = z.object({
+  exactName: z.number().finite().nonnegative().optional(),
+  exactQualifiedName: z.number().finite().nonnegative().optional(),
+  prefixName: z.number().finite().nonnegative().optional(),
+  prefixQualifiedName: z.number().finite().nonnegative().optional(),
+  containsName: z.number().finite().nonnegative().optional(),
+  containsQualifiedName: z.number().finite().nonnegative().optional(),
+  signatureContains: z.number().finite().nonnegative().optional(),
+  summaryContains: z.number().finite().nonnegative().optional(),
+  filePathContains: z.number().finite().nonnegative().optional(),
+  exactWord: z.number().finite().nonnegative().optional(),
+  tokenMatch: z.number().finite().nonnegative().optional(),
+  exportedBonus: z.number().finite().nonnegative().optional(),
+});
+
 const repoLimitsConfigSchema = z.object({
   maxFilesDiscovered: z.number().int().positive().optional(),
   maxFileBytes: z.number().int().positive().optional(),
@@ -105,6 +136,7 @@ const repoEngineConfigSchema = z.object({
   storageMode: z.enum(["wal"]).optional(),
   observability: repoObservabilityConfigSchema.optional(),
   performance: repoPerformanceConfigSchema.optional(),
+  ranking: repoRankingConfigSchema.optional(),
   watch: repoWatchConfigSchema.optional(),
   limits: repoLimitsConfigSchema.optional(),
 }) satisfies z.ZodType<RepoEngineConfig>;
@@ -137,6 +169,32 @@ function normalizeWorkerPoolMaxWorkers(
   }
 
   return Math.max(1, Math.min(16, Math.trunc(value)));
+}
+
+function resolveRankingWeights(
+  value: RepoRankingConfig | undefined,
+): RankingWeights {
+  return {
+    exactName: value?.exactName ?? DEFAULT_RANKING_WEIGHTS.exactName,
+    exactQualifiedName:
+      value?.exactQualifiedName ?? DEFAULT_RANKING_WEIGHTS.exactQualifiedName,
+    prefixName: value?.prefixName ?? DEFAULT_RANKING_WEIGHTS.prefixName,
+    prefixQualifiedName:
+      value?.prefixQualifiedName ?? DEFAULT_RANKING_WEIGHTS.prefixQualifiedName,
+    containsName: value?.containsName ?? DEFAULT_RANKING_WEIGHTS.containsName,
+    containsQualifiedName:
+      value?.containsQualifiedName ?? DEFAULT_RANKING_WEIGHTS.containsQualifiedName,
+    signatureContains:
+      value?.signatureContains ?? DEFAULT_RANKING_WEIGHTS.signatureContains,
+    summaryContains:
+      value?.summaryContains ?? DEFAULT_RANKING_WEIGHTS.summaryContains,
+    filePathContains:
+      value?.filePathContains ?? DEFAULT_RANKING_WEIGHTS.filePathContains,
+    exactWord: value?.exactWord ?? DEFAULT_RANKING_WEIGHTS.exactWord,
+    tokenMatch: value?.tokenMatch ?? DEFAULT_RANKING_WEIGHTS.tokenMatch,
+    exportedBonus:
+      value?.exportedBonus ?? DEFAULT_RANKING_WEIGHTS.exportedBonus,
+  };
 }
 
 export function resolveEnginePaths(repoRoot: string): EnginePaths {
@@ -197,6 +255,7 @@ function createDefaultResolvedRepoEngineConfig(
         maxWorkers: defaultWorkerPoolMaxWorkers(),
       },
     },
+    ranking: { ...DEFAULT_RANKING_WEIGHTS },
     watch: {
       backend: "auto",
       debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
@@ -279,6 +338,7 @@ export async function loadRepoEngineConfig(
         ),
       },
     },
+    ranking: resolveRankingWeights(parsed.data.ranking),
     watch: {
       backend: parsed.data.watch?.backend ?? defaults.watch.backend,
       debounceMs: parsed.data.watch?.debounceMs ?? defaults.watch.debounceMs,
@@ -345,6 +405,7 @@ export function createDefaultEngineConfig(input: {
   storageMode?: EngineConfig["storageMode"];
   indexInclude?: string[];
   indexExclude?: string[];
+  rankingWeights?: RankingWeights;
   fileProcessingConcurrency?: number;
   workerPoolEnabled?: boolean;
   workerPoolMaxWorkers?: number;
@@ -378,6 +439,7 @@ export function createDefaultEngineConfig(input: {
     maxChildProcessOutputBytes:
       input.maxChildProcessOutputBytes ?? DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
     maxLiveSearchMatches: input.maxLiveSearchMatches ?? DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+    rankingWeights: input.rankingWeights ?? { ...DEFAULT_RANKING_WEIGHTS },
     paths: resolveEnginePaths(input.repoRoot),
   };
 }

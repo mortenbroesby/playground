@@ -183,6 +183,11 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
   "observability": {
     "redactSourceText": true
   },
+  "ranking": {
+    "exactName": 1000,
+    "filePathContains": 120,
+    "exportedBonus": 20
+  },
   "performance": {
     "include": ["src/**/*.{ts,tsx,js,jsx}"],
     "exclude": ["**/*.test.ts"],
@@ -211,6 +216,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 - `watch.debounceMs` sets the default debounce window for `watchFolder()`
 - `storageMode` currently supports `wal`; the config is explicit so storage behavior
   is durable and inspectable through diagnostics and doctor output
+- `ranking` lets you tune the shared symbol scoring weights used by `searchSymbols()`
+  and ranked-context seed selection
 - `observability.redactSourceText` keeps observability event payloads privacy-safe
   by default while still allowing an explicit local opt-out
 - `performance.include` and `performance.exclude` apply the compiled picomatch

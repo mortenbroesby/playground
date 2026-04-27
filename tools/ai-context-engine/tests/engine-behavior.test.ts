@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.38",
+      engineVersion: "0.0.1-alpha.39",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 38,
+        increment: 39,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1685,6 +1685,63 @@ export function renderBroken(): string {
 
     const result = await doctor({ repoRoot });
     expect(result.storageMode).toBe("wal");
+  });
+
+  it("applies repo-config ranking weights to symbol search and ranked context", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        ranking: {
+          exactName: 0,
+          exactQualifiedName: 0,
+          prefixName: 0,
+          prefixQualifiedName: 0,
+          containsName: 0,
+          containsQualifiedName: 0,
+          signatureContains: 0,
+          summaryContains: 2000,
+          filePathContains: 0,
+          exactWord: 0,
+          tokenMatch: 0,
+          exportedBonus: 0,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "area-helper.ts"),
+      `/** Radius helper for area-related output. */
+export function helperValue(): string {
+  return "helper";
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "radius",
+    });
+    expect(symbolMatches[0]).toMatchObject({
+      name: "helperValue",
+      filePath: "src/area-helper.ts",
+    });
+
+    const rankedContext = await getRankedContext({
+      repoRoot,
+      query: "radius",
+      tokenBudget: 120,
+    });
+    expect(rankedContext.candidates[0]).toMatchObject({
+      reason: "query_match",
+      symbol: {
+        name: "helperValue",
+        filePath: "src/area-helper.ts",
+      },
+    });
   });
 
   it("diagnostics marks unresolved relative imports as stale dependency drift", async () => {
