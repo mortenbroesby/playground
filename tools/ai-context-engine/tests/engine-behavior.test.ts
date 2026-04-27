@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.23",
+      engineVersion: "0.0.1-alpha.24",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 23,
+        increment: 24,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1521,6 +1521,7 @@ export function circumference(radius: number): string {
       const health = await diagnostics({ repoRoot });
       expect(health.watch).toMatchObject({
         status: "watching",
+        backend: expect.stringMatching(/^(parcel|node-fs-watch|polling)$/u),
         debounceMs: 50,
         pollMs: 50,
         lastEvent: "reindex",
@@ -1539,6 +1540,7 @@ export function circumference(radius: number): string {
     const closedHealth = await diagnostics({ repoRoot });
     expect(closedHealth.watch).toMatchObject({
       status: "idle",
+      backend: expect.stringMatching(/^(parcel|node-fs-watch|polling)$/u),
       lastEvent: "close",
     });
     expect(closedHealth.watch.reindexCount).toBeGreaterThanOrEqual(1);

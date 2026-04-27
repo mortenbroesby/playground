@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, watch as fsWatch } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, realpath, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -50,6 +50,7 @@ import { createPathMatcher } from "./path-matcher.ts";
 import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
 import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
+import { subscribeRepo } from "./watch-backend.ts";
 import {
   ASTROGRAPH_PACKAGE_VERSION,
   ASTROGRAPH_VERSION_PARTS,
@@ -93,6 +94,7 @@ import type {
   SummarySource,
   SummaryStrategy,
   SupportedLanguage,
+  WatchBackendKind,
   WatchDiagnostics,
   WatchEvent,
   WatchHandle,
@@ -1024,6 +1026,7 @@ async function writeSidecars(input: {
 function createDefaultWatchDiagnostics(): WatchDiagnostics {
   return {
     status: "idle",
+    backend: null,
     debounceMs: null,
     pollMs: null,
     startedAt: null,
@@ -1044,6 +1047,12 @@ function normalizeWatchDiagnostics(value: unknown): WatchDiagnostics {
   const candidate = value as Partial<WatchDiagnostics>;
   return {
     status: candidate.status === "watching" ? "watching" : "idle",
+    backend:
+      candidate.backend === "parcel" ||
+      candidate.backend === "node-fs-watch" ||
+      candidate.backend === "polling"
+        ? candidate.backend
+        : null,
     debounceMs:
       typeof candidate.debounceMs === "number" ? candidate.debounceMs : null,
     pollMs: typeof candidate.pollMs === "number" ? candidate.pollMs : null,
@@ -2492,7 +2501,8 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let pollInFlight = false;
   let pollInterval: NodeJS.Timeout | null = null;
   let nativeWatchTimer: NodeJS.Timeout | null = null;
-  let nativeWatcher: import("node:fs").FSWatcher | null = null;
+  let nativeSubscription: { backend: WatchBackendKind; close(): Promise<void> } | null = null;
+  let activeBackend: WatchBackendKind | null = null;
   let usingPollingFallback = false;
   let observedState: FilesystemStateEntry[] = [];
   let observedDirectories: DirectoryStateEntry[] = [];
@@ -2500,9 +2510,11 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let reindexCount = 0;
   let lastSummary: IndexSummary | null = null;
   let lastError: string | null = null;
+  let lastEventType: WatchEvent["type"] | null = null;
   const changedPathInputs$ = new Subject<string[]>();
 
   const persistWatchEvent = async (event: WatchEvent) => {
+    lastEventType = event.type;
     if (event.type === "ready") {
       reindexCount = 0;
       lastError = null;
@@ -2523,6 +2535,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       summaryStrategy: input.summaryStrategy,
       watch: {
         status: event.type === "close" ? "idle" : "watching",
+        backend: activeBackend,
         debounceMs,
         pollMs,
         startedAt,
@@ -2782,6 +2795,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       return;
     }
     usingPollingFallback = true;
+    activeBackend = "polling";
     watchLogger.warn({
       event: "watch_polling_fallback",
       pollMs,
@@ -2791,18 +2805,58 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     }, pollMs);
   };
 
-  const startNativeWatcher = () => {
+  const startNativeWatcher = async () => {
     try {
-      nativeWatcher = fsWatch(repoRoot, { recursive: true }, () => {
-        scheduleNativeWatchSweep();
-      });
-      watchLogger.debug({ event: "watch_native_started" });
-      nativeWatcher.on("error", () => {
-        nativeWatcher?.close();
-        nativeWatcher = null;
-        startPollingFallback();
+      nativeSubscription = await subscribeRepo(
+        repoRoot,
+        () => {
+          scheduleNativeWatchSweep();
+        },
+        {
+          onError: () => {
+            void nativeSubscription?.close().catch(() => undefined);
+            nativeSubscription = null;
+            activeBackend = "polling";
+            usingPollingFallback = true;
+            watchLogger.warn({ event: "watch_native_failed" });
+            emitEngineEvent({
+              repoRoot,
+              source: "watch",
+              event: "watch.backend-fallback",
+              level: "warn",
+              data: {
+                backend: "polling",
+              },
+            });
+            void writeWatchDiagnostics({
+              repoRoot,
+              summaryStrategy: input.summaryStrategy,
+              watch: {
+                status: "watching",
+                backend: activeBackend,
+                debounceMs,
+                pollMs,
+                startedAt,
+                lastEvent: lastEventType,
+                lastEventAt: new Date().toISOString(),
+                lastChangedPaths: [],
+                reindexCount,
+                lastError,
+                lastSummary,
+              },
+            }).catch(() => undefined);
+            startPollingFallback();
+          },
+        },
+      );
+      activeBackend = nativeSubscription.backend;
+      watchLogger.debug({
+        event: "watch_native_started",
+        backend: activeBackend,
       });
     } catch {
+      nativeSubscription = null;
+      activeBackend = "polling";
       startPollingFallback();
     }
   };
@@ -2851,11 +2905,11 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     changedPaths: [],
     summary: initialSummary,
   } satisfies WatchEvent;
-  await persistWatchEvent(readyEvent);
-  await emitWatchEvent(input.onEvent, readyEvent);
   observedState = await loadFilesystemStateSnapshot(repoRoot);
   observedDirectories = await scanDirectoryStateSnapshot(repoRoot);
-  startNativeWatcher();
+  await startNativeWatcher();
+  await persistWatchEvent(readyEvent);
+  await emitWatchEvent(input.onEvent, readyEvent);
 
   return {
     async close() {
@@ -2871,8 +2925,8 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         clearInterval(pollInterval);
         pollInterval = null;
       }
-      nativeWatcher?.close();
-      nativeWatcher = null;
+      await nativeSubscription?.close().catch(() => undefined);
+      nativeSubscription = null;
       changedPathInputs$.complete();
       await processingDone;
       flushSubscription.unsubscribe();

@@ -94,6 +94,7 @@ export type {
   SummarySource,
   SummaryStrategy,
   SupportedLanguage,
+  WatchBackendKind,
   WatchEvent,
   WatchDiagnostics,
   WatchHandle,

@@ -2,570 +2,256 @@
 
 Local deterministic context engine for AI-assisted code exploration.
 
-`@astrograph/astrograph` is the standalone npm package name and `astrograph` is
-the primary CLI command.
-`ai-context-engine` remains as a compatibility bin alias during the transition.
+`@astrograph/astrograph` is the npm package name and `astrograph` is the primary CLI command.
+`ai-context-engine` still exists as a compatibility bin alias during the transition.
 
-## Status
+## Table of Contents
 
-This package is currently a personal tool.
+- [About](#about)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Security](#security)
+- [How to Contribute](#how-to-contribute)
+- [What's Next](#whats-next)
+- [Documentation](#documentation)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+- [Author](#author)
 
-- it exists first to support my own workflow in this repo
-- do not expect support, responsiveness, or active maintenance yet
-- I have not proved the external use case enough to treat it like a supported
-  public project
-- if it proves broadly useful, I may open source it properly and move it to a
-  separate repo later
-- it is not planned as a paid product and will not become one
+## About
 
-The code is MIT-licensed, but that is a permission grant, not a support
-commitment.
+Astrograph is the repo-owned code retrieval layer for agent workflows in this workspace.
 
-## What it does
+It exists to answer questions like:
 
-This package is the repo-owned code retrieval layer for agent workflows in this
-workspace.
+- where is this behavior implemented?
+- what symbols look relevant to this query?
+- show me the exact source for these symbols
+- give me a bounded bundle of the most relevant code under a token budget
+- is the local index fresh, and is watch mode healthy?
 
-In practice it helps an agent answer questions like:
+It does that by indexing a repo locally, storing file and symbol metadata in SQLite, and exposing
+retrieval surfaces through a stdio MCP server, JSON CLI, and small TypeScript API.
 
-- "Where is this behavior implemented?"
-- "What symbols look relevant to this query?"
-- "Show me the exact source for these symbols."
-- "Give me a bounded bundle of the most relevant code under a token budget."
-- "Is the local index fresh, and is watch mode healthy?"
-- "What should I do next if the local Astrograph state looks off?"
+The package is currently a personal tool:
 
-It does that by indexing a repo locally, storing symbol and file metadata in
-SQLite, and exposing retrieval surfaces over that index through a stdio MCP
-server, with a CLI and small TypeScript API as secondary debug and development
-surfaces.
+- it exists first to support workflow inside this repo
+- it is MIT-licensed, but that is not a support commitment
+- it is not positioned as a supported public product yet
 
-The runtime artifacts for a given repo live at the repo root in
-`.astrograph/`. That directory is the durable runtime contract for local
-use:
+## Features
+
+- Repo-local indexing under `.astrograph/`
+- Exact symbol and source retrieval as the primary truth layer
+- Ranked, token-budgeted context assembly for agent use
+- `query_code` umbrella surface for discovery, source retrieval, and assembly
+- `diagnostics` and `doctor` flows for freshness, health, and repair guidance
+- Watch-mode refresh with `@parcel/watcher`, `fs.watch`, and polling fallback paths
+- Stdio MCP server backed by the official MCP TypeScript SDK
+- CLI and library entry points for local debugging, benchmarks, and packaging checks
+- Local observability server for recent events and watch health
+
+## Tech Stack
+
+- `TypeScript`
+- `Node 24`
+- `SQLite` via `better-sqlite3`
+- `oxc-parser` as the primary parser
+- temporary `tree-sitter` fallback behind the parser facade
+- `@modelcontextprotocol/sdk` for the MCP server surface
+- `tsup` for build output
+- `Vitest` and package-local benchmark scripts for verification
+- `Bun` for the observability server runtime
+
+## Architecture
+
+Astrograph is built around a local repo index and a narrow retrieval contract.
+
+High-level flow:
+
+1. Index a repo into `.astrograph/` at the repo root.
+2. Persist file, symbol, import, and metadata state in SQLite.
+3. Serve exact retrieval and ranked assembly from that indexed state.
+4. Expose the same core capabilities through CLI, MCP, and library entry points.
+
+Runtime artifacts for a given repo live under `.astrograph/`:
 
 - `index.sqlite` for the current index backend
 - `repo-meta.json` and `integrity.sha256` for repo-local metadata
 - `events.jsonl` for append-only observability events
 - `raw-cache/` for supporting source cache state
 
-By contrast, package build output stays inside this workspace at `dist/`. The
-repo-root directory is for engine runtime state, not npm publishing artifacts.
+Package build output stays in `dist/`. Repo-root `.astrograph/` data is runtime state, not npm
+publish output.
 
-Current capabilities:
+## Project Structure
 
-- repo-local indexing under `.astrograph/`
-- exact symbol and source retrieval as the truth layer
-- ranked, budgeted context assembly for agent use
-- stdio MCP entrypoint backed by the official MCP TypeScript SDK
-- CLI entrypoint for local debugging and benchmarks
-- local benchmark scripts for latency and token-savings measurement
-- a `doctor` command for repo-local health, parser, and observability checks
-- watch-mode refresh with native filesystem watching and polling fallback
-- opt-in localhost observability over Bun's uWebSockets-backed server runtime
+```text
+src/
+  index.ts                Library entry point
+  cli.ts                  JSON CLI entry point
+  mcp.ts                  Stdio MCP server
+scripts/
+  ai-context-engine.mjs   Bin wrapper for built/runtime selection
+  install.mjs             Standalone installer flow
+  observability-server.mjs
+observability/            Local observability frontend and config
+bench/                    Benchmark sources
+tests/                    Package tests
+dist/                     Built JavaScript and type output
+```
 
-The framing is intentionally "context engine", not generic code intelligence.
-The package exists to give agents the minimum high-signal code context they need
-without broad file reads.
+## Getting Started
 
-## Versioning
+### Requirements
 
-Astrograph treats `tools/ai-context-engine/package.json` as its canonical
-version source.
+- Node `24.x`
+- `pnpm`
 
-The package uses npm-compatible alpha prerelease semver:
+### Install In This Monorepo
+
+```bash
+pnpm install
+pnpm --filter @astrograph/astrograph build
+```
+
+### Common Commands
+
+```bash
+pnpm --filter @astrograph/astrograph build
+pnpm --filter @astrograph/astrograph test
+pnpm --filter @astrograph/astrograph type-check
+pnpm --filter @astrograph/astrograph bench:small
+pnpm exec astrograph mcp
+pnpm exec astrograph observability --repo /abs/repo
+```
+
+### Basic CLI Examples
+
+```bash
+pnpm exec astrograph cli index-folder --repo /abs/repo
+pnpm exec astrograph cli query-code --repo /abs/repo --query Greeter --include-text
+pnpm exec astrograph cli query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify
+pnpm exec astrograph cli diagnostics --repo /abs/repo
+pnpm exec astrograph cli doctor --repo /abs/repo
+```
+
+### Verification Baseline
+
+```bash
+pnpm --filter @astrograph/astrograph type-check
+pnpm --filter @astrograph/astrograph test
+pnpm --filter @astrograph/astrograph test:package-bin
+```
+
+## Configuration
+
+### Interfaces
+
+You can use Astrograph through:
+
+- the stdio MCP server in `src/mcp.ts`
+- the JSON CLI in `src/cli.ts`
+- the library exports in `src/index.ts`
+- the Bun-backed observability server in `scripts/observability-server.mjs`
+
+### Runtime Notes
+
+- Built JavaScript in `dist/` is the default runtime path.
+- The `astrograph` wrapper prefers `dist/*` when those files exist.
+- Source-mode execution is an explicit dev opt-in:
+
+```bash
+ASTROGRAPH_USE_SOURCE=1 pnpm exec astrograph ...
+```
+
+### Standalone Codex Install
+
+Astrograph supports a standalone Codex bootstrap flow:
+
+```bash
+npx @astrograph/astrograph install --ide codex
+```
+
+That installer resolves the repo root, writes a managed Astrograph MCP block into
+`.codex/config.toml`, and preserves unrelated Codex config content.
+
+### Versioning
+
+Astrograph treats `package.json` as its canonical version source and uses npm-compatible prerelease
+semver:
 
 - `major.minor.patch-alpha.increment`
 
-That yields the four numeric values Astrograph uses internally:
+Those values map to:
 
 - `major` for breaking MCP, storage, or library contract changes
 - `minor` for backward-compatible feature additions
 - `patch` for backward-compatible fixes and internal changes
-- `increment` for every Astrograph commit, even when the base semver line does
-  not change
+- `increment` for each Astrograph commit on the same base semver line
 
-Repo commits that stage changes under `tools/ai-context-engine/` are blocked by
-the pre-commit hook unless this version advances under that policy. Base semver
-bumps reset `increment` to `0`.
+## Security
 
-## How an agent uses it
+- Treat `.astrograph/` as local runtime state, not a place for secrets.
+- Do not store credentials in observability output or test fixtures.
+- Keep repo-root runtime artifacts separate from package build output in `dist/`.
+- Prefer local-only observability when debugging repo indexing and watch behavior.
 
-The typical flow is:
+## How to Contribute
 
-1. index the repo with `index-folder`
-2. start with `query-code` in auto mode for the normal agent path
-3. fall back to `get-repo-outline`, `get-file-tree`, `get-file-outline`,
-   `search-symbols`, or `search-text` when you need the lower-level surfaces
-4. pull exact code with `query-code --intent source`, or let auto mode infer
-   source retrieval from explicit file or symbol targets, then fall back to
-   `get-symbol-source` or
-   `get-file-content`
-5. assemble bounded context with `query-code --intent assemble`, or let auto
-   mode infer assembly from a token budget or ranked-candidate request, then
-   fall back to
-   `get-context-bundle`, or `get-ranked-context`
-6. check freshness or watch status with `diagnostics`
-7. run `doctor` when you want concise warnings and suggested local actions
+- Keep the MCP surface narrow and source-anchored.
+- Optimize for exact retrieval first; ranking and assembly should build on top of exact source.
+- Preserve the repo-local runtime contract under `.astrograph/`.
+- When changing package behavior or workflow, update this README and related repo docs in the same
+  change.
+- If staged changes under `tools/ai-context-engine/` require a version bump, follow the package's
+  version policy.
 
-This keeps retrieval discovery-first and source-anchored instead of jumping
-straight to broad file reads.
+Useful local commands:
 
-## Implementation highlights
-
-Current implementation includes:
-
-- package scaffold and storage/config contract
-- Oxc as the primary parser for TypeScript and JavaScript source, including
-  `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, and `.jsx`
-- `fdir`-backed source discovery behind the internal filesystem-scan adapter,
-  replacing the older handwritten recursive candidate walk
-- temporary Tree-sitter fallback contained behind the parser facade
-- parser coverage for export specifiers, anonymous default exports, re-exported
-  names, class constructors/accessors/fields, object-literal callable members,
-  and TypeScript namespaces on the primary Oxc path
-- SQLite as the current index backend behind an internal storage boundary
-- explicit SQLite schema migrations recorded in the internal `meta` table
-- WAL-mode file, symbol, import, and content-blob storage for the current
-  backend
-- JSON CLI entrypoint in `src/cli.ts`
-- stdio MCP server in `src/mcp.ts`
-- `index_folder` and `index_file`
-- `get_repo_outline`, `get_file_tree`, and `get_file_outline`
-- `search_symbols` and `search_text`
-- `get_context_bundle` for bounded, query-driven context assembly
-- `get_ranked_context` for inspectable query ranking plus bounded selection
-- `get_file_content`, batched `get_symbol_source`, `diagnostics`, and `doctor`
-- direct ranked candidate retrieval and bounded context benchmarking in
-  `bench:small`
-- fixture-backed tests proving indexing and exact retrieval
-- diagnostics defaults to cheap metadata reads, with optional live drift
-  scanning when callers explicitly request freshness checks
-- diagnostics includes indexed timestamps, snapshot hashes, and live drift
-  counts so stale metadata can be distinguished from a fresh index
-- diagnostics now also reports a separate `schemaVersion` alongside the
-  repo-root storage version so agents can tell storage resets apart from
-  in-place database migrations
-- `doctor` now also reports unresolved relative-import health so affected
-  importer files are visible when dependency edges can no longer be resolved
-- `diagnostics` now treats unresolved relative imports as a first-class stale
-  signal, not just a doctor warning, so agents can react to broken dependency
-  edges through the core health surface
-- diagnostics now also reports parser-health coverage, fallback rates, and
-  grouped fallback reasons from indexed files
-- diagnostics also persists the latest watch-session state so agents can inspect
-  recent watch health without being attached to the live CLI event stream
-- watch mode now prefers a native filesystem watcher and falls back to the
-  internal polling detector when native watching is unavailable or errors
-- direct `index-folder` and `index-file` requests now offload the heavy index
-  pass into a child process so explicit reindex work does not monopolize the
-  main MCP server process
-- indexed files now also persist `size_bytes`, `mtime_ms`,
-  `symbol_signature_hash`, and `import_hash`, which lets refresh paths skip
-  obvious no-op files before rereading source and backfills stronger
-  incremental-index metadata for later phases
-- routine change-detection fingerprints now route through the shared hash
-  utility and use `xxh64`, while integrity-oriented SHA-256 paths remain in
-  place until the rest of the migration is complete
-- direct `index-file` refreshes now also cleanly remove stale index rows when
-  the target path was deleted, renamed away, ignored, or no longer supported,
-  which keeps commit-hook and one-file repair flows aligned with watch mode
-- importer/dependency traversal now reads from a persisted `file_dependencies`
-  table rebuilt during finalize steps, so single-file refreshes invalidate
-  stale importer edges when import targets change instead of relying only on
-  ad hoc path resolution at query time
-- symbol search now supports `language` and `filePattern` filters, and text
-  search supports `filePattern`
-- repo inputs anchored to any Git subdirectory resolve to the enclosing worktree
-  root for storage and indexing
-
-## Retrieval surfaces
-
-The main retrieval surfaces are:
-
-- `query_code`
-  preferred umbrella surface for discovery, exact retrieval, and bounded
-  assembly with one intent-driven contract across the MCP boundary. When the
-  intent is omitted, auto mode resolves to discover, source, or assemble from
-  the provided arguments. Discover and assemble modes can now also expand
-  bounded graph relations with `includeDependencies`, `includeImporters`, and
-  `relationDepth`, and each returned match carries explanation reasons such as
-  `exact_symbol_match`, `query_match`, `imports_matched_file`,
-  `imported_by_match`, or `text_match`.
-- `diagnostics`
-  metadata-first health and freshness reporting, with optional full drift scan
-- `doctor`
-  operator-friendly repo health output with warnings and suggested actions
-
-The package is optimized around exact retrieval first. Ranking and assembly sit
-on top of exact indexed source; they do not replace it.
-
-For agent ergonomics, the MCP surface is intentionally narrow: use
-`query_code`, structural inspection tools, and `diagnostics`. The older
-granular retrieval commands remain available through the library and CLI for
-debugging, benchmarks, and engine development.
-
-## Repo workflow role
-
-In this repo, `ai-context-engine` is the default code retrieval layer for agent
-work. The intended split is:
-
-- use `ai-context-engine` for code search, exact source retrieval, bounded
-  context assembly, and freshness checks
-- use `obsidian-memory` for architecture, decisions, and historical repo memory
-- use `jcodemunch` when you need importer, reference, or blast-radius style
-  navigation that the local engine does not cover yet
-
-That dogfood split is deliberate. The engine should prove itself on normal code
-tasks without replacing the repo's durable memory layer.
-
-## Package interfaces
-
-You can use the engine through:
-
-- the stdio MCP server in `src/mcp.ts`, which is the primary agent interface
-  and exposes indexing tools, structural outline tools, `query_code`, and
-  `diagnostics`
-- the Bun-backed observability server in `scripts/observability-server.mjs`,
-  which exposes `/health`, `/recent`, and `/events` for local live debugging
-- the library exports in `src/index.ts`
-- the JSON CLI in `src/cli.ts` for local debugging, packaging smoke tests, and
-  benchmarks
-
-The shortest local entrypoint is usually `pnpm exec astrograph ...`.
-
-For packaging, the published bin is `astrograph`. The workspace wrapper falls
-back to `src/*.ts` during local development, but `prepack` now builds `dist/`
-so installed consumers execute plain built JavaScript instead of repo-local
-TypeScript sources. The legacy `ai-context-engine` bin still exists as a
-compatibility alias.
-
-## Commands
-
-- `pnpm exec astrograph cli index-folder --repo /abs/repo`
-- `pnpm exec astrograph cli get-repo-outline --repo /abs/repo`
-- `pnpm exec astrograph cli search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
-- `pnpm exec astrograph cli get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
-- `pnpm exec astrograph cli query-code --repo /abs/repo --query Greeter --include-text`
-- `pnpm exec astrograph cli query-code --repo /abs/repo --query area --include-dependencies --relation-depth 1`
-- `pnpm exec astrograph cli query-code --repo /abs/repo --query formatLabel --include-importers --relation-depth 1`
-- `pnpm exec astrograph cli query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
-- `pnpm exec astrograph cli query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
-- `pnpm exec astrograph cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
-- `pnpm exec astrograph cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
-- `pnpm exec astrograph cli diagnostics --repo /abs/repo`
-- `pnpm exec astrograph cli diagnostics --repo /abs/repo --scan-freshness`
-- `pnpm exec astrograph cli doctor --repo /abs/repo`
-- `pnpm exec astrograph cli doctor --repo /abs/repo --json`
-- `pnpm exec astrograph mcp`
-- `pnpm exec astrograph observability --repo /abs/repo`
-- `pnpm astrograph:observability`
-- `pnpm astrograph:open`
-- `pnpm --filter @astrograph/astrograph bench:small`
-- `pnpm --filter @astrograph/astrograph bench:cli`
+- `pnpm --filter @astrograph/astrograph test`
+- `pnpm --filter @astrograph/astrograph type-check`
 - `pnpm --filter @astrograph/astrograph bench:perf -- --repo /abs/repo --runs 10`
-- `pnpm --filter @astrograph/astrograph bench:perf:index -- --repo /abs/repo`
-- `pnpm --filter @astrograph/astrograph bench:perf:query -- --repo /abs/repo --runs 10`
-- `pnpm --filter @astrograph/astrograph build`
-- `pnpm --filter @astrograph/astrograph test:package-bin`
-- `pnpm --filter @astrograph/astrograph cli -- index-folder --repo /abs/repo`
-- `pnpm --filter @astrograph/astrograph cli -- get-repo-outline --repo /abs/repo`
-- `pnpm --filter @astrograph/astrograph cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
-- `pnpm --filter @astrograph/astrograph cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
-- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query Greeter --include-text`
-- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query area --include-dependencies --relation-depth 1`
-- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query formatLabel --include-importers --relation-depth 1`
-- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
-- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
-- `pnpm --filter @astrograph/astrograph cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
-- `pnpm --filter @astrograph/astrograph cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
-- `pnpm --filter @astrograph/astrograph cli -- diagnostics --repo /abs/repo`
-- `pnpm --filter @astrograph/astrograph cli -- diagnostics --repo /abs/repo --scan-freshness`
-- `pnpm --filter @astrograph/astrograph cli -- doctor --repo /abs/repo`
-- `pnpm --filter @astrograph/astrograph cli -- doctor --repo /abs/repo --json`
 - `pnpm --filter @astrograph/astrograph mcp`
 
-The CLI prints JSON for each command. The MCP server runs over stdio using the
-official MCP TypeScript SDK and a narrow repo-owned tool surface.
+## What's Next?
 
-## Standalone install
+Current priorities are clear:
 
-Astrograph now supports a standalone Codex bootstrap flow:
+- keep proving the repo-owned retrieval path on normal agent tasks
+- strengthen freshness, observability, and repair flows
+- keep the source of truth local, deterministic, and cheap to inspect
+- continue narrowing the gap between discovery, exact retrieval, and bounded assembly
 
-- `npx @astrograph/astrograph install --ide codex`
+## Documentation
 
-That installer:
+The main entry points are:
 
-- resolves the repo root
-- writes a managed Astrograph MCP block into `.codex/config.toml`
-- preserves unrelated Codex config content
+- this README for package overview and usage
+- the root [README](../../README.md) for repo context
+- the root [AGENTS.md](../../AGENTS.md) for agent workflow expectations
 
-The generated Codex config uses:
+Core commands and surfaces worth knowing:
 
-- `command = "npx"`
-- `args = ["@astrograph/astrograph", "mcp"]`
+- `query_code` for discovery, source retrieval, and bounded assembly
+- `diagnostics` for metadata-first health and freshness reporting
+- `doctor` for operator-facing warnings and suggested repair actions
 
-That keeps the install path portable outside this monorepo.
+## License
 
-## Built runtime
+MIT. See [LICENSE](./LICENSE).
 
-Astrograph now treats built JavaScript in `dist/` as the default runtime path.
+## Acknowledgements
 
-- `tsup` builds the main library, CLI, and MCP entrypoints into `dist/`
-- the `astrograph` wrapper prefers `dist/*` whenever those files exist
-- source-mode execution is now an explicit dev opt-in:
-  - `ASTROGRAPH_USE_SOURCE=1 pnpm exec astrograph ...`
-  - `pnpm --filter @astrograph/astrograph dev:cli -- ...`
-  - `pnpm --filter @astrograph/astrograph dev:mcp`
+- `Oxc` for the primary parser path
+- `SQLite` and `better-sqlite3` for the local index backend
+- the official `Model Context Protocol` TypeScript SDK for the MCP surface
+- `Bun` for the local observability server runtime
 
-That means normal users no longer need Node's `--experimental-strip-types`
-path just to run the package. We keep source-mode only for local development.
+## Author
 
-## Live observability
-
-The package now includes an opt-in local observability surface intended for
-developer debugging rather than agent retrieval.
-
-- start it with `pnpm exec astrograph observability --repo /abs/repo`
-- in this repo, `pnpm astrograph:open` first tries to reuse an already-running
-  repo-local observability server and otherwise starts one in the background
-  before opening the browser
-- in this repo's shared agent hooks, `observability.enabled: true` in
-  `astrograph.config.json` now auto-bootstraps the observability server on
-  session start
-- add `--dev` in workspace development to force the Vite dev client and React
-  Fast Refresh path explicitly
-- it binds to `127.0.0.1` by default and uses Bun's uWebSockets-backed server
-  runtime through `Bun.serve`
-- if the requested port is unavailable, startup scans `34323-35322` and uses
-  the first open port in that range
-- in workspace mode, if the built viewer assets are missing, the Bun server
-  automatically starts a Vite dev server and serves a React client shell with
-  hot reload instead of failing startup
-- it exposes:
-  - `/` for the React observability viewer
-  - `/health` for a live `diagnostics` snapshot
-  - `/recent` for the current in-memory tail of recent JSONL events
-  - `/events` for a read-only websocket stream
-- event producers append to `.astrograph/events.jsonl`
-- the Bun server does not open SQLite directly; health snapshots are delegated
-  to the normal Node CLI path so the transport runtime stays separate from the
-  storage runtime
-- the viewer now prefers MessagePack over both HTTP and websocket paths, while
-  JSON remains available as a compatibility fallback
-- the React viewer imports `@playground/ui/theme.css`, so Astrograph now uses
-  the repo's shared terminal design tokens instead of a bespoke observability
-  theme
-
-This surface is intentionally local, metadata-first, and read-only. It exists
-to help inspect MCP requests, watch behavior, child index worker activity, and
-health drift without changing the MCP protocol contract.
-
-The current main view is intentionally narrow:
-
-- one readable stream of MCP tool calls instead of a multi-column dashboard
-- plain-English summaries of what each tool call did
-- estimated token savings only when Astrograph has a defensible baseline
-- raw health JSON moved behind `/health/view`
-
-The token numbers are estimates, not billing-accurate accounting. They are
-meant to show when Astrograph likely avoided sending larger raw-code payloads
-back to the model.
-
-## Smart refresh
-
-Astrograph now uses a hybrid refresh model:
-
-- live watch mode still handles active local edits
-- git checkpoints now trigger a background smart refresh:
-  - `post-commit`
-  - `post-checkout`
-  - `post-merge`
-  - `pre-push`
-- small supported-source change sets refresh through `index-file`
-- deletes, renames, and structural changes fall back to `index-folder`
-
-You can also trigger a manual full refresh for the current repo with:
-
-- `pnpm astrograph:refresh`
-
-This is the first slice only. It is git-diff-driven, not yet Merkle- or
-dependency-graph-driven.
-
-## Repo config
-
-The package also supports an optional repo-root config file:
-
-- `astrograph.config.json`
-
-Initial supported shape:
-
-```json
-{
-  "summaryStrategy": "doc-comments-first",
-  "observability": {
-    "enabled": false,
-    "host": "127.0.0.1",
-    "port": 34323,
-    "recentLimit": 100,
-    "snapshotIntervalMs": 1000
-  },
-  "performance": {
-    "fileProcessingConcurrency": "auto"
-  }
-}
-```
-
-Current behavior:
-
-- missing config behaves like the current defaults
-- invalid config fails clearly
-- summary strategy defaults are picked up by engine operations when no explicit
-  override is passed
-- `performance.fileProcessingConcurrency` bounds concurrent file analysis while
-  keeping SQLite persistence single-writer and ordered
-- `"auto"` resolves to a small CPU-aware default, and numeric values are
-  clamped into the supported range
-- observability server defaults are picked up from this file, but explicit CLI
-  flags still win
-- in this repo, `observability.enabled: true` also enables session-start
-  autostart for the local observability daemon
-- Bun is only required when the observability command is actually invoked
-
-## Structured diagnostics
-
-Opt-in structured diagnostics now use `pino` and stay disabled by default.
-
-- set `AI_CONTEXT_ENGINE_LOG_LEVEL=debug` or `trace` to emit JSON logs to
-  `stderr`
-- default behavior stays `silent`, which keeps MCP stdout clean and preserves
-  JSON CLI output contracts
-- the current instrumentation is intentionally narrow: MCP tool dispatch,
-  watch lifecycle, and child index worker execution
-
-## Packaging
-
-The package now has an explicit build step for npm-style use:
-
-- `build` emits `dist/index.js`, `dist/cli.js`, `dist/mcp.js`, and declarations
-- `prepack` runs `build` automatically before `pnpm pack` or publish
-- `test:package-bin` packs the workspace package into a tarball, installs it
-  into a temporary project, and verifies the installed `ai-context-engine` bin
-  can index a fixture repo
-
-That means the CLI can be exercised both as a workspace command and as an
-installed package command, which is the minimum contract we need before making
-this publishable.
-
-## Storage direction
-
-SQLite is the current backend, not the promised forever architecture. The
-public library, CLI, and MCP surfaces are meant to stay stable while the
-internal index backend evolves.
-
-The next storage changes should preserve:
-
-- repo-root `.astrograph/` artifacts as the runtime contract
-- exact retrieval semantics and source-anchored outputs
-- backend-specific details staying behind the engine's internal storage layer
-
-## Benchmarks
-
-Three benchmark layers exist today:
-
-- `pnpm --filter @astrograph/astrograph bench:corpus`
-  checked-in retrieval benchmark corpus for the Phase 1 harness
-- `pnpm --filter @astrograph/astrograph bench:small`
-  in-process engine benchmark with parser microbench, retrieval latency, token
-  savings, parser backend, and fallback metadata
-- `pnpm --filter @astrograph/astrograph bench:cli`
-  command-level benchmark wrapper intended to run through `hyperfine`
-- `pnpm --filter @astrograph/astrograph bench:perf`
-  baseline performance measurement for indexing and query latency
-- `pnpm --filter @astrograph/astrograph bench:perf:index`
-  focused index-path timing for discovery, hashing, parsing, and approximate
-  SQLite write cost
-- `pnpm --filter @astrograph/astrograph bench:perf:query`
-  focused `query_code` latency timing for discover and assemble flows
-
-`bench:corpus` is the default retrieval-quality benchmark. It runs the
-checked-in corpus at
-`.specs/benchmarks/ai-context-engine-benchmark-corpus.json` and writes:
-
-- `.benchmarks/ai-context-engine/latest/results.json`
-- `.benchmarks/ai-context-engine/latest/report.md`
-- `.benchmarks/ai-context-engine/latest/corpus.lock.json`
-
-The Phase 1 report now tracks:
-
-- per-task and per-workflow recall-like target hit rates
-- first relevant rank, reciprocal rank, and precision at 3
-- exact plus estimated token use
-- tool-call counts and latency
-
-Use that command when you want one reproducible local benchmark run against the
-golden corpus.
-
-`bench:small` is still the main product microbenchmark. It exists to measure
-retrieval value, not just raw parse speed.
-
-`bench:cli` uses `hyperfine` and expects that binary to already be installed on
-the machine. If it is missing, the script fails with an install hint instead of
-silently skipping CLI benchmarks.
-
-`bench:perf` is the current baseline regression script for
-`.specs/performance-deps.md`. It runs against a temporary clean copy of the
-target repo, prints a short human-readable summary to `stderr`, and emits JSON
-to `stdout`. The first slice covers:
-
-- cold index time
-- warm noop refresh time
-- warm small changed-file refresh time
-- `query_code` discover and assemble latency percentiles
-- file discovery time
-- file hashing time
-- parser and symbol extraction time
-- approximate SQLite write time
-
-Watch event-to-refresh latency is intentionally not part of this first baseline
-because it is sensitive to host watcher behavior and needs a more controlled
-fixture before the numbers are comparable.
-
-The first discovery optimization slice is now also landed: the runtime and perf
-benchmarks both use the same `fdir`-backed source discovery adapter, so later
-perf changes are measured against the real engine path rather than a benchmark-
-only scanner.
-
-## Mutation testing
-
-Early Stryker adoption is wired in two lanes:
-
-- `pnpm --filter @playground/ai-context-engine test:mutation`
-  is an informational opt-in gate. It does not run Stryker directly.
-- `pnpm --filter @playground/ai-context-engine test:mutation:full`
-  is the same gate for the broader profile.
-- `pnpm --filter @playground/ai-context-engine mutation:smoke`
-  runs the carved-down smoke profile against dedicated boundary tests only.
-- `pnpm --filter @playground/ai-context-engine mutation:full`
-  runs the broader boundary profile when you intentionally want a deeper
-  survivor hunt.
-
-Mutation testing is intentionally optional until the runtime story is better.
-The smoke profile is intentionally narrow so it can stay under about a minute in
-normal local use. The full profile is slower and is not intended for the tight
-inner loop. Plain `vitest` remains the normal fast feedback loop.
-
-## Current limits
-
-This package is not yet a full code intelligence platform.
-
-Current limits to keep in mind:
-
-- retrieval is still strongest on exact symbol and lexical paths
-- relationship traversal is narrower than it should be
-- ranking is useful but still relatively shallow
-- incremental indexing remains watch-, file-, and folder-oriented rather than
-  fully fine-grained
-- the engine intentionally does not expose progress streaming or RxJS-style
-  orchestration yet; add that only for a concrete UX gap that the current
-  MCP plus watch model cannot cover
+Built and maintained by [Morten Broesby](https://github.com/mortenbroesby).

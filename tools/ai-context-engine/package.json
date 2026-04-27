@@ -1,6 +1,6 @@
 {
   "name": "@astrograph/astrograph",
-  "version": "0.0.1-alpha.23",
+  "version": "0.0.1-alpha.24",
   "type": "module",
   "license": "MIT",
   "description": "Local deterministic context engine for AI-assisted code exploration",
@@ -73,6 +73,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@msgpack/msgpack": "^3.1.2",
     "@node-rs/xxhash": "^1.7.6",
+    "@parcel/watcher": "^2.5.6",
     "better-sqlite3": "^12.9.0",
     "fdir": "^6.5.0",
     "oxc-parser": "^0.127.0",

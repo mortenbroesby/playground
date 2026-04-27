@@ -99,8 +99,11 @@ export interface WatchHandle {
   close(): Promise<void>;
 }
 
+export type WatchBackendKind = "parcel" | "node-fs-watch" | "polling";
+
 export interface WatchDiagnostics {
   status: "idle" | "watching";
+  backend: WatchBackendKind | null;
   debounceMs: number | null;
   pollMs: number | null;
   startedAt: string | null;
