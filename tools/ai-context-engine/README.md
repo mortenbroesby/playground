@@ -256,6 +256,20 @@ The generated Codex config uses:
 
 That keeps the install path portable outside this monorepo.
 
+## Built runtime
+
+Astrograph now treats built JavaScript in `dist/` as the default runtime path.
+
+- `tsup` builds the main library, CLI, and MCP entrypoints into `dist/`
+- the `astrograph` wrapper prefers `dist/*` whenever those files exist
+- source-mode execution is now an explicit dev opt-in:
+  - `ASTROGRAPH_USE_SOURCE=1 pnpm exec astrograph ...`
+  - `pnpm --filter astrograph dev:cli -- ...`
+  - `pnpm --filter astrograph dev:mcp`
+
+That means normal users no longer need Node's `--experimental-strip-types`
+path just to run the package. We keep source-mode only for local development.
+
 ## Live observability
 
 The package now includes an opt-in local observability surface intended for

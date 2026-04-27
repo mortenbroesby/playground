@@ -78,18 +78,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.6");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.7");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 6,
+      increment: 7,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 6,
+      increment: 7,
     });
   });
 

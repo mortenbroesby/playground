@@ -363,3 +363,18 @@ a mandatory runtime concern for every MCP or CLI call.
   - `pnpm exec astrograph install --ide codex --repo ...`
 - Bumped Astrograph from `0.0.1-alpha.5` to `0.0.1-alpha.6` for the standalone
   packaging and installer slice.
+
+## Astrograph built-runtime default (2026-04-27)
+
+- Switched the main Astrograph runtime contract to prefer built JavaScript in
+  `dist/` instead of defaulting to source-mode TypeScript execution whenever
+  the workspace `src/` tree is present.
+- The package scripts `cli` and `mcp` now run `dist/cli.js` and `dist/mcp.js`
+  directly, while source-mode remains available only as an explicit dev path.
+- The runtime wrapper now requires an opt-in
+  `ASTROGRAPH_USE_SOURCE=1` to prefer source files over built artifacts.
+- The child index worker path in `storage.ts` now also prefers built CLI output
+  when `dist/cli.js` exists, which removes another hidden dependency on Node's
+  `--experimental-strip-types` for normal users.
+- Bumped Astrograph from `0.0.1-alpha.6` to `0.0.1-alpha.7` for the runtime
+  contract change.

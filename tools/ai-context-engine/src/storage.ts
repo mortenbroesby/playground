@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { watch as fsWatch } from "node:fs";
+import { existsSync, watch as fsWatch } from "node:fs";
 import { mkdir, readFile, realpath, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -150,9 +150,11 @@ const STORAGE_VERSION_FILENAME = "storage-version.json";
 
 const storageModulePath = fileURLToPath(import.meta.url);
 const storageModuleDir = path.dirname(storageModulePath);
-const cliEntrypoint = storageModulePath.endsWith(".ts")
-  ? path.join(storageModuleDir, "cli.ts")
-  : path.join(storageModuleDir, "cli.js");
+const builtCliEntrypoint = path.join(storageModuleDir, "cli.js");
+const sourceCliEntrypoint = path.join(storageModuleDir, "cli.ts");
+const cliEntrypoint = existsSync(builtCliEntrypoint)
+  ? builtCliEntrypoint
+  : sourceCliEntrypoint;
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -377,7 +379,7 @@ async function runIndexCommandInChild(
 ): Promise<IndexSummary> {
   const startedAt = Date.now();
   const correlationId = randomUUID();
-  const args = storageModulePath.endsWith(".ts")
+  const args = cliEntrypoint.endsWith(".ts")
     ? [
         "--no-warnings",
         "--experimental-strip-types",

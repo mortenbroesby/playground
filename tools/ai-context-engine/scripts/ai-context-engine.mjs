@@ -49,9 +49,10 @@ if (!sourceTarget || !distTarget) {
   process.exit(1);
 }
 
-// In the workspace, prefer source so local MCP/CLI runs reflect current edits.
-// Installed packages do not ship src/, so they naturally fall back to dist/.
-const useBuiltTarget = !existsSync(sourceTarget) && existsSync(distTarget);
+const preferSource =
+  process.env.ASTROGRAPH_USE_SOURCE === "1"
+  || process.env.ASTROGRAPH_USE_SOURCE === "true";
+const useBuiltTarget = existsSync(distTarget) && (!preferSource || !existsSync(sourceTarget));
 const nodeArgs = mode === "mcp" ? ["--no-warnings"] : [];
 const executable = mode === "observability" ? "bun" : process.execPath;
 const child = spawn(
