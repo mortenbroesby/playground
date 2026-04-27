@@ -480,3 +480,30 @@ a mandatory runtime concern for every MCP or CLI call.
   per indexed repository.
 - Bumped Astrograph from `0.0.1-alpha.11` to `0.0.1-alpha.12` for the Phase 3
   parser coverage and diagnostics slice.
+
+## Astrograph graph-aware retrieval Phase 4 (2026-04-27)
+
+- Extended `query_code` so discover and assemble flows can now opt into
+  bounded graph expansion with:
+  - `includeDependencies`
+  - `includeImporters`
+  - `relationDepth`
+- Graph-aware results now carry explicit explanation reasons instead of opaque
+  ranking text:
+  - `exact_symbol_match`
+  - `query_match`
+  - `text_match`
+  - `imports_matched_file`
+  - `imported_by_match`
+  - `reexport_match`
+- Discover mode now returns structured match metadata instead of only flat
+  symbol/text arrays, while still preserving the older `symbolMatches` and
+  `textMatches` surfaces for compatibility.
+- Preserved backward compatibility for the older `get_context_bundle` and
+  `get_ranked_context` APIs by keeping dependency expansion on by default there,
+  even though graph traversal is opt-in on the newer `query_code` discover
+  surface.
+- Added focused behavior coverage for dependency/importer reasons, bounded
+  graph expansion in assembled bundles, and the aliased-import dependency path.
+- Bumped Astrograph from `0.0.1-alpha.12` to `0.0.1-alpha.13` for the Phase 4
+  graph-aware retrieval slice.

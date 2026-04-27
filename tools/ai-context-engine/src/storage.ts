@@ -71,6 +71,9 @@ import type {
   QueryCodeAssembleResult,
   QueryCodeDiscoverResult,
   QueryCodeIntent,
+  QueryCodeMatchReason,
+  QueryCodeSymbolMatch,
+  QueryCodeTextMatch,
   QueryCodeOptions,
   QueryCodeResult,
   QueryCodeSourceResult,
@@ -1338,7 +1341,7 @@ function resolveImportedFilePaths(
 function pickDependencyRows(
   db: IndexBackendConnection,
   seedRow: DbSymbolRow,
-): Array<{ row: DbSymbolRow; reason: string }> {
+): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
   const fileRow = typedGet<{ id: number }>(
     db.prepare("SELECT id FROM files WHERE path = ?"),
     seedRow.file_path,
@@ -1362,7 +1365,7 @@ function pickDependencyRows(
     fileRow.id,
   );
 
-  const matches: Array<{ row: DbSymbolRow; reason: string }> = [];
+  const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
   const seen = new Set<string>();
 
   for (const importRow of imports) {
@@ -1427,10 +1430,71 @@ function pickDependencyRows(
         seen.add(row.id);
         matches.push({
           row,
-          reason: `import ${importRow.source}`,
+          reason: importRow.source.startsWith(".")
+            ? "imports_matched_file"
+            : "reexport_match",
         });
       }
     }
+  }
+
+  return matches;
+}
+
+function pickImporterRows(
+  db: IndexBackendConnection,
+  seedRow: DbSymbolRow,
+): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
+  const importers = typedAll<{
+    importer_path: string;
+    source: string;
+  }>(
+    db.prepare(
+      `
+        SELECT importer.path AS importer_path, imports.source AS source
+        FROM imports
+        INNER JOIN files AS importer ON importer.id = imports.file_id
+        ORDER BY importer.path ASC, imports.source ASC
+      `,
+    ),
+  );
+
+  const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
+  const seen = new Set<string>();
+
+  for (const importer of importers) {
+    const targets = resolveImportedFilePaths(
+      db,
+      importer.importer_path,
+      importer.source,
+    );
+    if (!targets.includes(seedRow.file_path)) {
+      continue;
+    }
+
+    const row = typedGet<DbSymbolRow>(
+      db.prepare(
+        `
+          SELECT
+            id, name, qualified_name, kind, file_path, signature, summary,
+            summary_source,
+            start_line, end_line, start_byte, end_byte, exported
+          FROM symbols
+          WHERE file_path = ?
+          ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
+          LIMIT 1
+        `,
+      ),
+      importer.importer_path,
+    );
+    if (!row || seen.has(row.id)) {
+      continue;
+    }
+    seen.add(row.id);
+    matches.push({
+      row,
+      reason: "imported_by_match",
+    });
   }
 
   return matches;
@@ -1471,7 +1535,7 @@ function buildSymbolSourceItem(
 
 interface RankedSeedCandidate {
   row: DbSymbolRow & { content_hash: string; content: string };
-  reason: string;
+  reason: QueryCodeMatchReason;
   score: number;
 }
 
@@ -1501,7 +1565,7 @@ function resolveRankedSeedCandidates(
       )
       .map((row, index) => ({
         row,
-        reason: "explicit symbol id",
+        reason: "explicit_symbol_id",
         score: Math.max(1, input.symbolIds!.length - index),
       }));
   }
@@ -1520,7 +1584,11 @@ function resolveRankedSeedCandidates(
     .slice(0, 5)
     .map((entry) => ({
       row: loadSymbolSourceRow(db, entry.row.id),
-      reason: `matched query "${input.query}"`,
+      reason:
+        normalizeQuery(input.query ?? "") === normalizeQuery(entry.row.name)
+        || normalizeQuery(input.query ?? "") === normalizeQuery(entry.row.qualified_name ?? "")
+          ? "exact_symbol_match"
+          : "query_match",
       score: entry.score,
     }))
     .filter(
@@ -1532,7 +1600,7 @@ function resolveRankedSeedCandidates(
 
 function buildContextBundleFromSeeds(
   db: IndexBackendConnection,
-  input: ContextBundleOptions,
+  input: ContextBundleOptions & Pick<QueryCodeOptions, "includeDependencies" | "includeImporters" | "relationDepth">,
   seedCandidates: RankedSeedCandidate[],
 ): ContextBundle {
   const bundleCandidates: Array<ContextBundleItem> = [];
@@ -1553,25 +1621,48 @@ function buildContextBundleFromSeeds(
     );
   }
 
-  for (const seed of seedCandidates) {
-    const dependencyRows = pickDependencyRows(db, seed.row);
-    for (const dependency of dependencyRows) {
-      if (seen.has(dependency.row.id)) {
-        continue;
+  const relationDepth = Math.min(3, Math.max(1, input.relationDepth ?? 1));
+  const includeDependencies = input.includeDependencies ?? true;
+  const includeImporters = input.includeImporters ?? false;
+  let frontier = seedCandidates.map((seed) => seed.row as DbSymbolRow);
+  const visited = new Set(frontier.map((row) => row.id));
+
+  for (let depth = 0; depth < relationDepth; depth += 1) {
+    const nextFrontier: DbSymbolRow[] = [];
+
+    for (const seedRow of frontier) {
+      const relatedRows = [
+        ...(includeDependencies ? pickDependencyRows(db, seedRow) : []),
+        ...(includeImporters ? pickImporterRows(db, seedRow) : []),
+      ];
+
+      for (const related of relatedRows) {
+        if (seen.has(related.row.id)) {
+          continue;
+        }
+        seen.add(related.row.id);
+        const sourceRow = loadSymbolSourceRow(db, related.row.id);
+        if (!sourceRow) {
+          continue;
+        }
+        bundleCandidates.push(
+          makeContextBundleItem(
+            related.row,
+            sourceRow.content.slice(sourceRow.start_byte, sourceRow.end_byte),
+            "dependency",
+            related.reason,
+          ),
+        );
+        if (!visited.has(related.row.id)) {
+          visited.add(related.row.id);
+          nextFrontier.push(related.row);
+        }
       }
-      seen.add(dependency.row.id);
-      const sourceRow = loadSymbolSourceRow(db, dependency.row.id);
-      if (!sourceRow) {
-        continue;
-      }
-      bundleCandidates.push(
-        makeContextBundleItem(
-          dependency.row,
-          sourceRow.content.slice(sourceRow.start_byte, sourceRow.end_byte),
-          "dependency",
-          dependency.reason,
-        ),
-      );
+    }
+
+    frontier = nextFrontier;
+    if (frontier.length === 0) {
+      break;
     }
   }
 
@@ -1600,6 +1691,98 @@ function buildContextBundleFromSeeds(
     truncated: estimatedTokens > tokenBudget,
     items,
   };
+}
+
+function buildDiscoverGraphMatches(
+  db: IndexBackendConnection,
+  seedSymbols: SymbolSummary[],
+  input: Pick<QueryCodeOptions, "query" | "includeDependencies" | "includeImporters" | "relationDepth" | "includeTextMatches">,
+): {
+  matches: QueryCodeSymbolMatch[];
+  textMatchResults: QueryCodeTextMatch[];
+} {
+  const matches = new Map<string, QueryCodeSymbolMatch>();
+  const query = normalizeQuery(input.query ?? "");
+  const seedRows = seedSymbols
+    .map((symbol) => loadSymbolSourceRow(db, symbol.id))
+    .filter((row): row is DbSymbolRow & { content_hash: string; content: string } => Boolean(row));
+
+  for (const symbol of seedSymbols) {
+    matches.set(symbol.id, {
+      symbol,
+      reasons: [
+        query === normalizeQuery(symbol.name) || query === normalizeQuery(symbol.qualifiedName ?? "")
+          ? "exact_symbol_match"
+          : "query_match",
+      ],
+      depth: 0,
+    });
+  }
+
+  const relationDepth = Math.min(3, Math.max(1, input.relationDepth ?? 1));
+  let frontier = seedRows.map((row) => ({ row: row as DbSymbolRow, depth: 0 }));
+  const visited = new Set(frontier.map((entry) => entry.row.id));
+
+  while (frontier.length > 0) {
+    const nextFrontier: Array<{ row: DbSymbolRow; depth: number }> = [];
+
+    for (const entry of frontier) {
+      if (entry.depth >= relationDepth) {
+        continue;
+      }
+
+      const relatedRows = [
+        ...(input.includeDependencies ? pickDependencyRows(db, entry.row) : []),
+        ...(input.includeImporters ? pickImporterRows(db, entry.row) : []),
+      ];
+
+      for (const related of relatedRows) {
+        const existing = matches.get(related.row.id);
+        if (existing) {
+          if (!existing.reasons.includes(related.reason)) {
+            existing.reasons.push(related.reason);
+          }
+          existing.depth = Math.min(existing.depth, entry.depth + 1);
+        } else {
+          matches.set(related.row.id, {
+            symbol: mapSymbolRow(related.row),
+            reasons: [related.reason],
+            depth: entry.depth + 1,
+          });
+        }
+
+        if (!visited.has(related.row.id)) {
+          visited.add(related.row.id);
+          nextFrontier.push({
+            row: related.row,
+            depth: entry.depth + 1,
+          });
+        }
+      }
+    }
+
+    frontier = nextFrontier;
+  }
+
+  return {
+    matches: [...matches.values()].sort(
+      (left, right) =>
+        left.depth - right.depth ||
+        Number(right.symbol.exported) - Number(left.symbol.exported) ||
+        left.symbol.filePath.localeCompare(right.symbol.filePath) ||
+        left.symbol.startLine - right.symbol.startLine,
+    ),
+    textMatchResults: [],
+  };
+}
+
+function buildTextMatchResults(
+  textMatches: SearchTextMatch[],
+): QueryCodeTextMatch[] {
+  return textMatches.map((match) => ({
+    match,
+    reasons: ["text_match"],
+  }));
 }
 
 function buildRankedContextResult(
@@ -2570,12 +2753,19 @@ export async function queryCode(
               filePattern: input.filePattern,
             })
           : [];
+        const graphMatches = buildDiscoverGraphMatches(
+          context.db,
+          symbolMatches,
+          input,
+        );
 
         const result: QueryCodeDiscoverResult = {
           intent: "discover",
           query: input.query ?? "",
           symbolMatches,
           textMatches,
+          matches: graphMatches.matches,
+          textMatchResults: buildTextMatchResults(textMatches),
         };
         return result;
       }
@@ -2606,6 +2796,9 @@ export async function queryCode(
               repoRoot: context.config.repoRoot,
               query: input.query,
               tokenBudget: input.tokenBudget,
+              includeDependencies: input.includeDependencies,
+              includeImporters: input.includeImporters,
+              relationDepth: input.relationDepth,
             })
           : null;
         const bundle = ranked
@@ -2615,6 +2808,9 @@ export async function queryCode(
               query: input.query,
               symbolIds: input.symbolIds,
               tokenBudget: input.tokenBudget,
+              includeDependencies: input.includeDependencies,
+              includeImporters: input.includeImporters,
+              relationDepth: input.relationDepth,
             });
 
         const result: QueryCodeAssembleResult = {
@@ -2687,6 +2883,9 @@ function getRankedContextFromContext(context: EngineContext, input: {
   repoRoot: string;
   query: string;
   tokenBudget?: number;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  relationDepth?: number;
 }): RankedContextResult {
   validateRankedContextOptions(input);
   const normalizedInput = {

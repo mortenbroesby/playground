@@ -201,6 +201,29 @@ export interface QueryCodeOptions {
   tokenBudget?: number;
   includeTextMatches?: boolean;
   includeRankedCandidates?: boolean;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  relationDepth?: number;
+}
+
+export type QueryCodeMatchReason =
+  | "explicit_symbol_id"
+  | "exact_symbol_match"
+  | "query_match"
+  | "text_match"
+  | "imports_matched_file"
+  | "imported_by_match"
+  | "reexport_match";
+
+export interface QueryCodeSymbolMatch {
+  symbol: SymbolSummary;
+  reasons: QueryCodeMatchReason[];
+  depth: number;
+}
+
+export interface QueryCodeTextMatch {
+  match: SearchTextMatch;
+  reasons: QueryCodeMatchReason[];
 }
 
 export interface QueryCodeDiscoverResult {
@@ -208,6 +231,8 @@ export interface QueryCodeDiscoverResult {
   query: string;
   symbolMatches: SymbolSummary[];
   textMatches: SearchTextMatch[];
+  matches: QueryCodeSymbolMatch[];
+  textMatchResults: QueryCodeTextMatch[];
 }
 
 export interface QueryCodeSourceResult {
@@ -252,6 +277,9 @@ export interface ContextBundleOptions {
   query?: string;
   symbolIds?: string[];
   tokenBudget?: number;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  relationDepth?: number;
 }
 
 export interface RankedContextCandidate {

@@ -162,7 +162,11 @@ The main retrieval surfaces are:
   preferred umbrella surface for discovery, exact retrieval, and bounded
   assembly with one intent-driven contract across the MCP boundary. When the
   intent is omitted, auto mode resolves to discover, source, or assemble from
-  the provided arguments.
+  the provided arguments. Discover and assemble modes can now also expand
+  bounded graph relations with `includeDependencies`, `includeImporters`, and
+  `relationDepth`, and each returned match carries explanation reasons such as
+  `exact_symbol_match`, `query_match`, `imports_matched_file`,
+  `imported_by_match`, or `text_match`.
 - `diagnostics`
   metadata-first health and freshness reporting, with optional full drift scan
 - `doctor`
@@ -218,6 +222,8 @@ compatibility alias.
 - `pnpm exec astrograph cli search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
 - `pnpm exec astrograph cli get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
 - `pnpm exec astrograph cli query-code --repo /abs/repo --query Greeter --include-text`
+- `pnpm exec astrograph cli query-code --repo /abs/repo --query area --include-dependencies --relation-depth 1`
+- `pnpm exec astrograph cli query-code --repo /abs/repo --query formatLabel --include-importers --relation-depth 1`
 - `pnpm exec astrograph cli query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
 - `pnpm exec astrograph cli query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
 - `pnpm exec astrograph cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
@@ -239,6 +245,8 @@ compatibility alias.
 - `pnpm --filter @astrograph/astrograph cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
 - `pnpm --filter @astrograph/astrograph cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
 - `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query Greeter --include-text`
+- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query area --include-dependencies --relation-depth 1`
+- `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query formatLabel --include-importers --relation-depth 1`
 - `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
 - `pnpm --filter @astrograph/astrograph cli -- query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
 - `pnpm --filter @astrograph/astrograph cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`

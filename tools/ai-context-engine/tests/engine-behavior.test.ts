@@ -156,12 +156,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.12",
+      engineVersion: "0.0.1-alpha.13",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 12,
+        increment: 13,
       },
       summaryStrategy: "doc-comments-first",
       summarySources: {
@@ -467,6 +467,120 @@ module.exports = {
       tokenBudget: 120,
     });
     expect(assembleResult.intent).toBe("assemble");
+  });
+
+  it("explains graph-aware discover results with dependency and importer reasons", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const dependencyResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "area",
+      includeDependencies: true,
+      relationDepth: 1,
+    });
+    expect(dependencyResult.intent).toBe("discover");
+    if (dependencyResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(dependencyResult.matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "area",
+          }),
+          reasons: ["exact_symbol_match"],
+          depth: 0,
+        }),
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "formatLabel",
+          }),
+          reasons: expect.arrayContaining(["imports_matched_file"]),
+        }),
+      ]),
+    );
+
+    const importerResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "formatLabel",
+      includeImporters: true,
+      relationDepth: 1,
+    });
+    expect(importerResult.intent).toBe("discover");
+    if (importerResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(importerResult.matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "formatLabel",
+          }),
+          reasons: ["exact_symbol_match"],
+          depth: 0,
+        }),
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "area",
+          }),
+          reasons: expect.arrayContaining(["imported_by_match"]),
+        }),
+      ]),
+    );
+  });
+
+  it("expands assembled query context with bounded graph relations", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const assembleResult = await queryCode({
+      repoRoot,
+      intent: "assemble",
+      query: "formatLabel",
+      tokenBudget: 160,
+      includeDependencies: true,
+      includeImporters: true,
+      relationDepth: 1,
+      includeRankedCandidates: true,
+    });
+
+    expect(assembleResult.intent).toBe("assemble");
+    if (assembleResult.intent !== "assemble") {
+      throw new Error("Expected assemble result");
+    }
+
+    expect(assembleResult.bundle.usedTokens).toBeLessThanOrEqual(
+      assembleResult.bundle.tokenBudget,
+    );
+    expect(assembleResult.bundle.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "target",
+          symbol: expect.objectContaining({
+            name: "formatLabel",
+          }),
+          reason: "exact_symbol_match",
+        }),
+        expect.objectContaining({
+          role: expect.stringMatching(/target|dependency/),
+          symbol: expect.objectContaining({
+            name: "area",
+          }),
+          reason: expect.stringMatching(/query_match|imported_by_match/),
+        }),
+      ]),
+    );
+    expect(assembleResult.ranked?.candidates[0]).toMatchObject({
+      reason: "exact_symbol_match",
+      symbol: {
+        name: "formatLabel",
+      },
+    });
   });
 
   it("rejects invalid search and retrieval boundaries at the library layer", async () => {
@@ -818,7 +932,7 @@ export function area(radius: number): string {
     });
     expect(rankedContext.candidates[0]).toMatchObject({
       rank: 1,
-      reason: 'matched query "Greeter"',
+      reason: "exact_symbol_match",
       symbol: {
         name: "Greeter",
         filePath: "src/strings.ts",

@@ -38,6 +38,8 @@ const BOOLEAN_FLAGS = new Set([
   "scan-freshness",
   "include-text",
   "include-ranked",
+  "include-dependencies",
+  "include-importers",
   "json",
 ]);
 
