@@ -26,6 +26,7 @@ export interface EngineConfig {
   storageMode: StorageMode;
   staleStatus: StaleStatus;
   summaryStrategy: SummaryStrategy;
+  fileProcessingConcurrency: number;
   paths: EnginePaths;
 }
 
@@ -37,9 +38,14 @@ export interface RepoObservabilityConfig {
   snapshotIntervalMs?: number;
 }
 
+export interface RepoPerformanceConfig {
+  fileProcessingConcurrency?: number | "auto";
+}
+
 export interface RepoEngineConfig {
   summaryStrategy?: SummaryStrategy;
   observability?: RepoObservabilityConfig;
+  performance?: RepoPerformanceConfig;
 }
 
 export interface ResolvedObservabilityConfig {
@@ -50,11 +56,16 @@ export interface ResolvedObservabilityConfig {
   snapshotIntervalMs: number;
 }
 
+export interface ResolvedPerformanceConfig {
+  fileProcessingConcurrency: number;
+}
+
 export interface ResolvedRepoEngineConfig {
   configPath: string | null;
   repoRoot: string;
   summaryStrategy: SummaryStrategy;
   observability: ResolvedObservabilityConfig;
+  performance: ResolvedPerformanceConfig;
 }
 
 export type SymbolKind =

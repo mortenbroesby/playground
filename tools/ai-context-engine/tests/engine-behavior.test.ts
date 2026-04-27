@@ -30,6 +30,60 @@ afterEach(async () => {
   await cleanupFixtureRepos();
 });
 
+function snapshotIndexedRows(repoRoot: string) {
+  const paths = resolveEnginePaths(repoRoot);
+  const db = new Database(paths.databasePath, { readonly: true });
+  const files = db.prepare(
+    `
+      SELECT
+        path,
+        language,
+        content_hash,
+        integrity_hash,
+        size_bytes,
+        symbol_signature_hash,
+        import_hash,
+        parser_backend,
+        parser_fallback_used,
+        parser_fallback_reason,
+        symbol_count
+      FROM files
+      ORDER BY path ASC
+    `,
+  ).all();
+  const symbols = db.prepare(
+    `
+      SELECT
+        file_path,
+        name,
+        qualified_name,
+        kind,
+        signature,
+        summary,
+        summary_source,
+        start_line,
+        end_line,
+        exported
+      FROM symbols
+      ORDER BY file_path ASC, start_line ASC, name ASC
+    `,
+  ).all();
+  const imports = db.prepare(
+    `
+      SELECT
+        files.path AS file_path,
+        imports.source,
+        imports.specifiers
+      FROM imports
+      INNER JOIN files ON files.id = imports.file_id
+      ORDER BY files.path ASC, imports.source ASC
+    `,
+  ).all();
+  db.close();
+
+  return { files, symbols, imports };
+}
+
 describe("ai-context-engine behavior", () => {
   const it = (name: string, fn: (...args: never[]) => unknown, timeout = 15000) =>
     baseIt(name, fn as never, timeout);
@@ -163,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.22",
+      engineVersion: "0.0.1-alpha.23",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 22,
+        increment: 23,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -466,6 +520,59 @@ module.exports = {
     ).toBe(true);
     expect(rows.every((row) => /^xxh64:[0-9a-f]{16}$/u.test(row.import_hash ?? ""))).toBe(
       true,
+    );
+  });
+
+  it("produces deterministic index output across file processing concurrency settings", async () => {
+    const serialRepoRoot = await createFixtureRepo();
+    const parallelRepoRoot = await createFixtureRepo();
+    const generatedModules = Array.from({ length: 12 }, (_, index) => ({
+      relativePath: path.join("src", `generated-${index}.ts`),
+      content: `import { formatLabel } from "./strings.js";
+
+export function generated${index}(value: number): string {
+  return formatLabel(value + ${index});
+}
+`,
+    }));
+
+    for (const repoRoot of [serialRepoRoot, parallelRepoRoot]) {
+      await Promise.all(generatedModules.map((module) =>
+        writeFile(path.join(repoRoot, module.relativePath), module.content),
+      ));
+    }
+
+    await writeFile(
+      path.join(serialRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 1,
+        },
+      }),
+    );
+    await writeFile(
+      path.join(parallelRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 4,
+        },
+      }),
+    );
+
+    const [serialSummary, parallelSummary] = await Promise.all([
+      indexFolder({ repoRoot: serialRepoRoot }),
+      indexFolder({ repoRoot: parallelRepoRoot }),
+    ]);
+
+    expect(parallelSummary).toEqual(serialSummary);
+    expect(await getRepoOutline({ repoRoot: parallelRepoRoot })).toEqual(
+      await getRepoOutline({ repoRoot: serialRepoRoot }),
+    );
+    expect(await getFileTree({ repoRoot: parallelRepoRoot })).toEqual(
+      await getFileTree({ repoRoot: serialRepoRoot }),
+    );
+    expect(snapshotIndexedRows(parallelRepoRoot)).toEqual(
+      snapshotIndexedRows(serialRepoRoot),
     );
   });
 

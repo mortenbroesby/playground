@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { z } from "zod";
@@ -7,6 +8,7 @@ import { z } from "zod";
 import type {
   EngineConfig,
   EnginePaths,
+  RepoPerformanceConfig,
   RepoEngineConfig,
   ResolvedRepoEngineConfig,
   EngineToolName,
@@ -60,10 +62,32 @@ const repoObservabilityConfigSchema = z.object({
   snapshotIntervalMs: z.number().int().positive().optional(),
 });
 
+const repoPerformanceConfigSchema = z.object({
+  fileProcessingConcurrency: z.union([
+    z.literal("auto"),
+    z.number().int().positive(),
+  ]).optional(),
+});
+
 const repoEngineConfigSchema = z.object({
   summaryStrategy: z.enum(["doc-comments-first", "signature-only"]).optional(),
   observability: repoObservabilityConfigSchema.optional(),
+  performance: repoPerformanceConfigSchema.optional(),
 }) satisfies z.ZodType<RepoEngineConfig>;
+
+function defaultFileProcessingConcurrency(): number {
+  return Math.max(2, Math.min(16, os.availableParallelism()));
+}
+
+function normalizeFileProcessingConcurrency(
+  value: RepoPerformanceConfig["fileProcessingConcurrency"],
+): number {
+  if (value === undefined || value === "auto") {
+    return defaultFileProcessingConcurrency();
+  }
+
+  return Math.max(1, Math.min(32, Math.trunc(value)));
+}
 
 export function resolveEnginePaths(repoRoot: string): EnginePaths {
   const storageDir = path.join(repoRoot, ENGINE_STORAGE_DIRNAME);
@@ -111,6 +135,9 @@ function createDefaultResolvedRepoEngineConfig(
       port: DEFAULT_OBSERVABILITY_PORT,
       recentLimit: DEFAULT_OBSERVABILITY_RECENT_LIMIT,
       snapshotIntervalMs: DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS,
+    },
+    performance: {
+      fileProcessingConcurrency: defaultFileProcessingConcurrency(),
     },
   };
 }
@@ -165,6 +192,11 @@ export async function loadRepoEngineConfig(
         parsed.data.observability?.snapshotIntervalMs
         ?? defaults.observability.snapshotIntervalMs,
     },
+    performance: {
+      fileProcessingConcurrency: normalizeFileProcessingConcurrency(
+        parsed.data.performance?.fileProcessingConcurrency,
+      ),
+    },
   };
 }
 
@@ -209,6 +241,7 @@ export function parseSymbolKind(
 export function createDefaultEngineConfig(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
+  fileProcessingConcurrency?: number;
 }): EngineConfig {
   return {
     repoRoot: input.repoRoot,
@@ -220,6 +253,8 @@ export function createDefaultEngineConfig(input: {
       input.summaryStrategy === undefined
         ? DEFAULT_SUMMARY_STRATEGY
         : parseSummaryStrategy(input.summaryStrategy),
+    fileProcessingConcurrency:
+      input.fileProcessingConcurrency ?? defaultFileProcessingConcurrency(),
     paths: resolveEnginePaths(input.repoRoot),
   };
 }

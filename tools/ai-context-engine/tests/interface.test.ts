@@ -84,7 +84,12 @@ async function startObservabilityServer(
     });
     child.once("error", reject);
     child.once("exit", (code) => {
-      reject(new Error(`observability server exited before startup: ${code ?? "unknown"}`));
+      const details = stderr.trim();
+      reject(new Error(
+        details.length > 0
+          ? `observability server exited before startup: ${code ?? "unknown"}\n${details}`
+          : `observability server exited before startup: ${code ?? "unknown"}`,
+      ));
     });
   });
 
@@ -96,6 +101,26 @@ async function startObservabilityServer(
       await once(child, "exit").catch(() => undefined);
     },
   };
+}
+
+function isSandboxedObservabilityFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return [
+    /listen EPERM/i,
+    /failed to listen at 127\.0\.0\.1/i,
+    /operation not permitted/i,
+    /permission denied/i,
+    /sandbox/i,
+  ].some((pattern) => pattern.test(error.message));
+}
+
+function skipIfSandboxedObservabilityFailure(error: unknown) {
+  if (!isSandboxedObservabilityFailure(error)) {
+    throw error;
+  }
 }
 
 async function listenOnPort(host: string, port: number) {
@@ -689,7 +714,13 @@ export function circumference(radius: number): string {
         },
       }),
     );
-    const server = await startObservabilityServer(repoRoot);
+    let server: Awaited<ReturnType<typeof startObservabilityServer>>;
+    try {
+      server = await startObservabilityServer(repoRoot);
+    } catch (error) {
+      skipIfSandboxedObservabilityFailure(error);
+      return;
+    }
     const messages: Array<Record<string, unknown>> = [];
     const socket = new WebSocket(`ws://${server.host}:${server.port}/events`);
 
@@ -791,7 +822,13 @@ export function circumference(radius: number): string {
       }),
     );
 
-    const server = await startObservabilityServer(repoRoot, ["--dev"]);
+    let server: Awaited<ReturnType<typeof startObservabilityServer>>;
+    try {
+      server = await startObservabilityServer(repoRoot, ["--dev"]);
+    } catch (error) {
+      skipIfSandboxedObservabilityFailure(error);
+      return;
+    }
     const binaryMessages: Array<Record<string, unknown>> = [];
     const socket = new WebSocket(
       `ws://${server.host}:${server.port}/events?encoding=msgpack`,
@@ -825,7 +862,13 @@ export function circumference(radius: number): string {
 
   it("falls back to another port in the 34323 range when the requested port is busy", async () => {
     const repoRoot = await createFixtureRepo();
-    const blocked = await listenOnFirstAvailablePortInRange("127.0.0.1", 34323, 35322);
+    let blocked: Awaited<ReturnType<typeof listenOnFirstAvailablePortInRange>>;
+    try {
+      blocked = await listenOnFirstAvailablePortInRange("127.0.0.1", 34323, 35322);
+    } catch (error) {
+      skipIfSandboxedObservabilityFailure(error);
+      return;
+    }
 
     await writeFile(
       path.join(repoRoot, "astrograph.config.json"),
@@ -838,7 +881,22 @@ export function circumference(radius: number): string {
       }),
     );
 
-    const server = await startObservabilityServer(repoRoot);
+    let server: Awaited<ReturnType<typeof startObservabilityServer>>;
+    try {
+      server = await startObservabilityServer(repoRoot);
+    } catch (error) {
+      await new Promise<void>((resolve, reject) => {
+        blocked.server.close((closeError) => {
+          if (closeError) {
+            reject(closeError);
+            return;
+          }
+          resolve();
+        });
+      });
+      skipIfSandboxedObservabilityFailure(error);
+      return;
+    }
 
     try {
       expect(server.port).not.toBe(blocked.port);

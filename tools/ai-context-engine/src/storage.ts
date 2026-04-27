@@ -5,6 +5,7 @@ import { mkdir, readFile, realpath, readdir, rm, stat, writeFile } from "node:fs
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import pMap from "p-map";
 import {
   Subject,
   buffer,
@@ -125,6 +126,36 @@ interface DbFileContentRow extends DbSymbolRow {
   integrity_hash: string | null;
   content: string;
 }
+
+interface TrackedFileRow {
+  id: number;
+  content_hash: string;
+  integrity_hash: string | null;
+  size_bytes: number | null;
+  mtime_ms: number | null;
+}
+
+type AnalyzedFileIndexResult =
+  | {
+    kind: "unchanged";
+    existing: TrackedFileRow;
+  }
+  | {
+    kind: "content-unchanged";
+    existing: TrackedFileRow;
+    file: Awaited<ReturnType<typeof readRepoFile>>;
+    reparsed: ReturnType<typeof parseSourceFile>;
+    symbolSignatureHash: string;
+    importHash: string;
+  }
+  | {
+    kind: "reindexed";
+    existing: TrackedFileRow | undefined;
+    file: Awaited<ReturnType<typeof readRepoFile>>;
+    reparsed: ReturnType<typeof parseSourceFile>;
+    symbolSignatureHash: string;
+    importHash: string;
+  };
 
 interface RepoMetaRecord {
   repoRoot: string;
@@ -780,6 +811,7 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
   const config = createDefaultEngineConfig({
     repoRoot: resolvedRepoRoot,
     summaryStrategy: summaryStrategy ?? repoConfig.summaryStrategy,
+    fileProcessingConcurrency: repoConfig.performance.fileProcessingConcurrency,
   });
   if (!getLruEntry(ensuredStorageRoots, resolvedRepoRoot)) {
     await mkdir(config.paths.storageDir, { recursive: true });
@@ -1249,6 +1281,231 @@ function hashImports(
     ),
     "import_graph",
   );
+}
+
+function persistedSymbolCount(db: IndexBackendConnection, fileId: number): number {
+  const countRow = typedGet<{ count: number }>(
+    db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
+    fileId,
+  );
+  return countRow?.count ?? 0;
+}
+
+async function analyzeFileIndexResult(input: {
+  repoRoot: string;
+  filePath: string;
+  summaryStrategy?: SummaryStrategy;
+  forceRefresh?: boolean;
+  existing?: TrackedFileRow;
+}): Promise<AnalyzedFileIndexResult> {
+  const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
+
+  if (
+    !input.forceRefresh
+    && input.existing
+    && input.existing.size_bytes === fileMetadata.size
+    && input.existing.mtime_ms === Math.trunc(fileMetadata.mtimeMs)
+  ) {
+    return {
+      kind: "unchanged",
+      existing: input.existing,
+    };
+  }
+
+  const file = await readRepoFile(input.repoRoot, input.filePath);
+  const reparsed = parseSourceFile({
+    relativePath: file.relativePath,
+    content: file.content,
+    language: file.language,
+    summaryStrategy: input.summaryStrategy,
+  });
+  const symbolSignatureHash = hashSymbolSignatures(reparsed.symbols);
+  const importHash = hashImports(reparsed.imports);
+
+  if (!input.forceRefresh && input.existing?.content_hash === reparsed.contentHash) {
+    return {
+      kind: "content-unchanged",
+      existing: input.existing,
+      file,
+      reparsed,
+      symbolSignatureHash,
+      importHash,
+    };
+  }
+
+  return {
+    kind: "reindexed",
+    existing: input.existing,
+    file,
+    reparsed,
+    symbolSignatureHash,
+    importHash,
+  };
+}
+
+function persistFileIndexResult(
+  db: IndexBackendConnection,
+  analyzed: AnalyzedFileIndexResult,
+): { indexed: boolean; symbolCount: number } {
+  if (analyzed.kind === "unchanged") {
+    return {
+      indexed: false,
+      symbolCount: persistedSymbolCount(db, analyzed.existing.id),
+    };
+  }
+
+  if (analyzed.kind === "content-unchanged") {
+    db.prepare(
+      `
+        UPDATE files
+        SET size_bytes = ?, mtime_ms = ?, integrity_hash = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      analyzed.file.size,
+      Math.trunc(analyzed.file.mtimeMs),
+      analyzed.reparsed.integrityHash,
+      analyzed.symbolSignatureHash,
+      analyzed.importHash,
+      new Date().toISOString(),
+      analyzed.existing.id,
+    );
+    return {
+      indexed: false,
+      symbolCount: persistedSymbolCount(db, analyzed.existing.id),
+    };
+  }
+
+  const { existing, file, reparsed, symbolSignatureHash, importHash } = analyzed;
+
+  if (existing) {
+    clearFileSearchRows(db, existing.id);
+    db.prepare("DELETE FROM imports WHERE file_id = ?").run(existing.id);
+    db.prepare("DELETE FROM symbols WHERE file_id = ?").run(existing.id);
+    db.prepare("DELETE FROM content_blobs WHERE file_id = ?").run(existing.id);
+    db.prepare(
+      `
+        UPDATE files
+        SET language = ?, content_hash = ?, integrity_hash = ?, parser_backend = ?, parser_fallback_used = ?, parser_fallback_reason = ?, symbol_count = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      reparsed.language,
+      reparsed.contentHash,
+      reparsed.integrityHash,
+      reparsed.backend,
+      reparsed.fallbackUsed ? 1 : 0,
+      reparsed.fallbackReason,
+      reparsed.symbols.length,
+      new Date().toISOString(),
+      existing.id,
+    );
+    db.prepare(
+      `
+        UPDATE files
+        SET size_bytes = ?, mtime_ms = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      file.size,
+      Math.trunc(file.mtimeMs),
+      symbolSignatureHash,
+      importHash,
+      new Date().toISOString(),
+      existing.id,
+    );
+  } else {
+    db.prepare(
+      `
+        INSERT INTO files (
+          path, language, content_hash, integrity_hash, size_bytes, mtime_ms,
+          symbol_signature_hash, import_hash, parser_backend, parser_fallback_used,
+          parser_fallback_reason, symbol_count, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+    ).run(
+      file.relativePath,
+      reparsed.language,
+      reparsed.contentHash,
+      reparsed.integrityHash,
+      file.size,
+      Math.trunc(file.mtimeMs),
+      symbolSignatureHash,
+      importHash,
+      reparsed.backend,
+      reparsed.fallbackUsed ? 1 : 0,
+      reparsed.fallbackReason,
+      reparsed.symbols.length,
+      new Date().toISOString(),
+    );
+  }
+
+  const fileRow = db
+    .prepare("SELECT id FROM files WHERE path = ?")
+    .get(file.relativePath) as { id: number };
+  db.prepare(
+    "INSERT INTO content_blobs (file_id, content) VALUES (?, ?)",
+  ).run(fileRow.id, file.content);
+  db.prepare(
+    "INSERT INTO content_search (file_id, file_path, content) VALUES (?, ?, ?)",
+  ).run(fileRow.id, file.relativePath, file.content);
+  const insertSymbol = db.prepare(`
+    INSERT INTO symbols (
+      id, file_id, file_path, name, qualified_name, kind, signature,
+      summary, summary_source, start_line, end_line, start_byte, end_byte, exported
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertSymbolSearch = db.prepare(`
+    INSERT INTO symbol_search (
+      symbol_id, file_id, name, qualified_name, signature, summary, file_path, kind
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const symbol of reparsed.symbols) {
+    insertSymbol.run(
+      symbol.id,
+      fileRow.id,
+      file.relativePath,
+      symbol.name,
+      symbol.qualifiedName,
+      symbol.kind,
+      symbol.signature,
+      symbol.summary,
+      symbol.summarySource,
+      symbol.startLine,
+      symbol.endLine,
+      symbol.startByte,
+      symbol.endByte,
+      symbol.exported ? 1 : 0,
+    );
+    insertSymbolSearch.run(
+      symbol.id,
+      fileRow.id,
+      symbol.name,
+      symbol.qualifiedName ?? "",
+      symbol.signature,
+      symbol.summary,
+      file.relativePath,
+      symbol.kind,
+    );
+  }
+  const insertImport = db.prepare(
+    "INSERT INTO imports (file_id, source, specifiers) VALUES (?, ?, ?)",
+  );
+  for (const dependency of reparsed.imports) {
+    insertImport.run(
+      fileRow.id,
+      dependency.source,
+      JSON.stringify(dependency.specifiers),
+    );
+  }
+
+  return {
+    indexed: true,
+    symbolCount: reparsed.symbols.length,
+  };
 }
 
 function quoteFtsTerm(term: string): string {
@@ -2016,209 +2273,6 @@ function buildRankedContextResult(
   };
 }
 
-async function upsertFileIndex(db: IndexBackendConnection, input: {
-  repoRoot: string;
-  filePath: string;
-  summaryStrategy?: SummaryStrategy;
-  forceRefresh?: boolean;
-}) {
-  const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
-  const existing = db.prepare(
-    `
-      SELECT id, content_hash, integrity_hash, size_bytes, mtime_ms
-      FROM files
-      WHERE path = ?
-    `,
-  ).get(fileMetadata.relativePath) as {
-    id: number;
-    content_hash: string;
-    integrity_hash: string | null;
-    size_bytes: number | null;
-    mtime_ms: number | null;
-  } | undefined;
-
-  if (
-    !input.forceRefresh
-    && existing
-    && existing.size_bytes === fileMetadata.size
-    && existing.mtime_ms === Math.trunc(fileMetadata.mtimeMs)
-  ) {
-    const countRow = typedGet<{ count: number }>(
-      db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
-      existing.id,
-    );
-    return {
-      indexed: false,
-      symbolCount: countRow?.count ?? 0,
-    };
-  }
-
-  const file = await readRepoFile(input.repoRoot, input.filePath);
-  const reparsed = parseSourceFile({
-    relativePath: file.relativePath,
-    content: file.content,
-    language: file.language,
-    summaryStrategy: input.summaryStrategy,
-  });
-  const symbolSignatureHash = hashSymbolSignatures(reparsed.symbols);
-  const importHash = hashImports(reparsed.imports);
-
-  if (!input.forceRefresh && existing?.content_hash === reparsed.contentHash) {
-    db.prepare(
-      `
-        UPDATE files
-        SET size_bytes = ?, mtime_ms = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
-        WHERE id = ?
-      `,
-    ).run(
-      file.size,
-      Math.trunc(file.mtimeMs),
-      symbolSignatureHash,
-      importHash,
-      new Date().toISOString(),
-      existing.id,
-    );
-    const countRow = typedGet<{ count: number }>(
-      db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
-      existing.id,
-    );
-    return {
-      indexed: false,
-      symbolCount: countRow?.count ?? 0,
-    };
-  }
-
-  if (existing) {
-    clearFileSearchRows(db, existing.id);
-    db.prepare("DELETE FROM imports WHERE file_id = ?").run(existing.id);
-    db.prepare("DELETE FROM symbols WHERE file_id = ?").run(existing.id);
-    db.prepare("DELETE FROM content_blobs WHERE file_id = ?").run(existing.id);
-    db.prepare(
-      `
-        UPDATE files
-        SET language = ?, content_hash = ?, integrity_hash = ?, parser_backend = ?, parser_fallback_used = ?, parser_fallback_reason = ?, symbol_count = ?, updated_at = ?
-        WHERE id = ?
-      `,
-    ).run(
-      reparsed.language,
-      reparsed.contentHash,
-      reparsed.integrityHash,
-      reparsed.backend,
-      reparsed.fallbackUsed ? 1 : 0,
-      reparsed.fallbackReason,
-      reparsed.symbols.length,
-      new Date().toISOString(),
-      existing.id,
-    );
-    db.prepare(
-      `
-        UPDATE files
-        SET size_bytes = ?, mtime_ms = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
-        WHERE id = ?
-      `,
-    ).run(
-      file.size,
-      Math.trunc(file.mtimeMs),
-      symbolSignatureHash,
-      importHash,
-      new Date().toISOString(),
-      existing.id,
-    );
-  } else {
-    db.prepare(
-      `
-        INSERT INTO files (
-          path, language, content_hash, integrity_hash, size_bytes, mtime_ms,
-          symbol_signature_hash, import_hash, parser_backend, parser_fallback_used,
-          parser_fallback_reason, symbol_count, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-    ).run(
-      file.relativePath,
-      reparsed.language,
-      reparsed.contentHash,
-      reparsed.integrityHash,
-      file.size,
-      Math.trunc(file.mtimeMs),
-      symbolSignatureHash,
-      importHash,
-      reparsed.backend,
-      reparsed.fallbackUsed ? 1 : 0,
-      reparsed.fallbackReason,
-      reparsed.symbols.length,
-      new Date().toISOString(),
-    );
-  }
-
-  const fileRow = db
-    .prepare("SELECT id FROM files WHERE path = ?")
-    .get(file.relativePath) as { id: number };
-
-  db.prepare(
-    "INSERT INTO content_blobs (file_id, content) VALUES (?, ?)",
-  ).run(fileRow.id, file.content);
-  db.prepare(
-    "INSERT INTO content_search (file_id, file_path, content) VALUES (?, ?, ?)",
-  ).run(fileRow.id, file.relativePath, file.content);
-
-  const insertSymbol = db.prepare(`
-    INSERT INTO symbols (
-      id, file_id, file_path, name, qualified_name, kind, signature, summary,
-      summary_source, start_line, end_line, start_byte, end_byte, exported
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const insertSymbolSearch = db.prepare(`
-    INSERT INTO symbol_search (
-      symbol_id, file_id, name, qualified_name, signature, summary, file_path, kind
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  for (const symbol of reparsed.symbols) {
-    insertSymbol.run(
-      symbol.id,
-      fileRow.id,
-      file.relativePath,
-      symbol.name,
-      symbol.qualifiedName,
-      symbol.kind,
-      symbol.signature,
-      symbol.summary,
-      symbol.summarySource,
-      symbol.startLine,
-      symbol.endLine,
-      symbol.startByte,
-      symbol.endByte,
-      symbol.exported ? 1 : 0,
-    );
-    insertSymbolSearch.run(
-      symbol.id,
-      fileRow.id,
-      symbol.name,
-      symbol.qualifiedName ?? "",
-      symbol.signature,
-      symbol.summary,
-      file.relativePath,
-      symbol.kind,
-    );
-  }
-
-  const insertImport = db.prepare(
-    "INSERT INTO imports (file_id, source, specifiers) VALUES (?, ?, ?)",
-  );
-  for (const dependency of reparsed.imports) {
-    insertImport.run(
-      fileRow.id,
-      dependency.source,
-      JSON.stringify(dependency.specifiers),
-    );
-  }
-
-  return {
-    indexed: true,
-    symbolCount: reparsed.symbols.length,
-  };
-}
-
 function removeFileIndex(
   db: IndexBackendConnection,
   filePath: string,
@@ -2271,7 +2325,13 @@ async function indexFolderDirect(input: {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
     const supportedFiles = await listSupportedFiles(repoRoot);
-    const tracked = db.prepare("SELECT path FROM files").all() as Array<{ path: string }>;
+    const tracked = db.prepare(
+      `
+        SELECT id, path, content_hash, integrity_hash, size_bytes, mtime_ms
+        FROM files
+      `,
+    ).all() as Array<TrackedFileRow & { path: string }>;
+    const trackedRows = new Map(tracked.map((row) => [row.path, row]));
     const trackedPaths = new Set(tracked.map((row) => row.path));
     const nextPaths = new Set(supportedFiles);
 
@@ -2283,13 +2343,21 @@ async function indexFolderDirect(input: {
 
     let indexedFiles = 0;
     let indexedSymbols = 0;
-    for (const filePath of supportedFiles) {
-      const result = await upsertFileIndex(db, {
-        repoRoot,
-        filePath,
-        summaryStrategy: config.summaryStrategy,
-        forceRefresh,
-      });
+    const analyzedFiles = await pMap(
+      supportedFiles,
+      async (filePath) =>
+        analyzeFileIndexResult({
+          repoRoot,
+          filePath,
+          summaryStrategy: config.summaryStrategy,
+          forceRefresh,
+          existing: trackedRows.get(filePath),
+        }),
+      { concurrency: config.fileProcessingConcurrency },
+    );
+
+    for (const analyzed of analyzedFiles) {
+      const result = persistFileIndexResult(db, analyzed);
       if (result.indexed) {
         indexedFiles += 1;
         indexedSymbols += result.symbolCount;
@@ -2309,6 +2377,29 @@ async function indexFolderDirect(input: {
   }
 }
 
+async function upsertFileIndex(db: IndexBackendConnection, input: {
+  repoRoot: string;
+  filePath: string;
+  summaryStrategy?: SummaryStrategy;
+  forceRefresh?: boolean;
+}) {
+  const existing = db.prepare(
+    `
+      SELECT id, content_hash, integrity_hash, size_bytes, mtime_ms
+      FROM files
+      WHERE path = ?
+    `,
+  ).get(input.filePath) as TrackedFileRow | undefined;
+
+  const analyzed = await analyzeFileIndexResult({
+    repoRoot: input.repoRoot,
+    filePath: input.filePath,
+    summaryStrategy: input.summaryStrategy,
+    forceRefresh: input.forceRefresh,
+    existing,
+  });
+  return persistFileIndexResult(db, analyzed);
+}
 export async function indexFolder(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;

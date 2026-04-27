@@ -409,6 +409,9 @@ Initial supported shape:
     "port": 34323,
     "recentLimit": 100,
     "snapshotIntervalMs": 1000
+  },
+  "performance": {
+    "fileProcessingConcurrency": "auto"
   }
 }
 ```
@@ -419,6 +422,10 @@ Current behavior:
 - invalid config fails clearly
 - summary strategy defaults are picked up by engine operations when no explicit
   override is passed
+- `performance.fileProcessingConcurrency` bounds concurrent file analysis while
+  keeping SQLite persistence single-writer and ordered
+- `"auto"` resolves to a small CPU-aware default, and numeric values are
+  clamped into the supported range
 - observability server defaults are picked up from this file, but explicit CLI
   flags still win
 - in this repo, `observability.enabled: true` also enables session-start
