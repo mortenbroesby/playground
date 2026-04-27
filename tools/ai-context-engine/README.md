@@ -118,6 +118,8 @@ Current implementation includes:
 - package scaffold and storage/config contract
 - Oxc as the primary parser for TypeScript and JavaScript source, including
   `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, and `.jsx`
+- `fdir`-backed source discovery behind the internal filesystem-scan adapter,
+  replacing the older handwritten recursive candidate walk
 - temporary Tree-sitter fallback contained behind the parser facade
 - parser coverage for export specifiers, anonymous default exports, re-exported
   names, class constructors/accessors/fields, object-literal callable members,
@@ -518,6 +520,11 @@ to `stdout`. The first slice covers:
 Watch event-to-refresh latency is intentionally not part of this first baseline
 because it is sensitive to host watcher behavior and needs a more controlled
 fixture before the numbers are comparable.
+
+The first discovery optimization slice is now also landed: the runtime and perf
+benchmarks both use the same `fdir`-backed source discovery adapter, so later
+perf changes are measured against the real engine path rather than a benchmark-
+only scanner.
 
 ## Mutation testing
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { cp, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,7 @@ import {
   getRankedContext,
   searchSymbols,
 } from "../src/index.ts";
+import { listSupportedFiles } from "../src/filesystem-scan.ts";
 import { parseSourceFile, supportedLanguageForFile } from "../src/parser.ts";
 
 const packageRoot = path.resolve(
@@ -181,31 +182,7 @@ async function benchmarkParseTargets(runs) {
 }
 
 async function listSupportedSourceFiles(rootDir, currentDir = rootDir) {
-  const entries = await readdir(currentDir, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
-
-    const absolutePath = path.join(currentDir, entry.name);
-    const relativePath = path.relative(rootDir, absolutePath);
-
-    if (entry.isDirectory()) {
-      if (EXCLUDED_SEGMENTS.has(entry.name)) {
-        continue;
-      }
-      files.push(...(await listSupportedSourceFiles(rootDir, absolutePath)));
-      continue;
-    }
-
-    if (supportedLanguageForFile(relativePath)) {
-      files.push(relativePath);
-    }
-  }
-
-  return files.sort();
+  return listSupportedFiles(rootDir, currentDir);
 }
 
 async function benchmarkLibrarySurface(repoRoot) {

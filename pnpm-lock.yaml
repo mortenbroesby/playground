@@ -336,6 +336,9 @@ importers:
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
+      fdir:
+        specifier: ^6.5.0
+        version: 6.5.0(picomatch@4.0.4)
       oxc-parser:
         specifier: ^0.127.0
         version: 0.127.0

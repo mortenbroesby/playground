@@ -101,12 +101,16 @@ As of `2026-04-27`, the first baseline-measurement slice is landed on
   - `bench:perf:query`
 - complete: JSON smoke coverage for the aggregate perf script
 - complete: README wiring for the baseline workflow
+- complete: `fdir`-backed source discovery adapter wired into runtime and perf
+  scripts
+- complete: focused scanner coverage for sort order, gitignore behavior, junk
+  directory skips, and symlink escape safety
 - deferred: new runtime performance dependencies until the baseline is stable
 - deferred: watch event-to-refresh latency until a more controlled fixture
   exists
 
-The next slice in this spec is still Phase 2: file discovery experiments with
-`fdir`, measured against this new baseline.
+The next slice in this spec is Phase 3: compiled glob matching with
+`picomatch`, now that Phase 2 has a concrete `fdir` adapter path.
 
 ---
 

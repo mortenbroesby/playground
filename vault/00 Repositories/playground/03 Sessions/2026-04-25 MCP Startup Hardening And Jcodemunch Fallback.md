@@ -614,3 +614,20 @@ a mandatory runtime concern for every MCP or CLI call.
 - Explicitly deferred watch event-to-refresh timing until a tighter, more
   comparable fixture exists.
 - Bumped Astrograph from `0.0.1-alpha.18` to `0.0.1-alpha.19`.
+
+## Astrograph performance dependency detour Phase 2 (2026-04-27)
+
+- Landed the next `performance-deps` slice on the same feature branch by
+  replacing the handwritten recursive candidate walk with a shared
+  `fdir`-backed source discovery adapter in `filesystem-scan.ts`.
+- Reused that same adapter in the perf scripts and the smaller benchmark
+  harness so runtime discovery and measured discovery now share one code path.
+- Added focused discovery tests covering:
+  - deterministic sort order
+  - junk-directory skips
+  - `.gitignore` filtering
+  - subtree-relative discovery
+  - symlink escape safety
+- Kept the scope narrow: no new glob layer yet, no watch-path changes yet, and
+  no additional ranking or parser work folded into this slice.
+- Bumped Astrograph from `0.0.1-alpha.19` to `0.0.1-alpha.20`.

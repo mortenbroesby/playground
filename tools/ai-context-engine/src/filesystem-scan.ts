@@ -2,9 +2,11 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { fdir } from "fdir";
 
 import { createDefaultEngineConfig } from "./config.ts";
 import { supportedLanguageForFile } from "./parser.ts";
+import type { SupportedLanguage } from "./types.ts";
 
 export interface SnapshotEntry {
   path: string;
@@ -25,6 +27,13 @@ export interface DirectoryStateEntry {
 interface SupportedFileCandidate {
   absolutePath: string;
   relativePath: string;
+}
+
+export interface DiscoveredSourceFile {
+  absolutePath: string;
+  relativePath: string;
+  language: SupportedLanguage;
+  sizeBytes: number;
 }
 
 const SKIP_SEGMENTS = new Set([
@@ -120,38 +129,73 @@ export async function scanSupportedFileCandidates(
   rootDir: string,
   currentDir = rootDir,
 ): Promise<SupportedFileCandidate[]> {
-  const entries = await readdir(currentDir, { withFileTypes: true });
-  const results: SupportedFileCandidate[] = [];
+  const results = await discoverSourceFiles({
+    repoRoot: rootDir,
+    startRelativePath: path.relative(rootDir, currentDir),
+    respectGitIgnore: false,
+  });
+  return results.map(({ absolutePath, relativePath }) => ({
+    absolutePath,
+    relativePath,
+  }));
+}
 
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
+export async function discoverSourceFiles(options: {
+  repoRoot: string;
+  startRelativePath?: string;
+  respectGitIgnore?: boolean;
+}): Promise<DiscoveredSourceFile[]> {
+  const startRelativePath = options.startRelativePath ?? "";
+  const startDir = startRelativePath
+    ? path.join(options.repoRoot, startRelativePath)
+    : options.repoRoot;
 
-    const absolutePath = path.join(currentDir, entry.name);
-    const relativePath = path.relative(rootDir, absolutePath);
+  const crawledPaths = await new fdir()
+    .withFullPaths()
+    .exclude((dirName) => SKIP_SEGMENTS.has(dirName))
+    .crawl(startDir)
+    .withPromise();
 
-    if (entry.isDirectory()) {
-      if (SKIP_SEGMENTS.has(entry.name)) {
-        continue;
+  const discoveredFiles = await Promise.all(
+    crawledPaths.map(async (absolutePath) => {
+      const relativePath = path.relative(options.repoRoot, absolutePath);
+      if (relativePath.startsWith(`..${path.sep}`) || relativePath === "..") {
+        return null;
       }
-      results.push(...(await scanSupportedFileCandidates(rootDir, absolutePath)));
-      continue;
-    }
 
-    if (!supportedLanguageForFile(relativePath)) {
-      continue;
-    }
+      const language = supportedLanguageForFile(relativePath);
+      if (!language) {
+        return null;
+      }
 
-    results.push({
-      absolutePath,
-      relativePath,
-    });
-  }
+      const fileStat = await stat(absolutePath).catch(() => null);
+      if (!fileStat?.isFile()) {
+        return null;
+      }
 
-  return results.sort((left, right) =>
-    left.relativePath.localeCompare(right.relativePath)
+      return {
+        absolutePath,
+        relativePath,
+        language,
+        sizeBytes: fileStat.size,
+      };
+    }),
   );
+
+  const filteredDiscoveredFiles: DiscoveredSourceFile[] = discoveredFiles.filter(
+    (entry): entry is DiscoveredSourceFile => entry !== null,
+  );
+  const respectGitIgnore = options.respectGitIgnore ?? true;
+  const ignoredPaths = respectGitIgnore
+    ? resolveGitIgnoredPaths(
+        options.repoRoot,
+        filteredDiscoveredFiles.map((entry) => entry.relativePath),
+      )
+    : new Set<string>();
+
+  return filteredDiscoveredFiles
+    .filter((entry) => !ignoredPaths.has(entry.relativePath))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 }
 
 export async function loadFilesystemSnapshot(
@@ -225,25 +269,18 @@ export async function loadSupportedFileStatesForSubtree(
   rootDir: string,
   startRelativePath = "",
 ): Promise<FilesystemStateEntry[]> {
-  const startDir = startRelativePath ? path.join(rootDir, startRelativePath) : rootDir;
   const config = createDefaultEngineConfig({ repoRoot: rootDir });
-  const candidates = await scanSupportedFileCandidates(rootDir, startDir);
-  const ignoredPaths = config.respectGitIgnore
-    ? resolveGitIgnoredPaths(
-        rootDir,
-        candidates.map((candidate) => candidate.relativePath),
-      )
-    : new Set<string>();
+  const discoveredFiles = await discoverSourceFiles({
+    repoRoot: rootDir,
+    startRelativePath,
+    respectGitIgnore: config.respectGitIgnore,
+  });
   const results: FilesystemStateEntry[] = [];
 
-  for (const candidate of candidates) {
-    if (ignoredPaths.has(candidate.relativePath)) {
-      continue;
-    }
-
-    const fileStat = await stat(candidate.absolutePath);
+  for (const discoveredFile of discoveredFiles) {
+    const fileStat = await stat(discoveredFile.absolutePath);
     results.push({
-      path: candidate.relativePath,
+      path: discoveredFile.relativePath,
       mtimeMs: fileStat.mtimeMs,
       size: fileStat.size,
     });
@@ -297,16 +334,10 @@ export async function listSupportedFiles(
   currentDir = rootDir,
 ): Promise<string[]> {
   const config = createDefaultEngineConfig({ repoRoot: rootDir });
-  const candidates = await scanSupportedFileCandidates(rootDir, currentDir);
-  if (!config.respectGitIgnore) {
-    return candidates.map((candidate) => candidate.relativePath);
-  }
-
-  const ignoredPaths = resolveGitIgnoredPaths(
-    rootDir,
-    candidates.map((candidate) => candidate.relativePath),
-  );
-  return candidates
-    .map((candidate) => candidate.relativePath)
-    .filter((relativePath) => !ignoredPaths.has(relativePath));
+  const discoveredFiles = await discoverSourceFiles({
+    repoRoot: rootDir,
+    startRelativePath: path.relative(rootDir, currentDir),
+    respectGitIgnore: config.respectGitIgnore,
+  });
+  return discoveredFiles.map((entry) => entry.relativePath);
 }

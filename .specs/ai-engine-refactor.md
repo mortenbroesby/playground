@@ -43,6 +43,10 @@ As of `2026-04-27`, these slices are already landed on
   - complete: unresolved relative imports surfaced in `doctor`
   - complete: unresolved relative imports promoted into `diagnostics` stale signals
   - remaining: broader dependent-file orchestration and stronger importer follow-up flows
+- Performance detour in progress on the same branch:
+  - complete: baseline perf scripts from `.specs/performance-deps.md`
+  - complete: `fdir`-backed discovery adapter replacing the handwritten
+    recursive scanner path
 
 Phases 6 and later remain open.
 
