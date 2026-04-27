@@ -62,7 +62,7 @@ describe("ai-context-engine contract", () => {
 
     expect(config.paths.databasePath).toContain(".astrograph/index.sqlite");
     expect(ENGINE_STORAGE_VERSION).toBe(1);
-    expect(ENGINE_SCHEMA_VERSION).toBe(2);
+    expect(ENGINE_SCHEMA_VERSION).toBe(3);
   });
 
   it("advertises the required engine tools", () => {
@@ -80,18 +80,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.15");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.16");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 15,
+      increment: 16,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 15,
+      increment: 16,
     });
   });
 

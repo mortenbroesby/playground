@@ -367,6 +367,21 @@ const SCHEMA_MIGRATIONS: SchemaMigration[] = [
       }
     },
   },
+  {
+    toVersion: 3,
+    run(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS file_dependencies (
+          importer_file_id INTEGER NOT NULL,
+          importer_path TEXT NOT NULL,
+          target_path TEXT NOT NULL,
+          source TEXT NOT NULL,
+          PRIMARY KEY(importer_file_id, target_path, source),
+          FOREIGN KEY(importer_file_id) REFERENCES files(id) ON DELETE CASCADE
+        );
+      `);
+    },
+  },
 ];
 
 function runSchemaMigrations(db: IndexBackendConnection) {
@@ -433,6 +448,14 @@ function initializeDatabase(db: IndexBackendConnection) {
       source TEXT NOT NULL,
       specifiers TEXT NOT NULL,
       FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS file_dependencies (
+      importer_file_id INTEGER NOT NULL,
+      importer_path TEXT NOT NULL,
+      target_path TEXT NOT NULL,
+      source TEXT NOT NULL,
+      PRIMARY KEY(importer_file_id, target_path, source),
+      FOREIGN KEY(importer_file_id) REFERENCES files(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS content_blobs (
       file_id INTEGER PRIMARY KEY,
@@ -1489,103 +1512,128 @@ function resolveImportedFilePaths(
   return [];
 }
 
+function rebuildFileDependencies(db: IndexBackendConnection) {
+  db.prepare("DELETE FROM file_dependencies").run();
+
+  const rows = typedAll<{
+    importer_file_id: number;
+    importer_path: string;
+    source: string;
+  }>(
+    db.prepare(`
+      SELECT imports.file_id AS importer_file_id, files.path AS importer_path, imports.source AS source
+      FROM imports
+      INNER JOIN files ON files.id = imports.file_id
+      ORDER BY files.path ASC, imports.source ASC
+    `),
+  );
+  const insertDependency = db.prepare(`
+    INSERT INTO file_dependencies (importer_file_id, importer_path, target_path, source)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  for (const row of rows) {
+    const targetPaths = resolveImportedFilePaths(
+      db,
+      row.importer_path,
+      row.source,
+    );
+    for (const targetPath of targetPaths) {
+      insertDependency.run(
+        row.importer_file_id,
+        row.importer_path,
+        targetPath,
+        row.source,
+      );
+    }
+  }
+}
+
 function pickDependencyRows(
   db: IndexBackendConnection,
   seedRow: DbSymbolRow,
 ): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
-  const fileRow = typedGet<{ id: number }>(
-    db.prepare("SELECT id FROM files WHERE path = ?"),
-    seedRow.file_path,
-  );
-  if (!fileRow) {
-    return [];
-  }
-
   const imports = typedAll<{
+    target_path: string;
     source: string;
     specifiers: string;
   }>(
     db.prepare(
       `
-        SELECT source, specifiers
-        FROM imports
-        WHERE file_id = ?
-        ORDER BY source ASC
+        SELECT file_dependencies.target_path AS target_path, file_dependencies.source AS source, imports.specifiers AS specifiers
+        FROM file_dependencies
+        INNER JOIN files ON files.id = file_dependencies.importer_file_id
+        INNER JOIN imports ON imports.file_id = files.id AND imports.source = file_dependencies.source
+        WHERE file_dependencies.importer_path = ?
+        ORDER BY file_dependencies.target_path ASC, file_dependencies.source ASC
       `,
     ),
-    fileRow.id,
+    seedRow.file_path,
   );
 
   const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
   const seen = new Set<string>();
 
   for (const importRow of imports) {
-    const targets = resolveImportedFilePaths(
-      db,
-      seedRow.file_path,
-      importRow.source,
-    );
     const specifiers = JSON.parse(importRow.specifiers) as string[];
 
-    for (const targetPath of targets) {
-      const picked: DbSymbolRow[] = [];
+    const picked: DbSymbolRow[] = [];
 
-      for (const specifier of specifiers) {
-        const row = typedGet<DbSymbolRow>(
-          db.prepare(
-            `
-              SELECT
-                id, name, qualified_name, kind, file_path, signature, summary,
-                summary_source,
-                start_line, end_line, start_byte, end_byte, exported
-              FROM symbols
-              WHERE file_path = ? AND (name = ? OR qualified_name = ?)
-              ORDER BY exported DESC, start_line ASC
-              LIMIT 1
-            `,
-          ),
-          targetPath,
-          specifier,
-          specifier,
-        );
-        if (row) {
-          picked.push(row);
-        }
+    for (const specifier of specifiers) {
+      const row = typedGet<DbSymbolRow>(
+        db.prepare(
+          `
+            SELECT
+              id, name, qualified_name, kind, file_path, signature, summary,
+              summary_source,
+              start_line, end_line, start_byte, end_byte, exported
+            FROM symbols
+            WHERE file_path = ? AND (name = ? OR qualified_name = ?)
+            ORDER BY exported DESC, start_line ASC
+            LIMIT 1
+          `,
+        ),
+        importRow.target_path,
+        specifier,
+        specifier,
+      );
+      if (row) {
+        picked.push(row);
       }
+    }
 
-      if (picked.length === 0) {
-        const row = typedGet<DbSymbolRow>(
-          db.prepare(
-            `
-              SELECT
-                id, name, qualified_name, kind, file_path, signature, summary,
-                summary_source,
-                start_line, end_line, start_byte, end_byte, exported
-              FROM symbols
-              WHERE file_path = ?
-              ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
-              LIMIT 1
-            `,
-          ),
-          targetPath,
-        );
-        if (row) {
-          picked.push(row);
-        }
+    if (picked.length === 0) {
+      const row = typedGet<DbSymbolRow>(
+        db.prepare(
+          `
+            SELECT
+              id, name, qualified_name, kind, file_path, signature, summary,
+              summary_source,
+              start_line, end_line, start_byte, end_byte, exported
+            FROM symbols
+            WHERE file_path = ?
+            ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
+            LIMIT 1
+          `,
+        ),
+        importRow.target_path,
+      );
+      if (row) {
+        picked.push(row);
       }
+    }
 
-      for (const row of picked) {
-        if (seen.has(row.id)) {
-          continue;
-        }
-        seen.add(row.id);
-        matches.push({
-          row,
-          reason: importRow.source.startsWith(".")
-            ? "imports_matched_file"
-            : "reexport_match",
-        });
+    for (const row of picked) {
+      if (seen.has(row.id)) {
+        continue;
       }
+      seen.add(row.id);
+      matches.push({
+        row,
+        reason: importRow.source.startsWith(".")
+          ? "imports_matched_file"
+          : "reexport_match",
+      });
     }
   }
 
@@ -1598,31 +1646,22 @@ function pickImporterRows(
 ): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
   const importers = typedAll<{
     importer_path: string;
-    source: string;
   }>(
     db.prepare(
       `
-        SELECT importer.path AS importer_path, imports.source AS source
-        FROM imports
-        INNER JOIN files AS importer ON importer.id = imports.file_id
-        ORDER BY importer.path ASC, imports.source ASC
+        SELECT importer_path
+        FROM file_dependencies
+        WHERE target_path = ?
+        ORDER BY importer_path ASC
       `,
     ),
+    seedRow.file_path,
   );
 
   const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
   const seen = new Set<string>();
 
   for (const importer of importers) {
-    const targets = resolveImportedFilePaths(
-      db,
-      importer.importer_path,
-      importer.source,
-    );
-    if (!targets.includes(seedRow.file_path)) {
-      continue;
-    }
-
     const row = typedGet<DbSymbolRow>(
       db.prepare(
         `
@@ -2186,6 +2225,7 @@ async function finalizeIndex(
   indexedAt: string,
   summaryStrategy: SummaryStrategy,
 ) {
+  rebuildFileDependencies(db);
   const totalFiles = countRows(db, "SELECT COUNT(*) AS count FROM files");
   const totalSymbols = countRows(db, "SELECT COUNT(*) AS count FROM symbols");
   const indexedSnapshotHash = snapshotHash(loadIndexedSnapshot(db));

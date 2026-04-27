@@ -91,7 +91,7 @@ describe("ai-context-engine behavior", () => {
 
     expect(result).toMatchObject({
       repoRoot: resolvedRepoRoot,
-      schemaVersion: 2,
+      schemaVersion: 3,
       indexStatus: "not-indexed",
       freshness: {
         indexedFiles: 0,
@@ -159,14 +159,14 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.15",
+      engineVersion: "0.0.1-alpha.16",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 15,
+        increment: 16,
       },
-      schemaVersion: 2,
+      schemaVersion: 3,
       summaryStrategy: "doc-comments-first",
       summarySources: {
         "doc-comment": 4,
@@ -329,7 +329,7 @@ module.exports = {
       path.join(canonicalRepoRoot, ".astrograph", "index.sqlite"),
     );
     expect(health.storageVersion).toBe(1);
-    expect(health.schemaVersion).toBe(2);
+    expect(health.schemaVersion).toBe(3);
   });
 
   it("migrates legacy Astrograph schema state before serving diagnostics", async () => {
@@ -358,12 +358,15 @@ module.exports = {
     legacyDb.close();
 
     const health = await diagnostics({ repoRoot });
-    expect(health.schemaVersion).toBe(2);
+    expect(health.schemaVersion).toBe(3);
 
     const migratedDb = new Database(paths.databasePath, { readonly: true });
     const fileColumns = migratedDb
       .prepare("PRAGMA table_info(files)")
       .all() as Array<{ name: string }>;
+    const dependencyTable = migratedDb
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'file_dependencies'")
+      .get() as { name: string } | undefined;
     const schemaVersionRow = migratedDb
       .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
       .get() as { value: string } | undefined;
@@ -377,7 +380,8 @@ module.exports = {
         "import_hash",
       ]),
     );
-    expect(schemaVersionRow?.value).toBe("2");
+    expect(dependencyTable?.name).toBe("file_dependencies");
+    expect(schemaVersionRow?.value).toBe("3");
   });
 
   it("supports symbol and text search plus exact retrieval", async () => {
@@ -1039,6 +1043,73 @@ export function renderValue(value: number): string {
       true,
     );
     expect(bundle.items.some((item) => item.symbol.name === "firstFormatter")).toBe(
+      false,
+    );
+  });
+
+  it("refreshes dependency edges when an importer changes its imported symbol", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+
+export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter as format } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return format(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const initialBundle = await getContextBundle({
+      repoRoot,
+      query: "renderValue",
+      tokenBudget: 200,
+    });
+    expect(initialBundle.items.some((item) => item.symbol.name === "bestFormatter")).toBe(
+      true,
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { firstFormatter as format } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return format(value);
+}
+`,
+    );
+
+    const refresh = await indexFile({
+      repoRoot,
+      filePath: "src/consumer.ts",
+    });
+    expect(refresh).toMatchObject({
+      indexedFiles: 1,
+      staleStatus: "fresh",
+    });
+
+    const updatedBundle = await getContextBundle({
+      repoRoot,
+      query: "renderValue",
+      tokenBudget: 200,
+    });
+    expect(updatedBundle.items.some((item) => item.symbol.name === "firstFormatter")).toBe(
+      true,
+    );
+    expect(updatedBundle.items.some((item) => item.symbol.name === "bestFormatter")).toBe(
       false,
     );
   });

@@ -160,6 +160,10 @@ Current implementation includes:
 - direct `index-file` refreshes now also cleanly remove stale index rows when
   the target path was deleted, renamed away, ignored, or no longer supported,
   which keeps commit-hook and one-file repair flows aligned with watch mode
+- importer/dependency traversal now reads from a persisted `file_dependencies`
+  table rebuilt during finalize steps, so single-file refreshes invalidate
+  stale importer edges when import targets change instead of relying only on
+  ad hoc path resolution at query time
 - symbol search now supports `language` and `filePattern` filters, and text
   search supports `filePattern`
 - repo inputs anchored to any Git subdirectory resolve to the enclosing worktree

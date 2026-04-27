@@ -545,3 +545,20 @@ a mandatory runtime concern for every MCP or CLI call.
   selective-refresh automation.
 - Added focused behavior coverage for the deleted/renamed case and bumped
   Astrograph from `0.0.1-alpha.14` to `0.0.1-alpha.15`.
+
+## Astrograph persisted dependency edges follow-up (2026-04-27)
+
+- Added a persisted `file_dependencies` table to the SQLite schema and bumped
+  the DB `schemaVersion` from `2` to `3`.
+- Finalize steps now rebuild resolved file-to-file dependency edges from the
+  current `imports` table, instead of making importer/dependency traversal rely
+  only on ad hoc path resolution during query time.
+- `pickDependencyRows` and `pickImporterRows` now read those persisted edges,
+  which means a single-file importer refresh invalidates stale dependency
+  relations immediately when the importer changes which target or symbol it
+  pulls in.
+- Added a focused regression where `consumer.ts` switches from
+  `bestFormatter` to `firstFormatter`; after `index-file consumer.ts`,
+  Astrograph now returns the new dependency and stops returning the old one.
+- Bumped Astrograph from `0.0.1-alpha.15` to `0.0.1-alpha.16` for this
+  dependency-edge invalidation slice.
