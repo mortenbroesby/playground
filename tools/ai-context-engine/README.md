@@ -49,6 +49,7 @@ The package is currently a personal tool:
 - Exact symbol and source retrieval as the primary truth layer
 - Ranked, token-budgeted context assembly for agent use
 - `query_code` umbrella surface for discovery, source retrieval, and assembly
+- Graph-aware symbol references for stronger importer follow-up than file-level importers alone
 - `diagnostics` and `doctor` flows for freshness, health, and repair guidance
 - Watch-mode refresh with `@parcel/watcher`, `fs.watch`, and polling fallback paths
 - Live-disk text fallback via ripgrep when discovery text search is requested on

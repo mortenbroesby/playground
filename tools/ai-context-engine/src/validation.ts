@@ -64,6 +64,7 @@ const queryCodeOptionsSchema = z.object({
   includeRankedCandidates: z.boolean().optional(),
   includeDependencies: z.boolean().optional(),
   includeImporters: z.boolean().optional(),
+  includeReferences: z.boolean().optional(),
   relationDepth: positiveNumberSchema.max(3).optional(),
 }).superRefine((input, ctx) => {
   const resolvedIntent = resolveQueryCodeIntent(input);
@@ -330,6 +331,7 @@ export function parseQueryCodeCliInput(args: Record<string, string>): QueryCodeO
     includeRankedCandidates: args["include-ranked"] === "true",
     includeDependencies: args["include-dependencies"] === "true",
     includeImporters: args["include-importers"] === "true",
+    includeReferences: args["include-references"] === "true",
     relationDepth: parseCliOptionalNumber(args, "relation-depth"),
   };
 
@@ -362,6 +364,7 @@ export function parseQueryCodeMcpInput(args: Record<string, unknown>): QueryCode
     includeRankedCandidates: args.includeRankedCandidates === true,
     includeDependencies: args.includeDependencies === true,
     includeImporters: args.includeImporters === true,
+    includeReferences: args.includeReferences === true,
     relationDepth: args.relationDepth,
   };
 

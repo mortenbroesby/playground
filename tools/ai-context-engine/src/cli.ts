@@ -91,12 +91,20 @@ const commands: Record<string, CliHandler> = {
       query: optional(args, "query"),
       symbolIds: optionalList(args, "symbols"),
       tokenBudget: optionalNumber(args, "budget"),
+      includeDependencies: args["include-dependencies"] === "true",
+      includeImporters: args["include-importers"] === "true",
+      includeReferences: args["include-references"] === "true",
+      relationDepth: optionalNumber(args, "relation-depth"),
     }),
   "get-ranked-context": async (args) =>
     getRankedContext({
       repoRoot: required(args, "repo"),
       query: required(args, "query"),
       tokenBudget: optionalNumber(args, "budget"),
+      includeDependencies: args["include-dependencies"] === "true",
+      includeImporters: args["include-importers"] === "true",
+      includeReferences: args["include-references"] === "true",
+      relationDepth: optionalNumber(args, "relation-depth"),
     }),
   "get-file-content": async (args) =>
     getFileContent({

@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.40",
+      engineVersion: "0.0.1-alpha.41",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 40,
+        increment: 41,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1041,6 +1041,85 @@ export function workerGenerated${index}(value: number): string {
         }),
       ]),
     );
+  });
+
+  it("expands graph-aware results through exact symbol references without broad importer spillover", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+
+export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "best-consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderBest(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "first-consumer.ts"),
+      `import { firstFormatter } from "./formatters.js";
+
+export function renderFirst(value: number): string {
+  return firstFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "bestFormatter",
+      includeDependencies: false,
+      includeReferences: true,
+      relationDepth: 1,
+    });
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(discoverResult.matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "bestFormatter",
+          }),
+          reasons: expect.arrayContaining(["exact_symbol_match"]),
+        }),
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "renderBest",
+          }),
+          reasons: expect.arrayContaining(["references_match"]),
+        }),
+      ]),
+    );
+    expect(
+      discoverResult.matches.some((entry) => entry.symbol.name === "renderFirst"),
+    ).toBe(false);
+
+    const bundle = await getContextBundle({
+      repoRoot,
+      query: "bestFormatter",
+      includeDependencies: false,
+      includeReferences: true,
+      relationDepth: 1,
+      tokenBudget: 220,
+    });
+    expect(bundle.items.some((item) => item.symbol.name === "renderBest")).toBe(true);
+    expect(bundle.items.some((item) => item.symbol.name === "renderFirst")).toBe(false);
   });
 
   it("expands assembled query context with bounded graph relations", async () => {

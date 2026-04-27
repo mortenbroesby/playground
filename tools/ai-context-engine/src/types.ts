@@ -311,6 +311,7 @@ export interface QueryCodeOptions {
   includeRankedCandidates?: boolean;
   includeDependencies?: boolean;
   includeImporters?: boolean;
+  includeReferences?: boolean;
   relationDepth?: number;
 }
 
@@ -322,6 +323,7 @@ export type QueryCodeMatchReason =
   | "ripgrep_fallback"
   | "imports_matched_file"
   | "imported_by_match"
+  | "references_match"
   | "reexport_match";
 
 export interface QueryCodeSymbolMatch {
@@ -388,6 +390,7 @@ export interface ContextBundleOptions {
   tokenBudget?: number;
   includeDependencies?: boolean;
   includeImporters?: boolean;
+  includeReferences?: boolean;
   relationDepth?: number;
 }
 

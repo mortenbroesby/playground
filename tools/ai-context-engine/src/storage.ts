@@ -2107,6 +2107,64 @@ function pickImporterRows(
   return matches;
 }
 
+function pickReferenceRows(
+  db: IndexBackendConnection,
+  seedRow: DbSymbolRow,
+): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
+  const importers = typedAll<{
+    importer_path: string;
+    specifiers: string;
+  }>(
+    db.prepare(
+      `
+        SELECT file_dependencies.importer_path AS importer_path, imports.specifiers AS specifiers
+        FROM file_dependencies
+        INNER JOIN files ON files.id = file_dependencies.importer_file_id
+        INNER JOIN imports ON imports.file_id = files.id AND imports.source = file_dependencies.source
+        WHERE file_dependencies.target_path = ?
+        ORDER BY file_dependencies.importer_path ASC
+      `,
+    ),
+    seedRow.file_path,
+  );
+
+  const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
+  const seen = new Set<string>();
+
+  for (const importer of importers) {
+    const specifiers = JSON.parse(importer.specifiers) as string[];
+    if (!specifiers.includes(seedRow.name)) {
+      continue;
+    }
+
+    const row = typedGet<DbSymbolRow>(
+      db.prepare(
+        `
+          SELECT
+            id, name, qualified_name, kind, file_path, signature, summary,
+            summary_source,
+            start_line, end_line, start_byte, end_byte, exported
+          FROM symbols
+          WHERE file_path = ?
+          ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
+          LIMIT 1
+        `,
+      ),
+      importer.importer_path,
+    );
+    if (!row || seen.has(row.id)) {
+      continue;
+    }
+    seen.add(row.id);
+    matches.push({
+      row,
+      reason: "references_match",
+    });
+  }
+
+  return matches;
+}
+
 function makeContextBundleItem(
   row: DbSymbolRow,
   source: string,
@@ -2209,7 +2267,7 @@ function resolveRankedSeedCandidates(
 
 function buildContextBundleFromSeeds(
   db: IndexBackendConnection,
-  input: ContextBundleOptions & Pick<QueryCodeOptions, "includeDependencies" | "includeImporters" | "relationDepth">,
+  input: ContextBundleOptions & Pick<QueryCodeOptions, "includeDependencies" | "includeImporters" | "includeReferences" | "relationDepth">,
   seedCandidates: RankedSeedCandidate[],
 ): ContextBundle {
   const bundleCandidates: Array<ContextBundleItem> = [];
@@ -2233,6 +2291,7 @@ function buildContextBundleFromSeeds(
   const relationDepth = Math.min(3, Math.max(1, input.relationDepth ?? 1));
   const includeDependencies = input.includeDependencies ?? true;
   const includeImporters = input.includeImporters ?? false;
+  const includeReferences = input.includeReferences ?? false;
   let frontier = seedCandidates.map((seed) => seed.row as DbSymbolRow);
   const visited = new Set(frontier.map((row) => row.id));
 
@@ -2242,6 +2301,7 @@ function buildContextBundleFromSeeds(
     for (const seedRow of frontier) {
       const relatedRows = [
         ...(includeDependencies ? pickDependencyRows(db, seedRow) : []),
+        ...(includeReferences ? pickReferenceRows(db, seedRow) : []),
         ...(includeImporters ? pickImporterRows(db, seedRow) : []),
       ];
 
@@ -2305,7 +2365,7 @@ function buildContextBundleFromSeeds(
 function buildDiscoverGraphMatches(
   db: IndexBackendConnection,
   seedSymbols: SymbolSummary[],
-  input: Pick<QueryCodeOptions, "query" | "includeDependencies" | "includeImporters" | "relationDepth" | "includeTextMatches">,
+  input: Pick<QueryCodeOptions, "query" | "includeDependencies" | "includeImporters" | "includeReferences" | "relationDepth" | "includeTextMatches">,
 ): {
   matches: QueryCodeSymbolMatch[];
   textMatchResults: QueryCodeTextMatch[];
@@ -2342,6 +2402,7 @@ function buildDiscoverGraphMatches(
 
       const relatedRows = [
         ...(input.includeDependencies ? pickDependencyRows(db, entry.row) : []),
+        ...(input.includeReferences ? pickReferenceRows(db, entry.row) : []),
         ...(input.includeImporters ? pickImporterRows(db, entry.row) : []),
       ];
 
@@ -3572,6 +3633,7 @@ function getRankedContextFromContext(context: EngineContext, input: {
   tokenBudget?: number;
   includeDependencies?: boolean;
   includeImporters?: boolean;
+  includeReferences?: boolean;
   relationDepth?: number;
 }): RankedContextResult {
   validateRankedContextOptions(input);
@@ -3588,6 +3650,10 @@ export async function getRankedContext(input: {
   repoRoot: string;
   query: string;
   tokenBudget?: number;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  includeReferences?: boolean;
+  relationDepth?: number;
 }): Promise<RankedContextResult> {
   const context = await createEngineContext(input);
 
