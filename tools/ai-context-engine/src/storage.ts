@@ -2571,23 +2571,30 @@ async function finalizeIndex(
   repoRoot: string,
   indexedAt: string,
   summaryStrategy: SummaryStrategy,
-) {
+): Promise<"fresh" | "stale"> {
   rebuildFileDependencies(db);
+  const dependencyGraph = loadDependencyGraphHealth(db);
   const totalFiles = countRows(db, "SELECT COUNT(*) AS count FROM files");
   const totalSymbols = countRows(db, "SELECT COUNT(*) AS count FROM symbols");
   const indexedSnapshotHash = snapshotHash(loadIndexedSnapshot(db));
+  const staleStatus =
+    dependencyGraph.brokenRelativeImportCount > 0
+    || dependencyGraph.brokenRelativeSymbolImportCount > 0
+      ? "stale"
+      : "fresh";
   db.prepare(
     "INSERT INTO meta (key, value) VALUES ('staleStatus', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-  ).run("fresh");
+  ).run(staleStatus);
   await writeSidecars({
     repoRoot,
     indexedAt,
     indexedFiles: totalFiles,
     totalSymbols,
     indexedSnapshotHash,
-    staleStatus: "fresh",
+    staleStatus,
     summaryStrategy,
   });
+  return staleStatus;
 }
 
 async function indexFolderDirect(input: {
@@ -2651,12 +2658,12 @@ async function indexFolderDirect(input: {
     }
 
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+    const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
     return {
       indexedFiles,
       indexedSymbols,
-      staleStatus: "fresh",
+      staleStatus,
     };
   } finally {
     db.close();
@@ -2724,24 +2731,24 @@ async function indexFileDirect(input: {
     if (!fileState.exists || !fileState.supported || fileState.ignored) {
       const removed = removeFileIndex(db, fileState.relativePath);
       const indexedAt = new Date().toISOString();
-      await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+      const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
       return {
         indexedFiles: removed ? 1 : 0,
         indexedSymbols: 0,
-        staleStatus: "fresh",
+        staleStatus,
       };
     }
     const fileMetadata = await readRepoFileMetadata(repoRoot, input.filePath);
     if (exceedsMaxFileBytes(fileMetadata.size, config.maxFileBytes)) {
       const removed = removeFileIndex(db, fileState.relativePath);
       const indexedAt = new Date().toISOString();
-      await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+      const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
       return {
         indexedFiles: removed ? 1 : 0,
         indexedSymbols: 0,
-        staleStatus: "fresh",
+        staleStatus,
       };
     }
     const result = await upsertFileIndex(db, {
@@ -2755,12 +2762,12 @@ async function indexFileDirect(input: {
       },
     });
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+    const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
     return {
       indexedFiles: result.indexed ? 1 : 0,
       indexedSymbols: result.symbolCount,
-      staleStatus: "fresh",
+      staleStatus,
     };
   } finally {
     db.close();
@@ -2984,7 +2991,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         }
 
         const indexedAt = new Date().toISOString();
-        await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+        const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
         return {
           type: "reindex",
@@ -2992,7 +2999,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
           summary: {
             indexedFiles,
             indexedSymbols,
-            staleStatus: "fresh",
+            staleStatus,
           },
         } satisfies WatchEvent;
       } finally {

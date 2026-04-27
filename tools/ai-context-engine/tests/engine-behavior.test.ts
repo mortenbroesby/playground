@@ -218,12 +218,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.42",
+      engineVersion: "0.0.1-alpha.43",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 42,
+        increment: 43,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1977,6 +1977,52 @@ export function circumference(radius: number): string {
     });
   });
 
+  it("marks single-file refresh stale when an exporter change breaks downstream symbol imports", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+`,
+    );
+
+    const update = await indexFile({
+      repoRoot,
+      filePath: "src/formatters.ts",
+    });
+
+    expect(update).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 1,
+      staleStatus: "stale",
+    });
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("unresolved relative symbol imports");
+  });
+
   it("can refresh a single file with worker-pool analysis enabled", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -2270,6 +2316,65 @@ export function circumference(radius: number): string {
         lastEvent: "reindex",
         lastChangedPaths: ["src/math.ts"],
       });
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("reports stale watch refresh summaries when exporter changes break downstream symbol imports", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; staleStatus?: string | undefined }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            staleStatus: event.summary?.staleStatus,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "formatters.ts"),
+        `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      expect(reindexEvents[0]).toMatchObject({
+        changedPaths: ["src/formatters.ts"],
+        staleStatus: "stale",
+      });
+
+      const health = await diagnostics({ repoRoot });
+      expect(health.staleStatus).toBe("stale");
+      expect(health.staleReasons).toContain("unresolved relative symbol imports");
+      expect(health.watch.lastSummary?.staleStatus).toBe("stale");
     } finally {
       await watcher.close();
     }
