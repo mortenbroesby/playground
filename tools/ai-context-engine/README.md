@@ -272,6 +272,8 @@ Those values map to:
   obvious secret-shaped tokens before they are persisted.
 - `doctor` emits non-blocking warnings when indexed source contains obvious
   secret-like content so local leaks are surfaced without being treated as index drift.
+- `diagnostics` and `doctor` report corrupted or tampered repo-local metadata sidecars
+  and suggest rebuilding instead of silently treating them as missing state.
 - Keep repo-root runtime artifacts separate from package build output in `dist/`.
 - Prefer local-only observability when debugging repo indexing and watch behavior.
 

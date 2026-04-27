@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.39",
+      engineVersion: "0.0.1-alpha.40",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 39,
+        increment: 40,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1742,6 +1742,39 @@ export function helperValue(): string {
         filePath: "src/area-helper.ts",
       },
     });
+  });
+
+  it("reports corrupted index metadata and suggests a rebuild", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const paths = resolveEnginePaths(repoRoot);
+    const meta = JSON.parse(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(paths.repoMetaPath, "utf8")
+      ),
+    ) as Record<string, unknown>;
+
+    await writeFile(
+      paths.repoMetaPath,
+      `${JSON.stringify({
+        ...meta,
+        indexedFiles: 999,
+      }, null, 2)}\n`,
+    );
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("index metadata integrity mismatch");
+
+    const result = await doctor({ repoRoot });
+    expect(result.warnings).toContain("Index metadata integrity check failed.");
+    expect(
+      result.suggestedActions.some((entry) =>
+        entry.includes("index-folder"),
+      ),
+    ).toBe(true);
   });
 
   it("diagnostics marks unresolved relative imports as stale dependency drift", async () => {

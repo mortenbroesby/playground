@@ -184,6 +184,18 @@ interface ObservabilityStatusRecord {
   port: number;
 }
 
+type RepoMetaHealthStatus =
+  | "ok"
+  | "missing"
+  | "unreadable"
+  | "missing-integrity"
+  | "integrity-mismatch";
+
+interface RepoMetaHealth {
+  meta: RepoMetaRecord | null;
+  status: RepoMetaHealthStatus;
+}
+
 interface SchemaMigration {
   toVersion: number;
   run(db: IndexBackendConnection): void;
@@ -1206,6 +1218,67 @@ async function readRepoMeta(
   } catch {
     return null;
   }
+}
+
+async function readRepoMetaHealth(
+  repoMetaPath: string,
+  integrityPath: string,
+): Promise<RepoMetaHealth> {
+  const metaContents = await readFile(repoMetaPath, "utf8").catch((error: unknown) => {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  });
+
+  if (metaContents === null) {
+    return {
+      meta: null,
+      status: "missing",
+    };
+  }
+
+  let parsed: RepoMetaRecord;
+  try {
+    parsed = JSON.parse(metaContents) as RepoMetaRecord;
+  } catch {
+    return {
+      meta: null,
+      status: "unreadable",
+    };
+  }
+
+  const meta: RepoMetaRecord = {
+    ...parsed,
+    storageVersion:
+      typeof parsed.storageVersion === "number" &&
+      Number.isInteger(parsed.storageVersion)
+        ? parsed.storageVersion
+        : ENGINE_STORAGE_VERSION,
+    summaryStrategy: normalizeSummaryStrategy(parsed.summaryStrategy),
+    watch: normalizeWatchDiagnostics(parsed.watch),
+  };
+  const integrityContents = await readFile(integrityPath, "utf8").catch((error: unknown) => {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  });
+
+  if (integrityContents === null) {
+    return {
+      meta,
+      status: "missing-integrity",
+    };
+  }
+
+  return {
+    meta,
+    status:
+      integrityContents.trim() === sha256(metaContents)
+        ? "ok"
+        : "integrity-mismatch",
+  };
 }
 
 function loadIndexedSnapshot(
@@ -3639,7 +3712,11 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
   const repoRoot = config.repoRoot;
 
   try {
-    const meta = await readRepoMeta(config.paths.repoMetaPath);
+    const metaHealth = await readRepoMetaHealth(
+      config.paths.repoMetaPath,
+      config.paths.integrityPath,
+    );
+    const meta = metaHealth.meta;
     const indexedEntries = loadIndexedSnapshot(db);
     const dependencyGraph = loadDependencyGraphHealth(db);
     const indexedSnapshotHash =
@@ -3672,8 +3749,17 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       indexedAt !== null ? Math.max(0, Date.now() - Date.parse(indexedAt)) : null;
     const staleReasons: string[] = [];
 
-    if (!meta) {
+    if (metaHealth.status === "missing") {
       staleReasons.push("index metadata missing");
+    }
+    if (metaHealth.status === "unreadable") {
+      staleReasons.push("index metadata unreadable");
+    }
+    if (metaHealth.status === "missing-integrity") {
+      staleReasons.push("index metadata integrity missing");
+    }
+    if (metaHealth.status === "integrity-mismatch") {
+      staleReasons.push("index metadata integrity mismatch");
     }
     if (dependencyGraph.brokenRelativeImportCount > 0) {
       staleReasons.push("unresolved relative imports");
@@ -3908,6 +3994,19 @@ function buildDoctorWarnings(result: DoctorResult): string[] {
   return warnings;
 }
 
+function buildMetaHealthWarnings(status: RepoMetaHealthStatus): string[] {
+  switch (status) {
+    case "unreadable":
+      return ["Index metadata is unreadable."];
+    case "missing-integrity":
+      return ["Index metadata integrity file is missing."];
+    case "integrity-mismatch":
+      return ["Index metadata integrity check failed."];
+    default:
+      return [];
+  }
+}
+
 function buildDoctorSuggestedActions(result: DoctorResult): string[] {
   const actions: string[] = [];
 
@@ -3946,12 +4045,32 @@ function buildDoctorSuggestedActions(result: DoctorResult): string[] {
   return actions;
 }
 
+function buildMetaHealthSuggestedActions(
+  repoRoot: string,
+  status: RepoMetaHealthStatus,
+): string[] {
+  switch (status) {
+    case "unreadable":
+    case "missing-integrity":
+    case "integrity-mismatch":
+      return [
+        `Rebuild Astrograph metadata with \`pnpm exec astrograph cli index-folder --repo ${repoRoot}\` because the repo-local metadata sidecars are corrupted or incomplete.`,
+      ];
+    default:
+      return [];
+  }
+}
+
 export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
   const resolvedRepoRoot = await resolveEngineRepoRoot(input.repoRoot);
   const health = await diagnostics({
     ...input,
     repoRoot: resolvedRepoRoot,
   });
+  const metaHealth = await readRepoMetaHealth(
+    path.join(health.storageDir, "repo-meta.json"),
+    path.join(health.storageDir, "integrity.sha256"),
+  );
   const db = openDatabase(health.databasePath);
 
   try {
@@ -4001,8 +4120,14 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
       suggestedActions: [],
     };
 
-    result.warnings = buildDoctorWarnings(result);
-    result.suggestedActions = buildDoctorSuggestedActions(result);
+    result.warnings = [
+      ...buildDoctorWarnings(result),
+      ...buildMetaHealthWarnings(metaHealth.status),
+    ];
+    result.suggestedActions = [
+      ...buildDoctorSuggestedActions(result),
+      ...buildMetaHealthSuggestedActions(result.repoRoot, metaHealth.status),
+    ];
     return result;
   } finally {
     db.close();
