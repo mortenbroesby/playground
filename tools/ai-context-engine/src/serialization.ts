@@ -107,6 +107,7 @@ const diagnosticsSchema = {
       type: "object",
       properties: {
         brokenRelativeImportCount: { type: "integer" },
+        brokenRelativeSymbolImportCount: { type: "integer" },
         affectedImporterCount: { type: "integer" },
         sampleImporterPaths: {
           type: "array",

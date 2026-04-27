@@ -213,6 +213,14 @@ export interface RepoOutline {
   languages: Partial<Record<SupportedLanguage, number>>;
 }
 
+export type ImportSpecifierKind = "named" | "default" | "namespace" | "unknown";
+
+export interface ImportSpecifier {
+  kind: ImportSpecifierKind;
+  importedName: string;
+  localName: string | null;
+}
+
 export interface FileTreeEntry {
   path: string;
   language: SupportedLanguage;
@@ -472,6 +480,7 @@ export interface DoctorPrivacyHealth {
 
 export interface DoctorDependencyGraphHealth {
   brokenRelativeImportCount: number;
+  brokenRelativeSymbolImportCount: number;
   affectedImporterCount: number;
   sampleImporterPaths: string[];
 }

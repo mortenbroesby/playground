@@ -8,6 +8,7 @@ import { parseSync as parseOxcSync } from "oxc-parser";
 
 import { hashString } from "./hash.ts";
 import type {
+  ImportSpecifier,
   SummarySource,
   SummaryStrategy,
   SupportedLanguage,
@@ -16,7 +17,7 @@ import type {
 
 interface ParsedImport {
   source: string;
-  specifiers: string[];
+  specifiers: ImportSpecifier[];
 }
 
 interface ParsedSymbol {
@@ -239,40 +240,84 @@ function parseImport(
 
   const source = nodeText(sourceText, sourceNode.startIndex, sourceNode.endIndex)
     .replace(/^['"]|['"]$/g, "");
-  const specifiers = node.namedChildren
-    .filter((child) =>
-      [
-        "import_clause",
-        "named_imports",
-        "namespace_import",
-        "identifier",
-      ].includes(child.type),
-    )
-    .flatMap((child) =>
-      child.namedChildren.length > 0 ? child.namedChildren : [child],
-    )
-    .flatMap((child) =>
-      nodeText(sourceText, child.startIndex, child.endIndex)
-        .replace(/[{}]/g, "")
-        .split(",")
-        .map((entry) => entry.trim()),
-    )
-    .map((raw) => {
-      if (!raw) {
-        return raw;
-      }
-      if (raw.startsWith("* as ")) {
-        return raw.slice(5).trim();
-      }
-      const aliasIndex = raw.indexOf(" as ");
-      return aliasIndex >= 0 ? raw.slice(0, aliasIndex).trim() : raw;
-    })
-    .filter(Boolean);
+  const statementText = nodeText(sourceText, node.startIndex, node.endIndex);
+  const clauseMatch = statementText.match(/^\s*import\s+([\s\S]+?)\s+from\s+['"]/u);
+  const specifiers = clauseMatch
+    ? parseImportClauseSpecifiers(clauseMatch[1] ?? "")
+    : [];
 
   return {
     source,
     specifiers,
   };
+}
+
+function parseNamedImportSpecifiers(value: string): ImportSpecifier[] {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => entry.replace(/^type\s+/u, "").trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const aliasMatch = entry.match(/^(.+?)\s+as\s+(.+)$/u);
+      if (aliasMatch) {
+        return {
+          kind: "named",
+          importedName: aliasMatch[1]!.trim(),
+          localName: aliasMatch[2]!.trim(),
+        } satisfies ImportSpecifier;
+      }
+
+      return {
+        kind: "named",
+        importedName: entry,
+        localName: entry,
+      } satisfies ImportSpecifier;
+    });
+}
+
+function parseImportClauseSpecifiers(clause: string): ImportSpecifier[] {
+  const trimmedClause = clause.trim().replace(/^type\s+/u, "");
+  if (!trimmedClause) {
+    return [];
+  }
+
+  const namedStart = trimmedClause.indexOf("{");
+  const namedEnd = trimmedClause.lastIndexOf("}");
+  const specifiers: ImportSpecifier[] = [];
+
+  if (namedStart >= 0 && namedEnd > namedStart) {
+    const namedClause = trimmedClause.slice(namedStart + 1, namedEnd);
+    specifiers.push(...parseNamedImportSpecifiers(namedClause));
+  }
+
+  const namespaceMatch = trimmedClause.match(/\*\s+as\s+([A-Za-z_$][\w$]*)/u);
+  if (namespaceMatch) {
+    specifiers.push({
+      kind: "namespace",
+      importedName: "*",
+      localName: namespaceMatch[1] ?? null,
+    });
+  }
+
+  const defaultClause = trimmedClause
+    .split(",")[0]
+    ?.trim()
+    .replace(/^type\s+/u, "");
+  if (
+    defaultClause
+    && !defaultClause.startsWith("{")
+    && !defaultClause.startsWith("*")
+  ) {
+    specifiers.unshift({
+      kind: "default",
+      importedName: "default",
+      localName: defaultClause,
+    });
+  }
+
+  return specifiers;
 }
 
 function ownsNode(
@@ -947,11 +992,37 @@ function collectOxcImports(moduleInfo: any): ParsedImport[] {
           .map((specifier: any) => {
             const kind = specifier.importName?.kind;
             if (kind === "Name") {
-              return specifier.importName?.name ?? "";
+              return {
+                kind: "named",
+                importedName: specifier.importName?.name ?? "",
+                localName: specifier.localName?.value ?? specifier.localName?.name ?? null,
+              } satisfies ImportSpecifier;
             }
-            return specifier.localName?.value ?? "";
+            if (kind === "Default") {
+              return {
+                kind: "default",
+                importedName: "default",
+                localName: specifier.localName?.value ?? specifier.localName?.name ?? null,
+              } satisfies ImportSpecifier;
+            }
+            if (kind === "NamespaceObject") {
+              return {
+                kind: "namespace",
+                importedName: "*",
+                localName: specifier.localName?.value ?? specifier.localName?.name ?? null,
+              } satisfies ImportSpecifier;
+            }
+            return {
+              kind: "unknown",
+              importedName:
+                specifier.importName?.name
+                ?? specifier.localName?.value
+                ?? specifier.localName?.name
+                ?? "",
+              localName: specifier.localName?.value ?? specifier.localName?.name ?? null,
+            } satisfies ImportSpecifier;
           })
-          .filter(Boolean)
+          .filter((specifier: ImportSpecifier) => specifier.importedName.length > 0)
       : [],
   }));
 }
@@ -968,13 +1039,23 @@ function appendOxcReExportImport(
   const specifiers = Array.isArray(statement?.specifiers)
     ? statement.specifiers
         .map((specifier: any) =>
-          specifier.local?.name
-          ?? specifier.local?.value
-          ?? specifier.exported?.name
-          ?? specifier.exported?.value
-          ?? "",
+          ({
+            kind: "named",
+            importedName:
+              specifier.local?.name
+              ?? specifier.local?.value
+              ?? specifier.exported?.name
+              ?? specifier.exported?.value
+              ?? "",
+            localName:
+              specifier.exported?.name
+              ?? specifier.exported?.value
+              ?? specifier.local?.name
+              ?? specifier.local?.value
+              ?? null,
+          }) satisfies ImportSpecifier,
         )
-        .filter(Boolean)
+        .filter((specifier: ImportSpecifier) => specifier.importedName.length > 0)
     : [];
 
   imports.push({ source, specifiers });

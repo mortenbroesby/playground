@@ -87,6 +87,7 @@ import type {
   QueryCodeOptions,
   QueryCodeResult,
   QueryCodeSourceResult,
+  ImportSpecifier,
   RankingWeights,
   RankedContextCandidate,
   RankedContextResult,
@@ -1929,6 +1930,60 @@ function resolveImportedFilePaths(
   return [];
 }
 
+function normalizeImportSpecifier(
+  value: unknown,
+): ImportSpecifier | null {
+  if (typeof value === "string") {
+    const importedName = value.trim();
+    return importedName
+      ? {
+          kind: "unknown",
+          importedName,
+          localName: null,
+        }
+      : null;
+  }
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const kind = "kind" in value ? value.kind : null;
+  const importedName = "importedName" in value ? value.importedName : null;
+  const localName = "localName" in value ? value.localName : null;
+
+  if (
+    (kind !== "named" && kind !== "default" && kind !== "namespace" && kind !== "unknown")
+    || typeof importedName !== "string"
+    || importedName.trim().length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    kind,
+    importedName: importedName.trim(),
+    localName: typeof localName === "string" && localName.trim().length > 0
+      ? localName.trim()
+      : null,
+  };
+}
+
+function parseStoredImportSpecifiers(serialized: string): ImportSpecifier[] {
+  try {
+    const parsed = JSON.parse(serialized) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((entry) => normalizeImportSpecifier(entry))
+      .filter((entry): entry is ImportSpecifier => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
 function rebuildFileDependencies(db: IndexBackendConnection) {
   db.prepare("DELETE FROM file_dependencies").run();
 
@@ -1992,7 +2047,7 @@ function pickDependencyRows(
   const seen = new Set<string>();
 
   for (const importRow of imports) {
-    const specifiers = JSON.parse(importRow.specifiers) as string[];
+    const specifiers = parseStoredImportSpecifiers(importRow.specifiers);
 
     const picked: DbSymbolRow[] = [];
 
@@ -2011,8 +2066,8 @@ function pickDependencyRows(
           `,
         ),
         importRow.target_path,
-        specifier,
-        specifier,
+        specifier.importedName,
+        specifier.importedName,
       );
       if (row) {
         picked.push(row);
@@ -2132,8 +2187,8 @@ function pickReferenceRows(
   const seen = new Set<string>();
 
   for (const importer of importers) {
-    const specifiers = JSON.parse(importer.specifiers) as string[];
-    if (!specifiers.includes(seedRow.name)) {
+    const specifiers = parseStoredImportSpecifiers(importer.specifiers);
+    if (!specifiers.some((specifier) => specifier.importedName === seedRow.name)) {
       continue;
     }
 
@@ -3830,6 +3885,9 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
     if (dependencyGraph.brokenRelativeImportCount > 0) {
       staleReasons.push("unresolved relative imports");
     }
+    if (dependencyGraph.brokenRelativeSymbolImportCount > 0) {
+      staleReasons.push("unresolved relative symbol imports");
+    }
     if (scanFreshness) {
       if (drift.missingFiles > 0) {
         staleReasons.push("missing files");
@@ -3980,11 +4038,72 @@ function loadDependencyGraphHealth(
   const affectedImporters = [...new Set(
     brokenDependencyRows.map((row) => row.importer_path),
   )];
+  const brokenRelativeSymbolRows = typedAll<{
+    importer_path: string;
+    target_path: string;
+    specifiers: string;
+  }>(
+    db.prepare(`
+      SELECT
+        file_dependencies.importer_path AS importer_path,
+        file_dependencies.target_path AS target_path,
+        imports.specifiers AS specifiers
+      FROM file_dependencies
+      INNER JOIN files ON files.id = file_dependencies.importer_file_id
+      INNER JOIN imports
+        ON imports.file_id = files.id
+        AND imports.source = file_dependencies.source
+      WHERE file_dependencies.source LIKE './%'
+        OR file_dependencies.source LIKE '../%'
+        OR file_dependencies.source LIKE '/%'
+      ORDER BY file_dependencies.importer_path ASC, file_dependencies.target_path ASC
+    `),
+  );
+
+  const brokenRelativeSymbolImporters = new Set<string>();
+  let brokenRelativeSymbolImportCount = 0;
+
+  for (const row of brokenRelativeSymbolRows) {
+    const missingNamedSpecifiers = parseStoredImportSpecifiers(row.specifiers)
+      .filter((specifier) => specifier.kind === "named")
+      .filter((specifier) => {
+        const exportedSymbol = typedGet<{ id: string }>(
+          db.prepare(
+            `
+              SELECT id
+              FROM symbols
+              WHERE file_path = ?
+                AND exported = 1
+                AND (name = ? OR qualified_name = ?)
+              LIMIT 1
+            `,
+          ),
+          row.target_path,
+          specifier.importedName,
+          specifier.importedName,
+        );
+        return !exportedSymbol;
+      });
+
+    if (missingNamedSpecifiers.length === 0) {
+      continue;
+    }
+
+    brokenRelativeSymbolImportCount += missingNamedSpecifiers.length;
+    brokenRelativeSymbolImporters.add(row.importer_path);
+  }
+
+  const allAffectedImporters = [...new Set([
+    ...affectedImporters,
+    ...brokenRelativeSymbolImporters,
+  ])];
+  const sampleImporterPaths = allAffectedImporters.slice(0, 5);
 
   return {
     brokenRelativeImportCount: brokenDependencyRows.length,
-    affectedImporterCount: affectedImporters.length,
-    sampleImporterPaths: affectedImporters.slice(0, 5),
+    brokenRelativeSymbolImportCount,
+    affectedImporterCount: allAffectedImporters.length,
+    sampleImporterPaths,
   };
 }
 
@@ -4043,6 +4162,11 @@ function buildDoctorWarnings(result: DoctorResult): string[] {
       `Dependency graph contains ${result.dependencyGraph.brokenRelativeImportCount} unresolved relative import(s) across ${result.dependencyGraph.affectedImporterCount} importer file(s).`,
     );
   }
+  if (result.dependencyGraph.brokenRelativeSymbolImportCount > 0) {
+    warnings.push(
+      `Dependency graph contains ${result.dependencyGraph.brokenRelativeSymbolImportCount} unresolved relative symbol import(s).`,
+    );
+  }
   if (result.observability.enabled && result.observability.status !== "running") {
     warnings.push(
       `Observability is enabled but currently ${result.observability.status}.`,
@@ -4091,6 +4215,14 @@ function buildDoctorSuggestedActions(result: DoctorResult): string[] {
       sample
         ? `Fix or reindex importer paths such as \`${sample}\` so Astrograph can resolve their relative dependencies again.`
         : "Fix or reindex importer paths with unresolved relative dependencies.",
+    );
+  }
+  if (result.dependencyGraph.brokenRelativeSymbolImportCount > 0) {
+    const sample = result.dependencyGraph.sampleImporterPaths[0];
+    actions.push(
+      sample
+        ? `Update importer paths such as \`${sample}\` or restore the expected exported symbols in their relative dependencies.`
+        : "Update importer paths or restore the expected exported symbols in their relative dependencies.",
     );
   }
   if (result.observability.enabled && result.observability.status !== "running") {

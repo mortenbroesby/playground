@@ -159,6 +159,7 @@ describe("ai-context-engine behavior", () => {
       },
       dependencyGraph: {
         brokenRelativeImportCount: 0,
+        brokenRelativeSymbolImportCount: 0,
         affectedImporterCount: 0,
       },
       observability: {
@@ -217,12 +218,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.41",
+      engineVersion: "0.0.1-alpha.42",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 41,
+        increment: 42,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -240,6 +241,7 @@ describe("ai-context-engine behavior", () => {
       },
       dependencyGraph: {
         brokenRelativeImportCount: 0,
+        brokenRelativeSymbolImportCount: 0,
         affectedImporterCount: 0,
       },
       watch: {
@@ -1716,6 +1718,55 @@ export function renderBroken(): string {
         entry.includes("src/broken-consumer.ts"),
       ),
     ).toBe(true);
+  });
+
+  it("doctor and diagnostics report unresolved relative symbol imports", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const doctorResult = await doctor({ repoRoot });
+    expect(doctorResult.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 0,
+      brokenRelativeSymbolImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/consumer.ts"],
+    });
+    expect(doctorResult.warnings).toContain(
+      "Dependency graph contains 1 unresolved relative symbol import(s).",
+    );
+    expect(
+      doctorResult.suggestedActions.some((entry) =>
+        entry.includes("src/consumer.ts")
+      ),
+    ).toBe(true);
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 0,
+      brokenRelativeSymbolImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/consumer.ts"],
+    });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("unresolved relative symbol imports");
   });
 
   it("doctor warns on obvious secret-like indexed source content without marking the index stale", async () => {
