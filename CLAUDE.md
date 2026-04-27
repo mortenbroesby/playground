@@ -6,5 +6,6 @@ Thin Claude Code adapter for this repo.
 - Load shared rules from [`.claude/rules`](.claude/rules), which points to
   [`.agents/rules`](.agents/rules).
 - Shared commands, hooks, and skills are exposed through `.claude/*` symlinks.
-- Use `ai-context-engine` first for code exploration. If it is unavailable,
-  fall back to `jcodemunch` before broad shell-based code scans.
+- Use `jcodemunch` first for code exploration. Keep `ai-context-engine`
+  (`@astrograph`) available in parallel, but treat it as the secondary path
+  until the repo is ready to switch fully.

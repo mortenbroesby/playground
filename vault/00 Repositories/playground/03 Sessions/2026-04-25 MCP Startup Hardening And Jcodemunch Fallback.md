@@ -631,3 +631,20 @@ a mandatory runtime concern for every MCP or CLI call.
 - Kept the scope narrow: no new glob layer yet, no watch-path changes yet, and
   no additional ranking or parser work folded into this slice.
 - Bumped Astrograph from `0.0.1-alpha.19` to `0.0.1-alpha.20`.
+
+## Temporary jCodemunch-first navigation rollback (2026-04-27)
+
+- Verified `jcodemunch-mcp` is still installed locally and runnable in this
+  repo, with the repo-local Codex MCP block already present.
+- Switched the repo guidance back to `jcodemunch`-first for now, while keeping
+  Astrograph installed in parallel as the secondary path during the transition.
+- Updated the shared workflow surface so agents stop assuming Astrograph is the
+  primary navigation tool:
+  - `AGENTS.md`
+  - `.agents/rules/repo-workflow.md`
+  - `CLAUDE.md`
+  - `scripts/ralph/prompt.md`
+  - `.agents/hooks/code-navigation-guard.mjs`
+- Left the repo-local `.codex/config.toml` MCP blocks intact for both engines;
+  this slice changes agent preference and guardrails, not the parallel install
+  topology.

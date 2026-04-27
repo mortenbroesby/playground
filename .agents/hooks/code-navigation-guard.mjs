@@ -37,9 +37,9 @@ function isCodeLikePath(filePath) {
 
 function buildGuardReason() {
   return [
-    'Use ai-context-engine for code exploration.',
-    'If ai-context-engine is unavailable, fall back to jcodemunch before broad shell scans.',
-    'Start with `query_code`, then prefer `get_file_outline`, `get_file_tree`, `get_repo_outline`, and `diagnostics` before broad file reads.',
+    'Use jcodemunch for code exploration.',
+    'Keep ai-context-engine (@astrograph) as the secondary path until the repo is ready to switch fully.',
+    'Start with `plan_turn`, then prefer `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and `get_file_tree` before broad file reads.',
     'Use direct file reads only for exact edit context or non-code support files.',
   ].join(' ');
 }
@@ -111,7 +111,7 @@ export async function handleCodeNavigationGuard(payload) {
     const projectRoot = getProjectRoot(payload);
     if (shouldWarnOnRead(projectRoot, toolInput)) {
       return {
-        stderr: 'Large code read detected. Prefer ai-context-engine first: `query_code`, `get_file_outline`, `get_file_tree`, `get_repo_outline`, and `diagnostics`. If ai-context-engine is unavailable, use jcodemunch before broad reads. Targeted `Read` with `offset`/`limit` is fine.\n',
+        stderr: 'Large code read detected. Prefer jcodemunch first: `plan_turn`, `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and `get_file_tree`. Astrograph remains available as a secondary path. Targeted `Read` with `offset`/`limit` is fine.\n',
       };
     }
   }

@@ -37,8 +37,9 @@ You are running one opt-in Ralph iteration for `playground`.
 
 - Implement only the single active story for this iteration.
 - Use repo-native conventions: `pnpm`, workspace-scoped checks first, and
-  `ai-context-engine` first for code navigation, with `jcodemunch` as the
-  fallback when the primary engine is unavailable.
+  `jcodemunch` first for code navigation, with `ai-context-engine`
+  (`@astrograph`) kept available as the secondary path until the repo is ready
+  to switch fully.
 - Keep the worktree coherent and avoid unrelated cleanup.
 - Update `{{RUN_DIR}}/progress.txt` by appending a short iteration log with:
   story completed or blocked
