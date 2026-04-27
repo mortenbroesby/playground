@@ -2441,6 +2441,10 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   filePath: string;
   summaryStrategy?: SummaryStrategy;
   forceRefresh?: boolean;
+  workerPool?: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
 }) {
   const existing = db.prepare(
     `
@@ -2456,10 +2460,7 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
     summaryStrategy: input.summaryStrategy,
     forceRefresh: input.forceRefresh,
     existing,
-    workerPool: {
-      enabled: false,
-      maxWorkers: 1,
-    },
+    workerPool: input.workerPool,
   });
   return persistFileIndexResult(db, analyzed);
 }
@@ -2509,6 +2510,10 @@ async function indexFileDirect(input: {
       filePath: input.filePath,
       summaryStrategy: config.summaryStrategy,
       forceRefresh: meta?.summaryStrategy !== config.summaryStrategy,
+      workerPool: {
+        enabled: config.workerPoolEnabled,
+        maxWorkers: config.workerPoolMaxWorkers,
+      },
     });
     const indexedAt = new Date().toISOString();
     await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
@@ -2720,6 +2725,10 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
             filePath,
             summaryStrategy: config.summaryStrategy,
             forceRefresh,
+            workerPool: {
+              enabled: config.workerPoolEnabled,
+              maxWorkers: config.workerPoolMaxWorkers,
+            },
           });
           if (result.indexed) {
             indexedFiles += 1;

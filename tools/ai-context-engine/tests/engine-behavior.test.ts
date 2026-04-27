@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.26",
+      engineVersion: "0.0.1-alpha.27",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 26,
+        increment: 27,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1470,6 +1470,50 @@ export function circumference(radius: number): string {
     });
   });
 
+  it("can refresh a single file with worker-pool analysis enabled", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
+        },
+      }),
+    );
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+    );
+
+    const update = await indexFile({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+
+    expect(update).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 2,
+      staleStatus: "fresh",
+    });
+    expect(
+      (await searchSymbols({ repoRoot, query: "circumference" }))[0]?.name,
+    ).toBe("circumference");
+  });
+
   it("removes stale index entries when single-file refresh targets a deleted or renamed file", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -1647,6 +1691,69 @@ export function circumference(radius: number): string {
 
       await waitFor(() => reindexEvents.length >= 1, 4000);
 
+      const health = await diagnostics({ repoRoot });
+      expect(health.watch).toMatchObject({
+        status: "watching",
+        backend: "polling",
+        debounceMs: 75,
+        pollMs: 75,
+        lastEvent: "reindex",
+        lastChangedPaths: ["src/math.ts"],
+      });
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("supports watch refresh with worker-pool analysis enabled", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[] }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        watch: {
+          backend: "polling",
+          debounceMs: 75,
+        },
+        performance: {
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
+        },
+      }),
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius + 1);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      expect(
+        (await searchSymbols({ repoRoot, query: "circumference" }))[0]?.name,
+      ).toBe("circumference");
       const health = await diagnostics({ repoRoot });
       expect(health.watch).toMatchObject({
         status: "watching",
