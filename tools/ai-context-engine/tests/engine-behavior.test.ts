@@ -2,6 +2,7 @@ import { realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import {
@@ -22,6 +23,7 @@ import {
   suggestInitialQueries,
   watchFolder,
 } from "../src/index.ts";
+import { resolveEnginePaths } from "../src/config.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
 afterEach(async () => {
@@ -89,6 +91,7 @@ describe("ai-context-engine behavior", () => {
 
     expect(result).toMatchObject({
       repoRoot: resolvedRepoRoot,
+      schemaVersion: 2,
       indexStatus: "not-indexed",
       freshness: {
         indexedFiles: 0,
@@ -156,13 +159,14 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.13",
+      engineVersion: "0.0.1-alpha.14",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 13,
+        increment: 14,
       },
+      schemaVersion: 2,
       summaryStrategy: "doc-comments-first",
       summarySources: {
         "doc-comment": 4,
@@ -325,6 +329,55 @@ module.exports = {
       path.join(canonicalRepoRoot, ".astrograph", "index.sqlite"),
     );
     expect(health.storageVersion).toBe(1);
+    expect(health.schemaVersion).toBe(2);
+  });
+
+  it("migrates legacy Astrograph schema state before serving diagnostics", async () => {
+    const repoRoot = await createFixtureRepo();
+    const paths = resolveEnginePaths(repoRoot);
+
+    await import("node:fs/promises").then((fs) =>
+      fs.mkdir(paths.storageDir, { recursive: true }),
+    );
+
+    const legacyDb = new Database(paths.databasePath);
+    legacyDb.exec(`
+      CREATE TABLE meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+      CREATE TABLE files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT NOT NULL UNIQUE,
+        language TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        symbol_count INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    legacyDb.close();
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.schemaVersion).toBe(2);
+
+    const migratedDb = new Database(paths.databasePath, { readonly: true });
+    const fileColumns = migratedDb
+      .prepare("PRAGMA table_info(files)")
+      .all() as Array<{ name: string }>;
+    const schemaVersionRow = migratedDb
+      .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
+      .get() as { value: string } | undefined;
+    migratedDb.close();
+
+    expect(fileColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining([
+        "size_bytes",
+        "mtime_ms",
+        "symbol_signature_hash",
+        "import_hash",
+      ]),
+    );
+    expect(schemaVersionRow?.value).toBe("2");
   });
 
   it("supports symbol and text search plus exact retrieval", async () => {

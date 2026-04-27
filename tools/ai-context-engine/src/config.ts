@@ -18,6 +18,7 @@ const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
 
 export const ENGINE_STORAGE_DIRNAME = ".astrograph";
 export const ENGINE_STORAGE_VERSION = 1;
+export const ENGINE_SCHEMA_VERSION = 2;
 export const ENGINE_CONFIG_FILENAME = "astrograph.config.json";
 export const ENGINE_DISPLAY_NAME = "@astrograph";
 export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";

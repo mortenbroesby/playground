@@ -311,6 +311,7 @@ export interface DiagnosticsResult {
   storageDir: string;
   databasePath: string;
   storageVersion: number;
+  schemaVersion: number;
   storageMode: StorageMode;
   storageBackend: IndexBackendName;
   staleStatus: StaleStatus;
@@ -356,6 +357,7 @@ export interface DoctorResult {
   storageDir: string;
   databasePath: string;
   storageVersion: number;
+  schemaVersion: number;
   storageBackend: IndexBackendName;
   storageMode: StorageMode;
   indexStatus: "not-indexed" | "indexed" | "stale";

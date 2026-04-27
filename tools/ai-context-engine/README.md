@@ -123,6 +123,7 @@ Current implementation includes:
   names, class constructors/accessors/fields, object-literal callable members,
   and TypeScript namespaces on the primary Oxc path
 - SQLite as the current index backend behind an internal storage boundary
+- explicit SQLite schema migrations recorded in the internal `meta` table
 - WAL-mode file, symbol, import, and content-blob storage for the current
   backend
 - JSON CLI entrypoint in `src/cli.ts`
@@ -140,6 +141,9 @@ Current implementation includes:
   scanning when callers explicitly request freshness checks
 - diagnostics includes indexed timestamps, snapshot hashes, and live drift
   counts so stale metadata can be distinguished from a fresh index
+- diagnostics now also reports a separate `schemaVersion` alongside the
+  repo-root storage version so agents can tell storage resets apart from
+  in-place database migrations
 - diagnostics now also reports parser-health coverage, fallback rates, and
   grouped fallback reasons from indexed files
 - diagnostics also persists the latest watch-session state so agents can inspect
@@ -149,6 +153,10 @@ Current implementation includes:
 - direct `index-folder` and `index-file` requests now offload the heavy index
   pass into a child process so explicit reindex work does not monopolize the
   main MCP server process
+- indexed files now also persist `size_bytes`, `mtime_ms`,
+  `symbol_signature_hash`, and `import_hash`, which lets refresh paths skip
+  obvious no-op files before rereading source and backfills stronger
+  incremental-index metadata for later phases
 - symbol search now supports `language` and `filePattern` filters, and text
   search supports `filePattern`
 - repo inputs anchored to any Git subdirectory resolve to the enclosing worktree

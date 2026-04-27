@@ -19,6 +19,7 @@ import {
 
 import {
   createDefaultEngineConfig,
+  ENGINE_SCHEMA_VERSION,
   ENGINE_STORAGE_VERSION,
   loadRepoEngineConfig,
   normalizeSummaryStrategy,
@@ -134,6 +135,11 @@ interface RepoMetaRecord {
 interface ObservabilityStatusRecord {
   host: string;
   port: number;
+}
+
+interface SchemaMigration {
+  toVersion: number;
+  run(db: IndexBackendConnection): void;
 }
 
 function loadParserHealth(db: IndexBackendConnection): DiagnosticsResult["parser"] {
@@ -286,6 +292,102 @@ function setLruEntry<TKey, TValue>(
   }
 }
 
+function readMetaNumber(
+  db: IndexBackendConnection,
+  key: string,
+): number | null {
+  const row = typedGet<{ value: string }>(
+    db.prepare("SELECT value FROM meta WHERE key = ?"),
+    key,
+  );
+  if (!row) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(row.value, 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function writeMetaNumber(
+  db: IndexBackendConnection,
+  key: string,
+  value: number,
+) {
+  db.prepare(
+    "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  ).run(key, String(value));
+}
+
+function hasTableColumn(
+  db: IndexBackendConnection,
+  tableName: string,
+  columnName: string,
+) {
+  return typedAll<{ name: string }>(
+    db.prepare(`PRAGMA table_info(${tableName})`),
+  ).some((column) => column.name === columnName);
+}
+
+const SCHEMA_MIGRATIONS: SchemaMigration[] = [
+  {
+    toVersion: 1,
+    run(db) {
+      if (!hasTableColumn(db, "symbols", "summary_source")) {
+        db.exec(
+          "ALTER TABLE symbols ADD COLUMN summary_source TEXT NOT NULL DEFAULT 'signature'",
+        );
+      }
+      if (!hasTableColumn(db, "files", "parser_backend")) {
+        db.exec("ALTER TABLE files ADD COLUMN parser_backend TEXT");
+      }
+      if (!hasTableColumn(db, "files", "parser_fallback_used")) {
+        db.exec(
+          "ALTER TABLE files ADD COLUMN parser_fallback_used INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+      if (!hasTableColumn(db, "files", "parser_fallback_reason")) {
+        db.exec("ALTER TABLE files ADD COLUMN parser_fallback_reason TEXT");
+      }
+    },
+  },
+  {
+    toVersion: 2,
+    run(db) {
+      if (!hasTableColumn(db, "files", "size_bytes")) {
+        db.exec("ALTER TABLE files ADD COLUMN size_bytes INTEGER");
+      }
+      if (!hasTableColumn(db, "files", "mtime_ms")) {
+        db.exec("ALTER TABLE files ADD COLUMN mtime_ms INTEGER");
+      }
+      if (!hasTableColumn(db, "files", "symbol_signature_hash")) {
+        db.exec("ALTER TABLE files ADD COLUMN symbol_signature_hash TEXT");
+      }
+      if (!hasTableColumn(db, "files", "import_hash")) {
+        db.exec("ALTER TABLE files ADD COLUMN import_hash TEXT");
+      }
+    },
+  },
+];
+
+function runSchemaMigrations(db: IndexBackendConnection) {
+  const currentVersion = readMetaNumber(db, "schemaVersion") ?? 0;
+
+  for (const migration of SCHEMA_MIGRATIONS) {
+    if (migration.toVersion <= currentVersion) {
+      continue;
+    }
+    migration.run(db);
+    writeMetaNumber(db, "schemaVersion", migration.toVersion);
+  }
+
+  const resolvedVersion = readMetaNumber(db, "schemaVersion") ?? 0;
+  if (resolvedVersion !== ENGINE_SCHEMA_VERSION) {
+    throw new Error(
+      `Astrograph schema migration mismatch. Expected ${ENGINE_SCHEMA_VERSION}, got ${resolvedVersion}.`,
+    );
+  }
+}
+
 function initializeDatabase(db: IndexBackendConnection) {
   db.exec(`
     PRAGMA foreign_keys = ON;
@@ -299,6 +401,10 @@ function initializeDatabase(db: IndexBackendConnection) {
       path TEXT NOT NULL UNIQUE,
       language TEXT NOT NULL,
       content_hash TEXT NOT NULL,
+      size_bytes INTEGER,
+      mtime_ms INTEGER,
+      symbol_signature_hash TEXT,
+      import_hash TEXT,
       parser_backend TEXT,
       parser_fallback_used INTEGER NOT NULL DEFAULT 0,
       parser_fallback_reason TEXT,
@@ -353,30 +459,7 @@ function initializeDatabase(db: IndexBackendConnection) {
     CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
     CREATE INDEX IF NOT EXISTS idx_symbols_file_path ON symbols(file_path);
   `);
-
-  const symbolColumns = typedAll<{ name: string }>(
-    db.prepare("PRAGMA table_info(symbols)"),
-  );
-  if (!symbolColumns.some((column) => column.name === "summary_source")) {
-    db.exec(
-      "ALTER TABLE symbols ADD COLUMN summary_source TEXT NOT NULL DEFAULT 'signature'",
-    );
-  }
-
-  const fileColumns = typedAll<{ name: string }>(
-    db.prepare("PRAGMA table_info(files)"),
-  );
-  if (!fileColumns.some((column) => column.name === "parser_backend")) {
-    db.exec("ALTER TABLE files ADD COLUMN parser_backend TEXT");
-  }
-  if (!fileColumns.some((column) => column.name === "parser_fallback_used")) {
-    db.exec(
-      "ALTER TABLE files ADD COLUMN parser_fallback_used INTEGER NOT NULL DEFAULT 0",
-    );
-  }
-  if (!fileColumns.some((column) => column.name === "parser_fallback_reason")) {
-    db.exec("ALTER TABLE files ADD COLUMN parser_fallback_reason TEXT");
-  }
+  runSchemaMigrations(db);
 }
 
 function shareDatabaseConnection(actual: IndexBackendConnection): IndexBackendConnection {
@@ -1033,6 +1116,28 @@ async function readRepoFile(repoRoot: string, filePath: string) {
     language,
     content,
     mtimeMs: fileStat.mtimeMs,
+    size: fileStat.size,
+  };
+}
+
+async function readRepoFileMetadata(repoRoot: string, filePath: string) {
+  const { absolutePath, relativePath } = normalizeRepoRelativePath(repoRoot, filePath);
+  const language = supportedLanguageForFile(relativePath);
+  if (!language) {
+    throw new Error(`Unsupported source file: ${filePath}`);
+  }
+  if (isGitIgnored(repoRoot, relativePath)) {
+    throw new Error(`Ignored source file: ${relativePath}`);
+  }
+  await assertInsideRepoRoot(repoRoot, absolutePath);
+
+  const fileStat = await stat(absolutePath);
+  return {
+    absolutePath,
+    relativePath,
+    language,
+    mtimeMs: fileStat.mtimeMs,
+    size: fileStat.size,
   };
 }
 
@@ -1056,6 +1161,30 @@ function uniqueQueryTerms(value: string): string[] {
     normalizeQuery(value),
     ...queryTokens(value),
   ].filter(Boolean))];
+}
+
+function hashSymbolSignatures(
+  symbols: Array<{
+    id: string;
+    signature: string;
+  }>,
+): string {
+  return sha256(
+    JSON.stringify(symbols.map((symbol) => [symbol.id, symbol.signature])),
+  );
+}
+
+function hashImports(
+  imports: Array<{
+    source: string;
+    specifiers: string[];
+  }>,
+): string {
+  return sha256(
+    JSON.stringify(
+      imports.map((entry) => [entry.source, [...entry.specifiers].sort()]),
+    ),
+  );
 }
 
 function quoteFtsTerm(term: string): string {
@@ -1819,18 +1948,61 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   summaryStrategy?: SummaryStrategy;
   forceRefresh?: boolean;
 }) {
+  const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
+  const existing = db.prepare(
+    `
+      SELECT id, content_hash, size_bytes, mtime_ms
+      FROM files
+      WHERE path = ?
+    `,
+  ).get(fileMetadata.relativePath) as {
+    id: number;
+    content_hash: string;
+    size_bytes: number | null;
+    mtime_ms: number | null;
+  } | undefined;
+
+  if (
+    !input.forceRefresh
+    && existing
+    && existing.size_bytes === fileMetadata.size
+    && existing.mtime_ms === Math.trunc(fileMetadata.mtimeMs)
+  ) {
+    const countRow = typedGet<{ count: number }>(
+      db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
+      existing.id,
+    );
+    return {
+      indexed: false,
+      symbolCount: countRow?.count ?? 0,
+    };
+  }
+
   const file = await readRepoFile(input.repoRoot, input.filePath);
-  const parsed = parseSourceFile({
+  const reparsed = parseSourceFile({
     relativePath: file.relativePath,
     content: file.content,
     language: file.language,
     summaryStrategy: input.summaryStrategy,
   });
-  const existing = db
-    .prepare("SELECT id, content_hash FROM files WHERE path = ?")
-    .get(file.relativePath) as { id: number; content_hash: string } | undefined;
+  const symbolSignatureHash = hashSymbolSignatures(reparsed.symbols);
+  const importHash = hashImports(reparsed.imports);
 
-  if (!input.forceRefresh && existing?.content_hash === parsed.contentHash) {
+  if (!input.forceRefresh && existing?.content_hash === reparsed.contentHash) {
+    db.prepare(
+      `
+        UPDATE files
+        SET size_bytes = ?, mtime_ms = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      file.size,
+      Math.trunc(file.mtimeMs),
+      symbolSignatureHash,
+      importHash,
+      new Date().toISOString(),
+      existing.id,
+    );
     const countRow = typedGet<{ count: number }>(
       db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
       existing.id,
@@ -1853,12 +2025,26 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
         WHERE id = ?
       `,
     ).run(
-      parsed.language,
-      parsed.contentHash,
-      parsed.backend,
-      parsed.fallbackUsed ? 1 : 0,
-      parsed.fallbackReason,
-      parsed.symbols.length,
+      reparsed.language,
+      reparsed.contentHash,
+      reparsed.backend,
+      reparsed.fallbackUsed ? 1 : 0,
+      reparsed.fallbackReason,
+      reparsed.symbols.length,
+      new Date().toISOString(),
+      existing.id,
+    );
+    db.prepare(
+      `
+        UPDATE files
+        SET size_bytes = ?, mtime_ms = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      file.size,
+      Math.trunc(file.mtimeMs),
+      symbolSignatureHash,
+      importHash,
       new Date().toISOString(),
       existing.id,
     );
@@ -1866,19 +2052,24 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
     db.prepare(
       `
         INSERT INTO files (
-          path, language, content_hash, parser_backend, parser_fallback_used,
+          path, language, content_hash, size_bytes, mtime_ms,
+          symbol_signature_hash, import_hash, parser_backend, parser_fallback_used,
           parser_fallback_reason, symbol_count, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
     ).run(
       file.relativePath,
-      parsed.language,
-      parsed.contentHash,
-      parsed.backend,
-      parsed.fallbackUsed ? 1 : 0,
-      parsed.fallbackReason,
-      parsed.symbols.length,
+      reparsed.language,
+      reparsed.contentHash,
+      file.size,
+      Math.trunc(file.mtimeMs),
+      symbolSignatureHash,
+      importHash,
+      reparsed.backend,
+      reparsed.fallbackUsed ? 1 : 0,
+      reparsed.fallbackReason,
+      reparsed.symbols.length,
       new Date().toISOString(),
     );
   }
@@ -1905,7 +2096,7 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
       symbol_id, file_id, name, qualified_name, signature, summary, file_path, kind
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  for (const symbol of parsed.symbols) {
+  for (const symbol of reparsed.symbols) {
     insertSymbol.run(
       symbol.id,
       fileRow.id,
@@ -1937,7 +2128,7 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   const insertImport = db.prepare(
     "INSERT INTO imports (file_id, source, specifiers) VALUES (?, ?, ?)",
   );
-  for (const dependency of parsed.imports) {
+  for (const dependency of reparsed.imports) {
     insertImport.run(
       fileRow.id,
       dependency.source,
@@ -1947,7 +2138,7 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
 
   return {
     indexed: true,
-    symbolCount: parsed.symbols.length,
+    symbolCount: reparsed.symbols.length,
   };
 }
 
@@ -3093,6 +3284,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       storageDir: config.paths.storageDir,
       databasePath: config.paths.databasePath,
       storageVersion: meta?.storageVersion ?? ENGINE_STORAGE_VERSION,
+      schemaVersion: readMetaNumber(db, "schemaVersion") ?? ENGINE_SCHEMA_VERSION,
       storageMode: config.storageMode,
       storageBackend: SQLITE_INDEX_BACKEND.backendName,
       staleStatus,
@@ -3249,6 +3441,7 @@ export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
       storageDir: health.storageDir,
       databasePath: health.databasePath,
       storageVersion: health.storageVersion,
+      schemaVersion: health.schemaVersion,
       storageBackend: health.storageBackend,
       storageMode: health.storageMode,
       indexStatus:

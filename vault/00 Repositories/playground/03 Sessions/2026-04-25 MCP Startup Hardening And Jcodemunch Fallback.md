@@ -507,3 +507,29 @@ a mandatory runtime concern for every MCP or CLI call.
   graph expansion in assembled bundles, and the aliased-import dependency path.
 - Bumped Astrograph from `0.0.1-alpha.12` to `0.0.1-alpha.13` for the Phase 4
   graph-aware retrieval slice.
+
+## Astrograph schema migration and incremental metadata Phase 5A (2026-04-27)
+
+- Replaced the old ad hoc schema drift checks with an explicit DB
+  `schemaVersion` stored in SQLite `meta`, plus a small migration runner that
+  upgrades legacy local indexes in place.
+- Left the repo-root storage version file in place as a separate concern:
+  `storageVersion` still describes the `.astrograph/` runtime contract, while
+  `schemaVersion` now reports the live SQLite layout.
+- Added new persisted file metadata fields on `files`:
+  - `size_bytes`
+  - `mtime_ms`
+  - `symbol_signature_hash`
+  - `import_hash`
+- `index_file` / `index_folder` now skip obvious no-op files earlier by
+  comparing stored size and mtime before rereading source, and they backfill
+  the new hash fields when a migrated row is touched even if content did not
+  materially change.
+- Promoted `schemaVersion` into both `diagnostics` and `doctor`, and added a
+  regression test that boots a legacy DB layout and verifies Astrograph
+  migrates it before serving health data.
+- The interface test harness now forces `ASTROGRAPH_USE_SOURCE=1` when it boots
+  the package wrapper so source-only contract changes are exercised directly in
+  branch work without relying on a rebuilt `dist/`.
+- Bumped Astrograph from `0.0.1-alpha.13` to `0.0.1-alpha.14` for this first
+  Phase 5 slice.

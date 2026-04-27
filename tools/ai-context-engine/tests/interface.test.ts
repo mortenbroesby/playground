@@ -53,6 +53,10 @@ async function startObservabilityServer(
     {
       cwd: packageRoot,
       stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        ASTROGRAPH_USE_SOURCE: "1",
+      },
     },
   );
 
@@ -145,6 +149,10 @@ async function withMcpClient<T>(
     args: [path.join(packageRoot, "scripts", "ai-context-engine.mjs"), "mcp"],
     cwd: packageRoot,
     stderr: "pipe",
+    env: {
+      ...process.env,
+      ASTROGRAPH_USE_SOURCE: "1",
+    },
   });
   let stderr = "";
   const stderrStream = transport.stderr as
@@ -442,6 +450,7 @@ export function circumference(radius: number): string {
       storageDir: path.join(canonicalRepoRoot, ".astrograph"),
       databasePath: path.join(canonicalRepoRoot, ".astrograph", "index.sqlite"),
       storageVersion: 1,
+      schemaVersion: 2,
       indexedFiles: 2,
       currentFiles: 2,
     });
@@ -662,6 +671,7 @@ export function circumference(radius: number): string {
         engineVersion: ASTROGRAPH_PACKAGE_VERSION,
         storageDir: path.join(canonicalRepoRoot, ".astrograph"),
         storageVersion: 1,
+        schemaVersion: 2,
       });
     });
   }, 15000);
