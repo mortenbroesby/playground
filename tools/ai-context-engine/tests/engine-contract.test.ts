@@ -100,18 +100,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.45");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.1.0-alpha.46");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
-      minor: 0,
-      patch: 1,
-      increment: 45,
+      minor: 1,
+      patch: 0,
+      increment: 46,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
-      minor: 0,
-      patch: 1,
-      increment: 45,
+      minor: 1,
+      patch: 0,
+      increment: 46,
     });
   });
 
@@ -186,7 +186,7 @@ describe("ai-context-engine contract", () => {
     expect(rootGitignore).toContain(".profiles/");
   });
 
-  it("enforces Astrograph bump rules for increment and semver resets", () => {
+  it("enforces Astrograph bump rules with a monotonic alpha increment", () => {
     expect(
       assessAstrographVersionBump(
         { major: 0, minor: 0, patch: 1, increment: 0 },
@@ -200,7 +200,7 @@ describe("ai-context-engine contract", () => {
     expect(
       assessAstrographVersionBump(
         { major: 0, minor: 0, patch: 1, increment: 4 },
-        { major: 0, minor: 0, patch: 2, increment: 0 },
+        { major: 0, minor: 0, patch: 2, increment: 5 },
       ),
     ).toMatchObject({
       ok: true,
@@ -210,7 +210,17 @@ describe("ai-context-engine contract", () => {
     expect(
       assessAstrographVersionBump(
         { major: 0, minor: 0, patch: 1, increment: 4 },
-        { major: 0, minor: 0, patch: 2, increment: 1 },
+        { major: 0, minor: 1, patch: 0, increment: 5 },
+      ),
+    ).toMatchObject({
+      ok: true,
+      kind: "minor",
+    });
+
+    expect(
+      assessAstrographVersionBump(
+        { major: 0, minor: 0, patch: 1, increment: 4 },
+        { major: 0, minor: 1, patch: 0, increment: 4 },
       ),
     ).toMatchObject({
       ok: false,

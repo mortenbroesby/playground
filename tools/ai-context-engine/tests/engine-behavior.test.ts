@@ -84,6 +84,16 @@ function snapshotIndexedRows(repoRoot: string) {
   return { files, symbols, imports };
 }
 
+function readIndexedFileUpdatedAt(repoRoot: string, filePath: string): string | null {
+  const paths = resolveEnginePaths(repoRoot);
+  const db = new Database(paths.databasePath, { readonly: true });
+  const row = db.prepare(
+    "SELECT updated_at FROM files WHERE path = ?",
+  ).get(filePath) as { updated_at: string } | undefined;
+  db.close();
+  return row?.updated_at ?? null;
+}
+
 describe("ai-context-engine behavior", () => {
   const it = (name: string, fn: (...args: never[]) => unknown, timeout = 15000) =>
     baseIt(name, fn as never, timeout);
@@ -218,12 +228,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.45",
+      engineVersion: "0.1.0-alpha.46",
       engineVersionParts: {
         major: 0,
-        minor: 0,
-        patch: 1,
-        increment: 45,
+        minor: 1,
+        patch: 0,
+        increment: 46,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1719,6 +1729,54 @@ export function renderValue(value: number): string {
     );
   });
 
+  it("re-evaluates direct importers when an exporter changes during single-file refresh", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const initialImporterUpdatedAt = readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts");
+    expect(initialImporterUpdatedAt).not.toBeNull();
+
+    await delay(20);
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return \`value=\${value.toFixed(2)}\`;
+}
+`,
+    );
+
+    const refresh = await indexFile({
+      repoRoot,
+      filePath: "src/formatters.ts",
+    });
+
+    expect(refresh).toMatchObject({
+      indexedFiles: 2,
+      staleStatus: "fresh",
+    });
+
+    const importerUpdatedAt = readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts");
+    expect(importerUpdatedAt).not.toBe(initialImporterUpdatedAt);
+  });
+
   it("doctor surfaces unresolved relative imports and affected importers", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -2087,8 +2145,8 @@ export function renderValue(value: number): string {
     });
 
     expect(update).toMatchObject({
-      indexedFiles: 1,
-      indexedSymbols: 1,
+      indexedFiles: 2,
+      indexedSymbols: 2,
       staleStatus: "stale",
     });
 
@@ -2397,7 +2455,11 @@ export function circumference(radius: number): string {
 
   it("reports stale watch refresh summaries when exporter changes break downstream symbol imports", async () => {
     const repoRoot = await createFixtureRepo();
-    const reindexEvents: Array<{ changedPaths: string[]; staleStatus?: string | undefined }> = [];
+    const reindexEvents: Array<{
+      changedPaths: string[];
+      indexedFiles?: number | undefined;
+      staleStatus?: string | undefined;
+    }> = [];
 
     await writeFile(
       path.join(repoRoot, "src", "formatters.ts"),
@@ -2423,6 +2485,7 @@ export function renderValue(value: number): string {
         if (event.type === "reindex") {
           reindexEvents.push({
             changedPaths: event.changedPaths,
+            indexedFiles: event.summary?.indexedFiles,
             staleStatus: event.summary?.staleStatus,
           });
         }
@@ -2442,6 +2505,7 @@ export function renderValue(value: number): string {
 
       expect(reindexEvents[0]).toMatchObject({
         changedPaths: ["src/formatters.ts"],
+        indexedFiles: 2,
         staleStatus: "stale",
       });
 
@@ -2449,6 +2513,67 @@ export function renderValue(value: number): string {
       expect(health.staleStatus).toBe("stale");
       expect(health.staleReasons).toContain("unresolved relative symbol imports");
       expect(health.watch.lastSummary?.staleStatus).toBe("stale");
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("re-evaluates direct importers during watch refresh when an exporter changes", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; indexedFiles?: number | undefined }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            indexedFiles: event.summary?.indexedFiles,
+          });
+        }
+      },
+    });
+
+    try {
+      const initialImporterUpdatedAt = readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts");
+      expect(initialImporterUpdatedAt).not.toBeNull();
+
+      await delay(20);
+      await writeFile(
+        path.join(repoRoot, "src", "formatters.ts"),
+        `export function bestFormatter(value: number): string {
+  return \`value=\${value.toFixed(2)}\`;
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      expect(reindexEvents[0]).toMatchObject({
+        changedPaths: ["src/formatters.ts"],
+        indexedFiles: 2,
+      });
+      expect(readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts")).not.toBe(
+        initialImporterUpdatedAt,
+      );
     } finally {
       await watcher.close();
     }

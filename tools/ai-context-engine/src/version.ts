@@ -102,11 +102,18 @@ export function assessAstrographVersionBump(
   }
 
   if (next.major > previous.major) {
-    if (next.minor !== 0 || next.patch !== 0 || next.increment !== 0) {
+    if (next.minor !== 0 || next.patch !== 0) {
       return {
         ok: false,
         kind: null,
-        reason: "Major bumps must reset minor, patch, and increment to 0.",
+        reason: "Major bumps must reset minor and patch to 0.",
+      };
+    }
+    if (next.increment <= previous.increment) {
+      return {
+        ok: false,
+        kind: null,
+        reason: "Alpha increment must keep increasing across major bumps.",
       };
     }
 
@@ -121,11 +128,18 @@ export function assessAstrographVersionBump(
         reason: "Minor bumps must not also change major.",
       };
     }
-    if (next.patch !== 0 || next.increment !== 0) {
+    if (next.patch !== 0) {
       return {
         ok: false,
         kind: null,
-        reason: "Minor bumps must reset patch and increment to 0.",
+        reason: "Minor bumps must reset patch to 0.",
+      };
+    }
+    if (next.increment <= previous.increment) {
+      return {
+        ok: false,
+        kind: null,
+        reason: "Alpha increment must keep increasing across minor bumps.",
       };
     }
 
@@ -140,11 +154,11 @@ export function assessAstrographVersionBump(
         reason: "Patch bumps must not also change major or minor.",
       };
     }
-    if (next.increment !== 0) {
+    if (next.increment <= previous.increment) {
       return {
         ok: false,
         kind: null,
-        reason: "Patch bumps must reset increment to 0.",
+        reason: "Alpha increment must keep increasing across patch bumps.",
       };
     }
 

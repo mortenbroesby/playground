@@ -2052,6 +2052,23 @@ function rebuildFileDependencies(db: IndexBackendConnection) {
   }
 }
 
+function loadDirectImporterPaths(
+  db: IndexBackendConnection,
+  targetPath: string,
+): string[] {
+  return typedAll<{ importer_path: string }>(
+    db.prepare(
+      `
+        SELECT importer_path
+        FROM file_dependencies
+        WHERE target_path = ?
+        ORDER BY importer_path ASC
+      `,
+    ),
+    targetPath,
+  ).map((row) => row.importer_path);
+}
+
 function pickDependencyRows(
   db: IndexBackendConnection,
   seedRow: DbSymbolRow,
@@ -2732,6 +2749,60 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
   });
   return persistFileIndexResult(db, analyzed);
 }
+
+async function refreshIndexedFilePath(db: IndexBackendConnection, input: {
+  repoRoot: string;
+  filePath: string;
+  summaryStrategy: SummaryStrategy;
+  forceRefresh: boolean;
+  maxFileBytes: number;
+  maxSymbolsPerFile: number;
+  workerPool: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
+}): Promise<{ indexedFiles: number; indexedSymbols: number }> {
+  const absolutePath = path.join(input.repoRoot, input.filePath);
+  const fileExists = await stat(absolutePath)
+    .then((entry) => entry.isFile())
+    .catch(() => false);
+
+  if (!fileExists) {
+    return {
+      indexedFiles: removeFileIndex(db, input.filePath) ? 1 : 0,
+      indexedSymbols: 0,
+    };
+  }
+
+  if (!supportedLanguageForFile(input.filePath) || isGitIgnored(input.repoRoot, input.filePath)) {
+    return {
+      indexedFiles: removeFileIndex(db, input.filePath) ? 1 : 0,
+      indexedSymbols: 0,
+    };
+  }
+
+  const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
+  if (exceedsMaxFileBytes(fileMetadata.size, input.maxFileBytes)) {
+    return {
+      indexedFiles: removeFileIndex(db, input.filePath) ? 1 : 0,
+      indexedSymbols: 0,
+    };
+  }
+
+  const result = await upsertFileIndex(db, {
+    repoRoot: input.repoRoot,
+    filePath: input.filePath,
+    summaryStrategy: input.summaryStrategy,
+    forceRefresh: input.forceRefresh,
+    maxSymbolsPerFile: input.maxSymbolsPerFile,
+    workerPool: input.workerPool,
+  });
+
+  return {
+    indexedFiles: result.indexed ? 1 : 0,
+    indexedSymbols: result.symbolCount,
+  };
+}
 export async function indexFolder(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
@@ -2762,46 +2833,50 @@ async function indexFileDirect(input: {
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const fileState = await resolveRepoFileRefreshState(repoRoot, input.filePath);
-    if (!fileState.exists || !fileState.supported || fileState.ignored) {
-      const removed = removeFileIndex(db, fileState.relativePath);
-      const indexedAt = new Date().toISOString();
-      const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+    const dependentPaths = loadDirectImporterPaths(db, fileState.relativePath)
+      .filter((candidate) => candidate !== fileState.relativePath);
 
-      return {
-        indexedFiles: removed ? 1 : 0,
-        indexedSymbols: 0,
-        staleStatus,
-      };
-    }
-    const fileMetadata = await readRepoFileMetadata(repoRoot, input.filePath);
-    if (exceedsMaxFileBytes(fileMetadata.size, config.maxFileBytes)) {
-      const removed = removeFileIndex(db, fileState.relativePath);
-      const indexedAt = new Date().toISOString();
-      const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+    let indexedFiles = 0;
+    let indexedSymbols = 0;
 
-      return {
-        indexedFiles: removed ? 1 : 0,
-        indexedSymbols: 0,
-        staleStatus,
-      };
-    }
-    const result = await upsertFileIndex(db, {
+    const primaryResult = await refreshIndexedFilePath(db, {
       repoRoot,
-      filePath: input.filePath,
+      filePath: fileState.relativePath,
       summaryStrategy: config.summaryStrategy,
       forceRefresh: meta?.summaryStrategy !== config.summaryStrategy,
+      maxFileBytes: config.maxFileBytes,
       maxSymbolsPerFile: config.maxSymbolsPerFile,
       workerPool: {
         enabled: config.workerPoolEnabled,
         maxWorkers: config.workerPoolMaxWorkers,
       },
     });
+    indexedFiles += primaryResult.indexedFiles;
+    indexedSymbols += primaryResult.indexedSymbols;
+
+    for (const dependentPath of dependentPaths) {
+      const dependentResult = await refreshIndexedFilePath(db, {
+        repoRoot,
+        filePath: dependentPath,
+        summaryStrategy: config.summaryStrategy,
+        forceRefresh: true,
+        maxFileBytes: config.maxFileBytes,
+        maxSymbolsPerFile: config.maxSymbolsPerFile,
+        workerPool: {
+          enabled: config.workerPoolEnabled,
+          maxWorkers: config.workerPoolMaxWorkers,
+        },
+      });
+      indexedFiles += dependentResult.indexedFiles;
+      indexedSymbols += dependentResult.indexedSymbols;
+    }
+
     const indexedAt = new Date().toISOString();
     const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
     return {
-      indexedFiles: result.indexed ? 1 : 0,
-      indexedSymbols: result.symbolCount,
+      indexedFiles,
+      indexedSymbols,
       staleStatus,
     };
   } finally {
@@ -2976,54 +3051,50 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       const db = openDatabase(config.paths.databasePath);
       const meta = await readRepoMeta(config.paths.repoMetaPath);
       const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
+      const dependentPaths = new Set<string>();
 
       let indexedFiles = 0;
       let indexedSymbols = 0;
 
       try {
         for (const filePath of changedPaths) {
-          const absolutePath = path.join(repoRoot, filePath);
-          const fileExists = await stat(absolutePath)
-            .then((entry) => entry.isFile())
-            .catch(() => false);
-
-          if (!fileExists) {
-            if (removeFileIndex(db, filePath)) {
-              indexedFiles += 1;
+          for (const importerPath of loadDirectImporterPaths(db, filePath)) {
+            if (!changedPaths.includes(importerPath) && importerPath !== filePath) {
+              dependentPaths.add(importerPath);
             }
-            continue;
           }
 
-          if (!supportedLanguageForFile(filePath) || isGitIgnored(repoRoot, filePath)) {
-            if (removeFileIndex(db, filePath)) {
-              indexedFiles += 1;
-            }
-            continue;
-          }
-
-          const fileMetadata = await readRepoFileMetadata(repoRoot, filePath);
-          if (exceedsMaxFileBytes(fileMetadata.size, config.maxFileBytes)) {
-            if (removeFileIndex(db, filePath)) {
-              indexedFiles += 1;
-            }
-            continue;
-          }
-
-          const result = await upsertFileIndex(db, {
+          const result = await refreshIndexedFilePath(db, {
             repoRoot,
             filePath,
             summaryStrategy: config.summaryStrategy,
             forceRefresh,
+            maxFileBytes: config.maxFileBytes,
             maxSymbolsPerFile: config.maxSymbolsPerFile,
             workerPool: {
               enabled: config.workerPoolEnabled,
               maxWorkers: config.workerPoolMaxWorkers,
             },
           });
-          if (result.indexed) {
-            indexedFiles += 1;
-            indexedSymbols += result.symbolCount;
-          }
+          indexedFiles += result.indexedFiles;
+          indexedSymbols += result.indexedSymbols;
+        }
+
+        for (const dependentPath of [...dependentPaths].sort()) {
+          const result = await refreshIndexedFilePath(db, {
+            repoRoot,
+            filePath: dependentPath,
+            summaryStrategy: config.summaryStrategy,
+            forceRefresh: true,
+            maxFileBytes: config.maxFileBytes,
+            maxSymbolsPerFile: config.maxSymbolsPerFile,
+            workerPool: {
+              enabled: config.workerPoolEnabled,
+              maxWorkers: config.workerPoolMaxWorkers,
+            },
+          });
+          indexedFiles += result.indexedFiles;
+          indexedSymbols += result.indexedSymbols;
         }
 
         const indexedAt = new Date().toISOString();

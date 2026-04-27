@@ -52,6 +52,7 @@ The package is currently a local-first npm alpha:
 - Ranked, token-budgeted context assembly for agent use
 - `query_code` umbrella surface for discovery, source retrieval, and assembly
 - Graph-aware symbol references for stronger importer follow-up than file-level importers alone
+- One-hop dependent importer refresh during incremental exporter updates
 - `diagnostics` and `doctor` flows for freshness, health, and repair guidance
 - Watch-mode refresh with `@parcel/watcher`, `fs.watch`, and polling fallback paths
 - Live-disk text fallback via ripgrep when discovery text search is requested on
@@ -268,7 +269,7 @@ Those values map to:
 - `major` for breaking MCP, storage, or library contract changes
 - `minor` for backward-compatible feature additions
 - `patch` for backward-compatible fixes and internal changes
-- `increment` for each Astrograph commit on the same base semver line
+- `increment` for each Astrograph commit, monotonically increasing and never reset
 
 ## Security
 
