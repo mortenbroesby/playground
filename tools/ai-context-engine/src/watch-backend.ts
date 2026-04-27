@@ -122,57 +122,76 @@ export async function subscribeRepo(
   repoRoot: string,
   onEvents: (events: BackendWatchEvent[]) => void,
   options: {
+    backend?: WatchBackendKind | "auto";
     onError?: (error: unknown) => void;
   } = {},
 ): Promise<WatchSubscription> {
-  try {
-    const parcelWatcher = await import("@parcel/watcher") as ParcelWatcherModule;
-    const subscription = await parcelWatcher.subscribe(
-      repoRoot,
-      (error, events) => {
-        if (error) {
-          options.onError?.(error);
-          return;
-        }
+  const preferredBackend = options.backend ?? "auto";
 
-        const normalizedEvents = normalizeParcelWatchEvents(repoRoot, events);
+  if (preferredBackend === "parcel" || preferredBackend === "auto") {
+    try {
+      const parcelWatcher = await import("@parcel/watcher") as ParcelWatcherModule;
+      const subscription = await parcelWatcher.subscribe(
+        repoRoot,
+        (error, events) => {
+          if (error) {
+            options.onError?.(error);
+            return;
+          }
+
+          const normalizedEvents = normalizeParcelWatchEvents(repoRoot, events);
+          if (normalizedEvents.length > 0) {
+            onEvents(normalizedEvents);
+          }
+        },
+        {
+          ignore: [...WATCH_IGNORE_SEGMENTS].map((segment) => `${segment}/**`),
+        },
+      );
+
+      return {
+        backend: "parcel",
+        async close() {
+          await subscription.unsubscribe();
+        },
+      };
+    } catch {
+      if (preferredBackend === "parcel") {
+        throw new Error("Requested parcel watch backend is unavailable");
+      }
+    }
+  }
+
+  if (preferredBackend === "polling") {
+    throw new Error("Requested polling backend does not use a native subscription");
+  }
+
+  try {
+    const watcher = fsWatch(
+      repoRoot,
+      { recursive: true },
+      (eventType, filename) => {
+        const normalizedEvents = normalizeNodeFsWatchEvent(repoRoot, eventType, filename);
         if (normalizedEvents.length > 0) {
           onEvents(normalizedEvents);
         }
       },
-      {
-        ignore: [...WATCH_IGNORE_SEGMENTS].map((segment) => `${segment}/**`),
-      },
     );
+    watcher.on("error", (error) => {
+      options.onError?.(error);
+    });
 
     return {
-      backend: "parcel",
+      backend: "node-fs-watch",
       async close() {
-        await subscription.unsubscribe();
+        watcher.close();
       },
     };
   } catch {
-    // Fall back to the built-in watcher path below.
+    if (preferredBackend === "node-fs-watch") {
+      throw new Error("Requested node-fs-watch backend is unavailable");
+    }
   }
 
-  const watcher = fsWatch(
-    repoRoot,
-    { recursive: true },
-    (eventType, filename) => {
-      const normalizedEvents = normalizeNodeFsWatchEvent(repoRoot, eventType, filename);
-      if (normalizedEvents.length > 0) {
-        onEvents(normalizedEvents);
-      }
-    },
-  );
-  watcher.on("error", (error) => {
-    options.onError?.(error);
-  });
-
-  return {
-    backend: "node-fs-watch",
-    async close() {
-      watcher.close();
-    },
-  };
+  throw new Error("No native watch backend is available");
 }

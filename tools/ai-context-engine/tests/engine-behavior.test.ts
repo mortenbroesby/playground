@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.24",
+      engineVersion: "0.0.1-alpha.25",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 24,
+        increment: 25,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1544,6 +1544,60 @@ export function circumference(radius: number): string {
       lastEvent: "close",
     });
     expect(closedHealth.watch.reindexCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("uses repo-config watch defaults when explicit watch options are omitted", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[] }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        watch: {
+          backend: "polling",
+          debounceMs: 75,
+        },
+      }),
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      const health = await diagnostics({ repoRoot });
+      expect(health.watch).toMatchObject({
+        status: "watching",
+        backend: "polling",
+        debounceMs: 75,
+        pollMs: 75,
+        lastEvent: "reindex",
+        lastChangedPaths: ["src/math.ts"],
+      });
+    } finally {
+      await watcher.close();
+    }
   });
 
   it("removes deleted files during watch refresh without a full folder reindex", async () => {

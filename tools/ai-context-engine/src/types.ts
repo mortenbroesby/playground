@@ -42,10 +42,16 @@ export interface RepoPerformanceConfig {
   fileProcessingConcurrency?: number | "auto";
 }
 
+export interface RepoWatchConfig {
+  backend?: WatchBackendKind | "auto";
+  debounceMs?: number;
+}
+
 export interface RepoEngineConfig {
   summaryStrategy?: SummaryStrategy;
   observability?: RepoObservabilityConfig;
   performance?: RepoPerformanceConfig;
+  watch?: RepoWatchConfig;
 }
 
 export interface ResolvedObservabilityConfig {
@@ -60,12 +66,18 @@ export interface ResolvedPerformanceConfig {
   fileProcessingConcurrency: number;
 }
 
+export interface ResolvedWatchConfig {
+  backend: WatchBackendKind | "auto";
+  debounceMs: number;
+}
+
 export interface ResolvedRepoEngineConfig {
   configPath: string | null;
   repoRoot: string;
   summaryStrategy: SummaryStrategy;
   observability: ResolvedObservabilityConfig;
   performance: ResolvedPerformanceConfig;
+  watch: ResolvedWatchConfig;
 }
 
 export type SymbolKind =
@@ -91,6 +103,7 @@ export interface WatchEvent {
 export interface WatchOptions {
   repoRoot: string;
   debounceMs?: number;
+  backend?: WatchBackendKind | "auto";
   summaryStrategy?: SummaryStrategy;
   onEvent?: (event: WatchEvent) => void | Promise<void>;
 }

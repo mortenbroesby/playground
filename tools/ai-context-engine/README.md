@@ -169,6 +169,27 @@ You can use Astrograph through:
 ASTROGRAPH_USE_SOURCE=1 pnpm exec astrograph ...
 ```
 
+### Repo Config
+
+Astrograph reads optional repo-local defaults from `astrograph.config.json`:
+
+```json
+{
+  "summaryStrategy": "doc-comments-first",
+  "performance": {
+    "fileProcessingConcurrency": "auto"
+  },
+  "watch": {
+    "backend": "auto",
+    "debounceMs": 100
+  }
+}
+```
+
+- `watch.backend` can force `parcel`, `node-fs-watch`, or `polling`
+- `watch.debounceMs` sets the default debounce window for `watchFolder()`
+- explicit library or CLI options still override repo-config defaults
+
 ### Standalone Codex Install
 
 Astrograph supports a standalone Codex bootstrap flow:

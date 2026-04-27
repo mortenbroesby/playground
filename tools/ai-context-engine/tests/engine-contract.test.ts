@@ -8,6 +8,7 @@ import {
   ASTROGRAPH_PACKAGE_VERSION,
   ASTROGRAPH_VERSION_PARTS,
   DEFAULT_SUMMARY_STRATEGY,
+  DEFAULT_WATCH_DEBOUNCE_MS,
   ENGINE_SCHEMA_VERSION,
   ENGINE_STORAGE_VERSION,
   ENGINE_TOOLS,
@@ -81,18 +82,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.24");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.25");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 24,
+      increment: 25,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 24,
+      increment: 25,
     });
   });
 
@@ -145,6 +146,10 @@ describe("ai-context-engine contract", () => {
         performance: {
           fileProcessingConcurrency: 1,
         },
+        watch: {
+          backend: "polling",
+          debounceMs: 175,
+        },
       }),
     );
 
@@ -159,6 +164,10 @@ describe("ai-context-engine contract", () => {
       snapshotIntervalMs: 250,
     });
     expect(config.performance.fileProcessingConcurrency).toBe(1);
+    expect(config.watch).toEqual({
+      backend: "polling",
+      debounceMs: 175,
+    });
     expect(config.configPath).toContain("astrograph.config.json");
   });
 
@@ -195,6 +204,10 @@ describe("ai-context-engine contract", () => {
 
     const autoConfig = await loadRepoEngineConfig(repoRoot);
     expect(autoConfig.performance.fileProcessingConcurrency).toBeGreaterThanOrEqual(2);
+    expect(autoConfig.watch).toEqual({
+      backend: "auto",
+      debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
+    });
 
     await writeFile(
       path.join(repoRoot, "astrograph.config.json"),

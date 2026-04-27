@@ -2490,8 +2490,12 @@ export async function indexFile(input: {
 }
 
 export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
-  const debounceMs = input.debounceMs ?? 100;
   const repoRoot = await resolveRepoRoot(input.repoRoot);
+  const repoConfig = await loadRepoEngineConfig(repoRoot, {
+    repoRootResolved: true,
+  });
+  const debounceMs = input.debounceMs ?? repoConfig.watch.debounceMs;
+  const preferredBackend = input.backend ?? repoConfig.watch.backend;
   const pollMs = Math.max(50, Math.min(debounceMs, 250));
   const watchLogger = storageLogger.child({
     operation: "watch_folder",
@@ -2813,6 +2817,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
           scheduleNativeWatchSweep();
         },
         {
+          backend: preferredBackend,
           onError: () => {
             void nativeSubscription?.close().catch(() => undefined);
             nativeSubscription = null;

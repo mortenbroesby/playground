@@ -28,6 +28,7 @@ export const DEFAULT_OBSERVABILITY_HOST = "127.0.0.1";
 export const DEFAULT_OBSERVABILITY_PORT = 34323;
 export const DEFAULT_OBSERVABILITY_RECENT_LIMIT = 100;
 export const DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS = 1000;
+export const DEFAULT_WATCH_DEBOUNCE_MS = 100;
 
 const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
   "doc-comments-first",
@@ -69,10 +70,16 @@ const repoPerformanceConfigSchema = z.object({
   ]).optional(),
 });
 
+const repoWatchConfigSchema = z.object({
+  backend: z.enum(["auto", "parcel", "node-fs-watch", "polling"]).optional(),
+  debounceMs: z.number().int().positive().optional(),
+});
+
 const repoEngineConfigSchema = z.object({
   summaryStrategy: z.enum(["doc-comments-first", "signature-only"]).optional(),
   observability: repoObservabilityConfigSchema.optional(),
   performance: repoPerformanceConfigSchema.optional(),
+  watch: repoWatchConfigSchema.optional(),
 }) satisfies z.ZodType<RepoEngineConfig>;
 
 function defaultFileProcessingConcurrency(): number {
@@ -139,6 +146,10 @@ function createDefaultResolvedRepoEngineConfig(
     performance: {
       fileProcessingConcurrency: defaultFileProcessingConcurrency(),
     },
+    watch: {
+      backend: "auto",
+      debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
+    },
   };
 }
 
@@ -196,6 +207,10 @@ export async function loadRepoEngineConfig(
       fileProcessingConcurrency: normalizeFileProcessingConcurrency(
         parsed.data.performance?.fileProcessingConcurrency,
       ),
+    },
+    watch: {
+      backend: parsed.data.watch?.backend ?? defaults.watch.backend,
+      debounceMs: parsed.data.watch?.debounceMs ?? defaults.watch.debounceMs,
     },
   };
 }
