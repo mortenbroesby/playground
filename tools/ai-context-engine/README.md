@@ -177,7 +177,11 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 {
   "summaryStrategy": "doc-comments-first",
   "performance": {
-    "fileProcessingConcurrency": "auto"
+    "fileProcessingConcurrency": "auto",
+    "workerPool": {
+      "enabled": false,
+      "maxWorkers": "auto"
+    }
   },
   "watch": {
     "backend": "auto",
@@ -188,6 +192,10 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 
 - `watch.backend` can force `parcel`, `node-fs-watch`, or `polling`
 - `watch.debounceMs` sets the default debounce window for `watchFolder()`
+- `performance.workerPool.enabled` opt-ins CPU-heavy parse/hash analysis through
+  Piscina worker threads during folder indexing
+- `performance.workerPool.maxWorkers` bounds the worker pool when that path is
+  enabled
 - explicit library or CLI options still override repo-config defaults
 
 ### Standalone Codex Install

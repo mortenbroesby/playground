@@ -82,18 +82,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.25");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.26");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 25,
+      increment: 26,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 25,
+      increment: 26,
     });
   });
 
@@ -145,6 +145,10 @@ describe("ai-context-engine contract", () => {
         },
         performance: {
           fileProcessingConcurrency: 1,
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
         },
         watch: {
           backend: "polling",
@@ -164,6 +168,10 @@ describe("ai-context-engine contract", () => {
       snapshotIntervalMs: 250,
     });
     expect(config.performance.fileProcessingConcurrency).toBe(1);
+    expect(config.performance.workerPool).toEqual({
+      enabled: true,
+      maxWorkers: 2,
+    });
     expect(config.watch).toEqual({
       backend: "polling",
       debounceMs: 175,
@@ -204,6 +212,10 @@ describe("ai-context-engine contract", () => {
 
     const autoConfig = await loadRepoEngineConfig(repoRoot);
     expect(autoConfig.performance.fileProcessingConcurrency).toBeGreaterThanOrEqual(2);
+    expect(autoConfig.performance.workerPool).toEqual({
+      enabled: false,
+      maxWorkers: expect.any(Number),
+    });
     expect(autoConfig.watch).toEqual({
       backend: "auto",
       debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
@@ -214,12 +226,20 @@ describe("ai-context-engine contract", () => {
       JSON.stringify({
         performance: {
           fileProcessingConcurrency: 99,
+          workerPool: {
+            enabled: true,
+            maxWorkers: 99,
+          },
         },
       }),
     );
 
     const boundedConfig = await loadRepoEngineConfig(repoRoot);
     expect(boundedConfig.performance.fileProcessingConcurrency).toBe(32);
+    expect(boundedConfig.performance.workerPool).toEqual({
+      enabled: true,
+      maxWorkers: 16,
+    });
   });
 
   it("renders a managed Codex MCP block for standalone install", async () => {

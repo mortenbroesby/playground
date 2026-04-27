@@ -6,6 +6,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import pMap from "p-map";
+import { Piscina } from "piscina";
 import {
   Subject,
   buffer,
@@ -27,6 +28,8 @@ import {
   resolveEngineRepoRoot,
 } from "./config.ts";
 import { emitEngineEvent } from "./event-sink.ts";
+import { analyzeFileContent } from "./file-analysis.ts";
+import type { FileAnalysisTaskInput, FileAnalysisTaskOutput } from "./file-analysis.ts";
 import {
   compactDirectoryRescanPaths,
   compareDirectoryStates,
@@ -47,7 +50,7 @@ import type {
   IndexStatement,
 } from "./index-backend.ts";
 import { createPathMatcher } from "./path-matcher.ts";
-import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
+import { supportedLanguageForFile } from "./parser.ts";
 import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
 import { subscribeRepo } from "./watch-backend.ts";
@@ -146,7 +149,7 @@ type AnalyzedFileIndexResult =
     kind: "content-unchanged";
     existing: TrackedFileRow;
     file: Awaited<ReturnType<typeof readRepoFile>>;
-    reparsed: ReturnType<typeof parseSourceFile>;
+    reparsed: FileAnalysisTaskOutput["parsed"];
     symbolSignatureHash: string;
     importHash: string;
   }
@@ -154,7 +157,7 @@ type AnalyzedFileIndexResult =
     kind: "reindexed";
     existing: TrackedFileRow | undefined;
     file: Awaited<ReturnType<typeof readRepoFile>>;
-    reparsed: ReturnType<typeof parseSourceFile>;
+    reparsed: FileAnalysisTaskOutput["parsed"];
     symbolSignatureHash: string;
     importHash: string;
   };
@@ -260,9 +263,62 @@ const sourceCliEntrypoint = path.join(storageModuleDir, "cli.ts");
 const cliEntrypoint = existsSync(builtCliEntrypoint)
   ? builtCliEntrypoint
   : sourceCliEntrypoint;
+const builtAnalyzeFileWorkerEntrypoint = path.join(
+  storageModuleDir,
+  "..",
+  "dist",
+  "workers",
+  "analyze-file-worker.js",
+);
+const sourceAnalyzeFileWorkerEntrypoint = path.join(
+  storageModuleDir,
+  "workers",
+  "analyze-file-worker.ts",
+);
+let fileAnalysisPool: Piscina<FileAnalysisTaskInput, FileAnalysisTaskOutput> | null = null;
+let fileAnalysisPoolKey: string | null = null;
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function resolveAnalyzeFileWorkerOptions(): {
+  filename: string;
+  execArgv?: string[];
+} {
+  const preferSource =
+    process.env.ASTROGRAPH_USE_SOURCE === "1"
+    || process.env.ASTROGRAPH_USE_SOURCE === "true";
+  const useBuiltTarget = existsSync(builtAnalyzeFileWorkerEntrypoint)
+    && (!preferSource || !existsSync(sourceAnalyzeFileWorkerEntrypoint));
+
+  return useBuiltTarget
+    ? {
+        filename: builtAnalyzeFileWorkerEntrypoint,
+      }
+    : {
+        filename: sourceAnalyzeFileWorkerEntrypoint,
+        execArgv: ["--experimental-strip-types"],
+      };
+}
+
+function getFileAnalysisPool(maxWorkers: number) {
+  const options = resolveAnalyzeFileWorkerOptions();
+  const poolKey = `${options.filename}:${options.execArgv?.join(" ") ?? ""}:${maxWorkers}`;
+
+  if (fileAnalysisPool && fileAnalysisPoolKey === poolKey) {
+    return fileAnalysisPool;
+  }
+
+  fileAnalysisPool = new Piscina<FileAnalysisTaskInput, FileAnalysisTaskOutput>({
+    filename: options.filename,
+    execArgv: options.execArgv,
+    minThreads: 1,
+    maxThreads: maxWorkers,
+    concurrentTasksPerWorker: 1,
+  });
+  fileAnalysisPoolKey = poolKey;
+  return fileAnalysisPool;
 }
 
 function mapSymbolRow(row: DbSymbolRow): SymbolSummary {
@@ -580,6 +636,9 @@ export function clearStorageProcessCaches() {
   clearDatabaseConnectionCache();
   repoRootResolutionCache.clear();
   ensuredStorageRoots.clear();
+  void fileAnalysisPool?.destroy().catch(() => undefined);
+  fileAnalysisPool = null;
+  fileAnalysisPoolKey = null;
 }
 
 function clearDatabaseConnectionCache(databasePath?: string) {
@@ -814,6 +873,8 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
     repoRoot: resolvedRepoRoot,
     summaryStrategy: summaryStrategy ?? repoConfig.summaryStrategy,
     fileProcessingConcurrency: repoConfig.performance.fileProcessingConcurrency,
+    workerPoolEnabled: repoConfig.performance.workerPool.enabled,
+    workerPoolMaxWorkers: repoConfig.performance.workerPool.maxWorkers,
   });
   if (!getLruEntry(ensuredStorageRoots, resolvedRepoRoot)) {
     await mkdir(config.paths.storageDir, { recursive: true });
@@ -1266,32 +1327,6 @@ function uniqueQueryTerms(value: string): string[] {
   ].filter(Boolean))];
 }
 
-function hashSymbolSignatures(
-  symbols: Array<{
-    id: string;
-    signature: string;
-  }>,
-): string {
-  return hashString(
-    JSON.stringify(symbols.map((symbol) => [symbol.id, symbol.signature])),
-    "symbol_signature",
-  );
-}
-
-function hashImports(
-  imports: Array<{
-    source: string;
-    specifiers: string[];
-  }>,
-): string {
-  return hashString(
-    JSON.stringify(
-      imports.map((entry) => [entry.source, [...entry.specifiers].sort()]),
-    ),
-    "import_graph",
-  );
-}
-
 function persistedSymbolCount(db: IndexBackendConnection, fileId: number): number {
   const countRow = typedGet<{ count: number }>(
     db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
@@ -1306,6 +1341,10 @@ async function analyzeFileIndexResult(input: {
   summaryStrategy?: SummaryStrategy;
   forceRefresh?: boolean;
   existing?: TrackedFileRow;
+  workerPool?: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
 }): Promise<AnalyzedFileIndexResult> {
   const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
 
@@ -1322,19 +1361,26 @@ async function analyzeFileIndexResult(input: {
   }
 
   const file = await readRepoFile(input.repoRoot, input.filePath);
-  const reparsed = parseSourceFile({
-    relativePath: file.relativePath,
-    content: file.content,
-    language: file.language,
-    summaryStrategy: input.summaryStrategy,
-  });
-  const symbolSignatureHash = hashSymbolSignatures(reparsed.symbols);
-  const importHash = hashImports(reparsed.imports);
+  const analysis = input.workerPool?.enabled
+    ? await getFileAnalysisPool(input.workerPool.maxWorkers).run({
+        relativePath: file.relativePath,
+        language: file.language,
+        content: file.content,
+        summaryStrategy: input.summaryStrategy,
+      })
+    : analyzeFileContent({
+        relativePath: file.relativePath,
+        language: file.language,
+        content: file.content,
+        summaryStrategy: input.summaryStrategy,
+      });
+  const reparsed = analysis.parsed;
+  const { symbolSignatureHash, importHash } = analysis;
 
   if (!input.forceRefresh && input.existing?.content_hash === reparsed.contentHash) {
     return {
       kind: "content-unchanged",
-      existing: input.existing,
+      existing: input.existing!,
       file,
       reparsed,
       symbolSignatureHash,
@@ -2361,6 +2407,10 @@ async function indexFolderDirect(input: {
           summaryStrategy: config.summaryStrategy,
           forceRefresh,
           existing: trackedRows.get(filePath),
+          workerPool: {
+            enabled: config.workerPoolEnabled,
+            maxWorkers: config.workerPoolMaxWorkers,
+          },
         }),
       { concurrency: config.fileProcessingConcurrency },
     );
@@ -2406,6 +2456,10 @@ async function upsertFileIndex(db: IndexBackendConnection, input: {
     summaryStrategy: input.summaryStrategy,
     forceRefresh: input.forceRefresh,
     existing,
+    workerPool: {
+      enabled: false,
+      maxWorkers: 1,
+    },
   });
   return persistFileIndexResult(db, analyzed);
 }

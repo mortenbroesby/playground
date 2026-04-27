@@ -27,6 +27,8 @@ export interface EngineConfig {
   staleStatus: StaleStatus;
   summaryStrategy: SummaryStrategy;
   fileProcessingConcurrency: number;
+  workerPoolEnabled: boolean;
+  workerPoolMaxWorkers: number;
   paths: EnginePaths;
 }
 
@@ -40,6 +42,10 @@ export interface RepoObservabilityConfig {
 
 export interface RepoPerformanceConfig {
   fileProcessingConcurrency?: number | "auto";
+  workerPool?: {
+    enabled?: boolean;
+    maxWorkers?: number | "auto";
+  };
 }
 
 export interface RepoWatchConfig {
@@ -64,6 +70,10 @@ export interface ResolvedObservabilityConfig {
 
 export interface ResolvedPerformanceConfig {
   fileProcessingConcurrency: number;
+  workerPool: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
 }
 
 export interface ResolvedWatchConfig {

@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.25",
+      engineVersion: "0.0.1-alpha.26",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 25,
+        increment: 26,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -573,6 +573,67 @@ export function generated${index}(value: number): string {
     );
     expect(snapshotIndexedRows(parallelRepoRoot)).toEqual(
       snapshotIndexedRows(serialRepoRoot),
+    );
+  });
+
+  it("produces equivalent index output with and without the worker pool enabled", async () => {
+    const directRepoRoot = await createFixtureRepo();
+    const workerRepoRoot = await createFixtureRepo();
+    const generatedModules = Array.from({ length: 12 }, (_, index) => ({
+      relativePath: path.join("src", `worker-generated-${index}.ts`),
+      content: `import { formatLabel } from "./strings.js";
+
+export function workerGenerated${index}(value: number): string {
+  return formatLabel(value + ${index});
+}
+`,
+    }));
+
+    for (const repoRoot of [directRepoRoot, workerRepoRoot]) {
+      await Promise.all(generatedModules.map((module) =>
+        writeFile(path.join(repoRoot, module.relativePath), module.content),
+      ));
+    }
+
+    await writeFile(
+      path.join(directRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 4,
+          workerPool: {
+            enabled: false,
+            maxWorkers: 1,
+          },
+        },
+      }),
+    );
+    await writeFile(
+      path.join(workerRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 4,
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
+        },
+      }),
+    );
+
+    const [directSummary, workerSummary] = await Promise.all([
+      indexFolder({ repoRoot: directRepoRoot }),
+      indexFolder({ repoRoot: workerRepoRoot }),
+    ]);
+
+    expect(workerSummary).toEqual(directSummary);
+    expect(await getRepoOutline({ repoRoot: workerRepoRoot })).toEqual(
+      await getRepoOutline({ repoRoot: directRepoRoot }),
+    );
+    expect(await getFileTree({ repoRoot: workerRepoRoot })).toEqual(
+      await getFileTree({ repoRoot: directRepoRoot }),
+    );
+    expect(snapshotIndexedRows(workerRepoRoot)).toEqual(
+      snapshotIndexedRows(directRepoRoot),
     );
   });
 

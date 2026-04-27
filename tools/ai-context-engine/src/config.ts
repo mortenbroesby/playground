@@ -68,6 +68,13 @@ const repoPerformanceConfigSchema = z.object({
     z.literal("auto"),
     z.number().int().positive(),
   ]).optional(),
+  workerPool: z.object({
+    enabled: z.boolean().optional(),
+    maxWorkers: z.union([
+      z.literal("auto"),
+      z.number().int().positive(),
+    ]).optional(),
+  }).optional(),
 });
 
 const repoWatchConfigSchema = z.object({
@@ -82,6 +89,8 @@ const repoEngineConfigSchema = z.object({
   watch: repoWatchConfigSchema.optional(),
 }) satisfies z.ZodType<RepoEngineConfig>;
 
+type WorkerPoolMaxWorkersValue = number | "auto" | undefined;
+
 function defaultFileProcessingConcurrency(): number {
   return Math.max(2, Math.min(16, os.availableParallelism()));
 }
@@ -94,6 +103,20 @@ function normalizeFileProcessingConcurrency(
   }
 
   return Math.max(1, Math.min(32, Math.trunc(value)));
+}
+
+function defaultWorkerPoolMaxWorkers(): number {
+  return Math.max(1, Math.min(8, os.availableParallelism() - 1));
+}
+
+function normalizeWorkerPoolMaxWorkers(
+  value: WorkerPoolMaxWorkersValue,
+): number {
+  if (value === undefined || value === "auto") {
+    return defaultWorkerPoolMaxWorkers();
+  }
+
+  return Math.max(1, Math.min(16, Math.trunc(value)));
 }
 
 export function resolveEnginePaths(repoRoot: string): EnginePaths {
@@ -145,6 +168,10 @@ function createDefaultResolvedRepoEngineConfig(
     },
     performance: {
       fileProcessingConcurrency: defaultFileProcessingConcurrency(),
+      workerPool: {
+        enabled: false,
+        maxWorkers: defaultWorkerPoolMaxWorkers(),
+      },
     },
     watch: {
       backend: "auto",
@@ -207,6 +234,12 @@ export async function loadRepoEngineConfig(
       fileProcessingConcurrency: normalizeFileProcessingConcurrency(
         parsed.data.performance?.fileProcessingConcurrency,
       ),
+      workerPool: {
+        enabled: parsed.data.performance?.workerPool?.enabled ?? defaults.performance.workerPool.enabled,
+        maxWorkers: normalizeWorkerPoolMaxWorkers(
+          parsed.data.performance?.workerPool?.maxWorkers,
+        ),
+      },
     },
     watch: {
       backend: parsed.data.watch?.backend ?? defaults.watch.backend,
@@ -257,6 +290,8 @@ export function createDefaultEngineConfig(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
   fileProcessingConcurrency?: number;
+  workerPoolEnabled?: boolean;
+  workerPoolMaxWorkers?: number;
 }): EngineConfig {
   return {
     repoRoot: input.repoRoot,
@@ -270,6 +305,8 @@ export function createDefaultEngineConfig(input: {
         : parseSummaryStrategy(input.summaryStrategy),
     fileProcessingConcurrency:
       input.fileProcessingConcurrency ?? defaultFileProcessingConcurrency(),
+    workerPoolEnabled: input.workerPoolEnabled ?? false,
+    workerPoolMaxWorkers: input.workerPoolMaxWorkers ?? defaultWorkerPoolMaxWorkers(),
     paths: resolveEnginePaths(input.repoRoot),
   };
 }
