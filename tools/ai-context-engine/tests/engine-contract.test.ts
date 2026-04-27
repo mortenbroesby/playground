@@ -96,18 +96,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.37");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.38");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 37,
+      increment: 38,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 37,
+      increment: 38,
     });
   });
 
@@ -175,6 +175,7 @@ describe("ai-context-engine contract", () => {
       path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         summaryStrategy: "signature-only",
+        storageMode: "wal",
         observability: {
           enabled: true,
           port: 0,
@@ -209,6 +210,7 @@ describe("ai-context-engine contract", () => {
     const config = await loadRepoEngineConfig(repoRoot);
 
     expect(config.summaryStrategy).toBe("signature-only");
+    expect(config.storageMode).toBe("wal");
     expect(config.observability).toMatchObject({
       enabled: true,
       host: "127.0.0.1",
@@ -264,6 +266,7 @@ describe("ai-context-engine contract", () => {
     await writeFile(
       path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
+        storageMode: "wal",
         performance: {
           fileProcessingConcurrency: "auto",
         },
@@ -274,6 +277,7 @@ describe("ai-context-engine contract", () => {
     expect(autoConfig.performance.include).toEqual([]);
     expect(autoConfig.performance.exclude).toEqual([]);
     expect(autoConfig.performance.fileProcessingConcurrency).toBeGreaterThanOrEqual(2);
+    expect(autoConfig.storageMode).toBe("wal");
     expect(autoConfig.performance.workerPool).toEqual({
       enabled: false,
       maxWorkers: expect.any(Number),

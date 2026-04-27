@@ -66,6 +66,7 @@ export interface RepoWatchConfig {
 
 export interface RepoEngineConfig {
   summaryStrategy?: SummaryStrategy;
+  storageMode?: StorageMode;
   observability?: RepoObservabilityConfig;
   performance?: RepoPerformanceConfig;
   watch?: RepoWatchConfig;
@@ -116,6 +117,7 @@ export interface ResolvedRepoEngineConfig {
   configPath: string | null;
   repoRoot: string;
   summaryStrategy: SummaryStrategy;
+  storageMode: StorageMode;
   observability: ResolvedObservabilityConfig;
   performance: ResolvedPerformanceConfig;
   watch: ResolvedWatchConfig;

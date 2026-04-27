@@ -874,6 +874,7 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
   const config = createDefaultEngineConfig({
     repoRoot: resolvedRepoRoot,
     summaryStrategy: summaryStrategy ?? repoConfig.summaryStrategy,
+    storageMode: repoConfig.storageMode,
     indexInclude: repoConfig.performance.include,
     indexExclude: repoConfig.performance.exclude,
     fileProcessingConcurrency: repoConfig.performance.fileProcessingConcurrency,

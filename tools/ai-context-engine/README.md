@@ -179,6 +179,7 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 ```json
 {
   "summaryStrategy": "doc-comments-first",
+  "storageMode": "wal",
   "observability": {
     "redactSourceText": true
   },
@@ -208,6 +209,8 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 
 - `watch.backend` can force `parcel`, `node-fs-watch`, or `polling`
 - `watch.debounceMs` sets the default debounce window for `watchFolder()`
+- `storageMode` currently supports `wal`; the config is explicit so storage behavior
+  is durable and inspectable through diagnostics and doctor output
 - `observability.redactSourceText` keeps observability event payloads privacy-safe
   by default while still allowing an explicit local opt-out
 - `performance.include` and `performance.exclude` apply the compiled picomatch

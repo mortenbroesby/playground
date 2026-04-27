@@ -217,12 +217,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.37",
+      engineVersion: "0.0.1-alpha.38",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 37,
+        increment: 38,
       },
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
@@ -1666,6 +1666,25 @@ export function renderBroken(): string {
     ).toBe(true);
     expect(result.indexStatus).toBe("indexed");
     expect(result.freshness.status).toBe("fresh");
+  });
+
+  it("uses repo-config storage mode in diagnostics and doctor output", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        storageMode: "wal",
+      }),
+    );
+
+    await indexFolder({ repoRoot });
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.storageMode).toBe("wal");
+
+    const result = await doctor({ repoRoot });
+    expect(result.storageMode).toBe("wal");
   });
 
   it("diagnostics marks unresolved relative imports as stale dependency drift", async () => {

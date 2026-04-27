@@ -102,6 +102,7 @@ const repoLimitsConfigSchema = z.object({
 
 const repoEngineConfigSchema = z.object({
   summaryStrategy: z.enum(["doc-comments-first", "signature-only"]).optional(),
+  storageMode: z.enum(["wal"]).optional(),
   observability: repoObservabilityConfigSchema.optional(),
   performance: repoPerformanceConfigSchema.optional(),
   watch: repoWatchConfigSchema.optional(),
@@ -178,6 +179,7 @@ function createDefaultResolvedRepoEngineConfig(
     configPath: null,
     repoRoot,
     summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
+    storageMode: "wal",
     observability: {
       enabled: false,
       host: DEFAULT_OBSERVABILITY_HOST,
@@ -250,6 +252,7 @@ export async function loadRepoEngineConfig(
     configPath,
     repoRoot: resolvedRepoRoot,
     summaryStrategy: parsed.data.summaryStrategy ?? defaults.summaryStrategy,
+    storageMode: parsed.data.storageMode ?? defaults.storageMode,
     observability: {
       enabled: parsed.data.observability?.enabled ?? defaults.observability.enabled,
       host: parsed.data.observability?.host ?? defaults.observability.host,
@@ -339,6 +342,7 @@ export function parseSymbolKind(
 export function createDefaultEngineConfig(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
+  storageMode?: EngineConfig["storageMode"];
   indexInclude?: string[];
   indexExclude?: string[];
   fileProcessingConcurrency?: number;
@@ -355,7 +359,7 @@ export function createDefaultEngineConfig(input: {
     repoRoot: input.repoRoot,
     languages: [...DEFAULT_LANGUAGES],
     respectGitIgnore: true,
-    storageMode: "wal",
+    storageMode: input.storageMode ?? "wal",
     staleStatus: "unknown",
     summaryStrategy:
       input.summaryStrategy === undefined
