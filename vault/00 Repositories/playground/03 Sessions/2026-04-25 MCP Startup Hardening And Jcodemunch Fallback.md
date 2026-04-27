@@ -587,3 +587,30 @@ a mandatory runtime concern for every MCP or CLI call.
   broken, even without an explicit filesystem drift scan.
 - Added a focused diagnostics regression for the broken-import case and bumped
   Astrograph from `0.0.1-alpha.17` to `0.0.1-alpha.18`.
+
+## Astrograph performance baseline detour Phase 1 (2026-04-27)
+
+- Documented the main `ai-engine-refactor` branch state directly in
+  `.specs/ai-engine-refactor.md` before switching to the separate
+  `performance-deps` detour.
+- Added the first measurement-only baseline scripts:
+  - `bench:perf`
+  - `bench:perf:index`
+  - `bench:perf:query`
+- The new baseline runs against a temporary clean repo copy, prints a compact
+  human summary to `stderr`, and emits JSON to `stdout` for regression
+  comparison.
+- The first slice measures:
+  - cold index time
+  - warm noop refresh time
+  - warm small changed-file refresh time
+  - file discovery time
+  - file hashing time
+  - parser and symbol extraction time
+  - approximate SQLite write cost
+  - `query_code` discover and assemble latency percentiles
+- Added a smoke test for the aggregate JSON output and documented current
+  progress in `.specs/performance-deps.md`.
+- Explicitly deferred watch event-to-refresh timing until a tighter, more
+  comparable fixture exists.
+- Bumped Astrograph from `0.0.1-alpha.18` to `0.0.1-alpha.19`.

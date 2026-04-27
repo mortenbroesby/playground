@@ -26,6 +26,26 @@ Inspect the existing README, package scripts, CLI, MCP contract, storage/indexin
 
 ## Execution order
 
+## Current Progress
+
+As of `2026-04-27`, these slices are already landed on
+`astrograph-ai-engine-refactor`:
+
+- Phase 1 complete: benchmark corpus plus retrieval-quality harness
+- Phase 2 complete: `doctor` command and operator-friendly health output
+- Phase 3 complete: broader JS/TS parser coverage and parser diagnostics
+- Phase 4 complete: graph-aware `query_code` reasons and bounded expansion
+- Phase 5 in progress:
+  - complete: explicit DB schema migrations
+  - complete: persisted file metadata for faster noop refresh decisions
+  - complete: single-file deletion/rename cleanup
+  - complete: persisted file dependency edges
+  - complete: unresolved relative imports surfaced in `doctor`
+  - complete: unresolved relative imports promoted into `diagnostics` stale signals
+  - remaining: broader dependent-file orchestration and stronger importer follow-up flows
+
+Phases 6 and later remain open.
+
 ### Phase 1 — Measurement
 
 Add golden retrieval fixtures and a benchmark runner.

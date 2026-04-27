@@ -1,6 +1,6 @@
 {
   "name": "@astrograph/astrograph",
-  "version": "0.0.1-alpha.18",
+  "version": "0.0.1-alpha.19",
   "type": "module",
   "license": "MIT",
   "description": "Local deterministic context engine for AI-assisted code exploration",
@@ -39,6 +39,9 @@
     "bench:small": "node --experimental-strip-types ./scripts/benchmark-small.mjs",
     "bench:cli": "node --experimental-strip-types ./scripts/benchmark-cli.mjs",
     "bench:corpus": "node --experimental-strip-types ./bench/src/cli.ts",
+    "bench:perf": "node --experimental-strip-types ./scripts/perf.mjs",
+    "bench:perf:index": "node --experimental-strip-types ./scripts/perf-index.mjs",
+    "bench:perf:query": "node --experimental-strip-types ./scripts/perf-query.mjs",
     "test:package-bin": "node ./scripts/smoke-package-bin.mjs",
     "check:version-bump": "node --experimental-strip-types ./scripts/check-version-bump.mjs",
     "type-lint": "pnpm run type-check && tsc -p ./bench/tsconfig.json --noEmit && tsc -p ./tsconfig.build.json --noEmit && tsc -p ./observability/tsconfig.json --noEmit",

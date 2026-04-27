@@ -258,6 +258,9 @@ compatibility alias.
 - `pnpm astrograph:open`
 - `pnpm --filter @astrograph/astrograph bench:small`
 - `pnpm --filter @astrograph/astrograph bench:cli`
+- `pnpm --filter @astrograph/astrograph bench:perf -- --repo /abs/repo --runs 10`
+- `pnpm --filter @astrograph/astrograph bench:perf:index -- --repo /abs/repo`
+- `pnpm --filter @astrograph/astrograph bench:perf:query -- --repo /abs/repo --runs 10`
 - `pnpm --filter @astrograph/astrograph build`
 - `pnpm --filter @astrograph/astrograph test:package-bin`
 - `pnpm --filter @astrograph/astrograph cli -- index-folder --repo /abs/repo`
@@ -465,6 +468,13 @@ Three benchmark layers exist today:
   savings, parser backend, and fallback metadata
 - `pnpm --filter @astrograph/astrograph bench:cli`
   command-level benchmark wrapper intended to run through `hyperfine`
+- `pnpm --filter @astrograph/astrograph bench:perf`
+  baseline performance measurement for indexing and query latency
+- `pnpm --filter @astrograph/astrograph bench:perf:index`
+  focused index-path timing for discovery, hashing, parsing, and approximate
+  SQLite write cost
+- `pnpm --filter @astrograph/astrograph bench:perf:query`
+  focused `query_code` latency timing for discover and assemble flows
 
 `bench:corpus` is the default retrieval-quality benchmark. It runs the
 checked-in corpus at
@@ -490,6 +500,24 @@ retrieval value, not just raw parse speed.
 `bench:cli` uses `hyperfine` and expects that binary to already be installed on
 the machine. If it is missing, the script fails with an install hint instead of
 silently skipping CLI benchmarks.
+
+`bench:perf` is the current baseline regression script for
+`.specs/performance-deps.md`. It runs against a temporary clean copy of the
+target repo, prints a short human-readable summary to `stderr`, and emits JSON
+to `stdout`. The first slice covers:
+
+- cold index time
+- warm noop refresh time
+- warm small changed-file refresh time
+- `query_code` discover and assemble latency percentiles
+- file discovery time
+- file hashing time
+- parser and symbol extraction time
+- approximate SQLite write time
+
+Watch event-to-refresh latency is intentionally not part of this first baseline
+because it is sensitive to host watcher behavior and needs a more controlled
+fixture before the numbers are comparable.
 
 ## Mutation testing
 

@@ -90,6 +90,24 @@ Do not remove existing watch-mode or polling fallbacks until replacement behavio
 
 ## Implementation Phases
 
+## Current Progress
+
+As of `2026-04-27`, the first baseline-measurement slice is landed on
+`astrograph-ai-engine-refactor`:
+
+- complete: repo-local baseline perf scripts
+  - `bench:perf`
+  - `bench:perf:index`
+  - `bench:perf:query`
+- complete: JSON smoke coverage for the aggregate perf script
+- complete: README wiring for the baseline workflow
+- deferred: new runtime performance dependencies until the baseline is stable
+- deferred: watch event-to-refresh latency until a more controlled fixture
+  exists
+
+The next slice in this spec is still Phase 2: file discovery experiments with
+`fdir`, measured against this new baseline.
+
 ---
 
 ## Phase 1 â Baseline Performance Measurement
