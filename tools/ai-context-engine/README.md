@@ -1,10 +1,9 @@
-# @astrograph (`@playground/ai-context-engine`)
+# Astrograph (`astrograph`)
 
 Local deterministic context engine for AI-assisted code exploration.
 
-`@astrograph` is the human-facing name for this engine inside the repo. The
-published package name, MCP server id, and CLI command stay
-`ai-context-engine` for compatibility.
+`astrograph` is now the standalone package name and primary CLI command.
+`ai-context-engine` remains as a compatibility bin alias during the transition.
 
 ## Status
 
@@ -193,56 +192,76 @@ You can use the engine through:
 - the JSON CLI in `src/cli.ts` for local debugging, packaging smoke tests, and
   benchmarks
 
-The shortest local entrypoint is usually `pnpm exec ai-context-engine ...`.
+The shortest local entrypoint is usually `pnpm exec astrograph ...`.
 
-For packaging, the published bin is the same `ai-context-engine` command. The
-workspace wrapper falls back to `src/*.ts` during local development, but
-`prepack` now builds `dist/` so installed consumers execute plain built
-JavaScript instead of repo-local TypeScript sources.
+For packaging, the published bin is `astrograph`. The workspace wrapper falls
+back to `src/*.ts` during local development, but `prepack` now builds `dist/`
+so installed consumers execute plain built JavaScript instead of repo-local
+TypeScript sources. The legacy `ai-context-engine` bin still exists as a
+compatibility alias.
 
 ## Commands
 
-- `pnpm exec ai-context-engine cli index-folder --repo /abs/repo`
-- `pnpm exec ai-context-engine cli get-repo-outline --repo /abs/repo`
-- `pnpm exec ai-context-engine cli search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
-- `pnpm exec ai-context-engine cli get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
-- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --query Greeter --include-text`
-- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
-- `pnpm exec ai-context-engine cli query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
-- `pnpm exec ai-context-engine cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
-- `pnpm exec ai-context-engine cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
-- `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo`
-- `pnpm exec ai-context-engine cli diagnostics --repo /abs/repo --scan-freshness`
-- `pnpm exec ai-context-engine mcp`
-- `pnpm exec ai-context-engine observability --repo /abs/repo`
+- `pnpm exec astrograph cli index-folder --repo /abs/repo`
+- `pnpm exec astrograph cli get-repo-outline --repo /abs/repo`
+- `pnpm exec astrograph cli search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
+- `pnpm exec astrograph cli get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
+- `pnpm exec astrograph cli query-code --repo /abs/repo --query Greeter --include-text`
+- `pnpm exec astrograph cli query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
+- `pnpm exec astrograph cli query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
+- `pnpm exec astrograph cli get-context-bundle --repo /abs/repo --query Greeter --budget 120`
+- `pnpm exec astrograph cli get-ranked-context --repo /abs/repo --query Greeter --budget 120`
+- `pnpm exec astrograph cli diagnostics --repo /abs/repo`
+- `pnpm exec astrograph cli diagnostics --repo /abs/repo --scan-freshness`
+- `pnpm exec astrograph mcp`
+- `pnpm exec astrograph observability --repo /abs/repo`
 - `pnpm astrograph:observability`
 - `pnpm astrograph:open`
-- `pnpm --filter @playground/ai-context-engine bench:small`
-- `pnpm --filter @playground/ai-context-engine bench:cli`
-- `pnpm --filter @playground/ai-context-engine build`
-- `pnpm --filter @playground/ai-context-engine test:package-bin`
-- `pnpm --filter @playground/ai-context-engine cli -- index-folder --repo /abs/repo`
-- `pnpm --filter @playground/ai-context-engine cli -- get-repo-outline --repo /abs/repo`
-- `pnpm --filter @playground/ai-context-engine cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
-- `pnpm --filter @playground/ai-context-engine cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
-- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --query Greeter --include-text`
-- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
-- `pnpm --filter @playground/ai-context-engine cli -- query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
-- `pnpm --filter @playground/ai-context-engine cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
-- `pnpm --filter @playground/ai-context-engine cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
-- `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo`
-- `pnpm --filter @playground/ai-context-engine cli -- diagnostics --repo /abs/repo --scan-freshness`
-- `pnpm --filter @playground/ai-context-engine mcp`
+- `pnpm --filter astrograph bench:small`
+- `pnpm --filter astrograph bench:cli`
+- `pnpm --filter astrograph build`
+- `pnpm --filter astrograph test:package-bin`
+- `pnpm --filter astrograph cli -- index-folder --repo /abs/repo`
+- `pnpm --filter astrograph cli -- get-repo-outline --repo /abs/repo`
+- `pnpm --filter astrograph cli -- search-symbols --repo /abs/repo --query Greeter --language ts --file-pattern 'src/*.ts'`
+- `pnpm --filter astrograph cli -- get-symbol-source --repo /abs/repo --symbols id1,id2 --context-lines 2`
+- `pnpm --filter astrograph cli -- query-code --repo /abs/repo --query Greeter --include-text`
+- `pnpm --filter astrograph cli -- query-code --repo /abs/repo --intent source --symbols id1,id2 --context-lines 2 --verify`
+- `pnpm --filter astrograph cli -- query-code --repo /abs/repo --query Greeter --budget 120 --include-ranked`
+- `pnpm --filter astrograph cli -- get-context-bundle --repo /abs/repo --query Greeter --budget 120`
+- `pnpm --filter astrograph cli -- get-ranked-context --repo /abs/repo --query Greeter --budget 120`
+- `pnpm --filter astrograph cli -- diagnostics --repo /abs/repo`
+- `pnpm --filter astrograph cli -- diagnostics --repo /abs/repo --scan-freshness`
+- `pnpm --filter astrograph mcp`
 
 The CLI prints JSON for each command. The MCP server runs over stdio using the
 official MCP TypeScript SDK and a narrow repo-owned tool surface.
+
+## Standalone install
+
+Astrograph now supports a standalone Codex bootstrap flow:
+
+- `npx astrograph install --ide codex`
+
+That installer:
+
+- resolves the repo root
+- writes a managed Astrograph MCP block into `.codex/config.toml`
+- preserves unrelated Codex config content
+
+The generated Codex config uses:
+
+- `command = "npx"`
+- `args = ["astrograph", "mcp"]`
+
+That keeps the install path portable outside this monorepo.
 
 ## Live observability
 
 The package now includes an opt-in local observability surface intended for
 developer debugging rather than agent retrieval.
 
-- start it with `pnpm exec ai-context-engine observability --repo /abs/repo`
+- start it with `pnpm exec astrograph observability --repo /abs/repo`
 - in this repo, `pnpm astrograph:open` first tries to reuse an already-running
   repo-local observability server and otherwise starts one in the background
   before opening the browser

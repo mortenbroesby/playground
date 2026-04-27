@@ -13,9 +13,10 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  ai-context-engine cli <args...>",
-      "  ai-context-engine mcp",
-      "  ai-context-engine observability <args...>",
+      "  astrograph cli <args...>",
+      "  astrograph mcp",
+      "  astrograph observability <args...>",
+      "  astrograph install --ide codex",
     ].join("\n") + "\n",
   );
 }
@@ -29,6 +30,8 @@ const sourceTarget =
       ? path.join(packageRoot, "src", "mcp.ts")
       : mode === "observability"
         ? path.join(packageRoot, "scripts", "observability-server.mjs")
+      : mode === "install"
+        ? path.join(packageRoot, "scripts", "install.mjs")
       : null;
 const distTarget =
   mode === "cli"
@@ -37,6 +40,8 @@ const distTarget =
       ? path.join(packageRoot, "dist", "mcp.js")
       : mode === "observability"
         ? path.join(packageRoot, "scripts", "observability-server.mjs")
+      : mode === "install"
+        ? path.join(packageRoot, "scripts", "install.mjs")
       : null;
 
 if (!sourceTarget || !distTarget) {
@@ -77,7 +82,7 @@ child.on("exit", (code, signal) => {
 
 child.on("error", (error) => {
   if (mode === "observability" && error && "code" in error && error.code === "ENOENT") {
-    process.stderr.write("bun is required for ai-context-engine observability mode.\n");
+    process.stderr.write("bun is required for astrograph observability mode.\n");
   } else {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   }

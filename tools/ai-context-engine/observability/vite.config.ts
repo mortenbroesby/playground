@@ -9,11 +9,6 @@ const observabilityDir = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
   root: observabilityDir,
-  resolve: {
-    alias: {
-      "@playground/ui": path.resolve(observabilityDir, "../../../packages/ui/src"),
-    },
-  },
   build: {
     outDir: path.resolve(observabilityDir, "../observability-dist"),
     emptyOutDir: true,

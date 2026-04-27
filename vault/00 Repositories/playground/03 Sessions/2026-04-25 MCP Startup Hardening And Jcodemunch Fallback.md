@@ -346,3 +346,20 @@ a mandatory runtime concern for every MCP or CLI call.
 - SessionStart now also bootstraps Astrograph observability automatically when
   `astrograph.config.json` sets `observability.enabled: true`, mirroring the
   existing watcher bootstrap pattern.
+
+## Astrograph standalone npm install surface (2026-04-26)
+
+- Renamed the package itself to `astrograph` so the standalone npm identity now
+  matches the product name instead of the old monorepo-local package name.
+- Kept `ai-context-engine` as a compatibility bin alias, but made
+  `astrograph` the primary CLI and packaging surface.
+- Added `astrograph install --ide codex`, which writes a managed Astrograph MCP
+  block into `.codex/config.toml` for an arbitrary git repo.
+- Removed the last workspace-only runtime dependency from the observability
+  client by replacing the `@playground/ui` theme import with package-local
+  terminal theme CSS.
+- Extended the packed tarball smoke to prove both:
+  - `pnpm exec astrograph cli index-folder --repo ...`
+  - `pnpm exec astrograph install --ide codex --repo ...`
+- Bumped Astrograph from `0.0.1-alpha.5` to `0.0.1-alpha.6` for the standalone
+  packaging and installer slice.

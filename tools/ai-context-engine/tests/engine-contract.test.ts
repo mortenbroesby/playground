@@ -16,6 +16,7 @@ import {
   parseAstrographVersion,
   resolveEnginePaths,
 } from "../src/index.ts";
+import { installForCodex } from "../scripts/install.mjs";
 
 const tempDirs: string[] = [];
 
@@ -77,18 +78,18 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.5");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.6");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 5,
+      increment: 6,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
       minor: 0,
       patch: 1,
-      increment: 5,
+      increment: 6,
     });
   });
 
@@ -170,5 +171,25 @@ describe("ai-context-engine contract", () => {
     await expect(loadRepoEngineConfig(repoRoot)).rejects.toThrow(
       /Invalid astrograph\.config\.json/i,
     );
+  });
+
+  it("renders a managed Codex MCP block for standalone install", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "astrograph-install-"));
+    tempDirs.push(repoRoot);
+
+    await import("node:child_process").then(({ execFileSync }) => {
+      execFileSync("git", ["init"], {
+        cwd: repoRoot,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    });
+
+    const result = await installForCodex(repoRoot, { dryRun: true });
+
+    expect(result.packageName).toBe("astrograph");
+    expect(result.configPath).toContain(path.join(".codex", "config.toml"));
+    expect(result.configPreview).toContain("[mcp_servers.astrograph]");
+    expect(result.configPreview).toContain('command = "npx"');
+    expect(result.configPreview).toContain('args = ["astrograph", "mcp"]');
   });
 });

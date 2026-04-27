@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 function resolveAiContextEngineInvocation(projectRoot) {
-  const localBin = path.join(projectRoot, 'node_modules', '.bin', 'ai-context-engine');
+  const localBin = path.join(projectRoot, 'node_modules', '.bin', 'astrograph');
 
   if (existsSync(localBin)) {
     return {
@@ -16,7 +16,7 @@ function resolveAiContextEngineInvocation(projectRoot) {
 
   return {
     command: 'pnpm',
-    prefixArgs: ['exec', 'ai-context-engine'],
+    prefixArgs: ['exec', 'astrograph'],
   };
 }
 

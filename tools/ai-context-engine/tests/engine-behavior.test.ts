@@ -125,12 +125,12 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.5",
+      engineVersion: "0.0.1-alpha.6",
       engineVersionParts: {
         major: 0,
         minor: 0,
         patch: 1,
-        increment: 5,
+        increment: 6,
       },
       summaryStrategy: "doc-comments-first",
       summarySources: {

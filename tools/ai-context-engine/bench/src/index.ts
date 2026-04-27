@@ -38,11 +38,11 @@ export * from "./report.ts";
 export * from "./types.ts";
 
 export interface BenchmarkHarnessScaffold {
-  ownerPackage: "@playground/ai-context-engine";
+  ownerPackage: "astrograph";
   workspacePath: "tools/ai-context-engine/bench";
 }
 
 export const BENCHMARK_HARNESS_SCAFFOLD: BenchmarkHarnessScaffold = {
-  ownerPackage: "@playground/ai-context-engine",
+  ownerPackage: "astrograph",
   workspacePath: "tools/ai-context-engine/bench",
 };

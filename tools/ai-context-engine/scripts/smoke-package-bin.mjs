@@ -30,7 +30,7 @@ async function run(command, args, cwd) {
 }
 
 async function main() {
-  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "ai-context-engine-pack-"));
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "astrograph-pack-"));
   const packDir = path.join(tempRoot, "pack");
   const installDir = path.join(tempRoot, "install");
   const fixtureRepo = path.join(tempRoot, "fixture-repo");
@@ -43,7 +43,7 @@ async function main() {
     await writeFile(
       path.join(installDir, "package.json"),
       JSON.stringify({
-        name: "ai-context-engine-package-smoke",
+        name: "astrograph-package-smoke",
         private: true,
       }, null, 2),
     );
@@ -81,7 +81,7 @@ async function main() {
       "pnpm",
       [
         "exec",
-        "ai-context-engine",
+        "astrograph",
         "cli",
         "index-folder",
         "--repo",
@@ -93,6 +93,25 @@ async function main() {
     const summary = JSON.parse(stdout);
     if (summary.indexedFiles !== 1 || summary.indexedSymbols < 2) {
       throw new Error(`Unexpected packaged bin result: ${stdout}`);
+    }
+
+    const installResult = await run(
+      "pnpm",
+      [
+        "exec",
+        "astrograph",
+        "install",
+        "--ide",
+        "codex",
+        "--repo",
+        fixtureRepo,
+      ],
+      installDir,
+    );
+
+    const installed = JSON.parse(installResult.stdout);
+    if (!String(installed.configPreview).includes("[mcp_servers.astrograph]")) {
+      throw new Error(`Expected astrograph install to write a Codex MCP block: ${installResult.stdout}`);
     }
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

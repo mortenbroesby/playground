@@ -17,11 +17,11 @@ approval_mode = "approve"
 [mcp_servers.obsidian-memory.tools.memory_unfold]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine"]
+[mcp_servers.astrograph]
 command = "pnpm"
 args = [
   "exec",
-  "ai-context-engine",
+  "astrograph",
   "mcp",
 ]
 cwd = "."
@@ -37,28 +37,28 @@ enabled_tools = [
   "diagnostics",
 ]
 
-[mcp_servers."ai-context-engine".tools.index_folder]
+[mcp_servers.astrograph.tools.index_folder]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine".tools.index_file]
+[mcp_servers.astrograph.tools.index_file]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine".tools.get_file_outline]
+[mcp_servers.astrograph.tools.get_file_outline]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine".tools.get_file_tree]
+[mcp_servers.astrograph.tools.get_file_tree]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine".tools.get_repo_outline]
+[mcp_servers.astrograph.tools.get_repo_outline]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine".tools.suggest_initial_queries]
+[mcp_servers.astrograph.tools.suggest_initial_queries]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine".tools.query_code]
+[mcp_servers.astrograph.tools.query_code]
 approval_mode = "approve"
 
-[mcp_servers."ai-context-engine".tools.diagnostics]
+[mcp_servers.astrograph.tools.diagnostics]
 approval_mode = "approve"
 
 [mcp_servers.jcodemunch]

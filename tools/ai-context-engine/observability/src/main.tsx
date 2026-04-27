@@ -1,9 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 
-import "@playground/ui/theme.css";
-
 import { App } from "./App";
+import "./terminal-theme.css";
 import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

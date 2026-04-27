@@ -157,23 +157,23 @@ async function benchmarkCli(repoRoot, options) {
   const commands = [
     {
       name: "diagnostics metadata",
-      command: `pnpm exec ai-context-engine cli diagnostics --repo ${shellEscape(resolvedRepoRoot)}`,
+      command: `pnpm exec astrograph cli diagnostics --repo ${shellEscape(resolvedRepoRoot)}`,
     },
     {
       name: "diagnostics scan",
-      command: `pnpm exec ai-context-engine cli diagnostics --repo ${shellEscape(resolvedRepoRoot)} --scan-freshness`,
+      command: `pnpm exec astrograph cli diagnostics --repo ${shellEscape(resolvedRepoRoot)} --scan-freshness`,
     },
     {
       name: "search symbols",
-      command: `pnpm exec ai-context-engine cli search-symbols --repo ${shellEscape(resolvedRepoRoot)} --query getRankedContext --language ts --file-pattern 'src/*.ts' --limit 5`,
+      command: `pnpm exec astrograph cli search-symbols --repo ${shellEscape(resolvedRepoRoot)} --query getRankedContext --language ts --file-pattern 'src/*.ts' --limit 5`,
     },
     {
       name: "get symbol source",
-      command: `pnpm exec ai-context-engine cli get-symbol-source --repo ${shellEscape(resolvedRepoRoot)} --symbols ${shellEscape(symbolIds.join(","))} --context-lines 2`,
+      command: `pnpm exec astrograph cli get-symbol-source --repo ${shellEscape(resolvedRepoRoot)} --symbols ${shellEscape(symbolIds.join(","))} --context-lines 2`,
     },
     {
       name: "get ranked context",
-      command: `pnpm exec ai-context-engine cli get-ranked-context --repo ${shellEscape(resolvedRepoRoot)} --query getRankedContext --budget 200`,
+      command: `pnpm exec astrograph cli get-ranked-context --repo ${shellEscape(resolvedRepoRoot)} --query getRankedContext --budget 200`,
     },
   ];
 

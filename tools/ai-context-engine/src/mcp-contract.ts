@@ -7,7 +7,7 @@ import { ASTROGRAPH_PACKAGE_VERSION } from "./version.ts";
 
 type EngineModule = typeof import("./index.ts");
 
-export const MCP_SERVER_NAME = "@playground/ai-context-engine";
+export const MCP_SERVER_NAME = "astrograph";
 export const MCP_SERVER_VERSION = ASTROGRAPH_PACKAGE_VERSION;
 
 type McpToolSchema = Record<string, z.ZodType>;

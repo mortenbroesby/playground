@@ -9,7 +9,7 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "dev:web": "node scripts/dev-web.mjs",
-    "astrograph:observability": "pnpm exec ai-context-engine observability --repo .",
+    "astrograph:observability": "pnpm exec astrograph observability --repo .",
     "astrograph:open": "node scripts/open-astrograph-observability.mjs",
     "astrograph:refresh": "node scripts/astrograph-smart-refresh.mjs manual",
     "docs:check": "pnpm knowledge:check",
@@ -37,7 +37,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@playground/ai-context-engine": "workspace:*",
+    "astrograph": "workspace:*",
     "husky": "^9.1.7",
     "markdownlint-cli2": "^0.17.0",
     "prettier": "^3.3.0",
