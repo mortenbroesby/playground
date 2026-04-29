@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -8,7 +8,9 @@ import {
   buildCleanupReport,
   buildWriteTargetPath,
   classifyMemoryInput,
+  fixFrontmatter,
   findWriteDuplicates,
+  planFrontmatterFix,
   renderTypedNoteTemplate,
   verifyTypedMemory,
 } from "../src/rag-governance.mjs";
@@ -209,4 +211,108 @@ test("findWriteDuplicates catches active duplicates by title or summary", () => 
   });
 
   assert.equal(duplicates.length, 1);
+});
+
+test("planFrontmatterFix normalizes legacy session metadata without changing the body", () => {
+  const legacyContent = [
+    "---",
+    "type: repo-session",
+    "repo: playground",
+    "date: 2026-04-11",
+    "started_at: 2026-04-11 21:00",
+    "summary: Backfilled missing architecture memory notes.",
+    "tags:",
+    "  - type/session",
+    "---",
+    "",
+    "# Architecture Memory Backfill",
+    "",
+    "## Goal",
+    "",
+    "Backfill the architecture notes.",
+  ].join("\n");
+
+  const plan = planFrontmatterFix({
+    absolutePath: "/tmp/2026-04-11 Architecture Memory Backfill.md",
+    repoSlug: "playground",
+    relativeRepoPath: "03 Sessions/2026-04-11 Architecture Memory Backfill.md",
+    content: legacyContent,
+    fallbackDate: "2026-04-11",
+  });
+
+  assert.equal(plan.changed, true);
+  assert.equal(plan.noteType, "session");
+  assert.equal(plan.status, "active");
+  assert.equal(plan.noteId, "mem-20260411-architecture-memory-backfill");
+  assert.ok(plan.changes.includes("add_id"));
+  assert.ok(plan.changes.includes("normalize_type"));
+  assert.ok(plan.changes.includes("set_updated"));
+  assert.ok(plan.changes.includes("set_owner"));
+  assert.ok(plan.changes.includes("set_retention"));
+  assert.ok(plan.changes.includes("drop_repo"));
+  assert.ok(plan.changes.includes("drop_date"));
+  assert.ok(plan.content.includes('type: "session"'));
+  assert.ok(plan.content.includes('repo_slug: "playground"'));
+  assert.ok(plan.content.includes('created: "2026-04-11"'));
+  assert.ok(plan.content.includes('updated: "2026-04-11"'));
+  assert.ok(plan.content.includes('owner: "agent"'));
+  assert.ok(plan.content.endsWith("Backfill the architecture notes."));
+});
+
+test("fixFrontmatter dry-run reports changed notes and apply rewrites metadata in place", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-fix-frontmatter-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const repoVaultRoot = path.join(vaultRoot, "00 Repositories", "playground");
+  const notePath = path.join(repoVaultRoot, "03 Sessions", "2026-04-25 Auto Query Mode.md");
+
+  await mkdir(path.dirname(notePath), { recursive: true });
+  await writeFile(
+    notePath,
+    [
+      "---",
+      "type: session-note",
+      "repo: playground",
+      "date: 2026-04-25",
+      "summary: Added auto intent resolution.",
+      "---",
+      "",
+      "# Auto Query Mode",
+      "",
+      "The body should survive unchanged.",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const dryRun = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: false,
+  });
+
+  assert.equal(dryRun.dry_run, true);
+  assert.equal(dryRun.scanned, 1);
+  assert.equal(dryRun.changed, 1);
+  assert.equal(dryRun.notes[0].path, "00 Repositories/playground/03 Sessions/2026-04-25 Auto Query Mode.md");
+  assert.ok(dryRun.notes[0].changes.includes("normalize_type"));
+  assert.ok(dryRun.notes[0].content_preview.includes('type: "session"'));
+
+  const beforeApply = await readFile(notePath, "utf8");
+  assert.ok(beforeApply.includes("type: session-note"));
+
+  const applied = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: true,
+  });
+
+  assert.equal(applied.dry_run, false);
+  assert.equal(applied.changed, 1);
+
+  const rewritten = await readFile(notePath, "utf8");
+  assert.ok(rewritten.includes('id: "mem-20260425-auto-query-mode"'));
+  assert.ok(rewritten.includes('type: "session"'));
+  assert.ok(rewritten.includes('repo_slug: "playground"'));
+  assert.ok(rewritten.includes("The body should survive unchanged."));
+  assert.ok(!rewritten.includes("type: session-note"));
+  assert.ok(!rewritten.includes("repo: playground"));
 });

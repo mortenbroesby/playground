@@ -26,6 +26,7 @@
     "rag:classify": "pnpm --filter @playground/obsidian-memory rag:classify",
     "rag:clean": "pnpm --filter @playground/obsidian-memory rag:clean",
     "rag:doctor": "pnpm --filter @playground/obsidian-memory rag:doctor",
+    "rag:fix-frontmatter": "pnpm --filter @playground/obsidian-memory rag:fix-frontmatter",
     "rag:query": "pnpm --filter @playground/obsidian-memory rag:query",
     "rag:test": "pnpm --filter @playground/obsidian-memory rag:test",
     "rag:verify": "pnpm --filter @playground/obsidian-memory rag:verify",

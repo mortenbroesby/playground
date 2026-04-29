@@ -93,6 +93,14 @@ rebuild index generation first while keeping the current query path working.
   longer adds synthetic IDs or legacy frontmatter shapes
 - added dedupe checks against the typed note registry before write and a
   `--dry-run` mode to inspect the exact output path and frontmatter safely
+- added `rag:fix-frontmatter` as a metadata-only migration command with
+  default dry-run behavior and explicit `--apply` rewrites for existing notes
+- added canonical frontmatter remediation helpers that normalize legacy repo
+  note types and statuses, backfill strict `id`/`repo_slug`/`title`/`created`/
+  `updated`/`owner`/`links`/`retention` fields, preserve note bodies, and keep
+  non-schema metadata like `started_at` and `touched_paths`
+- kept the remediation scope narrow to notes under
+  `vault/00 Repositories/playground/` so the migration remains reviewable
 
 ## Verification
 
@@ -104,6 +112,7 @@ rebuild index generation first while keeping the current query path working.
 - `pnpm --filter @playground/obsidian-memory rag:doctor`
 - `pnpm --filter @playground/obsidian-memory rag:verify`
 - `pnpm --filter @playground/obsidian-memory rag:write --type spec --title 'Rebuild RAG memory' --summary 'Spec for rebuilding repo memory.' --dry-run`
+- `pnpm --filter @playground/obsidian-memory rag:fix-frontmatter`
 
 ## Next Step
 

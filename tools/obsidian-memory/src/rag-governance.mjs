@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const REQUIRED_SOURCE_PATHS = [
@@ -151,8 +151,58 @@ const ALLOWED_STATUSES_BY_TYPE = {
   glossary: new Set(["active", "accepted", "archived"]),
 };
 
+const TYPE_ALIASES = new Map([
+  ["repo", "repo-home"],
+  ["repo-home", "repo-home"],
+  ["repo-architecture", "architecture-record"],
+  ["repo-decision", "architecture-record"],
+  ["architecture-record", "architecture-record"],
+  ["spec", "spec"],
+  ["repo-spec", "spec"],
+  ["repo-session", "session"],
+  ["session", "session"],
+  ["session-note", "session"],
+  ["todo", "todo"],
+  ["repo-task", "todo"],
+  ["repo-tasks", "todo"],
+  ["task", "todo"],
+  ["investigation", "investigation"],
+  ["reference", "reference"],
+  ["glossary", "glossary"],
+]);
+
+const LEGACY_FRONTMATTER_DROP_KEYS = new Set([
+  "date",
+  "note_type",
+  "repo",
+]);
+
+const DEFAULT_OWNER_BY_TYPE = {
+  "repo-home": "morten",
+  "architecture-record": "morten",
+  spec: "morten",
+  session: "agent",
+  todo: "morten",
+  investigation: "agent",
+  reference: "morten",
+  glossary: "morten",
+};
+
+const SKIPPED_DIRECTORY_NAMES = new Set([".obsidian", ".trash"]);
+const SKIPPED_RELATIVE_DIRECTORIES = new Set(["90 Templates", "91 Scripts"]);
+
 function normalize(value) {
   return value.toLowerCase();
+}
+
+function createShortHash(value) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash.toString(16).padStart(8, "0");
 }
 
 function daysBetween(fromDate, toDate) {
@@ -183,6 +233,580 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
+}
+
+function parseFrontmatter(content) {
+  if (!content.startsWith("---\n")) {
+    return { frontmatter: {}, body: content };
+  }
+
+  const closeIndex = content.indexOf("\n---", 4);
+
+  if (closeIndex === -1) {
+    return { frontmatter: {}, body: content };
+  }
+
+  const rawFrontmatter = content.slice(4, closeIndex).trimEnd();
+  const body = content.slice(closeIndex + 5).replace(/^\r?\n/, "");
+
+  return {
+    frontmatter: parseYamlSubset(rawFrontmatter),
+    body,
+  };
+}
+
+function parseYamlSubset(rawYaml) {
+  const lines = rawYaml.split(/\r?\n/).map((line) => line.replace(/\t/g, "  "));
+  return parseYamlMap(lines, 0, 0).value;
+}
+
+function parseYamlMap(lines, startIndex, indentLevel) {
+  const result = {};
+  let index = startIndex;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith("#")) {
+      index += 1;
+      continue;
+    }
+
+    const currentIndent = getIndentLevel(line);
+
+    if (currentIndent < indentLevel) {
+      break;
+    }
+
+    if (currentIndent > indentLevel) {
+      index += 1;
+      continue;
+    }
+
+    const match = trimmed.match(/^([A-Za-z0-9_-]+):(?:\s*(.*))?$/);
+
+    if (!match) {
+      index += 1;
+      continue;
+    }
+
+    const [, key, rawValue = ""] = match;
+
+    if (rawValue !== "") {
+      result[key] = parseScalar(rawValue);
+      index += 1;
+      continue;
+    }
+
+    const nextIndex = findNextContentIndex(lines, index + 1);
+
+    if (nextIndex === -1 || getIndentLevel(lines[nextIndex]) <= currentIndent) {
+      result[key] = null;
+      index += 1;
+      continue;
+    }
+
+    const nestedIndent = getIndentLevel(lines[nextIndex]);
+    const nestedTrimmed = lines[nextIndex].trim();
+
+    if (nestedTrimmed.startsWith("- ")) {
+      const parsedList = parseYamlList(lines, nextIndex, nestedIndent);
+      result[key] = parsedList.value;
+      index = parsedList.nextIndex;
+      continue;
+    }
+
+    const nestedMap = parseYamlMap(lines, nextIndex, nestedIndent);
+    result[key] = nestedMap.value;
+    index = nestedMap.nextIndex;
+  }
+
+  return { value: result, nextIndex: index };
+}
+
+function parseYamlList(lines, startIndex, indentLevel) {
+  const items = [];
+  let index = startIndex;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith("#")) {
+      index += 1;
+      continue;
+    }
+
+    const currentIndent = getIndentLevel(line);
+
+    if (currentIndent < indentLevel) {
+      break;
+    }
+
+    if (currentIndent !== indentLevel || !trimmed.startsWith("- ")) {
+      break;
+    }
+
+    items.push(parseScalar(trimmed.slice(2).trim()));
+    index += 1;
+  }
+
+  return { value: items, nextIndex: index };
+}
+
+function findNextContentIndex(lines, startIndex) {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    const trimmed = lines[index].trim();
+
+    if (trimmed && !trimmed.startsWith("#")) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function getIndentLevel(line) {
+  return line.match(/^ */)?.[0].length ?? 0;
+}
+
+function parseScalar(rawValue) {
+  const value = rawValue.trim();
+
+  if (value === "" || value === "null" || value === "~") {
+    return null;
+  }
+
+  if (value === "[]") {
+    return [];
+  }
+
+  if (value.startsWith("[") && value.endsWith("]")) {
+    return value
+      .slice(1, -1)
+      .split(",")
+      .map((item) => stripQuotes(item.trim()))
+      .filter(Boolean);
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  if (/^-?\d+(?:\.\d+)?$/.test(value)) {
+    return Number(value);
+  }
+
+  return stripQuotes(value);
+}
+
+function stripQuotes(value) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+
+  return value;
+}
+
+function toStringValue(value) {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+    ? String(value)
+    : null;
+}
+
+function toStringArray(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) =>
+        typeof item === "string" ||
+        typeof item === "number" ||
+        typeof item === "boolean"
+          ? String(item)
+          : "",
+      )
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+
+  return [];
+}
+
+function toObjectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : null;
+}
+
+function normalizeWhitespace(value) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function extractDocumentTitle(body, relativeFile) {
+  const headingMatch = body.match(/^#\s+(.+)$/m);
+
+  if (headingMatch) {
+    return headingMatch[1].trim();
+  }
+
+  return path
+    .basename(relativeFile, ".md")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractSummary(body) {
+  const paragraphs = body
+    .split(/\r?\n\r?\n/)
+    .map((block) =>
+      block
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#") && !line.startsWith("- "))
+        .join(" "),
+    )
+    .map(normalizeWhitespace)
+    .filter(Boolean);
+
+  return paragraphs[0] ?? "";
+}
+
+function inferTypeFromRepoPath(relativeFile) {
+  if (relativeFile === "00 Repo Home.md") {
+    return "repo-home";
+  }
+
+  if (relativeFile.startsWith("01 Architecture/")) {
+    return "architecture-record";
+  }
+
+  if (relativeFile.startsWith("02 Decisions/")) {
+    return "architecture-record";
+  }
+
+  if (relativeFile.startsWith("03 Sessions/")) {
+    return "session";
+  }
+
+  if (relativeFile.startsWith("04 Tasks/")) {
+    return "todo";
+  }
+
+  if (relativeFile.startsWith("specs/")) {
+    return "spec";
+  }
+
+  if (relativeFile.startsWith("investigations/")) {
+    return "investigation";
+  }
+
+  if (relativeFile.startsWith("references/")) {
+    return "reference";
+  }
+
+  if (relativeFile.startsWith("glossary/")) {
+    return "glossary";
+  }
+
+  return "reference";
+}
+
+function resolveNoteType(rawType, relativeFile) {
+  const normalizedRaw = rawType?.trim().toLowerCase() ?? null;
+  const aliasMatch = normalizedRaw ? TYPE_ALIASES.get(normalizedRaw) : null;
+
+  if (aliasMatch) {
+    return {
+      value: aliasMatch,
+      normalized: aliasMatch !== normalizedRaw,
+    };
+  }
+
+  const inferred = inferTypeFromRepoPath(relativeFile);
+  return {
+    value: inferred,
+    normalized: normalizedRaw !== inferred,
+  };
+}
+
+function normalizeStatusAlias(value, noteType) {
+  if (!value) {
+    return null;
+  }
+
+  const statusAliases = {
+    proposed: "proposed",
+    backlog: "proposed",
+    draft: "proposed",
+    active: "active",
+    ready: "active",
+    "in progress": "active",
+    accepted: "accepted",
+    current: "accepted",
+    superseded: "superseded",
+    done: "done",
+    complete: "done",
+    completed: "done",
+    archived: "archived",
+  };
+  const alias = statusAliases[value] ?? null;
+
+  if (alias === "active" && noteType === "architecture-record") {
+    return "accepted";
+  }
+
+  return alias;
+}
+
+function defaultStatusForType(noteType) {
+  switch (noteType) {
+    case "repo-home":
+      return "active";
+    case "architecture-record":
+      return "accepted";
+    case "reference":
+    case "glossary":
+      return "accepted";
+    case "spec":
+    case "session":
+    case "todo":
+    case "investigation":
+      return "active";
+  }
+}
+
+function resolveNoteStatus(rawStatus, noteType) {
+  const normalizedRaw = rawStatus?.trim().toLowerCase() ?? null;
+  const alias = normalizeStatusAlias(normalizedRaw, noteType);
+
+  if (alias && ALLOWED_STATUSES_BY_TYPE[noteType].has(alias)) {
+    return {
+      value: alias,
+      normalized: normalizedRaw !== alias,
+    };
+  }
+
+  const fallback = defaultStatusForType(noteType);
+  return {
+    value: fallback,
+    normalized: normalizedRaw !== fallback,
+  };
+}
+
+function resolveDateString(frontmatter, relativeFile, fallbackDate, keys) {
+  for (const key of keys) {
+    const value = toStringValue(frontmatter[key]);
+
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+
+    if (value) {
+      const timestampMatch = value.match(/^(\d{4}-\d{2}-\d{2})\b/);
+
+      if (timestampMatch) {
+        return timestampMatch[1];
+      }
+    }
+  }
+
+  const fileDateMatch = path.basename(relativeFile).match(/^(\d{4}-\d{2}-\d{2})\b/);
+
+  if (fileDateMatch) {
+    return fileDateMatch[1];
+  }
+
+  return fallbackDate;
+}
+
+function extractLinkGroups(frontmatter) {
+  const links = toObjectValue(frontmatter.links);
+
+  return {
+    parents: toStringArray(links?.parents),
+    children: toStringArray(links?.children),
+    related: toStringArray(links?.related),
+    supersedes: toStringArray(links?.supersedes),
+    superseded_by: toStringArray(links?.superseded_by),
+  };
+}
+
+function buildRetention(noteType, existingRetention, createdAt) {
+  const baseConfig = noteType === "repo-home"
+    ? { reviewAfterDays: 180, expiresAfterDays: null, keep: true }
+    : getWriteTypeConfig(noteType);
+  const retention = toObjectValue(existingRetention);
+
+  return {
+    review_after:
+      toStringValue(retention?.review_after) ??
+      (baseConfig.reviewAfterDays === null
+        ? null
+        : formatDate(addDays(createdAt, baseConfig.reviewAfterDays))),
+    expires_after:
+      toStringValue(retention?.expires_after) ??
+      (baseConfig.expiresAfterDays === null
+        ? null
+        : formatDate(addDays(createdAt, baseConfig.expiresAfterDays))),
+    keep:
+      typeof retention?.keep === "boolean"
+        ? retention.keep
+        : Boolean(baseConfig.keep),
+  };
+}
+
+function renderYamlValue(value, indentLevel = 0) {
+  const indent = " ".repeat(indentLevel);
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return `${indent}[]`;
+    }
+
+    return value
+      .map((item) => `${indent}- ${renderYamlScalar(item)}`)
+      .join("\n");
+  }
+
+  if (value && typeof value === "object") {
+    const lines = [];
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+      if (Array.isArray(nestedValue)) {
+        if (nestedValue.length === 0) {
+          lines.push(`${indent}${key}: []`);
+        } else {
+          lines.push(`${indent}${key}:`);
+          lines.push(renderYamlValue(nestedValue, indentLevel + 2));
+        }
+        continue;
+      }
+
+      if (nestedValue && typeof nestedValue === "object") {
+        lines.push(`${indent}${key}:`);
+        lines.push(renderYamlValue(nestedValue, indentLevel + 2));
+        continue;
+      }
+
+      lines.push(`${indent}${key}: ${renderYamlScalar(nestedValue)}`);
+    }
+
+    return lines.join("\n");
+  }
+
+  return `${indent}${renderYamlScalar(value)}`;
+}
+
+function renderYamlScalar(value) {
+  if (value === null) {
+    return "null";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return JSON.stringify(String(value));
+}
+
+function renderFrontmatter(frontmatter) {
+  const preferredOrder = [
+    "id",
+    "type",
+    "repo_slug",
+    "title",
+    "status",
+    "created",
+    "updated",
+    "owner",
+    "summary",
+    "tags",
+    "keywords",
+    "links",
+    "retention",
+  ];
+
+  const orderedEntries = [];
+
+  for (const key of preferredOrder) {
+    if (Object.hasOwn(frontmatter, key)) {
+      orderedEntries.push([key, frontmatter[key]]);
+    }
+  }
+
+  for (const key of Object.keys(frontmatter).sort((left, right) => left.localeCompare(right))) {
+    if (!preferredOrder.includes(key)) {
+      orderedEntries.push([key, frontmatter[key]]);
+    }
+  }
+
+  return [
+    "---",
+    ...orderedEntries.flatMap(([key, value]) => {
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
+          return [`${key}: []`];
+        }
+
+        return [`${key}:`, renderYamlValue(value, 2)];
+      }
+
+      if (value && typeof value === "object") {
+        return [`${key}:`, renderYamlValue(value, 2)];
+      }
+
+      return [`${key}: ${renderYamlScalar(value)}`];
+    }),
+    "---",
+  ].join("\n");
+}
+
+async function walkMarkdownFiles(rootDir, currentDir = rootDir) {
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(currentDir, entry.name);
+    const relativePath = path.relative(rootDir, fullPath).replace(/\\/g, "/");
+
+    if (entry.isDirectory()) {
+      if (
+        SKIPPED_DIRECTORY_NAMES.has(entry.name) ||
+        SKIPPED_RELATIVE_DIRECTORIES.has(relativePath) ||
+        [...SKIPPED_RELATIVE_DIRECTORIES].some((directory) =>
+          relativePath.startsWith(`${directory}/`)
+        )
+      ) {
+        continue;
+      }
+
+      files.push(...(await walkMarkdownFiles(rootDir, fullPath)));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.endsWith(".md")) {
+      files.push(fullPath);
+    }
+  }
+
+  return files.sort((left, right) => left.localeCompare(right));
 }
 
 function estimateTokens(value) {
@@ -346,6 +970,216 @@ export function validateWriteInput({ noteType, title, summary }) {
   if (!summary?.trim()) {
     throw new Error("--summary is required");
   }
+}
+
+export function planFrontmatterFix({
+  absolutePath,
+  repoSlug = "playground",
+  relativeRepoPath,
+  content,
+  fallbackDate = formatDate(new Date()),
+}) {
+  const { frontmatter, body } = parseFrontmatter(content);
+  const rawType = toStringValue(frontmatter.type) ?? toStringValue(frontmatter.note_type);
+  const rawStatus = toStringValue(frontmatter.status);
+  const noteType = resolveNoteType(rawType, relativeRepoPath);
+  const noteStatus = resolveNoteStatus(rawStatus, noteType.value);
+  const title =
+    toStringValue(frontmatter.title) ?? extractDocumentTitle(body, relativeRepoPath);
+  const summary =
+    toStringValue(frontmatter.summary) ?? extractSummary(body) ?? "";
+  const created = resolveDateString(
+    frontmatter,
+    relativeRepoPath,
+    fallbackDate,
+    ["created", "date", "decided_on", "last_reviewed", "started_at"],
+  );
+  const updated = resolveDateString(
+    frontmatter,
+    relativeRepoPath,
+    created,
+    ["updated", "date", "last_reviewed", "started_at"],
+  );
+  const baseId = toStringValue(frontmatter.id) ??
+    `mem-${created.replaceAll("-", "")}-${slugify(title) || createShortHash(relativeRepoPath)}`;
+  const links = extractLinkGroups(frontmatter);
+  const retention = buildRetention(
+    noteType.value,
+    frontmatter.retention,
+    tryParseDate(`${created}T00:00:00.000Z`) ?? new Date(`${created}T00:00:00.000Z`),
+  );
+  const canonicalFrontmatter = {
+    id: baseId,
+    type: noteType.value,
+    repo_slug:
+      toStringValue(frontmatter.repo_slug) ??
+      toStringValue(frontmatter.repo) ??
+      repoSlug,
+    title,
+    status: noteStatus.value,
+    created,
+    updated,
+    owner: toStringValue(frontmatter.owner) ?? DEFAULT_OWNER_BY_TYPE[noteType.value],
+    summary,
+    tags: toStringArray(frontmatter.tags),
+    keywords: toStringArray(frontmatter.keywords),
+    links,
+    retention,
+  };
+  const extraFrontmatter = Object.fromEntries(
+    Object.entries(frontmatter).filter(([key]) =>
+      !Object.hasOwn(canonicalFrontmatter, key) &&
+      !LEGACY_FRONTMATTER_DROP_KEYS.has(key)
+    ),
+  );
+  const renderedContent = `${renderFrontmatter({
+    ...canonicalFrontmatter,
+    ...extraFrontmatter,
+  })}\n\n${body}`;
+  const changes = [];
+
+  if (!toStringValue(frontmatter.id)) {
+    changes.push("add_id");
+  }
+
+  if (rawType !== noteType.value) {
+    changes.push("normalize_type");
+  }
+
+  if (
+    (toStringValue(frontmatter.repo_slug) ?? toStringValue(frontmatter.repo)) !==
+    canonicalFrontmatter.repo_slug
+  ) {
+    changes.push("set_repo_slug");
+  }
+
+  if (!toStringValue(frontmatter.title)) {
+    changes.push("add_title");
+  }
+
+  if (rawStatus !== noteStatus.value) {
+    changes.push("normalize_status");
+  }
+
+  if (!toStringValue(frontmatter.created) && !toStringValue(frontmatter.date)) {
+    changes.push("set_created");
+  }
+
+  if (!toStringValue(frontmatter.updated)) {
+    changes.push("set_updated");
+  }
+
+  if (!toStringValue(frontmatter.owner)) {
+    changes.push("set_owner");
+  }
+
+  if (!toStringValue(frontmatter.summary)) {
+    changes.push("add_summary");
+  }
+
+  const existingLinks = extractLinkGroups(frontmatter);
+  if (JSON.stringify(existingLinks) !== JSON.stringify(links)) {
+    changes.push("normalize_links");
+  } else if (!toObjectValue(frontmatter.links)) {
+    changes.push("add_links");
+  }
+
+  if (JSON.stringify(toObjectValue(frontmatter.retention) ?? {}) !== JSON.stringify(retention)) {
+    changes.push("set_retention");
+  }
+
+  for (const legacyKey of LEGACY_FRONTMATTER_DROP_KEYS) {
+    if (Object.hasOwn(frontmatter, legacyKey)) {
+      changes.push(`drop_${legacyKey}`);
+    }
+  }
+
+  return {
+    absolutePath,
+    relativeRepoPath,
+    noteId: canonicalFrontmatter.id,
+    noteType: canonicalFrontmatter.type,
+    status: canonicalFrontmatter.status,
+    title: canonicalFrontmatter.title,
+    created: canonicalFrontmatter.created,
+    updated: canonicalFrontmatter.updated,
+    changes: Array.from(new Set(changes)),
+    changed: changes.length > 0,
+    content: renderedContent,
+  };
+}
+
+export async function fixFrontmatter({
+  vaultRoot,
+  repoSlug = "playground",
+  apply = false,
+}) {
+  const repoRootPath = path.join(vaultRoot, "00 Repositories", repoSlug);
+  const markdownFiles = await walkMarkdownFiles(repoRootPath);
+  const plans = await Promise.all(
+    markdownFiles.map(async (absolutePath) => {
+      const rawContent = await readFile(absolutePath, "utf8");
+      const relativeRepoPath = path.relative(repoRootPath, absolutePath).replace(/\\/g, "/");
+      const fileStat = await stat(absolutePath);
+      const fallbackDate = formatDate(new Date(fileStat.mtimeMs));
+
+      return planFrontmatterFix({
+        absolutePath,
+        repoSlug,
+        relativeRepoPath,
+        content: rawContent,
+        fallbackDate,
+      });
+    }),
+  );
+
+  const seenIds = new Map();
+  for (const plan of plans) {
+    const bucket = seenIds.get(plan.noteId) ?? [];
+    bucket.push(plan);
+    seenIds.set(plan.noteId, bucket);
+  }
+
+  for (const [noteId, bucket] of seenIds.entries()) {
+    if (bucket.length < 2) {
+      continue;
+    }
+
+    for (const plan of bucket) {
+      const dedupedId = `${noteId}-${createShortHash(plan.relativeRepoPath)}`;
+      plan.content = plan.content.replace(`id: ${JSON.stringify(noteId)}`, `id: ${JSON.stringify(dedupedId)}`);
+      plan.noteId = dedupedId;
+      plan.changed = true;
+      plan.changes = Array.from(new Set([...plan.changes, "dedupe_id"]));
+    }
+  }
+
+  const changedPlans = plans.filter((plan) => plan.changed);
+
+  if (apply) {
+    await Promise.all(
+      changedPlans.map((plan) => writeFile(plan.absolutePath, `${plan.content}\n`, "utf8")),
+    );
+  }
+
+  return {
+    dry_run: !apply,
+    repo_slug: repoSlug,
+    scanned: plans.length,
+    changed: changedPlans.length,
+    unchanged: plans.length - changedPlans.length,
+    notes: changedPlans.map((plan) => ({
+      path: path.relative(vaultRoot, plan.absolutePath).replace(/\\/g, "/"),
+      note_id: plan.noteId,
+      type: plan.noteType,
+      status: plan.status,
+      created: plan.created,
+      updated: plan.updated,
+      title: plan.title,
+      changes: plan.changes,
+      content_preview: apply ? undefined : plan.content,
+    })),
+  };
 }
 
 export function classifyMemoryInput(input) {

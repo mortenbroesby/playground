@@ -13,6 +13,7 @@
     "rag:classify": "node ./src/rag-classify.mjs",
     "rag:clean": "node ./src/rag-clean.mjs",
     "rag:doctor": "node ./src/rag-doctor.mjs",
+    "rag:fix-frontmatter": "node ./src/rag-fix-frontmatter.mjs",
     "rag:query": "node ./src/rag-query.mjs",
     "rag:verify": "node ./src/verify-obsidian-rag.mjs",
     "rag:write": "node ./src/rag-write.mjs",
