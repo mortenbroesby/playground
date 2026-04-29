@@ -17,7 +17,7 @@
     "docs:check": "pnpm knowledge:check",
     "knowledge:check": "node scripts/check-knowledge-reminder.mjs",
     "lint": "turbo lint && pnpm lint:md",
-    "lint:prepush": "node scripts/run-prepush.mjs",
+    "lint:prepush": "node scripts/prepush-checks.mjs",
     "lint:md": "pnpm markdown:check",
     "markdown:fix": "markdownlint-cli2 \"README.md\" \"AGENTS.md\" \".github/copilot-instructions.md\" \"docs/*.md\" \"docs/ideas/**/*.md\" \"docs/obsidian/**/*.md\" \"vault/**/*.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\" \"tools/*/README.md\" --fix",
     "markdown:check": "markdownlint-cli2 \"README.md\" \"AGENTS.md\" \".github/copilot-instructions.md\" \"docs/*.md\" \"docs/ideas/**/*.md\" \"docs/obsidian/**/*.md\" \"vault/**/*.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\" \"tools/*/README.md\"",
@@ -45,20 +45,10 @@
   "devDependencies": {
     "@astrograph/astrograph": "workspace:*",
     "husky": "^9.1.7",
-    "lint-prepush": "^3.0.2",
     "markdownlint-cli2": "^0.17.0",
     "prettier": "^3.3.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"
-  },
-  "lint-prepush": {
-    "base": "main",
-    "verbose": true,
-    "tasks": {
-      "**/*": [
-        "node scripts/lint-prepush.mjs"
-      ]
-    }
   },
   "dependencies": {
     "workspace-tools": "^0.41.4"

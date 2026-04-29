@@ -23,13 +23,40 @@ function run(command, args) {
   }
 }
 
-if (changedFiles.length === 0) {
+function getChangedFiles() {
+  if (changedFiles.length > 0) {
+    return changedFiles;
+  }
+
+  const result = spawnSync("git", ["diff", "--name-only", "--diff-filter=ACMR", "main...HEAD"], {
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+    env: process.env,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    return [];
+  }
+
+  return result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+const files = getChangedFiles();
+
+if (files.length === 0) {
   process.exit(0);
 }
 
-const shouldRunMarkdown = changedFiles.some((filePath) => filePath.endsWith(".md"));
+const shouldRunMarkdown = files.some((filePath) => filePath.endsWith(".md"));
 
-const shouldRunAgentsCheck = changedFiles.some((filePath) =>
+const shouldRunAgentsCheck = files.some((filePath) =>
   matches(filePath, [
     "AGENTS.md",
     "CLAUDE.md",
@@ -39,18 +66,19 @@ const shouldRunAgentsCheck = changedFiles.some((filePath) =>
     "scripts/agent-setup-check.mjs",
     "scripts/skills.mjs",
     "scripts/skills-smoke.mjs",
-    "scripts/lint-prepush.mjs",
+    "scripts/prepush-checks.mjs",
     "package.json",
+    "pnpm-lock.yaml",
     ".npmrc",
     ".nvmrc",
   ]),
 );
 
-const shouldRunSkillsSmoke = changedFiles.some((filePath) =>
+const shouldRunSkillsSmoke = files.some((filePath) =>
   matches(filePath, [".skills", "scripts/skills.mjs", "scripts/skills-smoke.mjs"]),
 );
 
-const shouldRunAstrographTypeLint = changedFiles.some((filePath) =>
+const shouldRunAstrographTypeLint = files.some((filePath) =>
   matches(filePath, ["tools/ai-context-engine"]),
 );
 
