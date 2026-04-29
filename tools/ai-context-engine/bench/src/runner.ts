@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { indexFolder } from "../../src/index.ts";
+import { ASTROGRAPH_PACKAGE_VERSION } from "../../src/version.ts";
 
 import { loadBenchmarkCorpus } from "./corpus.ts";
 import {
@@ -168,9 +169,9 @@ export async function runBenchmark(
   const runId = makeRunId(repoSha);
   const results = createBenchmarkResultsArtifact({
     benchmarkName: corpus.manifest.benchmark,
-    benchmarkVersion: "0.0.1",
+    benchmarkVersion: ASTROGRAPH_PACKAGE_VERSION,
     repoSha,
-    engineVersion: "0.0.1",
+    engineVersion: ASTROGRAPH_PACKAGE_VERSION,
     tokenizer: BENCHMARK_TOKENIZER,
     approximateTokenizer: APPROXIMATE_BENCHMARK_TOKENIZER,
     runId,

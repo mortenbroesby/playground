@@ -40,6 +40,7 @@ const BOOLEAN_FLAGS = new Set([
   "include-ranked",
   "include-dependencies",
   "include-importers",
+  "include-references",
   "json",
 ]);
 
