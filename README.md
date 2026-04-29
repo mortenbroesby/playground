@@ -244,6 +244,17 @@ MIT. See [LICENSE](./LICENSE).
 - the repo-owned `Astrograph` and `obsidian-memory` tools for keeping agent workflows grounded in
   local context
 
+---
+
 ## Author
 
-Built and maintained by [Morten Broesby](https://github.com/mortenbroesby).
+**Morten Broesby-Olsen** (mortenbroesby)
+
+- GitHub: [@mortenbroesby](https://github.com/mortenbroesby)
+- LinkedIn: [mortenbroesby](https://www.linkedin.com/in/morten-broesby-olsen/)
+
+---
+
+<p align="center">
+  Made with ☕ and ⚡️ by Morten Broesby-Olsen
+</p>
