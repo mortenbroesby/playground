@@ -14,9 +14,15 @@ keywords:
 touched_paths:
   - tools/obsidian-memory/src/rag-index.ts
   - tools/obsidian-memory/src/obsidian-rag.mjs
+  - tools/obsidian-memory/src/rag-governance.mjs
+  - tools/obsidian-memory/src/rag-classify.mjs
+  - tools/obsidian-memory/src/rag-clean.mjs
+  - tools/obsidian-memory/src/rag-doctor.mjs
   - tools/obsidian-memory/src/rag-query.mjs
   - tools/obsidian-memory/src/rag-mcp-server.mjs
+  - tools/obsidian-memory/src/verify-obsidian-rag.mjs
   - tools/obsidian-memory/tests/obsidian-rag.test.mjs
+  - tools/obsidian-memory/tests/rag-governance.test.mjs
   - tools/obsidian-memory/tests/rag-index.test.mjs
   - tools/obsidian-memory/package.json
   - package.json
@@ -69,15 +75,29 @@ rebuild index generation first while keeping the current query path working.
   small duplicate-note penalty
 - rewired `rag:query` and the MCP memory server to load the typed `.rag/`
   index root directly while preserving the existing command and tool surfaces
+- added `rag:classify` with a first rule-based request classifier for decisions,
+  specs, todos, investigations, glossary-style questions, and cleanup flows
+- added a shared governance module for typed index verification, cleanup
+  analysis, and command-level policy reuse
+- added `rag:clean --dry-run` and `rag:doctor`
+- tightened `rag:verify` so it now validates the typed index contract with a
+  typed fixture vault instead of the old corpus-only path
+- confirmed the real repo still fails `rag:doctor` because most vault notes have
+  synthetic IDs and sparse links, which is the expected migration backlog from
+  the stricter schema
 
 ## Verification
 
 - `pnpm --filter @playground/obsidian-memory rag:test`
 - `pnpm --filter @playground/obsidian-memory rag:index --json`
 - `pnpm --filter @playground/obsidian-memory rag:query --query 'What should we build for typed RAG memory?' --limit 3 --budget 300`
+- `pnpm --filter @playground/obsidian-memory rag:classify --input 'We decided to use hybrid retrieval'`
+- `pnpm --filter @playground/obsidian-memory rag:clean --dry-run`
+- `pnpm --filter @playground/obsidian-memory rag:doctor`
+- `pnpm --filter @playground/obsidian-memory rag:verify`
 
 ## Next Step
 
-Add the next spec surfaces on top of the typed index foundation:
-`rag:classify`, stronger validation/doctor flows, and a first real cleanup
-report lifecycle.
+Start shrinking the migration backlog that `rag:doctor` now surfaces:
+introduce stricter frontmatter remediation, link backfills, and eventually
+`rag:write` so new notes stop adding to the legacy debt.
