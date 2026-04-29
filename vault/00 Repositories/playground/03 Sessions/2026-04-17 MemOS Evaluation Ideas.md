@@ -1,131 +1,77 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-17
-started_at: 2026-04-17 19:05
-summary: Captured a practical recommendation for evaluating MemOS as an auxiliary memory layer while keeping vault plus obsidian-memory as the canonical durable repo memory path.
-keywords:
-  - memos
-  - memory
-  - mcp
-  - evaluation
-  - workflow
-touched_paths:
-  - vault/00 Repositories/playground/03 Sessions/2026-04-17 MemOS Evaluation Ideas.md
+id: mem-20260417-memos-evaluation-ideas
+type: session
+repo_slug: playground
+title: MemOS Evaluation Ideas
+status: done
+created: 2026-04-17
+updated: 2026-04-17
+owner: agent
+summary: Captured the practical boundary for evaluating MemOS: useful as an auxiliary preference memory, but not as a replacement for the repo’s vault-first durable memory model.
 tags:
   - type/session
   - repo/playground
+keywords:
+  - memos
+  - memory
+  - evaluation
+links:
+  parents: []
+  children: []
+  related:
+    - mem-e8176da1801c596b
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-05-01
+  expires_after: 2026-10-14
+  keep: false
+started_at: 2026-04-17 19:05
+touched_paths:
+  - vault/00 Repositories/playground/03 Sessions/2026-04-17 MemOS Evaluation Ideas.md
+branch:
+goal: Decide whether MemOS should become part of the repo memory stack.
+outcome: MemOS was scoped to an optional assistive layer, while `vault/` plus `obsidian-memory` remained the canonical repo memory path.
+decisions:
+  - Keep the vault as canonical durable repo memory.
+  - Use MemOS only for assistive cross-session preference recall if it is adopted at all.
+blockers: []
+next_step: Only run a narrow MemOS pilot if there is a real cross-session preference problem that the current vault plus active-context split cannot solve.
 ---
-
-# MemOS Evaluation Ideas
 
 ## Recommendation
 
 Do not make MemOS the primary repo memory system.
 
-Keep the current memory split:
+Keep the current split:
 
-- `vault/` plus `obsidian-memory` as canonical durable repo memory
-- `.agents/context/active-context.md` as the low-token handoff layer
-- MemOS, if added, as an auxiliary cross-session agent memory layer
+- `vault/` plus `obsidian-memory` for canonical repo knowledge
+- `.agents/context/active-context.md` for low-token handoff state
+- MemOS, if adopted, as an auxiliary preference and continuity layer
 
-## Why
+## Good Boundary
 
-The current repo already has a strong explicit memory architecture:
+MemOS is reasonable for:
 
-- durable notes are versioned in git
-- architecture and workflow state are reviewable in markdown
-- retrieval is already cheap through `obsidian-memory`
-- code understanding is already handled separately through `jcodemunch`
+- response-style preferences
+- recurring workflow habits
+- personal setup hints
+- cross-session continuity that should not become canonical repo history
 
-MemOS solves a different problem. It is useful for agent-managed memory across
-sessions and clients, but it should not replace explicit repo-native knowledge.
-
-## Good MemOS Use Cases Here
-
-Use MemOS for things that are useful across sessions but should not become
-canonical repo records:
-
-- preferred response style
-- recurring coding preferences
-- agent workflow habits
-- repeated project heuristics
-- personal setup notes that are useful across tools
-
-## Bad MemOS Use Cases Here
-
-Do not store canonical repo knowledge in MemOS:
+MemOS is not the place for:
 
 - architecture decisions
-- ADR-style records
 - task board state
 - release notes
-- source-of-truth setup instructions
-- anything that should be reviewed in git
+- setup instructions that should stay reviewable in git
 
-Those should stay in `vault/`.
+## Rollout Rule
 
-## Suggested Rollout
-
-Start small.
-
-### Phase 1: Narrow Pilot
-
-- use one MemOS instance
-- use one client first
-- prefer local or self-hosted deployment
-- write memories manually or only at clear milestones
-- treat retrieval as opt-in for preference-sensitive tasks
-
-Success criteria:
-
-- useful cross-session recall
-- no conflict with vault memory
-- low noise
-- easy inspection and deletion of bad memories
-
-### Phase 2: Guarded Expansion
-
-Only expand after the pilot feels clearly useful:
-
-- add a second client
-- keep the same memory boundary
-- document allowed and disallowed memory categories
-- define cleanup rules for stale or incorrect memories
-
-### Phase 3: Stable Policy
-
-If MemOS proves useful, document a stable rule:
-
-- `vault` is canonical
-- `active-context` is temporary
-- MemOS is assistive only
-
-## Integration Rules
-
-If MemOS is introduced, keep these constraints:
-
-1. Do not auto-save every conversation turn at first.
-2. Prefer milestone-based or manually approved saves.
-3. Do not run MemOS retrieval before every repo question.
-4. Use `obsidian-memory` first for repo history, architecture, and decisions.
-5. Use MemOS only when preference continuity or cross-session memory is the
-   actual problem.
-
-## Practical Next Step
-
-If this gets implemented, the first implementation should be a small experiment:
-
-- choose one local MemOS deployment path
-- connect one client
-- store a few safe preference-style memories
-- verify retrieval quality across sessions
-- document the result in the vault before broad rollout
+If this is tried at all, start with one local deployment, one client, and
+manually curated memories. Retrieval should stay opt-in and milestone-based,
+not always-on.
 
 ## Current Position
 
-MemOS looks more promising as an optional adjunct than as a replacement for the
-existing repo memory design.
-
-The current vault-first setup is still the best default for durable memory with
-low token cost.
+MemOS looked promising as an assistive layer, but the vault-first model
+remained the correct default for durable repo memory.

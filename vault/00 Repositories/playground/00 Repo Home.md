@@ -38,8 +38,8 @@ source_of_truth:
   - vault/00 Repositories/playground/04 Tasks/Task Board.md
   - .agents/rules/
   - .agents/hooks/
-active_focus: personal-site host, playground lab, and a thin shared agent setup with durable memory in this vault
-last_reviewed: 2026-04-14
+active_focus: host-owned public site, narrow remote composition, and durable repo memory with typed RAG governance
+last_reviewed: 2026-04-29
 tags:
   - type/repo
   - state/active
@@ -70,34 +70,13 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 - `packages/ui/`, `packages/types/`, and `packages/config/` hold the shared layer for components,
   contracts, and tooling.
 
-## Architecture Map
-
-- [[01 Architecture/Host Routing and Shells|Host Routing and Shells]]
-- [[01 Architecture/Workspace Remote Composition|Workspace Remote Composition]]
-- [[01 Architecture/Shared Packages and Tooling|Shared Packages and Tooling]]
-- [[01 Architecture/Agent Hooks|Agent Hooks]]
-- [[01 Architecture/Agent Rules|Agent Rules]]
-- [[01 Architecture/Archived Specs|Archived Specs]]
-- [[01 Architecture/Kanban Archive|Kanban Archive]]
-- [[01 Architecture/Superpowers Archive|Superpowers Archive]]
-- [[01 Architecture/Design System Split Migration Plan|Design System Split Migration Plan]]
-- [[01 Architecture/Spotify Now Playing Boundary|Spotify Now Playing Boundary]]
-- [[01 Architecture/Verification Map|Verification Map]]
-- [[01 Architecture/Repo Memory Architecture|Repo Memory Architecture]]
-- [[04 Tasks/Task Board|Task Board]]
-
 ## Active Focus
 
 - Keep the host strong as a real personal site while preserving the playground as a distinct lab.
-- Keep the design-system split incremental: shared primitives for now, surface-specific systems later.
-- Keep the shared hook and rule policy in sync between Codex and Claude Code.
-- Keep this vault optimized for agents: `00 Repo Home` as primer, `01 Architecture`,
-  `02 Decisions`, `03 Sessions`, and `04 Tasks` as the active durable-memory
-  buckets.
-- Keep completed `docs/superpowers` planning docs archived in the vault.
-- Keep the canonical task board in `04 Tasks/Task Board.md` and
-  `BRAINDUMP.md` loose.
-- Keep the host-to-remote contract trustworthy while the host architecture evolves.
+- Keep remote composition narrow and explicit so mount-contract proof stays easy to reason about.
+- Keep durable memory concise: repo home as primer, architecture and decisions as canonical detail,
+  sessions as short handoffs, task board as the work queue.
+- Keep shared agent rules and hooks aligned across Codex and Claude surfaces.
 
 ## Recent Sessions
 
@@ -120,14 +99,9 @@ SORT updated DESC
 
 ## Next Actions
 
-- Keep this note short enough for agents to load first. Link out instead of duplicating repo docs.
-- Log session notes under `03 Sessions/` only when the session leaves useful future context.
-- Capture architecture or workflow decisions under `02 Decisions/` instead of hiding them inside
-  long session notes.
-- Use `BRAINDUMP.md` for inbox-style capture; do not recreate a vault inbox unless it becomes part
-  of the agent workflow.
-- Keep `KANBAN.md` as a thin pointer to the vault-backed task board rather than
-  a second task system.
+- Keep this note short enough to load first.
+- Prefer architecture and decision notes for durable detail; keep sessions compact.
+- Keep the vault task board canonical and use `BRAINDUMP.md` as loose capture.
 
 ## Related Repo Files
 
@@ -136,3 +110,5 @@ SORT updated DESC
 - `packages/remotes/uplink-game/`
 - `packages/ui/`
 - `packages/types/`
+- [[01 Architecture/Repo Memory Architecture|Repo Memory Architecture]]
+- [[04 Tasks/Task Board|Task Board]]
