@@ -1,11 +1,27 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-15
-branch: feat/ai-context-engine-phase2-watch
+id: "mem-20260415-ai-context-engine-phase-2-summary-strategy"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Phase 2 Summary Strategy"
+status: archived
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Added configurable summary strategies to `ai-context-engine`, including doc-comment-first summaries, source tracking in symbol metadata, and reindex refresh when the strategy changes."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+branch: "feat/ai-context-engine-phase2-watch"
 ---
-
-# AI Context Engine Phase 2 Summary Strategy
 
 ## What changed
 

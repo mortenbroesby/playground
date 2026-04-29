@@ -1,4 +1,26 @@
-# AI Context Benchmark Strict Snapshot Mode
+---
+id: "mem-20260415-ai-context-benchmark-strict-snapshot-mode"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Benchmark Strict Snapshot Mode"
+status: archived
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Add strict reproducibility guards to `@playground/ai-context-engine-bench` so benchmark runs can enforce a pinned, clean git snapshot instead of running as best effort on whatever checkout happens to exist."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

@@ -1,37 +1,50 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-27
-started_at: 2026-04-27 16:20
-branch: astrograph-ai-engine-refactor
-summary: Landed the Phase 7 `.specs/performance-deps.md` slice in `tools/ai-context-engine`: `@parcel/watcher`-backed watch subscription preference with explicit fallback reporting and backend normalization tests.
-keywords:
-  - ai-context-engine
-  - astrograph
-  - parcel-watcher
-  - watch mode
-  - diagnostics
-  - performance
-  - fallback
-  - tests
-touched_paths:
-  - tools/ai-context-engine/package.json
-  - tools/ai-context-engine/README.md
-  - tools/ai-context-engine/src/index.ts
-  - tools/ai-context-engine/src/storage.ts
-  - tools/ai-context-engine/src/types.ts
-  - tools/ai-context-engine/src/watch-backend.ts
-  - tools/ai-context-engine/tests/engine-behavior.test.ts
-  - tools/ai-context-engine/tests/engine-contract.test.ts
-  - tools/ai-context-engine/tests/mutation-smoke.watch.test.ts
-  - tools/ai-context-engine/tests/watch-backend.test.ts
-  - pnpm-lock.yaml
+id: "mem-20260427-ai-context-engine-parcel-watch-backend"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Parcel Watch Backend"
+status: archived
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "Landed the Phase 7 `.specs/performance-deps.md` slice in `tools/ai-context-engine`: `@parcel/watcher`-backed watch subscription preference with explicit fallback reporting and backend normalization tests."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "astrograph"
+  - "parcel-watcher"
+  - "watch mode"
+  - "diagnostics"
+  - "performance"
+  - "fallback"
+  - "tests"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+branch: "astrograph-ai-engine-refactor"
+started_at: "2026-04-27 16:20"
+touched_paths:
+  - "tools/ai-context-engine/package.json"
+  - "tools/ai-context-engine/README.md"
+  - "tools/ai-context-engine/src/index.ts"
+  - "tools/ai-context-engine/src/storage.ts"
+  - "tools/ai-context-engine/src/types.ts"
+  - "tools/ai-context-engine/src/watch-backend.ts"
+  - "tools/ai-context-engine/tests/engine-behavior.test.ts"
+  - "tools/ai-context-engine/tests/engine-contract.test.ts"
+  - "tools/ai-context-engine/tests/mutation-smoke.watch.test.ts"
+  - "tools/ai-context-engine/tests/watch-backend.test.ts"
+  - "pnpm-lock.yaml"
 ---
-
-# AI Context Engine Parcel Watch Backend
 
 ## Summary
 

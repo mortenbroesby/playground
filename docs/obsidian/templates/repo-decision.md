@@ -1,20 +1,28 @@
 ---
-type: repo-decision
-repo: <% tp.user.repo_context.currentRepo(tp) %>
-decision_id:
+id: mem-<% tp.date.now("YYYYMMDD") %>-<% tp.file.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") %>
+type: architecture-record
+repo_slug: <% tp.user.repo_context.currentRepo(tp) %>
+title: <% tp.file.title %>
 status: proposed
-decided_on: <% tp.date.now("YYYY-MM-DD") %>
+created: <% tp.date.now("YYYY-MM-DD") %>
+updated: <% tp.date.now("YYYY-MM-DD") %>
+owner: morten
 summary:
 keywords: []
-supersedes:
-related_paths: []
-repo_home: "<% tp.user.repo_context.repoHomeLink(tp) %>"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: <% tp.date.now("YYYY-MM-DD", 180) %>
+  expires_after: null
+  keep: true
 tags:
   - type/decision
   - repo/<% tp.user.repo_context.currentRepo(tp) %>
 ---
-
-# Decision
 
 ## Context
 

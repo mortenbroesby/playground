@@ -1,26 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 21:56
-branch: feat/ai-context-engine-stryker-smoke-hardening
-summary: Hardened the `@playground/ai-context-engine` Stryker smoke profile with stronger CLI and watch-mode assertions, then removed one unreachable watch-helper return path from the smoke mutate scope.
-keywords:
-  - ai-context-engine
-  - stryker
-  - mutation-testing
-  - smoke-tests
-  - watch-mode
-touched_paths:
-  - packages/ai-context-engine/tests/mutation-smoke.cli.test.ts
-  - packages/ai-context-engine/tests/mutation-smoke.watch.test.ts
-  - packages/ai-context-engine/stryker.config.json
+id: "mem-20260421-ai-context-engine-stryker-smoke-hardening"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Stryker Smoke Hardening"
+status: archived
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Hardened the `@playground/ai-context-engine` Stryker smoke profile with stronger CLI and watch-mode assertions, then removed one unreachable watch-helper return path from the smoke mutate scope."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "stryker"
+  - "mutation-testing"
+  - "smoke-tests"
+  - "watch-mode"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "feat/ai-context-engine-stryker-smoke-hardening"
+started_at: "2026-04-21 21:56"
+touched_paths:
+  - "packages/ai-context-engine/tests/mutation-smoke.cli.test.ts"
+  - "packages/ai-context-engine/tests/mutation-smoke.watch.test.ts"
+  - "packages/ai-context-engine/stryker.config.json"
 ---
-
-# AI Context Engine Stryker Smoke Hardening
 
 ## Summary
 

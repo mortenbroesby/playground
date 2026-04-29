@@ -1,24 +1,37 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 23:56
-branch: main
-summary: Reworked the `ai-context-engine` watch poller to use file metadata scans instead of full content-hash snapshots, while keeping explicit freshness diagnostics on the slower hash-based path.
-keywords:
-  - ai-context-engine
-  - watch
-  - polling
-  - performance
-  - diagnostics
-touched_paths:
-  - packages/ai-context-engine/src/storage.ts
+id: "mem-20260421-ai-context-engine-watch-poller-metadata-scan"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Watch Poller Metadata Scan"
+status: archived
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Reworked the `ai-context-engine` watch poller to use file metadata scans instead of full content-hash snapshots, while keeping explicit freshness diagnostics on the slower hash-based path."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "watch"
+  - "polling"
+  - "performance"
+  - "diagnostics"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "main"
+started_at: "2026-04-21 23:56"
+touched_paths:
+  - "packages/ai-context-engine/src/storage.ts"
 ---
-
-# AI Context Engine Watch Poller Metadata Scan
 
 ## Summary
 

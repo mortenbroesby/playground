@@ -19,23 +19,20 @@ alwaysApply: true
 ## Code Navigation
 
 - Use `jcodemunch` as the current default code retrieval path.
-- Keep `ai-context-engine` (`@astrograph`) available in parallel, but treat it
-  as the secondary path until the repo is ready to switch fully.
-- For `jcodemunch` flows, start with `plan_turn` when you need route
-  selection, then prefer `search_symbols`, `search_text`, `get_file_outline`,
-  `get_symbol_source`, `get_context_bundle`, and `get_file_tree`.
-- Start by ensuring the repo is indexed; use the relevant indexing command for
-  the engine you are using.
-- Prefer the `jcodemunch` retrieval surfaces above before broad file reads.
-- Use Astrograph's `query_code`, `get_file_outline`, `get_file_tree`, and
-  `diagnostics` when you explicitly want the newer repo-owned retrieval path.
+- Start with `plan_turn` when you need route selection, then prefer
+  `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`,
+  `get_context_bundle`, and `get_file_tree`.
+- Prefer the `jcodemunch` retrieval surfaces above before broad file reads or
+  shell-based code scans.
+- Use `ai-context-engine` (`@astrograph`) only as a fallback when `jcodemunch`
+  lacks coverage or when you need repo-local diagnostics or freshness checks.
 - Use `get_file_outline` to inspect a file cheaply before opening it.
 - Use Astrograph `diagnostics` when you need freshness or watch-health
   confirmation before trusting the local Astrograph index.
 - Read files directly only when you need the exact file content for an edit or
   when a non-code support file is not represented in the index.
-- Avoid broad shell-based code scans when either `jcodemunch` or Astrograph can
-  answer the question more precisely.
+- Avoid broad shell-based code scans when indexed retrieval can answer the
+  question more precisely.
 
 ## Memory
 
@@ -43,6 +40,9 @@ alwaysApply: true
 - Treat the vault plus `obsidian-memory` as the only durable repo memory.
 - Before answering architecture, historical, or decision questions, query
   `obsidian-memory` when available.
+- When `pnpm knowledge:check` or a related warning requires a memory note, use
+  the state machine in `.agents/rules/memory-note-routing.md` to choose
+  between a task, decision, architecture, or session note.
 - After editing vault notes, run `pnpm rag:index` when fresh memory is needed
   before commit.
 

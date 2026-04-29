@@ -1,26 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-14
-started_at: 2026-04-14 22:50
-summary: Moved the canonical repo task board into the vault and reduced KANBAN.md to a thin pointer.
-keywords:
-  - kanban
-  - tasks
-  - vault
-  - memory
-  - task board
-touched_paths:
-  - KANBAN.md
-  - vault/00 Repositories/playground/00 Repo Home.md
-  - vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md
-  - vault/00 Repositories/playground/04 Tasks/Task Board.md
+id: "mem-20260414-vault-task-board-integration"
+type: "session"
+repo_slug: "playground"
+title: "Vault Task Board Integration"
+status: archived
+created: "2026-04-14"
+updated: "2026-04-14"
+owner: "agent"
+summary: "Moved the canonical repo task board into the vault and reduced KANBAN.md to a thin pointer."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "kanban"
+  - "tasks"
+  - "vault"
+  - "memory"
+  - "task board"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-28"
+  expires_after: "2026-10-11"
+  keep: false
+started_at: "2026-04-14 22:50"
+touched_paths:
+  - "KANBAN.md"
+  - "vault/00 Repositories/playground/00 Repo Home.md"
+  - "vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md"
+  - "vault/00 Repositories/playground/04 Tasks/Task Board.md"
 ---
-
-# Vault Task Board Integration
 
 ## Outcome
 

@@ -151,6 +151,9 @@ async function main() {
       : "";
   const owner = args.owner || (isCurrentRepo ? "mortenbroesby" : "unknown");
   const today = new Date().toISOString().slice(0, 10);
+  const todayCompact = today.replaceAll("-", "");
+  const reviewAfter180Days = new Date();
+  reviewAfter180Days.setUTCDate(reviewAfter180Days.getUTCDate() + 180);
   const generatedOn = new Date().toISOString();
   const repoHomeRelativePath = `00 Repositories/${repoSlug}/00 Repo Home`;
 
@@ -171,6 +174,8 @@ async function main() {
     __REPO_PATH__: repoPath,
     __REPO_SLUG__: repoSlug,
     __TODAY__: today,
+    __TODAY_COMPACT__: todayCompact,
+    __REVIEW_AFTER_180_DAYS__: reviewAfter180Days.toISOString().slice(0, 10),
     __VAULT_NAME__: vaultName,
     __VAULT_NAME_ENCODED__: encodeUriComponent(vaultName),
     __OWNER__: owner,
@@ -205,6 +210,21 @@ async function main() {
     copyPlainFile(
       path.join(assetsRoot, "templates", "repo-decision.md"),
       path.join(vaultPath, "90 Templates", "repo-decision.md"),
+      args.force,
+    ),
+    copyPlainFile(
+      path.join(assetsRoot, "templates", "repo-architecture.md"),
+      path.join(vaultPath, "90 Templates", "repo-architecture.md"),
+      args.force,
+    ),
+    copyPlainFile(
+      path.join(assetsRoot, "templates", "repo-spec.md"),
+      path.join(vaultPath, "90 Templates", "repo-spec.md"),
+      args.force,
+    ),
+    copyPlainFile(
+      path.join(assetsRoot, "templates", "repo-task.md"),
+      path.join(vaultPath, "90 Templates", "repo-task.md"),
       args.force,
     ),
     copyPlainFile(

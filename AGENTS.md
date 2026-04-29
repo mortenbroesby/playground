@@ -20,15 +20,12 @@ Thin bootstrap for coding agents in this repo.
 ## Navigation
 
 - Use `jcodemunch` as the current default for code navigation.
-- Keep `ai-context-engine` (`@astrograph`) installed in parallel, but treat it
-  as a secondary path until the repo is ready to switch fully.
-- For `jcodemunch` flows, start with `plan_turn`, then prefer
-  `search_symbols`, `get_file_outline`, and `get_symbol_source`.
-- Prefer `search_symbols`, `get_file_outline`, `get_symbol_source`, and
-  `get_context_bundle` before broad file reads.
-- Use Astrograph selectively for `query_code`, `get_file_outline`, and
-  `diagnostics` when you specifically want to validate or compare the newer
-  retrieval path.
+- Start with `plan_turn`, then prefer `search_symbols`, `search_text`,
+  `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and
+  `get_file_tree` before broad file reads.
+- Use `ai-context-engine` (`@astrograph`) only as a fallback when `jcodemunch`
+  lacks coverage or when you specifically need repo-local diagnostics or index
+  freshness confirmation.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
@@ -39,9 +36,8 @@ Thin bootstrap for coding agents in this repo.
   `Grep`, `Glob`, or shell exploration.
 - Exception: use `Read` when you need exact file content for an edit, because
   the harness expects a read before write-style file changes.
-- Start by confirming the repo/index route with `plan_turn`, then use:
-  `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`,
-  `get_context_bundle`, `get_file_tree`, and `get_repo_outline`.
+- Fall back to Astrograph only when `jcodemunch` cannot answer the question or
+  when you need `diagnostics` to confirm the local index state.
 - If a search result returns strong negative evidence, do not keep re-searching
   with random variations hoping the implementation exists. Report the gap.
 - After edits, prefer `register_edit` for the touched paths when you need to
@@ -60,6 +56,8 @@ Thin bootstrap for coding agents in this repo.
 - Repo-owned skills live in [`.skills/`](.skills/).
 - Discover skills on demand with `pnpm skills:list` and
   `pnpm skills:search <query>`.
+- Route a task to the narrowest useful skill set with
+  `pnpm skills:route "<task>"`.
 - Load a skill only when needed with `pnpm skills:read <skill-name>`.
 - Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) to
   decide which skills to load for which kinds of tasks.

@@ -1,4 +1,27 @@
-# Startup Pnpm Install Readiness Check
+---
+id: "mem-20260429-startup-pnpm-install-readiness-check"
+type: "session"
+repo_slug: "playground"
+title: "Startup Pnpm Install Readiness Check"
+status: archived
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "The session-start hook now checks whether `pnpm install` appears to have been run before trying to bootstrap repo tooling."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by:
+    - "mem-20260429-gate-session-start-on-pnpm-install-readiness"
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
+---
 
 ## Summary
 

@@ -1,26 +1,39 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: The repo keeps one explicit host-to-remote mount contract with todo-app while uplink-game is consumed as a host-local game package.
-keywords:
-  - microfrontend
-  - mount contract
-  - todo-app
-  - uplink-game
-  - workspace import
-related_paths:
-  - apps/host/src/domain/playground/TodoWorkspace.tsx
-  - apps/host/src/domain/playground/GameCanvas.tsx
-  - packages/remotes/todo-app/src/contracts.ts
-  - packages/remotes/todo-app/src/mount.tsx
-  - packages/remotes/uplink-game/src/mount.ts
+id: "mem-20260429-workspace-remote-composition"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Workspace Remote Composition"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "The repo keeps one explicit host-to-remote mount contract with todo-app while uplink-game is consumed as a host-local game package."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "microfrontend"
+  - "mount contract"
+  - "todo-app"
+  - "uplink-game"
+  - "workspace import"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+related_paths:
+  - "apps/host/src/domain/playground/TodoWorkspace.tsx"
+  - "apps/host/src/domain/playground/GameCanvas.tsx"
+  - "packages/remotes/todo-app/src/contracts.ts"
+  - "packages/remotes/todo-app/src/mount.tsx"
+  - "packages/remotes/uplink-game/src/mount.ts"
 ---
-
-# Workspace Remote Composition
 
 ## Todo Remote
 

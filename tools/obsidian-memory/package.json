@@ -10,9 +10,15 @@
     "obsidian:bootstrap": "node ./src/bootstrap-obsidian-vault.mjs",
     "rag:init": "node --experimental-strip-types ./src/rag-init.ts",
     "rag:index": "node --experimental-strip-types ./src/rag-index.ts",
+    "rag:classify": "node ./src/rag-classify.mjs",
+    "rag:clean": "node ./src/rag-clean.mjs",
+    "rag:doctor": "node ./src/rag-doctor.mjs",
+    "rag:fix-frontmatter": "node ./src/rag-fix-frontmatter.mjs",
     "rag:query": "node ./src/rag-query.mjs",
     "rag:verify": "node ./src/verify-obsidian-rag.mjs",
+    "rag:write": "node ./src/rag-write.mjs",
     "mcp": "node ./src/rag-mcp-server.mjs",
-    "test:retrieval": "node --test ./tests/obsidian-rag.test.mjs"
+    "rag:test": "node --test ./tests/*.test.mjs",
+    "test:retrieval": "node --test ./tests/*.test.mjs"
   }
 }

@@ -1,4 +1,26 @@
-# Superpowers Skill Import Expansion
+---
+id: "mem-20260429-superpowers-skill-import-expansion"
+type: "session"
+repo_slug: "playground"
+title: "Superpowers Skill Import Expansion"
+status: archived
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "A large set of Superpowers-aligned skills and skill updates was staged into the repo's root `.skills/` surface."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
+---
 
 ## Summary
 

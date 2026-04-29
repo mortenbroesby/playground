@@ -1,26 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-22
-started_at: 2026-04-22 10:30
-branch: main
-summary: Captured implementation-oriented specs for Obsidian RAG improvements and `ai-context-engine` retrieval improvements, then added a design doc evaluating `graphify` as an optional graph sidecar rather than a direct replacement.
-keywords:
-  - obsidian-rag
-  - ai-context-engine
-  - graphify
-  - design-doc
-  - spec
-touched_paths:
-  - .specs/obsidian-rag-improvement-spec.md
-  - .specs/ai-context-engine-rag-improvement-spec.md
-  - .specs/graphify-integration-design.md
+id: "mem-20260422-rag-improvement-specs-and-graphify-design"
+type: "session"
+repo_slug: "playground"
+title: "RAG Improvement Specs And Graphify Design"
+status: archived
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Captured implementation-oriented specs for Obsidian RAG improvements and `ai-context-engine` retrieval improvements, then added a design doc evaluating `graphify` as an optional graph sidecar rather than a direct replacement."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "obsidian-rag"
+  - "ai-context-engine"
+  - "graphify"
+  - "design-doc"
+  - "spec"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+branch: "main"
+started_at: "2026-04-22 10:30"
+touched_paths:
+  - ".specs/obsidian-rag-improvement-spec.md"
+  - ".specs/ai-context-engine-rag-improvement-spec.md"
+  - ".specs/graphify-integration-design.md"
 ---
-
-# RAG Improvement Specs And Graphify Design
 
 ## Summary
 

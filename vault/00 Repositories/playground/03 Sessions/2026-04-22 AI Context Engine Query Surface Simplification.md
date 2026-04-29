@@ -1,4 +1,26 @@
-# AI Context Engine Query Surface Simplification
+---
+id: "mem-20260422-ai-context-engine-query-surface-simplification"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Query Surface Simplification"
+status: archived
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Reduced the preferred agent-facing retrieval contract in `ai-context-engine` by adding a unified `query_code` surface, and moved new public-boundary validation toward `zod` instead of adding more hand-written parsing branches."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+---
 
 ## Summary
 

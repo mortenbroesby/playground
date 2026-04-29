@@ -1,4 +1,26 @@
-# AI Context Engine Phase 2 Watch Mode
+---
+id: "mem-20260415-ai-context-engine-phase-2-watch-mode"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Phase 2 Watch Mode"
+status: archived
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Start the next engine phase on `feat/ai-context-engine-phase2-watch` by adding debounced live refresh support, then reconcile the engine and benchmark specs so they describe the implemented watch-mode slice and the current benchmark artifact surface accurately."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

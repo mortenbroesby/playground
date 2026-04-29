@@ -1,7 +1,26 @@
 ---
-title: AI Context Engine Storage Mode Config
-date: 2026-04-27
-project: playground
+id: "mem-20260427-ai-context-engine-storage-mode-config"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Storage Mode Config"
+status: archived
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "Phase 6 config follow-up for Astrograph storage mode."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+project: "playground"
 ---
 
 Phase 6 config follow-up for Astrograph storage mode.

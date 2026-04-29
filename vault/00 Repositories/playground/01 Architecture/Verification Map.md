@@ -1,25 +1,38 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: Verification should start at the changed workspace and broaden only when contracts, shared packages, or public behavior are affected.
-keywords:
-  - verification
-  - tests
-  - type-check
-  - integration tests
-  - markdown lint
-related_paths:
-  - apps/host/tests
-  - packages/remotes/todo-app/tests/integration
-  - package.json
-  - AGENTS.md
+id: "mem-20260429-verification-map"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Verification Map"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Verification should start at the changed workspace and broaden only when contracts, shared packages, or public behavior are affected."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "verification"
+  - "tests"
+  - "type-check"
+  - "integration tests"
+  - "markdown lint"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+related_paths:
+  - "apps/host/tests"
+  - "packages/remotes/todo-app/tests/integration"
+  - "package.json"
+  - "AGENTS.md"
 ---
-
-# Verification Map
 
 ## Narrow Checks
 

@@ -1,4 +1,26 @@
-# Uplink Game — Keyboard Layout & Pointer Mode (Apr 13)
+---
+id: "mem-20260413-uplink-game-keyboard-layout-pointer-mode-apr-13"
+type: "session"
+repo_slug: "playground"
+title: "Uplink Game — Keyboard Layout & Pointer Mode (Apr 13)"
+status: archived
+created: "2026-04-13"
+updated: "2026-04-13"
+owner: "agent"
+summary: "Updated the Uplink keyboard overlay to a staggered QWERTY layout, added pointer-mode keyboard support, and introduced a silent pointer progress multiplier plus correct-key hit flash feedback."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-27"
+  expires_after: "2026-10-10"
+  keep: false
+---
 
 ## Changes
 

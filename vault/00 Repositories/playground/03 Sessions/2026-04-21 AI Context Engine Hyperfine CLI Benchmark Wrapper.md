@@ -1,26 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 23:49
-branch: main
-summary: Added an optional Hyperfine-backed CLI benchmark wrapper for `ai-context-engine` so command-level timing can be measured separately from the in-process benchmark harness.
-keywords:
-  - ai-context-engine
-  - hyperfine
-  - cli
-  - benchmark
-  - performance
-touched_paths:
-  - packages/ai-context-engine/package.json
-  - packages/ai-context-engine/scripts/benchmark-cli.mjs
-  - packages/ai-context-engine/README.md
+id: "mem-20260421-ai-context-engine-hyperfine-cli-benchmark-wrapper"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Hyperfine CLI Benchmark Wrapper"
+status: archived
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Added an optional Hyperfine-backed CLI benchmark wrapper for `ai-context-engine` so command-level timing can be measured separately from the in-process benchmark harness."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "hyperfine"
+  - "cli"
+  - "benchmark"
+  - "performance"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "main"
+started_at: "2026-04-21 23:49"
+touched_paths:
+  - "packages/ai-context-engine/package.json"
+  - "packages/ai-context-engine/scripts/benchmark-cli.mjs"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Hyperfine CLI Benchmark Wrapper
 
 ## Summary
 

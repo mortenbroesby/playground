@@ -1,92 +1,74 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-27
-started_at: 2026-04-27 13:20
-branch: astrograph-ai-engine-refactor
-summary: Landed the next `.specs/performance-deps.md` slices in `tools/ai-context-engine`: picomatch-backed path matching plus xxh64-vs-SHA hash routing for routine fingerprints and integrity checks.
+id: mem-20260427-ai-context-engine-picomatch-path-matching
+type: session
+repo_slug: playground
+title: AI Context Engine Picomatch Path Matching And Hash Routing
+status: archived
+created: 2026-04-27
+updated: 2026-04-27
+owner: agent
+summary: Added centralized picomatch-backed path matching and split fast xxh64 routine fingerprints from SHA-based integrity checks in Astrograph.
+tags:
+  - type/session
+  - repo/playground
 keywords:
-  - ai-context-engine
+  - astrograph
   - picomatch
   - xxhash
-  - glob
-  - performance
-  - discovery
-  - search
   - hashing
+  - path matching
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-05-11
+  expires_after: 2026-10-24
+  keep: false
+started_at: 2026-04-27 13:20
+branch: astrograph-ai-engine-refactor
 touched_paths:
   - tools/ai-context-engine/package.json
-  - tools/ai-context-engine/README.md
   - tools/ai-context-engine/src/config.ts
   - tools/ai-context-engine/src/hash.ts
   - tools/ai-context-engine/src/path-matcher.ts
   - tools/ai-context-engine/src/filesystem-scan.ts
-  - tools/ai-context-engine/src/parser.ts
   - tools/ai-context-engine/src/storage.ts
-  - tools/ai-context-engine/tests/hash.test.ts
-  - tools/ai-context-engine/tests/path-matcher.test.ts
-  - tools/ai-context-engine/tests/filesystem-scan.test.ts
-  - tools/ai-context-engine/tests/engine-behavior.test.ts
-  - tools/ai-context-engine/tests/engine-contract.test.ts
-  - tools/ai-context-engine/tests/interface.test.ts
-  - pnpm-lock.yaml
-tags:
-  - type/session
-  - repo/playground
+goal: Replace ad hoc path and hash logic with shared runtime utilities for Astrograph.
+outcome: Path filtering moved to compiled picomatch helpers, fast and integrity hash roles were separated, and schema/tests were updated around the new hash contract.
+decisions:
+  - Use centralized picomatch-backed matching for discovery and file-pattern filters.
+  - Use xxh64 for routine fingerprints and keep SHA only for integrity verification.
+blockers: []
+next_step: Keep future performance-dependency notes focused on one runtime utility change at a time.
 ---
 
-# AI Context Engine Picomatch Path Matching And Hash Routing
+## Goal
 
-## Summary
-
-This session lands the next `.specs/performance-deps.md` slices for the
-Astrograph workspace.
-
-It adds a centralized `path-matcher` utility backed by compiled `picomatch`
-matchers, then lands the first shared `xxh64` hashing utility for routine
-fingerprints while preserving SHA-256 for integrity checks.
-
-Path matching now covers the two live path-filter seams:
-
-- source discovery include/exclude filtering
-- `filePattern` filtering for symbol and text search
-
-Hash routing now covers the first routine fingerprint seams:
-
-- filesystem snapshot content fingerprints
-- directory snapshot hashes
-- persisted `symbol_signature_hash`
-- persisted `import_hash`
-- parser-produced file fingerprints plus a separate persisted integrity hash
+Standardize path matching and hash policy across Astrograph’s discovery and
+search paths.
 
 ## What Changed
 
-- added `picomatch` as a runtime dependency for `tools/ai-context-engine`
-- added `@types/picomatch` as the workspace type source and removed the local
-  shim
-- added `@node-rs/xxhash` and introduced `src/hash.ts` as the shared hash
-  policy utility
-- introduced `src/path-matcher.ts` with normalized include/exclude matching and
-  exclude precedence
-- preserved dotfile matching and Windows-style separator normalization
-- extended `discoverSourceFiles` so future include/exclude callers can reuse the
-  compiled matcher without per-file recompilation
-- replaced the ad hoc regex-based `filePattern` matcher in `storage.ts` with the
-  centralized matcher
-- split fast file fingerprints from integrity verification by keeping
-  `content_hash` on routine `xxh64` fingerprints and persisting a separate
-  `integrity_hash` for SHA-256 verification
-- bumped the Astrograph schema version to add the new `integrity_hash` column
-- added focused tests for include/exclude precedence, Windows-style patterns,
-  dotfiles, hash-policy routing, and integration coverage across discovery,
-  search, diagnostics, and interface contracts
+- added a centralized picomatch-backed path matcher
+- replaced ad hoc file-pattern matching with the shared matcher
+- introduced shared xxh64 hashing for routine fingerprints while preserving
+  separate SHA-backed integrity verification
+
+## Why It Mattered
+
+This removed scattered matching and hashing policy from the codebase and made
+the fast path versus integrity path distinction explicit.
 
 ## Verification
 
 - `pnpm --filter @astrograph/astrograph test -- tests/hash.test.ts tests/filesystem-scan.test.ts tests/engine-contract.test.ts tests/engine-behavior.test.ts`
 - `pnpm --filter @astrograph/astrograph type-check`
 
-`tests/interface.test.ts` still hits Bun observability startup/localhost bind
-failures in this sandbox (`observability server exited before startup: 1` and
-`listen EPERM 127.0.0.1:34323`), but the non-observability interface assertions
-that this slice touched passed before those environment-level failures.
+## Notes
+
+Sandboxed Bun observability assertions were still environment-sensitive, so the
+meaningful coverage for this slice came from the non-observability engine and
+contract tests.

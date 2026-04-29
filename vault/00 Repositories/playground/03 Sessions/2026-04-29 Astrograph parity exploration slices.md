@@ -1,4 +1,26 @@
-# 2026-04-29 Astrograph parity exploration slices
+---
+id: "mem-20260429-2026-04-29-astrograph-parity-exploration-slices"
+type: "session"
+repo_slug: "playground"
+title: "2026-04-29 Astrograph parity exploration slices"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "Captured the April 29 Astrograph parity slices: exploration tools, readiness-stage reporting, fallback summaries, and the first explicit language-registry wiring."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
+---
 
 ## Summary
 

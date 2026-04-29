@@ -1,27 +1,40 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: Shared packages are intentionally thin: ui exports reusable components, types exports cross-workspace contracts, and config centralizes TypeScript and ESLint settings.
-keywords:
-  - shared packages
-  - turborepo
-  - pnpm workspaces
-  - shared ui
-  - shared types
-  - shared config
-related_paths:
-  - packages/ui/src
-  - packages/types/src/index.ts
-  - packages/config
-  - package.json
-  - turbo.json
+id: "mem-20260429-shared-packages-and-tooling"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Shared Packages and Tooling"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Shared packages are intentionally thin: ui exports reusable components, types exports cross-workspace contracts, and config centralizes TypeScript and ESLint settings."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "shared packages"
+  - "turborepo"
+  - "pnpm workspaces"
+  - "shared ui"
+  - "shared types"
+  - "shared config"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+related_paths:
+  - "packages/ui/src"
+  - "packages/types/src/index.ts"
+  - "packages/config"
+  - "package.json"
+  - "turbo.json"
 ---
-
-# Shared Packages and Tooling
 
 ## Workspace Shape
 

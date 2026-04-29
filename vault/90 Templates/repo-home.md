@@ -1,12 +1,26 @@
 ---
-type: repo
+id: mem-<% tp.date.now("YYYYMMDD") %>-<% tp.user.repo_context.currentRepo(tp) %>-home
+type: repo-home
 repo_slug: <% tp.user.repo_context.currentRepo(tp) %>
+title: <% tp.user.repo_context.currentRepo(tp) %>
 repo_path:
 status: active
+created: <% tp.date.now("YYYY-MM-DD") %>
+updated: <% tp.date.now("YYYY-MM-DD") %>
 summary:
 keywords: []
 stack: []
 owner:
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: <% tp.date.now("YYYY-MM-DD", 180) %>
+  expires_after: null
+  keep: true
 source_of_truth: []
 active_focus:
 last_reviewed: <% tp.date.now("YYYY-MM-DD") %>
@@ -15,8 +29,6 @@ tags:
   - state/active
   - repo/<% tp.user.repo_context.currentRepo(tp) %>
 ---
-
-# Repo Home - <% tp.user.repo_context.currentRepo(tp) %>
 
 ## What This Repo Is
 
@@ -47,7 +59,7 @@ Trim or replace this list so it matches the actual repo.
 
 ## Key Decisions
 
-- links to decision notes under `02 Decisions/`
+- links to architecture-record notes under `02 Decisions/`
 
 ## Next Actions
 

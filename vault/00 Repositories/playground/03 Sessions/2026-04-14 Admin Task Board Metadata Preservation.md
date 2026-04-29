@@ -1,30 +1,43 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-14
-started_at: 2026-04-14 23:20
-summary: Hardened the admin task-board round-trip so vault metadata and non-lane sections are preserved.
-keywords:
-  - admin
-  - task board
-  - kanban
-  - parser
-  - metadata
-touched_paths:
-  - apps/admin/src/lib/kanban.ts
-  - apps/admin/src/types.ts
-  - apps/admin/tests/kanban.test.ts
-  - apps/admin/src/lib/kanban-source.ts
-  - apps/admin/src/App.tsx
-  - apps/admin/tests/app.integration.test.tsx
-  - apps/admin/package.json
-  - apps/admin/vite.config.ts
+id: "mem-20260414-admin-task-board-metadata-preservation"
+type: "session"
+repo_slug: "playground"
+title: "Admin Task Board Metadata Preservation"
+status: archived
+created: "2026-04-14"
+updated: "2026-04-14"
+owner: "agent"
+summary: "Hardened the admin task-board round-trip so vault metadata and non-lane sections are preserved."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "admin"
+  - "task board"
+  - "kanban"
+  - "parser"
+  - "metadata"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-28"
+  expires_after: "2026-10-11"
+  keep: false
+started_at: "2026-04-14 23:20"
+touched_paths:
+  - "apps/admin/src/lib/kanban.ts"
+  - "apps/admin/src/types.ts"
+  - "apps/admin/tests/kanban.test.ts"
+  - "apps/admin/src/lib/kanban-source.ts"
+  - "apps/admin/src/App.tsx"
+  - "apps/admin/tests/app.integration.test.tsx"
+  - "apps/admin/package.json"
+  - "apps/admin/vite.config.ts"
 ---
-
-# Admin Task Board Metadata Preservation
 
 ## Outcome
 

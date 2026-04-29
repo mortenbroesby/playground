@@ -12,6 +12,7 @@ import {
   loadMemoryCorpus,
   retrieveMemoryCandidates,
 } from "./obsidian-rag.mjs";
+import { verifyTypedMemory } from "./rag-governance.mjs";
 
 const execFile = promisify(execFileCallback);
 const scriptPath = fileURLToPath(import.meta.url);
@@ -36,29 +37,75 @@ async function buildIndexedCorpus(vaultPath) {
     },
   );
 
-  return loadMemoryCorpus(
-    path.join(outputDir, "obsidian-vault.corpus.json"),
-  );
+  return loadMemoryCorpus(outputDir);
 }
 
 async function seedVerificationNotes(vaultPath) {
   const notes = [
     {
+      relativePath: "00 Repositories/playground/00 Repo Home.md",
+      content: `---
+id: mem-20260410-playground-home
+type: repo-home
+repo_slug: playground
+title: playground
+status: active
+created: 2026-04-10
+updated: 2026-04-10
+owner: morten
+summary: Test repo home for typed verification fixtures.
+tags:
+  - repo/playground
+keywords:
+  - active focus
+  - playground
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-07-10
+  expires_after: null
+  keep: true
+---
+
+# playground
+
+## Active Focus
+
+Keep the fixture vault small while proving typed verification and retrieval behavior.`,
+    },
+    {
       relativePath:
         "00 Repositories/playground/01 Architecture/Host Ownership.md",
       content: `---
-type: repo-architecture
-repo: playground
+id: mem-20260410-host-ownership
+type: architecture-record
+repo_slug: playground
+title: Host Ownership
+status: accepted
+created: 2026-04-10
+updated: 2026-04-10
+owner: agent
 summary: The host app owns routing, page composition, and page metadata for public and playground routes.
 keywords:
   - host routing
   - page composition
   - metadata
-related_paths:
-  - apps/host/src/application/routes
-  - apps/host/src/application/pages
 tags:
   - repo/playground
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-10-10
+  expires_after: null
+  keep: true
 ---
 
 # Host Ownership
@@ -70,22 +117,33 @@ defining the site shell or top-level navigation.`,
       relativePath:
         "00 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
       content: `---
-type: repo-decision
-repo: playground
-decision_id: DEC-001
+id: mem-20260408-narrow-mfe-scope
+type: architecture-record
+repo_slug: playground
+title: Narrow MFE Scope
 status: accepted
-decided_on: 2026-04-08
+created: 2026-04-08
+updated: 2026-04-08
+owner: agent
 summary: Narrow the microfrontend seam so todo-app remains the sole live injected remote.
 keywords:
   - todo-app
   - sole live injected remote
   - microfrontend
-related_paths:
-  - packages/remotes/todo-app
-  - packages/remotes/uplink-game
 tags:
   - type/decision
   - repo/playground
+links:
+  parents: []
+  children: []
+  related:
+    - mem-20260410-host-ownership
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-10-08
+  expires_after: null
+  keep: true
 ---
 
 # Narrow MFE Scope
@@ -97,18 +155,33 @@ playground surface because the extra mount indirection was not paying for itself
       relativePath:
         "00 Repositories/playground/01 Architecture/Rendering Strategy.md",
       content: `---
-type: repo-architecture
-repo: playground
+id: mem-20260410-rendering-strategy
+type: investigation
+repo_slug: playground
+title: Rendering Strategy
+status: active
+created: 2026-04-10
+updated: 2026-04-10
+owner: agent
 summary: Evaluate SSR or pre-rendering for the public host to improve first load and crawler behavior.
 keywords:
   - SSR
   - pre-rendering
   - rendering strategy
-related_paths:
-  - apps/host
 tags:
   - type/architecture
   - repo/playground
+links:
+  parents: []
+  children: []
+  related:
+    - mem-20260410-host-ownership
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-06-10
+  expires_after: 2026-10-10
+  keep: false
 ---
 
 # Rendering Strategy
@@ -120,20 +193,33 @@ for metadata and first load quality. Capture a decision note once the direction 
       relativePath:
         "00 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
       content: `---
-type: repo-session
-repo: playground
-date: 2026-04-10
-started_at: 2026-04-10 10:30
+id: mem-20260410-route-metadata-pass
+type: session
+repo_slug: playground
+title: Route Metadata Pass
+status: active
+created: 2026-04-10
+updated: 2026-04-10
+owner: agent
 summary: Added route-aware metadata coverage across playground routes and kept host route ownership explicit.
 keywords:
   - route metadata
   - SEO
   - host route ownership
-touched_paths:
-  - apps/host/src/application/pages
 tags:
   - type/session
   - repo/playground
+links:
+  parents: []
+  children: []
+  related:
+    - mem-20260410-host-ownership
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-04-24
+  expires_after: 2026-10-10
+  keep: false
 ---
 
 # Route Metadata Pass
@@ -204,6 +290,11 @@ async function run() {
     await seedVerificationNotes(vaultPath);
 
     const corpus = await buildIndexedCorpus(vaultPath);
+    const verification = await verifyTypedMemory({
+      vaultRoot: vaultPath,
+      indexRoot: path.join(vaultPath, ".rag"),
+      repoRoot,
+    });
     const results = checks.map((check) => {
       const candidates = retrieveMemoryCandidates({
         corpus,
@@ -242,9 +333,9 @@ async function run() {
 
     const failed = results.filter((result) => !result.passed);
 
-    console.log(JSON.stringify({ vaultPath, results }, null, 2));
+    console.log(JSON.stringify({ vaultPath, verification, results }, null, 2));
 
-    if (failed.length > 0) {
+    if (failed.length > 0 || !verification.passed) {
       process.exitCode = 1;
     }
   } finally {

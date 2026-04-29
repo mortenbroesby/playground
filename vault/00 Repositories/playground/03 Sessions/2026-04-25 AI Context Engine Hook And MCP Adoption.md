@@ -1,17 +1,31 @@
 ---
-type: session-note
-repo: playground
-date: 2026-04-25
-summary: Replaced active jcodemunch hook and MCP workflow references with ai-context-engine and added a small hook-side reindex adapter.
+id: "mem-20260425-ai-context-engine-hook-and-mcp-adoption"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Hook And MCP Adoption"
+status: archived
+created: "2026-04-25"
+updated: "2026-04-25"
+owner: "agent"
+summary: "Replaced active jcodemunch hook and MCP workflow references with ai-context-engine and added a small hook-side reindex adapter."
 tags:
-  - type/session
-  - repo/playground
-  - ai-context-engine
-  - hooks
-  - mcp
+  - "type/session"
+  - "repo/playground"
+  - "ai-context-engine"
+  - "hooks"
+  - "mcp"
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-09"
+  expires_after: "2026-10-22"
+  keep: false
 ---
-
-# AI Context Engine Hook And MCP Adoption
 
 ## What changed
 

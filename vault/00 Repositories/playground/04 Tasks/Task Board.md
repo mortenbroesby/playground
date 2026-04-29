@@ -1,24 +1,37 @@
 ---
-type: repo-tasks
-repo: playground
-status: active
-summary: Canonical kanban-style task board for the playground repo.
-keywords:
-  - tasks
-  - kanban
-  - backlog
-  - ready
-  - in progress
-  - done
-related_paths:
-  - KANBAN.md
-  - BRAINDUMP.md
+id: "mem-20260429-task-board"
+type: "todo"
+repo_slug: "playground"
+title: "Task Board"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Canonical kanban-style task board for the playground repo."
 tags:
-  - type/tasks
-  - repo/playground
+  - "type/tasks"
+  - "repo/playground"
+keywords:
+  - "tasks"
+  - "kanban"
+  - "backlog"
+  - "ready"
+  - "in progress"
+  - "done"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
+related_paths:
+  - "KANBAN.md"
+  - "BRAINDUMP.md"
 ---
-
-# Task Board
 
 Canonical task board for `playground`.
 

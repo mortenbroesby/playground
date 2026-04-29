@@ -9,12 +9,16 @@ import { findProjectRoot } from "workspace-tools";
 import {
   assembleMemoryContext,
   loadMemoryCorpus,
+  planMemoryQuery,
   retrieveMemoryCandidates,
 } from "./obsidian-rag.mjs";
 
 const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
-const defaultCorpusPath = path.join(repoRoot, ".rag", "obsidian-vault.corpus.json");
+const defaultIndexRoot = path.join(repoRoot, ".rag");
 
+/**
+ * Parse command-line flags for the typed memory query CLI.
+ */
 function parseArgs(argv) {
   const options = {
     query: "",
@@ -22,7 +26,7 @@ function parseArgs(argv) {
     tokenBudget: 600,
     repoSlug: undefined,
     noteType: undefined,
-    corpusPath: defaultCorpusPath,
+    indexPath: defaultIndexRoot,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -59,7 +63,7 @@ function parseArgs(argv) {
     }
 
     if (arg === "--corpus") {
-      options.corpusPath = path.resolve(process.cwd(), argv[index + 1] ?? "");
+      options.indexPath = path.resolve(process.cwd(), argv[index + 1] ?? "");
       index += 1;
       continue;
     }
@@ -73,27 +77,38 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Print usage for `pnpm rag:query`.
+ */
 function printUsage() {
   console.log(
     [
       "Usage:",
-      "  pnpm rag:query --query <text> [--limit 5] [--budget 600] [--repo-slug playground] [--note-type repo-session]",
+      "  pnpm rag:query --query <text> [--limit 5] [--budget 600] [--repo-slug playground] [--note-type session]",
       "",
-      "Search the Obsidian memory corpus and assemble a bounded context bundle.",
+      "Search the typed Obsidian memory indexes and assemble a bounded context bundle.",
     ].join("\n"),
   );
 }
 
-async function ensureCorpus(corpusPath) {
+/**
+ * Ensure the typed memory index exists before attempting retrieval.
+ */
+async function ensureIndex(indexPath) {
   try {
-    await stat(corpusPath);
+    const indexRoot = indexPath.endsWith(".json") ? path.dirname(indexPath) : indexPath;
+    await stat(path.join(indexRoot, "chunk-index.json"));
+    await stat(path.join(indexRoot, "note-registry.json"));
   } catch {
     throw new Error(
-      `Corpus not found at ${corpusPath}. Run pnpm rag:index first.`,
+      `Typed memory index not found at ${indexPath}. Run pnpm rag:index first.`,
     );
   }
 }
 
+/**
+ * Run the typed memory query CLI and print ranked candidates plus context.
+ */
 async function run() {
   const options = parseArgs(process.argv.slice(2));
 
@@ -101,14 +116,16 @@ async function run() {
     throw new Error("--query is required");
   }
 
-  await ensureCorpus(options.corpusPath);
-  const corpus = await loadMemoryCorpus(options.corpusPath);
+  await ensureIndex(options.indexPath);
+  const queryPlan = planMemoryQuery(options.query);
+  const corpus = await loadMemoryCorpus(options.indexPath);
   const candidates = retrieveMemoryCandidates({
     corpus,
     query: options.query,
     limit: options.limit,
     repoSlug: options.repoSlug,
     noteType: options.noteType,
+    queryPlan,
   });
   const context = assembleMemoryContext({
     query: options.query,
@@ -118,7 +135,8 @@ async function run() {
 
   const output = {
     query: options.query,
-    corpusPath: path.relative(repoRoot, options.corpusPath),
+    queryPlan,
+    indexPath: path.relative(repoRoot, options.indexPath),
     filters: {
       repoSlug: options.repoSlug ?? null,
       noteType: options.noteType ?? null,

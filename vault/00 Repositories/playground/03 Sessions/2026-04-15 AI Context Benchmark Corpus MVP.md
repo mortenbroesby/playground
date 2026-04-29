@@ -1,4 +1,26 @@
-# AI Context Benchmark Corpus MVP
+---
+id: "mem-20260415-ai-context-benchmark-corpus-mvp"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Benchmark Corpus MVP"
+status: archived
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Add the first checked-in benchmark corpus for `@playground/ai-context-engine-bench` and prove the harness can execute it through both the library runner and the CLI."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

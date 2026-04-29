@@ -1,4 +1,26 @@
-# AI Context Engine Npm Bin Hardening
+---
+id: "mem-20260422-ai-context-engine-npm-bin-hardening"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Npm Bin Hardening"
+status: archived
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Hardened `tools/ai-context-engine` for npm-style CLI use by adding an explicit build contract, shipping built `dist` artifacts through `prepack`, and verifying the packed tarball can install and run the `ai-context-engine` bin in a temporary project."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+---
 
 ## Summary
 

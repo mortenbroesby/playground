@@ -1,20 +1,35 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: Import/adapt/reject matrix for bringing addyosmani agent-skills concepts into the repo-native .agents architecture.
-keywords:
-  - agent skills
-  - workflow
-  - skills
-  - references
-  - adapters
+id: "mem-20260429-agent-skills-import-matrix"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Agent Skills Import Matrix"
+status: "archived"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Archived migration-era matrix for comparing addyosmani agent-skills ideas against the repo’s current on-demand `.skills` model."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "agent skills"
+  - "workflow"
+  - "skills"
+  - "references"
+  - "adapters"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by:
+    - "mem-20260429-root-skills-architecture"
+    - "mem-20260429-use-root-skills-as-canonical-repo-owned-skills-store"
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Agent Skills Import Matrix
 
 ## Intent
 
@@ -24,39 +39,21 @@ architecture changes.
 
 ## Import
 
-These concepts fit the existing `.agents/` layout with little or no conflict:
-
-| Upstream concept | Decision | Reason |
-| --- | --- | --- |
-| Lifecycle commands and umbrella workflow | imported | Already mapped into shared command prompts and `engineering-workflow`. |
-| Core lifecycle skills | imported | They fit repo-native shared markdown skills. |
-| `debugging-and-error-recovery` | imported | Useful general workflow with no runtime-specific dependency. |
-| `documentation-and-adrs` | imported | Matches the repo's README, AGENTS, and vault-memory model. |
-| `api-and-interface-design` | imported | The repo has explicit host, remote, and shared-type boundaries. |
-| Compact reference checklists | adapted import | Small markdown references fit progressive disclosure without changing adapters. |
+Import lifecycle workflows, core markdown skills, and small reference
+checklists where they fit the existing repo-native `.agents/` model. Good
+examples are debugging, documentation/ADR support, and API/interface design.
 
 ## Adapt
 
-These concepts are useful, but only in repo-native form:
-
-| Upstream concept | Decision | Reason |
-| --- | --- | --- |
-| `browser-testing-with-devtools` | adapted | Keep the skill, but describe browser verification generically so it can work with available automation, devtools, or focused manual checks. |
-| Testing, security, performance, and accessibility references | adapted | Use repo-specific commands, rules, and verification norms instead of upstream generic examples. |
-| Future persona-style specialists | adapt later | If the repo needs shared personas, source should live under `.agents/agents/` with runtime-specific adapters only where schemas diverge. |
+Adapt browser testing, quality references, and any future persona-style
+specialists into repo-native forms. The repo wants local commands, local rules,
+and thin runtime adapters rather than upstream-specific wrappers.
 
 ## Reject
 
-These concepts do not fit the current architecture or would create redundant
-surface area:
-
-| Upstream concept | Decision | Reason |
-| --- | --- | --- |
-| `.claude-plugin/` and runtime-specific plugin scaffolding | reject | Conflicts with the repo's thin-adapter model and `agents:check` forbids it. |
-| Tool-specific setup docs copied into the repo | reject | Repo-local `AGENTS.md`, README, and thin adapters already document the supported runtime surface. |
-| Upstream hooks layout | reject | The repo already has a documented shared hook architecture under `.agents/hooks/`. |
-| Duplicative frontend, security, CI, git, and shipping plugin wrappers | reject | Existing rules, repo scripts, hooks, and selected skills already cover the compatible parts without extra wrapper surface. |
-| Dormant persona files with no runtime consumer | reject for now | Shared persona source is reasonable later, but unused files would drift immediately. |
+Reject runtime-specific plugin scaffolding, copied setup docs, upstream hook
+layouts, and dormant wrapper surfaces with no local consumer. The repo already
+has thin adapters, shared hooks, and selected support skills.
 
 ## Follow-Up
 

@@ -1,28 +1,41 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-14
-started_at: 2026-04-14 22:25
-summary: Added a separate opt-in Ralph runner inspired by snarktank/ralph without replacing the existing planning skill.
-keywords:
-  - ralph
-  - codex
-  - claude
-  - automation
-  - prd
-touched_paths:
-  - scripts/ralph/init.mjs
-  - scripts/ralph/loop.mjs
-  - scripts/ralph/prompt.md
-  - package.json
-  - docs/ralph-runner.md
-  - docs/README.md
+id: "mem-20260414-opt-in-ralph-runner"
+type: "session"
+repo_slug: "playground"
+title: "Opt-In Ralph Runner"
+status: archived
+created: "2026-04-14"
+updated: "2026-04-14"
+owner: "agent"
+summary: "Added a separate opt-in Ralph runner inspired by snarktank/ralph without replacing the existing planning skill."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ralph"
+  - "codex"
+  - "claude"
+  - "automation"
+  - "prd"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-28"
+  expires_after: "2026-10-11"
+  keep: false
+started_at: "2026-04-14 22:25"
+touched_paths:
+  - "scripts/ralph/init.mjs"
+  - "scripts/ralph/loop.mjs"
+  - "scripts/ralph/prompt.md"
+  - "package.json"
+  - "docs/ralph-runner.md"
+  - "docs/README.md"
 ---
-
-# Opt-In Ralph Runner
 
 ## Outcome
 

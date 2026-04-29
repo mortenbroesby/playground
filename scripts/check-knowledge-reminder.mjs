@@ -7,6 +7,7 @@ const BYPASS_ENV = "SKIP_DOCS_CHECK";
 const BYPASS_MEMORY_ENV = "SKIP_MEMORY_CHECK";
 const LARGE_FILE_COUNT = 4;
 const LARGE_LINE_COUNT = 120;
+const NOTE_ROUTING_RULE = ".agents/rules/memory-note-routing.md";
 
 function git(args) {
   return execFileSync("git", args, {
@@ -154,6 +155,7 @@ if (!memoryUpdated && !memoryBypassed) {
   summary.push(
     "",
     "Stage a vault note under vault/00 Repositories/ before committing.",
+    `Choose task vs decision vs architecture vs session with ${NOTE_ROUTING_RULE}.`,
     `For an intentional no-memory commit, rerun with ${BYPASS_MEMORY_ENV}=1 git commit ...`,
   );
 

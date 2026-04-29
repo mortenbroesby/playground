@@ -1,4 +1,26 @@
-# AI Context Benchmark Tiktoken
+---
+id: "mem-20260415-ai-context-benchmark-tiktoken"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Benchmark Tiktoken"
+status: archived
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Replace the benchmark harness token approximation with real `tiktoken` accounting so the package reports truthful `cl100k_base` numbers."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

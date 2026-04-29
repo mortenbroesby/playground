@@ -1,25 +1,38 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-14
-started_at: 2026-04-14 22:10
-summary: Removed the README agent-workflow section and added constraints to keep AGENTS.md as a thin bootstrap.
-keywords:
-  - agents
-  - docs
-  - bootstrap
-  - constraints
-  - README
-touched_paths:
-  - README.md
-  - AGENTS.md
-  - .agents/rules/agent-infrastructure.md
+id: "mem-20260414-agents-bootstrap-constraints"
+type: "session"
+repo_slug: "playground"
+title: "AGENTS Bootstrap Constraints"
+status: archived
+created: "2026-04-14"
+updated: "2026-04-14"
+owner: "agent"
+summary: "Removed the README agent-workflow section and added constraints to keep AGENTS.md as a thin bootstrap."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "agents"
+  - "docs"
+  - "bootstrap"
+  - "constraints"
+  - "README"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-28"
+  expires_after: "2026-10-11"
+  keep: false
+started_at: "2026-04-14 22:10"
+touched_paths:
+  - "README.md"
+  - "AGENTS.md"
+  - ".agents/rules/agent-infrastructure.md"
 ---
-
-# AGENTS Bootstrap Constraints
 
 ## Outcome
 

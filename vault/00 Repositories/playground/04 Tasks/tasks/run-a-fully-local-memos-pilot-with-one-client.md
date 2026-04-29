@@ -1,14 +1,29 @@
 ---
-type: repo-task
-repo: playground
-id: run-a-fully-local-memos-pilot-with-one-client
-priority: P2
-status: Ready
+id: "run-a-fully-local-memos-pilot-with-one-client"
+type: "todo"
+repo_slug: "playground"
+title: "Run a fully local MemOS pilot with one client"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "If MemOS is worth adding, it should prove value as an auxiliary memory layer without replacing the vault or adding paid API dependencies."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
 ai_appetite: 70
+priority: "P2"
 source: "[2026-04-17 MemOS Evaluation Ideas.md](</Users/macbook/personal/playground/vault/00 Repositories/playground/03 Sessions/2026-04-17 MemOS Evaluation Ideas.md>)."
 ---
-
-# Run a fully local MemOS pilot with one client
 
 ## Why
 

@@ -1,4 +1,26 @@
-# Tool Workspace Consolidation
+---
+id: "mem-20260422-tool-workspace-consolidation"
+type: "session"
+repo_slug: "playground"
+title: "Tool Workspace Consolidation"
+status: archived
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Moved the code-context and repo-memory tooling into explicit `tools/*` workspaces so they can own their scripts, dependencies, and docs without floating entrypoints at repo root or under `packages/`."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+---
 
 ## Summary
 

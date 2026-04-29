@@ -1,33 +1,46 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 23:27
-branch: main
-summary: Made `ai-context-engine` diagnostics cheap by default, added explicit live freshness scanning, and split the benchmark to show metadata vs scan cost.
-keywords:
-  - ai-context-engine
-  - diagnostics
-  - benchmark
-  - freshness
-  - cli
-touched_paths:
-  - packages/ai-context-engine/src/types.ts
-  - packages/ai-context-engine/src/index.ts
-  - packages/ai-context-engine/src/storage.ts
-  - packages/ai-context-engine/src/cli.ts
-  - packages/ai-context-engine/src/mcp.ts
-  - packages/ai-context-engine/scripts/benchmark-small.mjs
-  - packages/ai-context-engine/tests/engine-behavior.test.ts
-  - packages/ai-context-engine/tests/interface.test.ts
-  - packages/ai-context-engine/tests/mutation-smoke.cli.test.ts
-  - packages/ai-context-engine/README.md
+id: "mem-20260421-ai-context-engine-cheap-diagnostics-default"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Cheap Diagnostics Default"
+status: archived
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Made `ai-context-engine` diagnostics cheap by default, added explicit live freshness scanning, and split the benchmark to show metadata vs scan cost."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "diagnostics"
+  - "benchmark"
+  - "freshness"
+  - "cli"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "main"
+started_at: "2026-04-21 23:27"
+touched_paths:
+  - "packages/ai-context-engine/src/types.ts"
+  - "packages/ai-context-engine/src/index.ts"
+  - "packages/ai-context-engine/src/storage.ts"
+  - "packages/ai-context-engine/src/cli.ts"
+  - "packages/ai-context-engine/src/mcp.ts"
+  - "packages/ai-context-engine/scripts/benchmark-small.mjs"
+  - "packages/ai-context-engine/tests/engine-behavior.test.ts"
+  - "packages/ai-context-engine/tests/interface.test.ts"
+  - "packages/ai-context-engine/tests/mutation-smoke.cli.test.ts"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Cheap Diagnostics Default
 
 ## Summary
 

@@ -1,30 +1,43 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-22
-started_at: 2026-04-22 11:20
-branch: main
-summary: Extracted Obsidian memory retrieval into a reusable module with structured candidates and bounded context assembly, added focused tests and a direct `rag:query` command, and rewired the memory verifier and MCP server to use the shared retrieval surface.
-keywords:
-  - obsidian-rag
-  - memory-search
-  - rag-query
-  - mcp
-  - retrieval
-touched_paths:
-  - tools/obsidian-rag.mjs
-  - tools/obsidian-rag.test.mjs
-  - tools/rag-query.mjs
-  - tools/rag-mcp-server.mjs
-  - scripts/verify-obsidian-rag.mjs
-  - package.json
-  - vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md
+id: "mem-20260422-obsidian-rag-retrieval-surface"
+type: "session"
+repo_slug: "playground"
+title: "Obsidian RAG Retrieval Surface"
+status: archived
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Extracted Obsidian memory retrieval into a reusable module with structured candidates and bounded context assembly, added focused tests and a direct `rag:query` command, and rewired the memory verifier and MCP server to use the shared retrieval surface."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "obsidian-rag"
+  - "memory-search"
+  - "rag-query"
+  - "mcp"
+  - "retrieval"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+branch: "main"
+started_at: "2026-04-22 11:20"
+touched_paths:
+  - "tools/obsidian-rag.mjs"
+  - "tools/obsidian-rag.test.mjs"
+  - "tools/rag-query.mjs"
+  - "tools/rag-mcp-server.mjs"
+  - "scripts/verify-obsidian-rag.mjs"
+  - "package.json"
+  - "vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md"
 ---
-
-# Obsidian RAG Retrieval Surface
 
 ## Summary
 

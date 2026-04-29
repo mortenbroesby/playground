@@ -1,12 +1,26 @@
 ---
-type: repo
+id: mem-__TODAY_COMPACT__-__REPO_SLUG__-home
+type: repo-home
 repo_slug: __REPO_SLUG__
+title: __REPO_SLUG__
 repo_path: __REPO_PATH__
 status: active
+created: __TODAY__
+updated: __TODAY__
 summary:
 keywords: []
 stack: []
 owner: __OWNER__
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: __REVIEW_AFTER_180_DAYS__
+  expires_after: null
+  keep: true
 source_of_truth:
   - README.md
   - AGENTS.md
@@ -17,8 +31,6 @@ tags:
   - state/active
   - repo/__REPO_SLUG__
 ---
-
-# __REPO_SLUG__
 
 ## What This Repo Is
 
@@ -49,7 +61,7 @@ If you know the actual repo path, update `repo_path` and add direct file links h
 ```dataview
 TABLE started_at, goal, outcome, next_step
 FROM "00 Repositories/__REPO_SLUG__/03 Sessions"
-WHERE type = "repo-session"
+WHERE type = "session"
 SORT started_at DESC
 LIMIT 10
 ```
@@ -57,10 +69,10 @@ LIMIT 10
 ## Key Decisions
 
 ```dataview
-TABLE decision_id, status, decided_on
+TABLE title, status, updated
 FROM "00 Repositories/__REPO_SLUG__/02 Decisions"
-WHERE type = "repo-decision"
-SORT decided_on DESC
+WHERE type = "architecture-record"
+SORT updated DESC
 ```
 
 ## Next Actions

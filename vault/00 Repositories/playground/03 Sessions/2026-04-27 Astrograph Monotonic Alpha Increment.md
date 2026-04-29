@@ -1,11 +1,29 @@
 ---
-date: 2026-04-27
-project: playground
-branch: astrograph-ai-engine-refactor
-area: tools/ai-context-engine
+id: "mem-20260427-astrograph-monotonic-alpha-increment"
+type: "session"
+repo_slug: "playground"
+title: "Astrograph Monotonic Alpha Increment"
+status: archived
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "Astrograph's trailing `alpha.increment` is monotonic and is never reset."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+area: "tools/ai-context-engine"
+branch: "astrograph-ai-engine-refactor"
+project: "playground"
 ---
-
-# Astrograph Monotonic Alpha Increment
 
 ## Decision
 

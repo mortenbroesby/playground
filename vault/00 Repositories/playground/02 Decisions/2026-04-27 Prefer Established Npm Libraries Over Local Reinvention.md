@@ -1,26 +1,39 @@
 ---
-type: repo-decision
-repo: playground
-decision_id: DEC-2026-04-27-established-npm-libraries
-status: accepted
-decided_on: 2026-04-27
-summary: Prefer established npm libraries and published companion types over local reinvention when the dependency is low-risk or medium-risk and already fits the repo.
-keywords:
-  - npm
-  - libraries
-  - types
-  - agent workflow
-  - pragmatism
-related_paths:
-  - AGENTS.md
-  - tools/ai-context-engine/package.json
-  - tools/ai-context-engine/src/path-matcher.ts
+id: "mem-20260427-prefer-established-npm-libraries-over-local-reinvention"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Prefer Established Npm Libraries Over Local Reinvention"
+status: "accepted"
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "morten"
+summary: "Prefer established npm libraries and published companion types over local reinvention when the dependency is low-risk or medium-risk and already fits the repo."
 tags:
-  - type/decision
-  - repo/playground
+  - "type/decision"
+  - "repo/playground"
+keywords:
+  - "npm"
+  - "libraries"
+  - "types"
+  - "agent workflow"
+  - "pragmatism"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-24"
+  expires_after: null
+  keep: true
+decided_on: "2026-04-27"
+decision_id: "DEC-2026-04-27-established-npm-libraries"
+related_paths:
+  - "AGENTS.md"
+  - "tools/ai-context-engine/package.json"
+  - "tools/ai-context-engine/src/path-matcher.ts"
 ---
-
-# Prefer Established Npm Libraries Over Local Reinvention
 
 Agents working in this repo should not be overly conservative about pulling in
 small or moderate established npm packages when they clearly fit the problem.

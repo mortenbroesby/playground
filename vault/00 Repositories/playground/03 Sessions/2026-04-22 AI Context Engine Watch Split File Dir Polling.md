@@ -1,24 +1,37 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-22
-started_at: 2026-04-22 00:11
-branch: main
-summary: Split `ai-context-engine` watch polling into direct stats for known files plus subtree rescans only when directory metadata changes, reducing steady-state scan scope further.
-keywords:
-  - ai-context-engine
-  - watch
-  - polling
-  - performance
-  - filesystem
-touched_paths:
-  - packages/ai-context-engine/src/storage.ts
+id: "mem-20260422-ai-context-engine-watch-split-file-dir-polling"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Watch Split File Dir Polling"
+status: archived
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Split `ai-context-engine` watch polling into direct stats for known files plus subtree rescans only when directory metadata changes, reducing steady-state scan scope further."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "watch"
+  - "polling"
+  - "performance"
+  - "filesystem"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+branch: "main"
+started_at: "2026-04-22 00:11"
+touched_paths:
+  - "packages/ai-context-engine/src/storage.ts"
 ---
-
-# AI Context Engine Watch Split File Dir Polling
 
 ## Summary
 

@@ -1,11 +1,29 @@
 ---
-date: 2026-04-28
-project: playground
-branch: astrograph-ai-engine-refactor
-area: tools/ai-context-engine
+id: "mem-20260428-astrograph-review-fixes-and-spec-archive"
+type: "session"
+repo_slug: "playground"
+title: "Astrograph Review Fixes And Spec Archive"
+status: archived
+created: "2026-04-28"
+updated: "2026-04-28"
+owner: "agent"
+summary: "Close the completed Astrograph specs, fix the review findings surfaced on the branch PR, and stabilize the interface verification path around the current observability contract."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-12"
+  expires_after: "2026-10-25"
+  keep: false
+area: "tools/ai-context-engine"
+branch: "astrograph-ai-engine-refactor"
+project: "playground"
 ---
-
-# Astrograph Review Fixes And Spec Archive
 
 ## Goal
 

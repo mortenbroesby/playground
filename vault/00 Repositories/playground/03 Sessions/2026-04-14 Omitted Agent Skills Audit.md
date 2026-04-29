@@ -1,30 +1,43 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-14
-started_at: 2026-04-14 21:35
-summary: Audited omitted upstream agent-skills concepts, imported compatible repo-native skills and references, and recorded explicit reject decisions.
-keywords:
-  - agent skills
-  - audit
-  - references
-  - debugging
-  - docs
-touched_paths:
-  - .agents/skills
-  - .agents/references
-  - .agents/commands
-  - .agents/rules
-  - AGENTS.md
-  - README.md
-  - tools/agent-setup-check.mjs
-  - vault/00 Repositories/playground/01 Architecture/Agent Skills Import Matrix.md
+id: "mem-20260414-omitted-agent-skills-audit"
+type: "session"
+repo_slug: "playground"
+title: "Omitted Agent Skills Audit"
+status: archived
+created: "2026-04-14"
+updated: "2026-04-14"
+owner: "agent"
+summary: "Audited omitted upstream agent-skills concepts, imported compatible repo-native skills and references, and recorded explicit reject decisions."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "agent skills"
+  - "audit"
+  - "references"
+  - "debugging"
+  - "docs"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-28"
+  expires_after: "2026-10-11"
+  keep: false
+started_at: "2026-04-14 21:35"
+touched_paths:
+  - ".agents/skills"
+  - ".agents/references"
+  - ".agents/commands"
+  - ".agents/rules"
+  - "AGENTS.md"
+  - "README.md"
+  - "tools/agent-setup-check.mjs"
+  - "vault/00 Repositories/playground/01 Architecture/Agent Skills Import Matrix.md"
 ---
-
-# Omitted Agent Skills Audit
 
 ## Outcome
 

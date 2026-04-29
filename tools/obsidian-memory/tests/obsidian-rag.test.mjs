@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   assembleMemoryContext,
   indexMemoryCorpus,
+  planMemoryQuery,
   retrieveMemoryCandidates,
 } from "../src/obsidian-rag.mjs";
 
@@ -66,6 +67,123 @@ const indexedCorpus = indexMemoryCorpus({
   ],
 });
 
+const typedCorpus = indexMemoryCorpus({
+  noteRegistry: [
+    {
+      id: "note-spec",
+      type: "spec",
+      path: "vault/00 Repositories/playground/specs/rag-rebuild.md",
+      title: "Rebuild RAG memory",
+      status: "active",
+      created: "2026-04-29",
+      updated: "2026-04-29",
+      summary: "Spec for rebuilding repo memory.",
+      tags: ["rag", "memory"],
+      keywords: ["hybrid retrieval", "cleanup"],
+      outbound_links: ["note-arch"],
+      inbound_links: [],
+      content_hash: "spec-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+    {
+      id: "note-arch",
+      type: "architecture-record",
+      path: "vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md",
+      title: "Repo Memory Architecture",
+      status: "accepted",
+      created: "2026-04-20",
+      updated: "2026-04-20",
+      summary: "Durable architecture for repo-local memory.",
+      tags: ["repo/playground"],
+      keywords: ["architecture", "memory"],
+      outbound_links: [],
+      inbound_links: ["note-spec"],
+      content_hash: "arch-hash",
+      mtime_ms: 1,
+      owner: "morten",
+      repo_slug: "playground",
+    },
+    {
+      id: "note-session",
+      type: "session",
+      path: "vault/00 Repositories/playground/03 Sessions/2026-04-29 RAG Typed Index Foundation.md",
+      title: "RAG Typed Index Foundation",
+      status: "active",
+      created: "2026-04-29",
+      updated: "2026-04-29",
+      summary: "Work log for the typed index migration.",
+      tags: ["repo/playground"],
+      keywords: ["rag", "migration"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "session-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+  ],
+  chunkIndex: [
+    {
+      chunk_id: "spec-plan",
+      note_id: "note-spec",
+      source_path:
+        "vault/00 Repositories/playground/specs/rag-rebuild.md § Implementation plan",
+      heading: "Implementation plan",
+      heading_level: 2,
+      text: "Implementation plan for rebuilding typed RAG memory with cleanup and hybrid retrieval.",
+      summary: "Implementation plan for rebuilding typed RAG memory.",
+      tokens_estimated: 16,
+      content_hash: "chunk-spec",
+      type: "spec",
+      status: "active",
+    },
+    {
+      chunk_id: "arch-overview",
+      note_id: "note-arch",
+      source_path:
+        "vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md § Overview",
+      heading: "Overview",
+      heading_level: 2,
+      text: "Architecture record describing why repo-local memory uses typed indexes and durable notes.",
+      summary: "Architecture record for typed repo memory.",
+      tokens_estimated: 15,
+      content_hash: "chunk-arch",
+      type: "architecture-record",
+      status: "accepted",
+    },
+    {
+      chunk_id: "session-log",
+      note_id: "note-session",
+      source_path:
+        "vault/00 Repositories/playground/03 Sessions/2026-04-29 RAG Typed Index Foundation.md § Summary",
+      heading: "Summary",
+      heading_level: 2,
+      text: "Session log covering the first typed index migration slice and compatibility work.",
+      summary: "Session log for typed index migration.",
+      tokens_estimated: 13,
+      content_hash: "chunk-session",
+      type: "session",
+      status: "active",
+    },
+  ],
+  graphIndex: {
+    nodes: [
+      { id: "note-spec", type: "spec", status: "active" },
+      { id: "note-arch", type: "architecture-record", status: "accepted" },
+      { id: "note-session", type: "session", status: "active" },
+    ],
+    edges: [
+      {
+        from: "note-spec",
+        to: "note-arch",
+        type: "relates_to",
+      },
+    ],
+  },
+});
+
 test("retrieveMemoryCandidates favors decision note affinity and exact summary match", () => {
   const candidates = retrieveMemoryCandidates({
     corpus: indexedCorpus,
@@ -110,4 +228,120 @@ test("assembleMemoryContext returns bounded items and structured references", ()
   assert.equal(context.references.length, context.selectedCount);
   assert.ok(context.references[0].sourceFile.startsWith("vault/"));
   assert.ok(context.estimatedTokens <= context.tokenBudget);
+});
+
+test("planMemoryQuery identifies spec-oriented retrieval intent", () => {
+  const plan = planMemoryQuery("What spec should we build for RAG cleanup?");
+
+  assert.equal(plan.normalized, "what spec should we build for rag cleanup?");
+  assert.ok(plan.expectedNoteTypes.includes("spec"));
+  assert.ok(plan.expectedNoteTypes.includes("todo"));
+  assert.ok(plan.negativeStatuses.includes("archived"));
+});
+
+test("retrieveMemoryCandidates favors typed spec notes for implementation queries", () => {
+  const candidates = retrieveMemoryCandidates({
+    corpus: typedCorpus,
+    query: "What should we build for typed RAG memory?",
+    limit: 3,
+    queryPlan: planMemoryQuery("What should we build for typed RAG memory?"),
+  });
+
+  assert.equal(candidates[0]?.chunkId, "spec-plan");
+  assert.equal(candidates[0]?.noteType, "spec");
+  assert.ok(candidates[0].matchReasons.includes("plan-type:spec"));
+});
+
+test("retrieveMemoryCandidates applies graph boosts to linked architecture notes", () => {
+  const candidates = retrieveMemoryCandidates({
+    corpus: typedCorpus,
+    query: "typed RAG memory implementation plan",
+    limit: 3,
+    queryPlan: planMemoryQuery("typed RAG memory implementation plan"),
+  });
+
+  const architectureCandidate = candidates.find(
+    (candidate) => candidate.chunkId === "arch-overview",
+  );
+
+  assert.ok(architectureCandidate);
+  assert.ok(
+    architectureCandidate.matchReasons.some((reason) =>
+      reason.startsWith("graph:"),
+    ),
+  );
+});
+
+test("typed retrieval normalizes migrated legacy note metadata before ranking", () => {
+  const migratedCorpus = indexMemoryCorpus({
+    noteRegistry: [
+      {
+        id: "note-session-legacy",
+        type: "repo-session",
+        path: "vault/00 Repositories/playground/03 Sessions/2026-04-29 Typed RAG.md",
+        title: "Typed RAG",
+        status: "In Progress",
+        created: "2026-04-29",
+        updated: "2026-04-29",
+        summary: "Session log for the typed RAG hardening pass.",
+        tags: ["repo/playground"],
+        keywords: ["typed rag", "hardening"],
+        outbound_links: [],
+        inbound_links: [],
+        content_hash: "legacy-session-hash",
+        mtime_ms: 1,
+        owner: "agent",
+        repo_slug: "playground",
+      },
+    ],
+    chunkIndex: [
+      {
+        chunk_id: "legacy-session-summary",
+        note_id: "note-session-legacy",
+        source_path:
+          "vault/00 Repositories/playground/03 Sessions/2026-04-29 Typed RAG.md § Summary",
+        heading: "Summary",
+        heading_level: 2,
+        text: "Recent typed RAG hardening work covered doctor output and frontmatter remediation.",
+        summary: "",
+        tokens_estimated: 13,
+        content_hash: "legacy-session-chunk",
+      },
+    ],
+    graphIndex: {
+      nodes: [],
+      edges: [],
+    },
+  });
+
+  const candidates = retrieveMemoryCandidates({
+    corpus: migratedCorpus,
+    query: "recent typed rag hardening handoff",
+    limit: 3,
+    queryPlan: planMemoryQuery("recent typed rag hardening handoff"),
+  });
+
+  assert.equal(candidates[0]?.chunkId, "legacy-session-summary");
+  assert.equal(candidates[0]?.noteType, "session");
+  assert.equal(candidates[0]?.status, "active");
+  assert.ok(candidates[0].matchReasons.includes("plan-type:session"));
+});
+
+test("assembleMemoryContext reports omitted items when token budget truncates", () => {
+  const candidates = retrieveMemoryCandidates({
+    corpus: typedCorpus,
+    query: "typed RAG memory",
+    limit: 3,
+    queryPlan: planMemoryQuery("typed RAG memory"),
+  });
+
+  const context = assembleMemoryContext({
+    query: "typed RAG memory",
+    candidates,
+    tokenBudget: 10,
+    maxItems: 3,
+  });
+
+  assert.ok(context.omitted.length >= 1);
+  assert.equal(context.omitted[0].reason, "token_budget");
 });

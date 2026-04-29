@@ -1,4 +1,26 @@
-# AI Context Bundle And Benchmark Spec
+---
+id: "mem-20260415-ai-context-bundle-and-benchmark-spec"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Bundle And Benchmark Spec"
+status: archived
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Add a first bounded context bundle surface to `@playground/ai-context-engine` and define a repo-local benchmark specification for measuring retrieval efficiency and correctness."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

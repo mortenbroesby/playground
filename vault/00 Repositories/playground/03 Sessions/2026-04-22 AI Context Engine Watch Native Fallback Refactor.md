@@ -1,26 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-22
-started_at: 2026-04-22 00:19
-branch: main
-summary: Split filesystem scan helpers out of `storage.ts` and switched `ai-context-engine` watch detection to prefer native `fs.watch`, with the optimized polling detector retained as fallback.
-keywords:
-  - ai-context-engine
-  - watch
-  - fs-watch
-  - polling
-  - refactor
-touched_paths:
-  - packages/ai-context-engine/src/storage.ts
-  - packages/ai-context-engine/src/filesystem-scan.ts
-  - packages/ai-context-engine/README.md
+id: "mem-20260422-ai-context-engine-watch-native-fallback-refactor"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Watch Native Fallback Refactor"
+status: archived
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Split filesystem scan helpers out of `storage.ts` and switched `ai-context-engine` watch detection to prefer native `fs.watch`, with the optimized polling detector retained as fallback."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "watch"
+  - "fs-watch"
+  - "polling"
+  - "refactor"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+branch: "main"
+started_at: "2026-04-22 00:19"
+touched_paths:
+  - "packages/ai-context-engine/src/storage.ts"
+  - "packages/ai-context-engine/src/filesystem-scan.ts"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Watch Native Fallback Refactor
 
 ## Summary
 

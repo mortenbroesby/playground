@@ -1,4 +1,26 @@
-# 2026-04-27 AI Context Engine Performance Docs Sweep
+---
+id: "mem-20260427-2026-04-27-ai-context-engine-performance-docs-sweep"
+type: "session"
+repo_slug: "playground"
+title: "2026-04-27 AI Context Engine Performance Docs Sweep"
+status: archived
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "scattering those details across changelog-style README bullets"
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+---
 
 - Scope: final documentation pass for `.specs/performance-deps.md`
 - Goal: close the remaining acceptance gap around performance workflow guidance

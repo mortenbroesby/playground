@@ -1,14 +1,29 @@
 ---
-type: repo-task
-repo: playground
-id: add-stryker-mutation-testing-for-ai-context-engine-boundaries
-priority: P1
-status: Done
+id: "add-stryker-mutation-testing-for-ai-context-engine-boundaries"
+type: "todo"
+repo_slug: "playground"
+title: "Add Stryker mutation testing for `ai-context-engine` boundaries"
+status: "done"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "`@playground/ai-context-engine` now has a few important boundary contracts that are easy to look covered while still being weak:"
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
 ai_appetite: 85
+priority: "P1"
 source: "Follow-up from `tools/ai-context-engine` runtime-boundary review and StrykerJS docs."
 ---
-
-# Add Stryker mutation testing for `ai-context-engine` boundaries
 
 ## Why
 

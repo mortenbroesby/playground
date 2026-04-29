@@ -1,4 +1,26 @@
-# Lint Prepush Fallback Wrapper
+---
+id: "mem-20260429-lint-prepush-fallback-wrapper"
+type: "session"
+repo_slug: "playground"
+title: "Lint Prepush Fallback Wrapper"
+status: archived
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "The `lint-prepush` package crashes internally in this repo even after its task completes successfully, so the pre-push hook now uses a wrapper with a repo-owned fallback path."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
+---
 
 ## Summary
 

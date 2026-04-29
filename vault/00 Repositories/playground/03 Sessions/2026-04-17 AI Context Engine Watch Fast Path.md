@@ -1,26 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-17
-started_at: 2026-04-17 19:22
-branch: feat/ai-context-engine-phase2-watch
-summary: Replaced watch-mode full-folder refreshes in `@playground/ai-context-engine` with changed-file fast paths for modified and deleted files.
-keywords:
-  - ai-context-engine
-  - watch
-  - fast-path
-  - indexing
-  - sqlite
-touched_paths:
-  - packages/ai-context-engine/src/storage.ts
-  - packages/ai-context-engine/tests/engine-behavior.test.ts
-  - packages/ai-context-engine/README.md
+id: "mem-20260417-ai-context-engine-watch-fast-path"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Watch Fast Path"
+status: archived
+created: "2026-04-17"
+updated: "2026-04-17"
+owner: "agent"
+summary: "Replaced watch-mode full-folder refreshes in `@playground/ai-context-engine` with changed-file fast paths for modified and deleted files."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "watch"
+  - "fast-path"
+  - "indexing"
+  - "sqlite"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-01"
+  expires_after: "2026-10-14"
+  keep: false
+branch: "feat/ai-context-engine-phase2-watch"
+started_at: "2026-04-17 19:22"
+touched_paths:
+  - "packages/ai-context-engine/src/storage.ts"
+  - "packages/ai-context-engine/tests/engine-behavior.test.ts"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Watch Fast Path
 
 ## Summary
 

@@ -1,4 +1,27 @@
-# Active Context Layer
+---
+id: "mem-20260429-active-context-layer"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Active Context Layer"
+status: "archived"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Archived clarification note from the transition away from a shared active-context file; durable memory remains vault-first."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by:
+    - "mem-20260417-keep-vault-as-canonical-repo-memory"
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+---
 
 Date: 2026-04-14
 
@@ -18,11 +41,13 @@ a short current-state summary:
 - next step
 - a few relevant files or commands
 
-## Location
+## Current State
 
-The shared file lives at `.agents/context/active-context.md`.
+There is no canonical shared `active-context` file in the repo today.
 
-This keeps the surface cross-agent and avoids runtime-specific memory drift.
+If a compact handoff file is added again later, treat it as optional helper
+context rather than required infrastructure. The source of truth remains the
+vault plus `obsidian-memory`.
 
 ## Non-Goals
 

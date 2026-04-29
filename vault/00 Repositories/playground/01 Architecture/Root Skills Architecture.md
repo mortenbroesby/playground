@@ -1,164 +1,88 @@
 ---
-type: repo-architecture
-repo: playground
-status: proposed
-summary: Proposed root `.skills` architecture for repo-owned skills, with command-first discovery and thin startup routing.
-keywords:
-  - skills
-  - on-demand
-  - architecture
-  - agents
-  - startup
+id: "mem-20260429-root-skills-architecture"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Root Skills Architecture"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-30"
+owner: "morten"
+summary: "Root `.skills` is the canonical repo-owned skill store, with command-first discovery, lightweight task routing, and thin startup bootstrap."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "skills"
+  - "on-demand"
+  - "architecture"
+  - "agents"
+  - "startup"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Root Skills Architecture
 
 ## Intent
 
-Define the target architecture and migration boundaries for moving repo-owned
-skills out of startup-loaded adapter surfaces and into a truly on-demand root
+Define the migration target for moving repo-owned skills into an on-demand root
 `.skills` model.
 
 ## Decision
 
-Repo-owned first-party skills should move to a root `.skills/` directory.
-
-Startup-facing surfaces such as `AGENTS.md`, `CLAUDE.md`, `.agents/skills/`,
-and runtime adapter directories should stop being the source of truth for
-repo-owned skill content. They should provide only thin routing context.
-
-The catalog should move from startup-loaded markdown to a command-first
-discovery surface. The durable target is:
+Repo-owned first-party skills should move to a root `.skills/` directory, and
+startup-facing surfaces should stop being the source of truth for skill
+content. `AGENTS.md`, `CLAUDE.md`, `.agents/skills/`, and runtime adapters
+should stay thin and route users to a command-first discovery surface:
 
 - `pnpm skills:list`
 - `pnpm skills:search`
+- `pnpm skills:route "<task>"`
 - `pnpm skills:read <skill-name>`
 
-The full `SKILL.md` body should load only when an agent or human explicitly
-reads a skill.
+Load full `SKILL.md` bodies only on explicit read.
 
 ## Why Change
 
-The current model mixes two roles into startup-loaded surfaces:
-
-- bootstrap and routing guidance
-- the skill catalog and sometimes the skill source itself
-
-That creates avoidable startup weight and makes repo-owned skills look like
-always-loaded instructions instead of optional on-demand context.
-
-The repo wants the opposite model:
-
-- thin startup bootstrap
-- command-first discovery
-- explicit reads for full skill bodies
-
-## Current State To Replace
-
-Today the repo still assumes:
-
-- `.agents/skills/` is the canonical repo-owned skill store
-- `.claude/skills`, `.codex/skills`, `.github/skills`, and `.opencode/skills`
-  are adapter paths tied to that store
-- `AGENTS.md` can carry a large generated skills catalog
-- `scripts/skills.mjs` and `scripts/agent-setup-check.mjs` enforce the
-  adapter-centric layout
-
-That shape is the baseline to migrate away from, not the desired end state.
+The current model mixes bootstrap guidance with catalog content. The target
+model is thin startup bootstrap, command-first discovery, and explicit reads.
 
 ## Target Boundaries
 
-### Canonical first-party source
-
-- Root `.skills/` becomes the only canonical checked-in home for repo-owned
-  skills.
-- Each skill keeps the existing folder contract:
-  a skill directory with `SKILL.md` plus optional `references/`, `scripts/`,
-  or `assets/`.
-- Repo-owned skill names are owned by the repo and must not be silently
-  replaced by external installs.
-
-### Startup surfaces
-
-- `AGENTS.md` stays a thin bootstrap.
-- `CLAUDE.md` stays a thin runtime adapter.
-- Startup docs may say where skills live and how to list, search, and read
-  them.
-- Startup docs should not embed the full repo skill catalog or full skill
-  bodies.
-- Routing heuristics belong in a small rule file, not in a long startup
-  catalog.
-
-### Adapter directories
-
+- Root `.skills/` becomes the home for repo-owned skills.
+- Each skill keeps the current contract: `SKILL.md` plus optional support files.
+- `AGENTS.md` and `CLAUDE.md` stay thin and should not embed the full catalog.
 - Runtime adapter directories are compatibility surfaces, not authoring homes.
-- `.agents/skills/` should no longer be the source of truth for repo-owned
-  skills after migration.
-- If compatibility shims remain temporarily, they should stay thin and must not
-  reintroduce duplicated skill bodies or large startup-loaded catalogs.
-
-### Discovery and loading
-
-- The command surface becomes the catalog.
-- `list` and `search` answer discovery questions without loading every skill
-  body into startup context.
-- `read` loads one selected skill on demand.
-- Repo-owned skill discovery should not depend on a generated `AGENTS.md`
-  skills table.
-
-### External skills
-
-- External downloaded skills are not part of the checked-in `.skills/` source.
-- They must stay clearly separated from repo-owned first-party skills.
-- Their exact runtime path and lifecycle remain an explicit follow-up decision
-  for `STORY-5`.
+- `list` and `search` handle discovery; `route` cheaply recommends a narrow
+  skill set; `read` loads one chosen skill on demand.
+- External downloaded skills stay separate from repo-owned first-party skills.
 
 ## Migration Invariants
 
-- Keep the `SKILL.md` format unchanged.
-- Keep the repo command surface `pnpm`-native.
-- Do not require agents to load a large skill catalog at session start.
-- Preserve a single obvious place to read a chosen skill on demand.
-- Keep repo-owned and externally installed skills distinguishable.
-- Avoid duplicating canonical skill content across startup adapters.
+- Keep `SKILL.md` unchanged.
+- Keep the command surface `pnpm`-native.
+- Do not require large startup catalogs.
+- Preserve one obvious place to read a chosen skill.
+- Keep repo-owned and external skills distinguishable.
+- Avoid duplicated canonical content across adapters.
 
 ## Story Boundaries
 
-### STORY-1
-
-- Define this target architecture and its boundaries.
-- Create the root `.skills/` landing zone.
-- Do not move existing skills yet.
-- Do not slim startup adapters yet.
-- Do not finalize external skill storage yet.
-
-### STORY-2
-
-- Move repo-owned checked-in skills from `.agents/skills/` to `.skills/`.
-- Update scripts and checks that still treat `.agents/skills/` as canonical.
-
-### STORY-3
-
-- Make discovery command-first and on-demand.
-- Add or adapt the command surface so catalog discovery comes from commands,
-  not startup docs.
-
-### STORY-4
-
-- Slim `AGENTS.md` and `CLAUDE.md`.
-- Add a lightweight skill-routing rule instead of a startup-loaded catalog.
-
-### STORY-5
-
-- Decide where external downloaded skills live and how they relate to
-  repo-owned `.skills/`.
+- `STORY-1`: define the architecture and create the root `.skills/` landing zone.
+- `STORY-2`: move repo-owned checked-in skills into `.skills/`.
+- `STORY-3`: make discovery command-first and on-demand.
+- `STORY-4`: slim startup docs and add lightweight routing rules.
+- `STORY-5`: decide where external downloaded skills live.
 
 ## Non-Goals For This Story
 
-- Finishing the runtime adapter migration
-- Rewriting every existing skill path in one pass
-- Solving global or user-level skill installation
+- Finishing the full adapter migration
+- Rewriting every skill path in one pass
+- Solving global or user-level installation
 - Designing a new skill file format
