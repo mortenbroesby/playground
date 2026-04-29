@@ -17,6 +17,8 @@ multiple skills just because they exist.
 
 ## Workflow Triggers
 
+- Load `using-superpowers` when the user explicitly asks for Superpowers or
+  wants a stricter process-first skill-selection mode.
 - Load `grill-me` before planning or implementation when the main problem is
   unclear requirements, unresolved assumptions, or an untested design.
 - Load `engineering-workflow` for multi-step implementation, review, testing,
@@ -62,6 +64,8 @@ multiple skills just because they exist.
 
 ## Composition
 
+- `using-superpowers` is a bootstrap/process selector. Follow it by loading the
+  concrete workflow or specialist skill it points to.
 - Typical discovery flow: `grill-me` first, then `spec-driven-development` or
   `planning-and-task-breakdown` once the decision tree is clearer.
 - Typical flow: `engineering-workflow` plus one specialist skill.

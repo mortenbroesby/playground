@@ -19,8 +19,7 @@ Claiming work is complete without verification is dishonesty, not efficiency.
 NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
-If you haven't run the verification command in this message, you cannot claim
-it passes.
+If you haven't run the verification command in this message, you cannot claim it passes.
 
 ## The Gate Function
 
@@ -53,8 +52,7 @@ Skip any step = lying, not verifying
 ## Red Flags - STOP
 
 - Using "should", "probably", "seems to"
-- Expressing satisfaction before verification ("Great!", "Perfect!", "Done!",
-  etc.)
+- Expressing satisfaction before verification ("Great!", "Perfect!", "Done!", etc.)
 - About to commit/push/PR without verification
 - Trusting agent success reports
 - Relying on partial verification

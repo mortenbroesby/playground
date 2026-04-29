@@ -9,8 +9,7 @@ description: Use when receiving code review feedback, before implementing sugges
 
 Code review requires technical evaluation, not emotional performance.
 
-**Core principle:** Verify before implementing. Ask before assuming. Technical
-correctness over social comfort.
+**Core principle:** Verify before implementing. Ask before assuming. Technical correctness over social comfort.
 
 ## The Response Pattern
 
@@ -53,8 +52,8 @@ WHY: Items may be related. Partial understanding = wrong implementation.
 your human partner: "Fix 1-6"
 You understand 1,2,3,6. Unclear on 4,5.
 
-WRONG: Implement 1,2,3,6 now, ask about 4,5 later
-RIGHT: "I understand items 1,2,3,6. Need clarification on 4 and 5 before proceeding."
+❌ WRONG: Implement 1,2,3,6 now, ask about 4,5 later
+✅ RIGHT: "I understand items 1,2,3,6. Need clarification on 4 and 5 before proceeding."
 ```
 
 ## Source-Specific Handling
@@ -84,8 +83,7 @@ IF conflicts with your human partner's prior decisions:
   Stop and discuss with your human partner first
 ```
 
-**your human partner's rule:** "External feedback - be skeptical, but check
-carefully"
+**your human partner's rule:** "External feedback - be skeptical, but check carefully"
 
 ## YAGNI Check for "Professional" Features
 
@@ -97,8 +95,7 @@ IF reviewer suggests "implementing properly":
   IF used: Then implement properly
 ```
 
-**your human partner's rule:** "You and reviewer both report to me. If we don't
-need this feature, don't add it."
+**your human partner's rule:** "You and reviewer both report to me. If we don't need this feature, don't add it."
 
 ## Implementation Order
 
@@ -129,8 +126,7 @@ Push back when:
 - Reference working tests/code
 - Involve your human partner if architectural
 
-**Signal if uncomfortable pushing back out loud:** "Strange things are afoot at
-the Circle K"
+**Signal if uncomfortable pushing back out loud:** "Strange things are afoot at the Circle K"
 
 ## Acknowledging Correct Feedback
 
@@ -147,11 +143,9 @@ When feedback IS correct:
 ❌ ANY gratitude expression
 ```
 
-**Why no thanks:** Actions speak. Just fix it. The code itself shows you heard
-the feedback.
+**Why no thanks:** Actions speak. Just fix it. The code itself shows you heard the feedback.
 
-**If you catch yourself about to write "Thanks":** DELETE IT. State the fix
-instead.
+**If you catch yourself about to write "Thanks":** DELETE IT. State the fix instead.
 
 ## Gracefully Correcting Your Pushback
 
@@ -208,9 +202,7 @@ You understand 1,2,3,6. Unclear on 4,5.
 
 ## GitHub Thread Replies
 
-When replying to inline review comments on GitHub, reply in the comment thread
-(`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies`), not as a
-top-level PR comment.
+When replying to inline review comments on GitHub, reply in the comment thread (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies`), not as a top-level PR comment.
 
 ## The Bottom Line
 
