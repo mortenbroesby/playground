@@ -367,8 +367,10 @@ The main entry points are:
 Core commands and surfaces worth knowing:
 
 - `query_code` for discovery, source retrieval, and bounded assembly
-- `diagnostics` for metadata-first health and freshness reporting
+- `diagnostics` for metadata-first health, freshness, and readiness-stage reporting
 - `doctor` for operator-facing warnings and suggested repair actions
+- `get_project_status` for the operator-facing summary of discovery-ready,
+  deepening, and deep-retrieval-ready state
 
 ## License
 

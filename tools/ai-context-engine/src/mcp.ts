@@ -349,15 +349,23 @@ function summarizeToolCompletion(
 
   if (name === "get_project_status" && result && typeof result === "object") {
     const status = result as {
-      readiness?: { discoveryReady?: boolean; deepRetrievalReady?: boolean };
+      readiness?: {
+        stage?: string;
+        discoveryReady?: boolean;
+        deepRetrievalReady?: boolean;
+        deepening?: boolean;
+        pendingDeepIndexedFiles?: number;
+      };
       freshness?: { staleStatus?: string };
       supportTiers?: { byLanguage?: Array<{ language?: string; tiers?: string[] }> };
     };
     return {
       summary: `Project status: ${status.freshness?.staleStatus ?? "unknown"} freshness`,
       detail: [
+        `readiness stage: ${status.readiness?.stage ?? "unknown"}`,
         `discovery ready: ${status.readiness?.discoveryReady === true ? "yes" : "no"}`,
         `deep retrieval ready: ${status.readiness?.deepRetrievalReady === true ? "yes" : "no"}`,
+        `deepening: ${status.readiness?.deepening === true ? `yes (${status.readiness?.pendingDeepIndexedFiles ?? 0} pending)` : "no"}`,
         `language tiers: ${status.supportTiers?.byLanguage?.map((entry) => `${entry.language}:${(entry.tiers ?? []).join("/")}`).join(", ") || "unknown"}`,
       ],
       tokenEstimate: buildTokenEstimate({
@@ -445,12 +453,15 @@ function summarizeToolCompletion(
       staleStatus?: string;
       indexedFiles?: number;
       changedFiles?: number;
+      readiness?: { stage?: string; deepening?: boolean; pendingDeepIndexedFiles?: number };
       watch?: { status?: string };
     };
     return {
       summary: `Diagnostics: ${diagnostics.indexedFiles ?? 0} indexed files, watch ${diagnostics.watch?.status ?? "unknown"}`,
       detail: [
         `stale status: ${diagnostics.staleStatus ?? "unknown"}`,
+        `readiness stage: ${diagnostics.readiness?.stage ?? "unknown"}`,
+        `deepening: ${diagnostics.readiness?.deepening === true ? `yes (${diagnostics.readiness?.pendingDeepIndexedFiles ?? 0} pending)` : "no"}`,
         `changed files: ${diagnostics.changedFiles ?? 0}`,
       ],
       tokenEstimate: buildTokenEstimate({

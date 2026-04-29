@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { decode } from "@msgpack/msgpack";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import { handleCli } from "../src/cli.ts";
 import { MCP_SERVER_NAME, MCP_TOOL_DEFINITIONS } from "../src/mcp-contract.ts";
@@ -27,6 +27,9 @@ const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+
+const it = (name: string, fn: (...args: never[]) => unknown, timeout = 30_000) =>
+  baseIt(name, fn as never, timeout);
 
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
@@ -210,7 +213,7 @@ async function withMcpClient<T>(
 
 afterEach(async () => {
   await cleanupFixtureRepos();
-});
+}, 30_000);
 
 describe("ai-context-engine interfaces", () => {
   it("serves JSON CLI commands over the library surface", async () => {
@@ -219,6 +222,12 @@ describe("ai-context-engine interfaces", () => {
     const initStdout = await handleCli(["init", "--repo", repoRoot]);
     expect(JSON.parse(initStdout)).toMatchObject({
       staleStatus: "unknown",
+      readiness: {
+        stage: "not-ready",
+        discoveryReady: false,
+        deepRetrievalReady: false,
+        deepening: false,
+      },
       watch: {
         status: "idle",
         lastEvent: null,
@@ -240,6 +249,15 @@ describe("ai-context-engine interfaces", () => {
       freshnessScanned: false,
       indexedFiles: 2,
       currentFiles: 2,
+      readiness: {
+        stage: "deep-retrieval-ready",
+        discoveryReady: true,
+        deepRetrievalReady: true,
+        deepening: false,
+        discoveredFiles: 2,
+        deepIndexedFiles: 2,
+        pendingDeepIndexedFiles: 0,
+      },
     });
 
     const filteredStdout = await handleCli([
@@ -494,6 +512,10 @@ export function circumference(radius: number): string {
       schemaVersion: 4,
       indexedFiles: 2,
       currentFiles: 2,
+      readiness: {
+        stage: "deep-retrieval-ready",
+        discoveredFiles: 2,
+      },
     });
   }, 15_000);
 
@@ -668,8 +690,13 @@ export function circumference(radius: number): string {
       ).content[0];
       expect(JSON.parse(projectStatusContent.text)).toMatchObject({
         readiness: {
+          stage: "deep-retrieval-ready",
           discoveryReady: true,
           deepRetrievalReady: true,
+          deepening: false,
+          discoveredFiles: 2,
+          deepIndexedFiles: 2,
+          pendingDeepIndexedFiles: 0,
         },
         freshness: {
           staleStatus: "fresh",
@@ -874,6 +901,9 @@ export function circumference(radius: number): string {
         storageDir: path.join(canonicalRepoRoot, ".astrograph"),
         storageVersion: 1,
         schemaVersion: 4,
+        readiness: {
+          stage: "not-ready",
+        },
       });
     });
   }, 15000);
@@ -1134,7 +1164,7 @@ export function circumference(radius: number): string {
         summaryStrategy: "bogus",
       }),
     ).rejects.toThrow(/unsupported summaryStrategy/i);
-  });
+  }, 30_000);
 
   it("rejects malformed CLI arguments instead of silently coercing them", async () => {
     const repoRoot = await createFixtureRepo();

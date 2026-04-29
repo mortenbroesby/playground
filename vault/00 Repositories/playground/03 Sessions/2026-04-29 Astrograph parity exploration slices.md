@@ -7,6 +7,8 @@
 - landed the first exploration-surface slice in `tools/ai-context-engine`
 - landed the next status and fallback-summary slice in
   `tools/ai-context-engine`
+- started the shallow-first readiness and deepening lifecycle slice in
+  `tools/ai-context-engine`
 
 ## Key changes
 
@@ -22,14 +24,25 @@
   - the broader set of tiers the file class supports
 - added deterministic fallback summary strategies for discovery-only files such
   as Markdown, JSON, YAML, SQL, shell, and plain-text paths
+- added explicit readiness-stage reporting so status flows can distinguish:
+  - not-ready
+  - discovery-ready
+  - deepening
+  - deep-retrieval-ready
+- made slow and mutation-smoke integration coverage opt-in so default package
+  tests stay focused on normal verification:
+  - `test:slow`
+  - `test:mutation-smoke`
 
 ## Verification
 
 - `pnpm agents:check`
 - `pnpm --filter @astrograph/astrograph type-check`
 - `pnpm --filter @astrograph/astrograph test`
+- `pnpm --filter @astrograph/astrograph test:package-bin`
 
 ## Known limitation
 
-- `pnpm --filter @astrograph/astrograph test:package-bin` is still blocked in
-  the sandbox because the temp install smoke step requires registry access
+- the readiness slice is only partially complete in the current checkpoint; the
+  code and tests are being pushed before the full `STORY-4` closeout because
+  the user requested a clean branch checkpoint

@@ -107,6 +107,8 @@ export type {
   QueryCodeIntent,
   QueryCodeOptions,
   QueryCodeResult,
+  ReadinessStage,
+  ReadinessStatus,
   RankingWeights,
   RankedContextCandidate,
   RankedContextResult,

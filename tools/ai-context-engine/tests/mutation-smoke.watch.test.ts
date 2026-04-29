@@ -2,7 +2,7 @@ import { rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import { diagnostics, searchSymbols, watchFolder } from "../src/index.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
@@ -10,6 +10,11 @@ import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 afterEach(async () => {
   await cleanupFixtureRepos();
 });
+
+const mutationSmokeIt =
+  process.env.ASTROGRAPH_ENABLE_MUTATION_SMOKE_TESTS === "1"
+    ? baseIt
+    : baseIt.skip;
 
 async function waitFor(
   predicate: () => boolean,
@@ -25,7 +30,7 @@ async function waitFor(
 }
 
 describe("mutation smoke watch boundaries", () => {
-  it("removes deleted files during watch refresh", async () => {
+  mutationSmokeIt("removes deleted files during watch refresh", async () => {
     const repoRoot = await createFixtureRepo();
     const reindexEvents: Array<{ changedPaths: string[]; indexedFiles?: number }> = [];
 
@@ -60,7 +65,7 @@ describe("mutation smoke watch boundaries", () => {
     }
   }, 10000);
 
-  it("removes symbols when a watched source file is renamed away", async () => {
+  mutationSmokeIt("removes symbols when a watched source file is renamed away", async () => {
     const repoRoot = await createFixtureRepo();
     const reindexEvents: Array<{ changedPaths: string[]; indexedFiles?: number }> = [];
 
@@ -97,7 +102,7 @@ describe("mutation smoke watch boundaries", () => {
     }
   }, 10000);
 
-  it("refreshes changed files instead of treating them as deletions", async () => {
+  mutationSmokeIt("refreshes changed files instead of treating them as deletions", async () => {
     const repoRoot = await createFixtureRepo();
     const reindexEvents: Array<{ changedPaths: string[]; indexedFiles?: number }> = [];
 

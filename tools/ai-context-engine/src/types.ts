@@ -489,6 +489,22 @@ export interface DiagnosticsOptions {
   scanFreshness?: boolean;
 }
 
+export type ReadinessStage =
+  | "not-ready"
+  | "discovery-ready"
+  | "deepening"
+  | "deep-retrieval-ready";
+
+export interface ReadinessStatus {
+  stage: ReadinessStage;
+  discoveryReady: boolean;
+  deepRetrievalReady: boolean;
+  deepening: boolean;
+  discoveredFiles: number;
+  deepIndexedFiles: number;
+  pendingDeepIndexedFiles: number;
+}
+
 export interface DiagnosticsResult {
   engineVersion: string;
   engineVersionParts: AstrographVersionParts;
@@ -514,6 +530,7 @@ export interface DiagnosticsResult {
   indexedSnapshotHash: string | null;
   currentSnapshotHash: string | null;
   staleReasons: string[];
+  readiness: ReadinessStatus;
   parser: ParserHealthDiagnostics;
   dependencyGraph: DoctorDependencyGraphHealth;
   watch: WatchDiagnostics;
@@ -527,10 +544,7 @@ export interface ProjectStatusOptions {
 export interface ProjectStatusResult {
   repoRoot: string;
   summary: string;
-  readiness: {
-    discoveryReady: boolean;
-    deepRetrievalReady: boolean;
-  };
+  readiness: ReadinessStatus;
   freshness: {
     staleStatus: StaleStatus;
     staleReasons: string[];

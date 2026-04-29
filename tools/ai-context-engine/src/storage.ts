@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, realpath, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import pMap from "p-map";
 import { Piscina } from "piscina";
@@ -231,7 +232,20 @@ interface RepoMetaRecord {
   storageBackend?: string;
   staleStatus: "fresh" | "stale" | "unknown";
   summaryStrategy?: SummaryStrategy;
+  readiness?: RepoMetaReadinessRecord;
   watch?: WatchDiagnostics;
+}
+
+interface RepoMetaReadinessRecord {
+  discoveryIndexedAt: string | null;
+  discoveredFiles: number;
+  deepIndexedAt: string | null;
+  deepening: {
+    startedAt: string;
+    totalFiles: number;
+    processedFiles: number;
+    pendingFiles: number;
+  } | null;
 }
 
 interface ObservabilityStatusRecord {
@@ -1143,6 +1157,7 @@ async function writeSidecars(input: {
   indexedSnapshotHash: string;
   staleStatus: "fresh" | "stale" | "unknown";
   summaryStrategy: SummaryStrategy;
+  readiness?: RepoMetaReadinessRecord;
 }) {
   const config = createDefaultEngineConfig({
     repoRoot: input.repoRoot,
@@ -1160,6 +1175,7 @@ async function writeSidecars(input: {
     storageMode: config.storageMode,
     storageBackend: SQLITE_INDEX_BACKEND.backendName,
     summaryStrategy: input.summaryStrategy,
+    readiness: input.readiness ?? existingMeta?.readiness ?? normalizeRepoReadiness(null),
     watch: existingMeta?.watch ?? createDefaultWatchDiagnostics(),
   };
   await writeRepoMetaFiles(config.paths.repoMetaPath, config.paths.integrityPath, meta);
@@ -1178,6 +1194,49 @@ function createDefaultWatchDiagnostics(): WatchDiagnostics {
     reindexCount: 0,
     lastError: null,
     lastSummary: null,
+  };
+}
+
+function normalizeRepoReadiness(value: unknown): RepoMetaReadinessRecord {
+  if (typeof value !== "object" || value === null) {
+    return {
+      discoveryIndexedAt: null,
+      discoveredFiles: 0,
+      deepIndexedAt: null,
+      deepening: null,
+    };
+  }
+
+  const candidate = value as Partial<RepoMetaReadinessRecord>;
+  const deepeningCandidate =
+    typeof candidate.deepening === "object" && candidate.deepening !== null
+      ? candidate.deepening
+      : null;
+
+  return {
+    discoveryIndexedAt:
+      typeof candidate.discoveryIndexedAt === "string"
+        ? candidate.discoveryIndexedAt
+        : null,
+    discoveredFiles:
+      typeof candidate.discoveredFiles === "number" && Number.isFinite(candidate.discoveredFiles)
+        ? Math.max(0, Math.floor(candidate.discoveredFiles))
+        : 0,
+    deepIndexedAt:
+      typeof candidate.deepIndexedAt === "string" ? candidate.deepIndexedAt : null,
+    deepening:
+      deepeningCandidate
+      && typeof deepeningCandidate.startedAt === "string"
+      && typeof deepeningCandidate.totalFiles === "number"
+      && typeof deepeningCandidate.processedFiles === "number"
+      && typeof deepeningCandidate.pendingFiles === "number"
+        ? {
+            startedAt: deepeningCandidate.startedAt,
+            totalFiles: Math.max(0, Math.floor(deepeningCandidate.totalFiles)),
+            processedFiles: Math.max(0, Math.floor(deepeningCandidate.processedFiles)),
+            pendingFiles: Math.max(0, Math.floor(deepeningCandidate.pendingFiles)),
+          }
+        : null,
   };
 }
 
@@ -1255,6 +1314,44 @@ async function writeWatchDiagnostics(input: {
   });
 }
 
+async function writeReadinessCheckpoint(input: {
+  repoRoot: string;
+  summaryStrategy: SummaryStrategy;
+  discoveredFiles: number;
+  deepIndexedAt: string | null;
+  deepIndexedFiles: number;
+}) {
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
+  const meta = await readRepoMeta(config.paths.repoMetaPath);
+  const now = new Date().toISOString();
+  const indexedAt = meta?.indexedAt ?? now;
+
+  await writeRepoMetaFiles(config.paths.repoMetaPath, config.paths.integrityPath, {
+    repoRoot: config.repoRoot,
+    storageVersion: meta?.storageVersion ?? ENGINE_STORAGE_VERSION,
+    indexedAt,
+    indexedFiles: meta?.indexedFiles ?? input.deepIndexedFiles,
+    indexedSymbols: meta?.indexedSymbols ?? 0,
+    indexedSnapshotHash: meta?.indexedSnapshotHash ?? snapshotHash([]),
+    staleStatus: meta?.staleStatus ?? "unknown",
+    storageMode: config.storageMode,
+    storageBackend: SQLITE_INDEX_BACKEND.backendName,
+    summaryStrategy: config.summaryStrategy,
+    readiness: {
+      discoveryIndexedAt: now,
+      discoveredFiles: input.discoveredFiles,
+      deepIndexedAt: input.deepIndexedAt,
+      deepening: {
+        startedAt: now,
+        totalFiles: input.discoveredFiles,
+        processedFiles: input.deepIndexedFiles,
+        pendingFiles: Math.max(0, input.discoveredFiles - input.deepIndexedFiles),
+      },
+    },
+    watch: meta?.watch ?? createDefaultWatchDiagnostics(),
+  });
+}
+
 async function readRepoMeta(
   repoMetaPath: string,
 ): Promise<RepoMetaRecord | null> {
@@ -1269,6 +1366,7 @@ async function readRepoMeta(
           ? parsed.storageVersion
           : ENGINE_STORAGE_VERSION,
       summaryStrategy: normalizeSummaryStrategy(parsed.summaryStrategy),
+      readiness: normalizeRepoReadiness(parsed.readiness),
       watch: normalizeWatchDiagnostics(parsed.watch),
     };
   } catch {
@@ -1312,6 +1410,7 @@ async function readRepoMetaHealth(
         ? parsed.storageVersion
         : ENGINE_STORAGE_VERSION,
     summaryStrategy: normalizeSummaryStrategy(parsed.summaryStrategy),
+    readiness: normalizeRepoReadiness(parsed.readiness),
     watch: normalizeWatchDiagnostics(parsed.watch),
   };
   const integrityContents = await readFile(integrityPath, "utf8").catch((error: unknown) => {
@@ -1431,6 +1530,15 @@ function exceedsMaxFileBytes(size: number, maxFileBytes: number): boolean {
 
 function exceedsMaxSymbolsPerFile(symbolCount: number, maxSymbolsPerFile: number): boolean {
   return symbolCount > maxSymbolsPerFile;
+}
+
+function getIndexTestDelayMs(): number {
+  const raw = process.env.ASTROGRAPH_INDEX_TEST_DELAY_MS;
+  if (!raw) {
+    return 0;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
 
 async function resolveRepoFileRefreshState(
@@ -1790,6 +1898,35 @@ function summarizeReadiness(discoveryReady: boolean, deepRetrievalReady: boolean
     return "discovery-ready but still deepening structured retrieval";
   }
   return "not discovery-ready yet";
+}
+
+function buildReadinessStatus(input: {
+  meta: RepoMetaRecord | null;
+  indexedFiles: number;
+}) {
+  const readiness = input.meta?.readiness ?? normalizeRepoReadiness(null);
+  const discoveryReady = readiness.discoveredFiles > 0;
+  const deepRetrievalReady = readiness.deepIndexedAt !== null || input.indexedFiles > 0;
+  const pendingDeepIndexedFiles = readiness.deepening?.pendingFiles ?? 0;
+  const deepening = readiness.deepening !== null && pendingDeepIndexedFiles > 0;
+  const stage =
+    deepening
+      ? "deepening"
+      : deepRetrievalReady
+        ? "deep-retrieval-ready"
+        : discoveryReady
+          ? "discovery-ready"
+          : "not-ready";
+
+  return {
+    stage,
+    discoveryReady,
+    deepRetrievalReady,
+    deepening,
+    discoveredFiles: readiness.discoveredFiles,
+    deepIndexedFiles: input.indexedFiles,
+    pendingDeepIndexedFiles,
+  } as const;
 }
 
 async function collectRepoFiles(
@@ -2877,6 +3014,7 @@ async function finalizeIndex(
   repoRoot: string,
   indexedAt: string,
   summaryStrategy: SummaryStrategy,
+  discoveredFiles?: number,
 ): Promise<"fresh" | "stale"> {
   rebuildFileDependencies(db);
   const dependencyGraph = loadDependencyGraphHealth(db);
@@ -2899,6 +3037,12 @@ async function finalizeIndex(
     indexedSnapshotHash,
     staleStatus,
     summaryStrategy,
+    readiness: {
+      discoveryIndexedAt: indexedAt,
+      discoveredFiles: discoveredFiles ?? totalFiles,
+      deepIndexedAt: indexedAt,
+      deepening: null,
+    },
   });
   return staleStatus;
 }
@@ -2936,12 +3080,24 @@ async function indexFolderDirect(input: {
       }
     }
 
+    await writeReadinessCheckpoint({
+      repoRoot,
+      summaryStrategy: config.summaryStrategy,
+      discoveredFiles: supportedFiles.length,
+      deepIndexedAt: meta?.readiness?.deepIndexedAt ?? null,
+      deepIndexedFiles: countRows(db, "SELECT COUNT(*) AS count FROM files"),
+    });
+
     let indexedFiles = 0;
     let indexedSymbols = 0;
     const analyzedFiles = await pMap(
       supportedFiles,
-      async (filePath) =>
-        analyzeFileIndexResult({
+      async (filePath) => {
+        const testDelayMs = getIndexTestDelayMs();
+        if (testDelayMs > 0) {
+          await delay(testDelayMs);
+        }
+        return analyzeFileIndexResult({
           repoRoot,
           filePath,
           summaryStrategy: config.summaryStrategy,
@@ -2952,7 +3108,8 @@ async function indexFolderDirect(input: {
             enabled: config.workerPoolEnabled,
             maxWorkers: config.workerPoolMaxWorkers,
           },
-        }),
+        });
+      },
       { concurrency: config.fileProcessingConcurrency },
     );
 
@@ -2965,7 +3122,13 @@ async function indexFolderDirect(input: {
     }
 
     const indexedAt = new Date().toISOString();
-    const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+    const staleStatus = await finalizeIndex(
+      db,
+      repoRoot,
+      indexedAt,
+      config.summaryStrategy,
+      supportedFiles.length,
+    );
 
     return {
       indexedFiles,
@@ -4030,18 +4193,20 @@ export async function getProjectStatus(
 ): Promise<ProjectStatusResult> {
   validateProjectStatusOptions(input);
   const diagnosticsResult = await diagnostics(input);
-  const discoveryReady = diagnosticsResult.indexedFiles > 0;
-  const deepRetrievalReady = diagnosticsResult.indexedSymbols > 0;
+  const readinessSummary = summarizeReadiness(
+    diagnosticsResult.readiness.discoveryReady,
+    diagnosticsResult.readiness.deepRetrievalReady,
+  );
+  const lifecycleSuffix = diagnosticsResult.readiness.deepening
+    ? ` while deepening ${diagnosticsResult.readiness.pendingDeepIndexedFiles} pending files`
+    : "";
 
   return {
     repoRoot: diagnosticsResult.storageDir.endsWith(".astrograph")
       ? path.dirname(diagnosticsResult.storageDir)
       : input.repoRoot,
-    summary: `Astrograph is ${summarizeReadiness(discoveryReady, deepRetrievalReady)} with freshness ${diagnosticsResult.staleStatus}`,
-    readiness: {
-      discoveryReady,
-      deepRetrievalReady,
-    },
+    summary: `Astrograph is ${readinessSummary}${lifecycleSuffix} with freshness ${diagnosticsResult.staleStatus}`,
+    readiness: diagnosticsResult.readiness,
     freshness: {
       staleStatus: diagnosticsResult.staleStatus,
       staleReasons: diagnosticsResult.staleReasons,
@@ -4495,6 +4660,11 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
         ),
       ).map((row) => [row.summary_source, row.count]),
     ) as DiagnosticsResult["summarySources"];
+    const indexedFiles = meta?.indexedFiles ?? drift.indexedFiles;
+    const readiness = buildReadinessStatus({
+      meta,
+      indexedFiles,
+    });
 
     return {
       engineVersion: ASTROGRAPH_PACKAGE_VERSION,
@@ -4512,7 +4682,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       summarySources,
       indexedAt,
       indexAgeMs,
-      indexedFiles: meta?.indexedFiles ?? drift.indexedFiles,
+      indexedFiles,
       indexedSymbols:
         meta?.indexedSymbols ??
         countRows(db, "SELECT COUNT(*) AS count FROM symbols"),
@@ -4523,6 +4693,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       indexedSnapshotHash,
       currentSnapshotHash: drift.currentSnapshotHash,
       staleReasons,
+      readiness,
       parser: loadParserHealth(db),
       dependencyGraph,
       watch: meta?.watch ?? createDefaultWatchDiagnostics(),

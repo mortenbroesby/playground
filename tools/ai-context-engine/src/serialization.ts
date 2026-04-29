@@ -51,6 +51,19 @@ const watchDiagnosticsSchema = {
   },
 } as const;
 
+const readinessSchema = {
+  type: "object",
+  properties: {
+    stage: { type: "string" },
+    discoveryReady: { type: "boolean" },
+    deepRetrievalReady: { type: "boolean" },
+    deepening: { type: "boolean" },
+    discoveredFiles: { type: "integer" },
+    deepIndexedFiles: { type: "integer" },
+    pendingDeepIndexedFiles: { type: "integer" },
+  },
+} as const;
+
 const diagnosticsSchema = {
   type: "object",
   properties: {
@@ -92,6 +105,7 @@ const diagnosticsSchema = {
       type: "array",
       items: { type: "string" },
     },
+    readiness: readinessSchema,
     parser: {
       type: "object",
       properties: {
@@ -222,13 +236,7 @@ const projectStatusSchema = {
   properties: {
     repoRoot: { type: "string" },
     summary: { type: "string" },
-    readiness: {
-      type: "object",
-      properties: {
-        discoveryReady: { type: "boolean" },
-        deepRetrievalReady: { type: "boolean" },
-      },
-    },
+    readiness: readinessSchema,
     freshness: {
       type: "object",
       properties: {
