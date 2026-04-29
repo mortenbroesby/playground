@@ -24,6 +24,7 @@
     "rag:init": "pnpm --filter @playground/obsidian-memory rag:init",
     "rag:index": "pnpm --filter @playground/obsidian-memory rag:index",
     "rag:query": "pnpm --filter @playground/obsidian-memory rag:query",
+    "rag:test": "pnpm --filter @playground/obsidian-memory rag:test",
     "rag:verify": "pnpm --filter @playground/obsidian-memory rag:verify",
     "ctrl:daemon": "npx @bulletproof-sh/ctrl-daemon@latest --force",
     "test": "turbo test",
