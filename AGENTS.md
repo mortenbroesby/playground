@@ -63,6 +63,8 @@ Thin bootstrap for coding agents in this repo.
 - Load a skill only when needed with `pnpm skills:read <skill-name>`.
 - Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) to
   decide which skills to load for which kinds of tasks.
+- For Superpowers-derived skills on Codex, use the tool mapping at
+  [codex-tools.md](.skills/using-superpowers/references/codex-tools.md).
 
 ## Ship Default
 
