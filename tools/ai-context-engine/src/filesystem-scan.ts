@@ -5,8 +5,8 @@ import { fdir } from "fdir";
 
 import { createDefaultEngineConfig } from "./config.ts";
 import { hashString } from "./hash.ts";
+import { supportedLanguageForFile } from "./language-registry.ts";
 import { createPathMatcher } from "./path-matcher.ts";
-import { supportedLanguageForFile } from "./parser.ts";
 import type { SupportedLanguage } from "./types.ts";
 
 export interface SnapshotEntry {

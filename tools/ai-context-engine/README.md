@@ -57,6 +57,9 @@ The package is currently a local-first npm alpha:
 - Watch-mode refresh with `@parcel/watcher`, `fs.watch`, and polling fallback paths
 - Live-disk text fallback via ripgrep when discovery text search is requested on
   a missing or stale index
+- Explicit support-tier reporting for status and file-summary flows, including
+  deterministic discovery summary strategies for Markdown, JSON, YAML, SQL,
+  shell, and plain-text fallbacks
 - Serialization benchmark gate for evaluating stable machine-result envelopes
 - Stdio MCP server backed by the official MCP TypeScript SDK
 - CLI and library entry points for local debugging, benchmarks, and packaging checks
@@ -364,8 +367,10 @@ The main entry points are:
 Core commands and surfaces worth knowing:
 
 - `query_code` for discovery, source retrieval, and bounded assembly
-- `diagnostics` for metadata-first health and freshness reporting
+- `diagnostics` for metadata-first health, freshness, and readiness-stage reporting
 - `doctor` for operator-facing warnings and suggested repair actions
+- `get_project_status` for the operator-facing summary of discovery-ready,
+  deepening, and deep-retrieval-ready state
 
 ## License
 

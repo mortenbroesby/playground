@@ -1,11 +1,16 @@
+import { spawn } from "node:child_process";
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { once } from "node:events";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import {
+  ASTROGRAPH_PACKAGE_VERSION,
+  ASTROGRAPH_VERSION_PARTS,
   diagnostics,
   doctor,
   getContextBundle,
@@ -25,6 +30,11 @@ import {
 } from "../src/index.ts";
 import { resolveEnginePaths } from "../src/config.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
+
+const packageRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 
 afterEach(async () => {
   await cleanupFixtureRepos();
@@ -97,13 +107,17 @@ function readIndexedFileUpdatedAt(repoRoot: string, filePath: string): string | 
 describe("ai-context-engine behavior", () => {
   const it = (name: string, fn: (...args: never[]) => unknown, timeout = 15000) =>
     baseIt(name, fn as never, timeout);
+  const slowIt =
+    process.env.ASTROGRAPH_ENABLE_SLOW_TESTS === "1"
+      ? it
+      : baseIt.skip;
 
   async function waitFor(
-    predicate: () => boolean,
+    predicate: () => boolean | Promise<boolean>,
     timeoutMs = 2000,
   ): Promise<void> {
     const deadline = Date.now() + timeoutMs;
-    while (!predicate()) {
+    while (!(await predicate())) {
       if (Date.now() > deadline) {
         throw new Error("Timed out waiting for condition");
       }
@@ -146,6 +160,76 @@ describe("ai-context-engine behavior", () => {
     const suggestions = await suggestInitialQueries({ repoRoot });
     expect(suggestions[0]).toContain("Greeter");
   });
+
+  slowIt("reports discovery-ready deepening state before deep retrieval finishes", async () => {
+    const repoRoot = await createFixtureRepo();
+    for (let index = 0; index < 4; index += 1) {
+      await writeFile(
+        path.join(repoRoot, "src", `extra-${index}.ts`),
+        `export function extra${index}(value: number) {\n  return value + ${index};\n}\n`,
+      );
+    }
+
+    const child = spawn(
+      process.execPath,
+      [path.join(packageRoot, "scripts", "ai-context-engine.mjs"), "index-folder", "--repo", repoRoot],
+      {
+        cwd: packageRoot,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          ASTROGRAPH_USE_SOURCE: "1",
+          ASTROGRAPH_INDEX_TEST_DELAY_MS: "1000",
+          AI_CONTEXT_ENGINE_INDEX_WORKER_CHILD: "1",
+        },
+      },
+    );
+
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+
+    try {
+      await waitFor(async () => {
+        const health = await diagnostics({ repoRoot });
+        return health.readiness.stage === "deepening";
+      }, 5_000);
+
+      const deepeningHealth = await diagnostics({ repoRoot });
+      expect(deepeningHealth.readiness).toMatchObject({
+        stage: "deepening",
+        discoveryReady: true,
+        deepRetrievalReady: false,
+        deepening: true,
+        discoveredFiles: 6,
+        deepIndexedFiles: 0,
+        pendingDeepIndexedFiles: 6,
+      });
+      expect(deepeningHealth.staleStatus).toBe("unknown");
+
+      const [code] = await once(child, "close");
+      expect(code).toBe(0);
+      expect(stderr).toBe("");
+
+      const finalHealth = await diagnostics({ repoRoot });
+      expect(finalHealth.readiness).toMatchObject({
+        stage: "deep-retrieval-ready",
+        discoveryReady: true,
+        deepRetrievalReady: true,
+        deepening: false,
+        discoveredFiles: 6,
+        deepIndexedFiles: 6,
+        pendingDeepIndexedFiles: 0,
+      });
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGTERM");
+        await once(child, "close").catch(() => undefined);
+      }
+    }
+  }, 30_000);
 
   it("doctor gives useful guidance before the repo has been indexed", async () => {
     const repoRoot = await createFixtureRepo();
@@ -228,13 +312,8 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.1.0-alpha.46",
-      engineVersionParts: {
-        major: 0,
-        minor: 1,
-        patch: 0,
-        increment: 46,
-      },
+      engineVersion: ASTROGRAPH_PACKAGE_VERSION,
+      engineVersionParts: ASTROGRAPH_VERSION_PARTS,
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
       summarySources: {
