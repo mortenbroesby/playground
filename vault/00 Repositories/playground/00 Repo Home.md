@@ -1,8 +1,12 @@
 ---
-type: repo
+id: mem-20260414-playground-home
+type: repo-home
 repo_slug: playground
+title: playground
 repo_path: /Users/macbook/personal/playground
 status: active
+created: 2026-04-14
+updated: 2026-04-14
 summary: Personal-site host plus one deliberate injected remote in a pnpm Turborepo monorepo.
 keywords:
   - personal site
@@ -16,6 +20,16 @@ stack:
   - React
   - TypeScript
 owner: mortenbroesby
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-10-11
+  expires_after: null
+  keep: true
 source_of_truth:
   - AGENTS.md
   - CLAUDE.md
@@ -31,8 +45,6 @@ tags:
   - state/active
   - repo/playground
 ---
-
-# playground
 
 ## What This Repo Is
 
@@ -92,7 +104,7 @@ personal-site shell, and a narrow microfrontend seam that still proves local rem
 ```dataview
 TABLE started_at, goal, outcome, next_step
 FROM "00 Repositories/playground/03 Sessions"
-WHERE type = "repo-session"
+WHERE type = "session"
 SORT started_at DESC
 LIMIT 10
 ```
@@ -100,10 +112,10 @@ LIMIT 10
 ## Key Decisions
 
 ```dataview
-TABLE decision_id, status, decided_on
+TABLE title, status, updated
 FROM "00 Repositories/playground/02 Decisions"
-WHERE type = "repo-decision"
-SORT decided_on DESC
+WHERE type = "architecture-record"
+SORT updated DESC
 ```
 
 ## Next Actions
