@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -7,7 +7,18 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   ASTROGRAPH_PACKAGE_VERSION,
   ASTROGRAPH_VERSION_PARTS,
+  DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+  DEFAULT_MAX_FILE_BYTES,
+  DEFAULT_MAX_FILES_DISCOVERED,
+  DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+  DEFAULT_MAX_SYMBOLS_PER_FILE,
+  DEFAULT_RANKING_WEIGHTS,
+  DEFAULT_MAX_SYMBOL_RESULTS,
+  DEFAULT_MAX_TEXT_RESULTS,
+  DEFAULT_OBSERVABILITY_RETENTION_DAYS,
   DEFAULT_SUMMARY_STRATEGY,
+  DEFAULT_WATCH_DEBOUNCE_MS,
+  ENGINE_SCHEMA_VERSION,
   ENGINE_STORAGE_VERSION,
   ENGINE_TOOLS,
   assessAstrographVersionBump,
@@ -57,10 +68,22 @@ describe("ai-context-engine contract", () => {
       storageMode: "wal",
       staleStatus: "unknown",
       summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
+      indexInclude: [],
+      indexExclude: [],
+      maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
+      maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolsPerFile: DEFAULT_MAX_SYMBOLS_PER_FILE,
+      maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
+      maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
+      maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+      maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+      rankingWeights: DEFAULT_RANKING_WEIGHTS,
     });
 
     expect(config.paths.databasePath).toContain(".astrograph/index.sqlite");
+    expect(config.fileProcessingConcurrency).toBeGreaterThanOrEqual(2);
     expect(ENGINE_STORAGE_VERSION).toBe(1);
+    expect(ENGINE_SCHEMA_VERSION).toBe(4);
   });
 
   it("advertises the required engine tools", () => {
@@ -78,22 +101,93 @@ describe("ai-context-engine contract", () => {
   });
 
   it("uses package.json as the canonical Astrograph version source", () => {
-    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.0.1-alpha.8");
+    expect(ASTROGRAPH_PACKAGE_VERSION).toBe("0.1.0-alpha.52");
     expect(parseAstrographVersion(ASTROGRAPH_PACKAGE_VERSION)).toEqual({
       major: 0,
-      minor: 0,
-      patch: 1,
-      increment: 8,
+      minor: 1,
+      patch: 0,
+      increment: 50,
     });
     expect(ASTROGRAPH_VERSION_PARTS).toEqual({
       major: 0,
-      minor: 0,
-      patch: 1,
-      increment: 8,
+      minor: 1,
+      patch: 0,
+      increment: 50,
     });
   });
 
-  it("enforces Astrograph bump rules for increment and semver resets", () => {
+  it("publishes package metadata that makes the local-first alpha intent explicit", async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    ) as {
+      description: string;
+      keywords: string[];
+      homepage: string;
+      repository: {
+        type: string;
+        url: string;
+        directory: string;
+      };
+      bugs: {
+        url: string;
+      };
+      engines: {
+        node: string;
+      };
+    };
+
+    expect(packageJson.description).toBe(
+      "Local deterministic context engine for AI-assisted code exploration",
+    );
+    expect(packageJson.keywords).toEqual(
+      expect.arrayContaining([
+        "astrograph",
+        "mcp",
+        "code-indexing",
+        "code-search",
+        "local-first",
+        "sqlite",
+      ]),
+    );
+    expect(packageJson.homepage).toContain("/tools/ai-context-engine");
+    expect(packageJson.repository).toEqual({
+      type: "git",
+      url: "https://github.com/mortenbroesby/playground.git",
+      directory: "tools/ai-context-engine",
+    });
+    expect(packageJson.bugs).toEqual({
+      url: "https://github.com/mortenbroesby/playground/issues",
+    });
+    expect(packageJson.engines).toEqual({
+      node: ">=24",
+    });
+  });
+
+  it("advertises profiling scripts and ignores generated profiling artifacts", async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    ) as {
+      scripts: Record<string, string>;
+    };
+    const rootGitignore = await readFile(
+      new URL("../../../.gitignore", import.meta.url),
+      "utf8",
+    );
+
+    expect(packageJson.scripts).toMatchObject({
+      "profile:index:clinic":
+        "clinic flame --dest .profiles/clinic/index --name astrograph-index -- node --experimental-strip-types ./scripts/perf-index.mjs",
+      "profile:query:clinic":
+        "clinic doctor --dest .profiles/clinic/query --name astrograph-query -- node --experimental-strip-types ./scripts/perf-query.mjs",
+      "profile:index:0x":
+        "0x --output-dir .profiles/0x/index -- node --experimental-strip-types ./scripts/perf-index.mjs",
+      "profile:query:0x":
+        "0x --output-dir .profiles/0x/query -- node --experimental-strip-types ./scripts/perf-query.mjs",
+    });
+    expect(rootGitignore).toContain(".profiles/");
+  });
+
+  it("enforces Astrograph bump rules with a monotonic alpha increment", () => {
     expect(
       assessAstrographVersionBump(
         { major: 0, minor: 0, patch: 1, increment: 0 },
@@ -107,7 +201,7 @@ describe("ai-context-engine contract", () => {
     expect(
       assessAstrographVersionBump(
         { major: 0, minor: 0, patch: 1, increment: 4 },
-        { major: 0, minor: 0, patch: 2, increment: 0 },
+        { major: 0, minor: 0, patch: 2, increment: 5 },
       ),
     ).toMatchObject({
       ok: true,
@@ -117,7 +211,17 @@ describe("ai-context-engine contract", () => {
     expect(
       assessAstrographVersionBump(
         { major: 0, minor: 0, patch: 1, increment: 4 },
-        { major: 0, minor: 0, patch: 2, increment: 1 },
+        { major: 0, minor: 1, patch: 0, increment: 5 },
+      ),
+    ).toMatchObject({
+      ok: true,
+      kind: "minor",
+    });
+
+    expect(
+      assessAstrographVersionBump(
+        { major: 0, minor: 0, patch: 1, increment: 4 },
+        { major: 0, minor: 1, patch: 0, increment: 4 },
       ),
     ).toMatchObject({
       ok: false,
@@ -133,11 +237,40 @@ describe("ai-context-engine contract", () => {
       path.join(repoRoot, "astrograph.config.json"),
       JSON.stringify({
         summaryStrategy: "signature-only",
+        storageMode: "wal",
+        ranking: {
+          exactName: 0,
+          filePathContains: 2000,
+        },
         observability: {
           enabled: true,
           port: 0,
           recentLimit: 17,
+          retentionDays: 5,
           snapshotIntervalMs: 250,
+          redactSourceText: false,
+        },
+        performance: {
+          include: ["src/**/*.ts"],
+          exclude: ["**/*.test.ts"],
+          fileProcessingConcurrency: 1,
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
+        },
+        watch: {
+          backend: "polling",
+          debounceMs: 175,
+        },
+        limits: {
+          maxFilesDiscovered: 1234,
+          maxFileBytes: 4321,
+          maxSymbolsPerFile: 7,
+          maxSymbolResults: 9,
+          maxTextResults: 8,
+          maxChildProcessOutputBytes: 7654,
+          maxLiveSearchMatches: 3,
         },
       }),
     );
@@ -145,12 +278,40 @@ describe("ai-context-engine contract", () => {
     const config = await loadRepoEngineConfig(repoRoot);
 
     expect(config.summaryStrategy).toBe("signature-only");
+    expect(config.storageMode).toBe("wal");
+    expect(config.ranking).toMatchObject({
+      exactName: 0,
+      filePathContains: 2000,
+      exportedBonus: DEFAULT_RANKING_WEIGHTS.exportedBonus,
+    });
     expect(config.observability).toMatchObject({
       enabled: true,
       host: "127.0.0.1",
       port: 0,
       recentLimit: 17,
+      retentionDays: 5,
       snapshotIntervalMs: 250,
+      redactSourceText: false,
+    });
+    expect(config.performance.fileProcessingConcurrency).toBe(1);
+    expect(config.performance.include).toEqual(["src/**/*.ts"]);
+    expect(config.performance.exclude).toEqual(["**/*.test.ts"]);
+    expect(config.performance.workerPool).toEqual({
+      enabled: true,
+      maxWorkers: 2,
+    });
+    expect(config.watch).toEqual({
+      backend: "polling",
+      debounceMs: 175,
+    });
+    expect(config.limits).toEqual({
+      maxFilesDiscovered: 1234,
+      maxFileBytes: 4321,
+      maxSymbolsPerFile: 7,
+      maxSymbolResults: 9,
+      maxTextResults: 8,
+      maxChildProcessOutputBytes: 7654,
+      maxLiveSearchMatches: 3,
     });
     expect(config.configPath).toContain("astrograph.config.json");
   });
@@ -173,6 +334,74 @@ describe("ai-context-engine contract", () => {
     );
   });
 
+  it("normalizes auto and bounded performance config values", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "ai-context-engine-config-"));
+    tempDirs.push(repoRoot);
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        storageMode: "wal",
+        ranking: {
+          exportedBonus: 5,
+        },
+        performance: {
+          fileProcessingConcurrency: "auto",
+        },
+      }),
+    );
+
+    const autoConfig = await loadRepoEngineConfig(repoRoot);
+    expect(autoConfig.performance.include).toEqual([]);
+    expect(autoConfig.performance.exclude).toEqual([]);
+    expect(autoConfig.performance.fileProcessingConcurrency).toBeGreaterThanOrEqual(2);
+    expect(autoConfig.storageMode).toBe("wal");
+    expect(autoConfig.ranking).toEqual({
+      ...DEFAULT_RANKING_WEIGHTS,
+      exportedBonus: 5,
+    });
+    expect(autoConfig.performance.workerPool).toEqual({
+      enabled: false,
+      maxWorkers: expect.any(Number),
+    });
+    expect(autoConfig.observability.retentionDays).toBe(
+      DEFAULT_OBSERVABILITY_RETENTION_DAYS,
+    );
+    expect(autoConfig.watch).toEqual({
+      backend: "auto",
+      debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
+    });
+    expect(autoConfig.limits).toEqual({
+      maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
+      maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolsPerFile: DEFAULT_MAX_SYMBOLS_PER_FILE,
+      maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
+      maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
+      maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+      maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+    });
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 99,
+          workerPool: {
+            enabled: true,
+            maxWorkers: 99,
+          },
+        },
+      }),
+    );
+
+    const boundedConfig = await loadRepoEngineConfig(repoRoot);
+    expect(boundedConfig.performance.fileProcessingConcurrency).toBe(32);
+    expect(boundedConfig.performance.workerPool).toEqual({
+      enabled: true,
+      maxWorkers: 16,
+    });
+  });
+
   it("renders a managed Codex MCP block for standalone install", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "astrograph-install-"));
     tempDirs.push(repoRoot);
@@ -191,5 +420,48 @@ describe("ai-context-engine contract", () => {
     expect(result.configPreview).toContain("[mcp_servers.astrograph]");
     expect(result.configPreview).toContain('command = "npx"');
     expect(result.configPreview).toContain('args = ["@astrograph/astrograph", "mcp"]');
+  });
+
+  it("replaces a legacy repo-local astrograph block with the workspace wrapper command", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "astrograph-install-workspace-"));
+    tempDirs.push(repoRoot);
+
+    await import("node:child_process").then(({ execFileSync }) => {
+      execFileSync("git", ["init"], {
+        cwd: repoRoot,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    });
+
+    await mkdir(path.join(repoRoot, "tools", "ai-context-engine", "scripts"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(repoRoot, "tools", "ai-context-engine", "scripts", "ai-context-engine.mjs"),
+      "#!/usr/bin/env node\n",
+    );
+    await mkdir(path.join(repoRoot, ".codex"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".codex", "config.toml"),
+      [
+        "[mcp_servers.astrograph]",
+        'command = "pnpm"',
+        'args = ["exec", "astrograph", "mcp"]',
+        'cwd = "."',
+        "",
+        "[features]",
+        "codex_hooks = true",
+        "",
+      ].join("\n"),
+    );
+
+    const result = await installForCodex(repoRoot, { dryRun: true });
+
+    expect(result.configPreview).toContain('command = "node"');
+    expect(result.configPreview).toContain(
+      'args = ["tools/ai-context-engine/scripts/ai-context-engine.mjs", "mcp"]',
+    );
+    expect(result.configPreview.match(/\[mcp_servers\.astrograph\]/g)).toHaveLength(1);
+    expect(result.configPreview).toContain("[features]");
   });
 });

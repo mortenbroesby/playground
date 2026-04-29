@@ -18,25 +18,24 @@ alwaysApply: true
 
 ## Code Navigation
 
-- Use `ai-context-engine` as the default repo-owned code retrieval path when
-  available.
-- If `ai-context-engine` is unavailable, use `jcodemunch` as the fallback
-  retrieval path before broad shell-based exploration.
-- For `jcodemunch` fallback flows, start with `plan_turn` when you need route
+- Use `jcodemunch` as the current default code retrieval path.
+- Keep `ai-context-engine` (`@astrograph`) available in parallel, but treat it
+  as the secondary path until the repo is ready to switch fully.
+- For `jcodemunch` flows, start with `plan_turn` when you need route
   selection, then prefer `search_symbols`, `search_text`, `get_file_outline`,
   `get_symbol_source`, `get_context_bundle`, and `get_file_tree`.
-- Start by ensuring the repo is indexed; use `index-folder` if the index is
-  missing or stale.
-- Prefer `query_code`, `get_file_outline`, `get_file_tree`, and `diagnostics`.
-- Use `query_code` with `discover`, `source`, or `assemble` intent instead of
-  the older granular retrieval tools.
+- Start by ensuring the repo is indexed; use the relevant indexing command for
+  the engine you are using.
+- Prefer the `jcodemunch` retrieval surfaces above before broad file reads.
+- Use Astrograph's `query_code`, `get_file_outline`, `get_file_tree`, and
+  `diagnostics` when you explicitly want the newer repo-owned retrieval path.
 - Use `get_file_outline` to inspect a file cheaply before opening it.
-- Use `diagnostics` when you need freshness or watch-health confirmation before
-  trusting the local index.
+- Use Astrograph `diagnostics` when you need freshness or watch-health
+  confirmation before trusting the local Astrograph index.
 - Read files directly only when you need the exact file content for an edit or
   when a non-code support file is not represented in the index.
-- Avoid broad shell-based code scans when `ai-context-engine` can answer the
-  question more precisely.
+- Avoid broad shell-based code scans when either `jcodemunch` or Astrograph can
+  answer the question more precisely.
 
 ## Memory
 

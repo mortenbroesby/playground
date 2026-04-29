@@ -9,6 +9,21 @@ export type SummaryStrategy = "doc-comments-first" | "signature-only";
 
 export type SummarySource = "doc-comment" | "signature";
 
+export interface RankingWeights {
+  exactName: number;
+  exactQualifiedName: number;
+  prefixName: number;
+  prefixQualifiedName: number;
+  containsName: number;
+  containsQualifiedName: number;
+  signatureContains: number;
+  summaryContains: number;
+  filePathContains: number;
+  exactWord: number;
+  tokenMatch: number;
+  exportedBonus: number;
+}
+
 export interface EnginePaths {
   storageDir: string;
   databasePath: string;
@@ -26,6 +41,19 @@ export interface EngineConfig {
   storageMode: StorageMode;
   staleStatus: StaleStatus;
   summaryStrategy: SummaryStrategy;
+  indexInclude: string[];
+  indexExclude: string[];
+  fileProcessingConcurrency: number;
+  workerPoolEnabled: boolean;
+  workerPoolMaxWorkers: number;
+  maxFilesDiscovered: number;
+  maxFileBytes: number;
+  maxSymbolsPerFile: number;
+  maxSymbolResults: number;
+  maxTextResults: number;
+  maxChildProcessOutputBytes: number;
+  maxLiveSearchMatches: number;
+  rankingWeights: RankingWeights;
   paths: EnginePaths;
 }
 
@@ -34,12 +62,57 @@ export interface RepoObservabilityConfig {
   host?: string;
   port?: number;
   recentLimit?: number;
+  retentionDays?: number;
   snapshotIntervalMs?: number;
+  redactSourceText?: boolean;
+}
+
+export interface RepoPerformanceConfig {
+  include?: string[];
+  exclude?: string[];
+  fileProcessingConcurrency?: number | "auto";
+  workerPool?: {
+    enabled?: boolean;
+    maxWorkers?: number | "auto";
+  };
+}
+
+export interface RepoWatchConfig {
+  backend?: WatchBackendKind | "auto";
+  debounceMs?: number;
+}
+
+export interface RepoRankingConfig {
+  exactName?: number;
+  exactQualifiedName?: number;
+  prefixName?: number;
+  prefixQualifiedName?: number;
+  containsName?: number;
+  containsQualifiedName?: number;
+  signatureContains?: number;
+  summaryContains?: number;
+  filePathContains?: number;
+  exactWord?: number;
+  tokenMatch?: number;
+  exportedBonus?: number;
 }
 
 export interface RepoEngineConfig {
   summaryStrategy?: SummaryStrategy;
+  storageMode?: StorageMode;
   observability?: RepoObservabilityConfig;
+  performance?: RepoPerformanceConfig;
+  ranking?: RepoRankingConfig;
+  watch?: RepoWatchConfig;
+  limits?: {
+    maxFilesDiscovered?: number;
+    maxFileBytes?: number;
+    maxSymbolsPerFile?: number;
+    maxSymbolResults?: number;
+    maxTextResults?: number;
+    maxChildProcessOutputBytes?: number;
+    maxLiveSearchMatches?: number;
+  };
 }
 
 export interface ResolvedObservabilityConfig {
@@ -47,14 +120,48 @@ export interface ResolvedObservabilityConfig {
   host: string;
   port: number;
   recentLimit: number;
+  retentionDays: number;
   snapshotIntervalMs: number;
+  redactSourceText: boolean;
+}
+
+export interface ResolvedPerformanceConfig {
+  include: string[];
+  exclude: string[];
+  fileProcessingConcurrency: number;
+  workerPool: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
+}
+
+export interface ResolvedWatchConfig {
+  backend: WatchBackendKind | "auto";
+  debounceMs: number;
+}
+
+export interface ResolvedRankingConfig extends RankingWeights {}
+
+export interface ResolvedLimitsConfig {
+  maxFilesDiscovered: number;
+  maxFileBytes: number;
+  maxSymbolsPerFile: number;
+  maxSymbolResults: number;
+  maxTextResults: number;
+  maxChildProcessOutputBytes: number;
+  maxLiveSearchMatches: number;
 }
 
 export interface ResolvedRepoEngineConfig {
   configPath: string | null;
   repoRoot: string;
   summaryStrategy: SummaryStrategy;
+  storageMode: StorageMode;
   observability: ResolvedObservabilityConfig;
+  performance: ResolvedPerformanceConfig;
+  ranking: ResolvedRankingConfig;
+  watch: ResolvedWatchConfig;
+  limits: ResolvedLimitsConfig;
 }
 
 export type SymbolKind =
@@ -80,6 +187,7 @@ export interface WatchEvent {
 export interface WatchOptions {
   repoRoot: string;
   debounceMs?: number;
+  backend?: WatchBackendKind | "auto";
   summaryStrategy?: SummaryStrategy;
   onEvent?: (event: WatchEvent) => void | Promise<void>;
 }
@@ -88,8 +196,11 @@ export interface WatchHandle {
   close(): Promise<void>;
 }
 
+export type WatchBackendKind = "parcel" | "node-fs-watch" | "polling";
+
 export interface WatchDiagnostics {
   status: "idle" | "watching";
+  backend: WatchBackendKind | null;
   debounceMs: number | null;
   pollMs: number | null;
   startedAt: string | null;
@@ -105,6 +216,14 @@ export interface RepoOutline {
   totalFiles: number;
   totalSymbols: number;
   languages: Partial<Record<SupportedLanguage, number>>;
+}
+
+export type ImportSpecifierKind = "named" | "default" | "namespace" | "unknown";
+
+export interface ImportSpecifier {
+  kind: ImportSpecifierKind;
+  importedName: string;
+  localName: string | null;
 }
 
 export interface FileTreeEntry {
@@ -145,6 +264,8 @@ export interface SearchTextMatch {
   filePath: string;
   line: number;
   preview: string;
+  source?: "index" | "live_disk_match";
+  reason?: "ripgrep_fallback";
 }
 
 export interface SearchTextOptions {
@@ -201,6 +322,32 @@ export interface QueryCodeOptions {
   tokenBudget?: number;
   includeTextMatches?: boolean;
   includeRankedCandidates?: boolean;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  includeReferences?: boolean;
+  relationDepth?: number;
+}
+
+export type QueryCodeMatchReason =
+  | "explicit_symbol_id"
+  | "exact_symbol_match"
+  | "query_match"
+  | "text_match"
+  | "ripgrep_fallback"
+  | "imports_matched_file"
+  | "imported_by_match"
+  | "references_match"
+  | "reexport_match";
+
+export interface QueryCodeSymbolMatch {
+  symbol: SymbolSummary;
+  reasons: QueryCodeMatchReason[];
+  depth: number;
+}
+
+export interface QueryCodeTextMatch {
+  match: SearchTextMatch;
+  reasons: QueryCodeMatchReason[];
 }
 
 export interface QueryCodeDiscoverResult {
@@ -208,6 +355,8 @@ export interface QueryCodeDiscoverResult {
   query: string;
   symbolMatches: SymbolSummary[];
   textMatches: SearchTextMatch[];
+  matches: QueryCodeSymbolMatch[];
+  textMatchResults: QueryCodeTextMatch[];
 }
 
 export interface QueryCodeSourceResult {
@@ -252,6 +401,10 @@ export interface ContextBundleOptions {
   query?: string;
   symbolIds?: string[];
   tokenBudget?: number;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  includeReferences?: boolean;
+  relationDepth?: number;
 }
 
 export interface RankedContextCandidate {
@@ -283,6 +436,7 @@ export interface DiagnosticsResult {
   storageDir: string;
   databasePath: string;
   storageVersion: number;
+  schemaVersion: number;
   storageMode: StorageMode;
   storageBackend: IndexBackendName;
   staleStatus: StaleStatus;
@@ -301,7 +455,71 @@ export interface DiagnosticsResult {
   indexedSnapshotHash: string | null;
   currentSnapshotHash: string | null;
   staleReasons: string[];
+  parser: ParserHealthDiagnostics;
+  dependencyGraph: DoctorDependencyGraphHealth;
   watch: WatchDiagnostics;
+}
+
+export interface ParserHealthDiagnostics {
+  primaryBackend: "oxc";
+  fallbackBackend: "tree-sitter";
+  indexedFileCount: number;
+  fallbackFileCount: number;
+  fallbackRate: number | null;
+  unknownFileCount: number;
+  fallbackReasons: Record<string, number>;
+}
+
+export interface DoctorObservabilityHealth {
+  enabled: boolean;
+  configuredHost: string;
+  configuredPort: number;
+  status: "disabled" | "running" | "not-running" | "unhealthy";
+  url: string | null;
+}
+
+export interface DoctorPrivacyHealth {
+  secretLikeFileCount: number;
+  sampleFilePaths: string[];
+}
+
+export interface DoctorDependencyGraphHealth {
+  brokenRelativeImportCount: number;
+  brokenRelativeSymbolImportCount: number;
+  affectedImporterCount: number;
+  sampleImporterPaths: string[];
+}
+
+export interface DoctorResult {
+  repoRoot: string;
+  storageDir: string;
+  databasePath: string;
+  storageVersion: number;
+  schemaVersion: number;
+  storageBackend: IndexBackendName;
+  storageMode: StorageMode;
+  indexStatus: "not-indexed" | "indexed" | "stale";
+  freshness: {
+    status: StaleStatus;
+    mode: "metadata" | "scan";
+    scanned: boolean;
+    indexedAt: string | null;
+    indexAgeMs: number | null;
+    indexedFiles: number;
+    currentFiles: number;
+    indexedSymbols: number;
+    indexedImports: number;
+    missingFiles: number;
+    changedFiles: number;
+    extraFiles: number;
+  };
+  parser: ParserHealthDiagnostics;
+  dependencyGraph: DoctorDependencyGraphHealth;
+  observability: DoctorObservabilityHealth;
+  privacy: DoctorPrivacyHealth;
+  watch: WatchDiagnostics;
+  warnings: string[];
+  suggestedActions: string[];
 }
 
 export type EngineEventSource = "mcp" | "watch" | "index-worker" | "health";

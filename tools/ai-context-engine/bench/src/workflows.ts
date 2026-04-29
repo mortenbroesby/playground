@@ -19,6 +19,7 @@ export interface WorkflowExecutionResult {
   estimatedRetrievedTokens: number;
   toolCalls: number;
   evidence: string[];
+  rankedEvidence: string[];
   notes: string[];
   success: boolean;
 }
@@ -47,9 +48,25 @@ function filterEvidenceToAllowedPaths(
   allowedPaths: readonly string[],
 ): string[] {
   return evidence.filter((item) => {
+    if (!item.includes("/") && !item.includes(":")) {
+      return true;
+    }
     const pathPrefix = item.split(":", 1)[0] ?? item;
     return matchesAllowedPath(pathPrefix, allowedPaths);
   });
+}
+
+function uniqueOrdered(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
 }
 
 async function computeBaselineTokens(repoRoot: string, task: BenchmarkCorpusTask) {
@@ -103,23 +120,26 @@ const baselineWorkflow: WorkflowDefinition = {
       const content = await readFile(path.join(repoRoot, file.path), "utf8");
       tokenCount += countTokens(content);
       estimatedTokenCount += estimateTokens(content);
+      evidence.push(file.path);
       for (const target of task.manifest.targets) {
         if (content.includes(target.value)) {
-          evidence.push(file.path, target.value);
+          evidence.push(target.value);
         }
       }
     }
+
+    const rankedEvidence = uniqueOrdered(
+      filterEvidenceToAllowedPaths(evidence, task.manifest.allowedPaths),
+    );
 
     return {
       retrievedTokens: tokenCount,
       estimatedRetrievedTokens: estimatedTokenCount,
       toolCalls: 1,
-      evidence: filterEvidenceToAllowedPaths(evidence, task.manifest.allowedPaths),
+      evidence: rankedEvidence,
+      rankedEvidence,
       notes: ["baseline read-all slice"],
-      success: successForTask(
-        task,
-        filterEvidenceToAllowedPaths(evidence, task.manifest.allowedPaths),
-      ),
+      success: successForTask(task, rankedEvidence),
     };
   },
 };
@@ -166,13 +186,16 @@ const symbolFirstWorkflow: WorkflowDefinition = {
       notes.push("no symbol match");
     }
 
+    const rankedEvidence = uniqueOrdered(evidence);
+
     return {
       retrievedTokens,
       estimatedRetrievedTokens,
       toolCalls,
-      evidence,
+      evidence: rankedEvidence,
+      rankedEvidence,
       notes,
-      success: successForTask(task, evidence),
+      success: successForTask(task, rankedEvidence),
     };
   },
 };
@@ -202,19 +225,27 @@ const textFirstWorkflow: WorkflowDefinition = {
       });
       retrievedTokens += countTokens(file.content);
       estimatedRetrievedTokens += estimateTokens(file.content);
-      evidence.push(file.filePath, file.content);
+      evidence.push(file.filePath);
+      for (const target of task.manifest.targets) {
+        if (file.content.includes(target.value)) {
+          evidence.push(target.value);
+        }
+      }
       toolCalls += 1;
     } else {
       notes.push("no text match");
     }
 
+    const rankedEvidence = uniqueOrdered(evidence);
+
     return {
       retrievedTokens,
       estimatedRetrievedTokens,
       toolCalls,
-      evidence,
+      evidence: rankedEvidence,
+      rankedEvidence,
       notes,
-      success: successForTask(task, evidence),
+      success: successForTask(task, rankedEvidence),
     };
   },
 };
@@ -250,13 +281,16 @@ const discoveryFirstWorkflow: WorkflowDefinition = {
       notes.push("no relevant files");
     }
 
+    const rankedEvidence = uniqueOrdered(evidence);
+
     return {
       retrievedTokens,
       estimatedRetrievedTokens,
       toolCalls,
-      evidence,
+      evidence: rankedEvidence,
+      rankedEvidence,
       notes,
-      success: successForTask(task, evidence),
+      success: successForTask(task, rankedEvidence),
     };
   },
 };
@@ -274,6 +308,9 @@ const bundleWorkflow: WorkflowDefinition = {
     const allowedItems = bundle.items.filter((item) =>
       matchesAllowedPath(item.symbol.filePath, task.manifest.allowedPaths),
     );
+    const rankedEvidence = uniqueOrdered(
+      allowedItems.flatMap((item) => [item.symbol.name, item.symbol.filePath]),
+    );
     return {
       retrievedTokens: allowedItems.reduce((total, item) => total + item.tokenCount, 0),
       estimatedRetrievedTokens: estimateTokens(
@@ -287,18 +324,13 @@ const bundleWorkflow: WorkflowDefinition = {
         ),
       ),
       toolCalls: 1,
-      evidence: allowedItems.flatMap((item) => [
-        item.symbol.name,
-        item.symbol.filePath,
-      ]),
+      evidence: rankedEvidence,
+      rankedEvidence,
       notes: [
         ...(bundle.truncated ? ["bundle truncated"] : []),
         ...(allowedItems.length < bundle.items.length ? ["filtered to allowed paths"] : []),
       ],
-      success: successForTask(
-        task,
-        allowedItems.flatMap((item) => [item.symbol.name, item.symbol.filePath]),
-      ),
+      success: successForTask(task, rankedEvidence),
     };
   },
 };

@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { z } from "zod";
@@ -7,9 +8,12 @@ import { z } from "zod";
 import type {
   EngineConfig,
   EnginePaths,
+  RepoPerformanceConfig,
+  RepoRankingConfig,
   RepoEngineConfig,
   ResolvedRepoEngineConfig,
   EngineToolName,
+  RankingWeights,
   SymbolKind,
   SummaryStrategy,
 } from "./types.ts";
@@ -18,13 +22,37 @@ const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
 
 export const ENGINE_STORAGE_DIRNAME = ".astrograph";
 export const ENGINE_STORAGE_VERSION = 1;
+export const ENGINE_SCHEMA_VERSION = 4;
 export const ENGINE_CONFIG_FILENAME = "astrograph.config.json";
 export const ENGINE_DISPLAY_NAME = "@astrograph";
 export const DEFAULT_SUMMARY_STRATEGY: SummaryStrategy = "doc-comments-first";
 export const DEFAULT_OBSERVABILITY_HOST = "127.0.0.1";
 export const DEFAULT_OBSERVABILITY_PORT = 34323;
 export const DEFAULT_OBSERVABILITY_RECENT_LIMIT = 100;
+export const DEFAULT_OBSERVABILITY_RETENTION_DAYS = 3;
 export const DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS = 1000;
+export const DEFAULT_WATCH_DEBOUNCE_MS = 100;
+export const DEFAULT_MAX_FILES_DISCOVERED = 100_000;
+export const DEFAULT_MAX_FILE_BYTES = 250_000;
+export const DEFAULT_MAX_SYMBOLS_PER_FILE = 2_000;
+export const DEFAULT_MAX_SYMBOL_RESULTS = 20;
+export const DEFAULT_MAX_TEXT_RESULTS = 100;
+export const DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES = 1_000_000;
+export const DEFAULT_MAX_LIVE_SEARCH_MATCHES = 100;
+export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
+  exactName: 1000,
+  exactQualifiedName: 900,
+  prefixName: 700,
+  prefixQualifiedName: 650,
+  containsName: 500,
+  containsQualifiedName: 450,
+  signatureContains: 250,
+  summaryContains: 200,
+  filePathContains: 120,
+  exactWord: 180,
+  tokenMatch: 70,
+  exportedBonus: 20,
+};
 
 const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
   "doc-comments-first",
@@ -56,13 +84,122 @@ const repoObservabilityConfigSchema = z.object({
   host: z.string().min(1).optional(),
   port: z.number().int().nonnegative().optional(),
   recentLimit: z.number().int().positive().optional(),
+  retentionDays: z.number().int().positive().optional(),
   snapshotIntervalMs: z.number().int().positive().optional(),
+  redactSourceText: z.boolean().optional(),
+});
+
+const repoPerformanceConfigSchema = z.object({
+  include: z.array(z.string().min(1)).optional(),
+  exclude: z.array(z.string().min(1)).optional(),
+  fileProcessingConcurrency: z.union([
+    z.literal("auto"),
+    z.number().int().positive(),
+  ]).optional(),
+  workerPool: z.object({
+    enabled: z.boolean().optional(),
+    maxWorkers: z.union([
+      z.literal("auto"),
+      z.number().int().positive(),
+    ]).optional(),
+  }).optional(),
+});
+
+const repoWatchConfigSchema = z.object({
+  backend: z.enum(["auto", "parcel", "node-fs-watch", "polling"]).optional(),
+  debounceMs: z.number().int().positive().optional(),
+});
+
+const repoRankingConfigSchema = z.object({
+  exactName: z.number().finite().nonnegative().optional(),
+  exactQualifiedName: z.number().finite().nonnegative().optional(),
+  prefixName: z.number().finite().nonnegative().optional(),
+  prefixQualifiedName: z.number().finite().nonnegative().optional(),
+  containsName: z.number().finite().nonnegative().optional(),
+  containsQualifiedName: z.number().finite().nonnegative().optional(),
+  signatureContains: z.number().finite().nonnegative().optional(),
+  summaryContains: z.number().finite().nonnegative().optional(),
+  filePathContains: z.number().finite().nonnegative().optional(),
+  exactWord: z.number().finite().nonnegative().optional(),
+  tokenMatch: z.number().finite().nonnegative().optional(),
+  exportedBonus: z.number().finite().nonnegative().optional(),
+});
+
+const repoLimitsConfigSchema = z.object({
+  maxFilesDiscovered: z.number().int().positive().optional(),
+  maxFileBytes: z.number().int().positive().optional(),
+  maxSymbolsPerFile: z.number().int().positive().optional(),
+  maxSymbolResults: z.number().int().positive().optional(),
+  maxTextResults: z.number().int().positive().optional(),
+  maxChildProcessOutputBytes: z.number().int().positive().optional(),
+  maxLiveSearchMatches: z.number().int().positive().optional(),
 });
 
 const repoEngineConfigSchema = z.object({
   summaryStrategy: z.enum(["doc-comments-first", "signature-only"]).optional(),
+  storageMode: z.enum(["wal"]).optional(),
   observability: repoObservabilityConfigSchema.optional(),
+  performance: repoPerformanceConfigSchema.optional(),
+  ranking: repoRankingConfigSchema.optional(),
+  watch: repoWatchConfigSchema.optional(),
+  limits: repoLimitsConfigSchema.optional(),
 }) satisfies z.ZodType<RepoEngineConfig>;
+
+type WorkerPoolMaxWorkersValue = number | "auto" | undefined;
+
+function defaultFileProcessingConcurrency(): number {
+  return Math.max(2, Math.min(16, os.availableParallelism()));
+}
+
+function normalizeFileProcessingConcurrency(
+  value: RepoPerformanceConfig["fileProcessingConcurrency"],
+): number {
+  if (value === undefined || value === "auto") {
+    return defaultFileProcessingConcurrency();
+  }
+
+  return Math.max(1, Math.min(32, Math.trunc(value)));
+}
+
+function defaultWorkerPoolMaxWorkers(): number {
+  return Math.max(1, Math.min(8, os.availableParallelism() - 1));
+}
+
+function normalizeWorkerPoolMaxWorkers(
+  value: WorkerPoolMaxWorkersValue,
+): number {
+  if (value === undefined || value === "auto") {
+    return defaultWorkerPoolMaxWorkers();
+  }
+
+  return Math.max(1, Math.min(16, Math.trunc(value)));
+}
+
+function resolveRankingWeights(
+  value: RepoRankingConfig | undefined,
+): RankingWeights {
+  return {
+    exactName: value?.exactName ?? DEFAULT_RANKING_WEIGHTS.exactName,
+    exactQualifiedName:
+      value?.exactQualifiedName ?? DEFAULT_RANKING_WEIGHTS.exactQualifiedName,
+    prefixName: value?.prefixName ?? DEFAULT_RANKING_WEIGHTS.prefixName,
+    prefixQualifiedName:
+      value?.prefixQualifiedName ?? DEFAULT_RANKING_WEIGHTS.prefixQualifiedName,
+    containsName: value?.containsName ?? DEFAULT_RANKING_WEIGHTS.containsName,
+    containsQualifiedName:
+      value?.containsQualifiedName ?? DEFAULT_RANKING_WEIGHTS.containsQualifiedName,
+    signatureContains:
+      value?.signatureContains ?? DEFAULT_RANKING_WEIGHTS.signatureContains,
+    summaryContains:
+      value?.summaryContains ?? DEFAULT_RANKING_WEIGHTS.summaryContains,
+    filePathContains:
+      value?.filePathContains ?? DEFAULT_RANKING_WEIGHTS.filePathContains,
+    exactWord: value?.exactWord ?? DEFAULT_RANKING_WEIGHTS.exactWord,
+    tokenMatch: value?.tokenMatch ?? DEFAULT_RANKING_WEIGHTS.tokenMatch,
+    exportedBonus:
+      value?.exportedBonus ?? DEFAULT_RANKING_WEIGHTS.exportedBonus,
+  };
+}
 
 export function resolveEnginePaths(repoRoot: string): EnginePaths {
   const storageDir = path.join(repoRoot, ENGINE_STORAGE_DIRNAME);
@@ -104,12 +241,38 @@ function createDefaultResolvedRepoEngineConfig(
     configPath: null,
     repoRoot,
     summaryStrategy: DEFAULT_SUMMARY_STRATEGY,
+    storageMode: "wal",
     observability: {
       enabled: false,
       host: DEFAULT_OBSERVABILITY_HOST,
       port: DEFAULT_OBSERVABILITY_PORT,
       recentLimit: DEFAULT_OBSERVABILITY_RECENT_LIMIT,
+      retentionDays: DEFAULT_OBSERVABILITY_RETENTION_DAYS,
       snapshotIntervalMs: DEFAULT_OBSERVABILITY_SNAPSHOT_INTERVAL_MS,
+      redactSourceText: true,
+    },
+    performance: {
+      include: [],
+      exclude: [],
+      fileProcessingConcurrency: defaultFileProcessingConcurrency(),
+      workerPool: {
+        enabled: false,
+        maxWorkers: defaultWorkerPoolMaxWorkers(),
+      },
+    },
+    ranking: { ...DEFAULT_RANKING_WEIGHTS },
+    watch: {
+      backend: "auto",
+      debounceMs: DEFAULT_WATCH_DEBOUNCE_MS,
+    },
+    limits: {
+      maxFilesDiscovered: DEFAULT_MAX_FILES_DISCOVERED,
+      maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+      maxSymbolsPerFile: DEFAULT_MAX_SYMBOLS_PER_FILE,
+      maxSymbolResults: DEFAULT_MAX_SYMBOL_RESULTS,
+      maxTextResults: DEFAULT_MAX_TEXT_RESULTS,
+      maxChildProcessOutputBytes: DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+      maxLiveSearchMatches: DEFAULT_MAX_LIVE_SEARCH_MATCHES,
     },
   };
 }
@@ -154,15 +317,57 @@ export async function loadRepoEngineConfig(
     configPath,
     repoRoot: resolvedRepoRoot,
     summaryStrategy: parsed.data.summaryStrategy ?? defaults.summaryStrategy,
+    storageMode: parsed.data.storageMode ?? defaults.storageMode,
     observability: {
       enabled: parsed.data.observability?.enabled ?? defaults.observability.enabled,
       host: parsed.data.observability?.host ?? defaults.observability.host,
       port: parsed.data.observability?.port ?? defaults.observability.port,
       recentLimit:
         parsed.data.observability?.recentLimit ?? defaults.observability.recentLimit,
+      retentionDays:
+        parsed.data.observability?.retentionDays
+        ?? defaults.observability.retentionDays,
       snapshotIntervalMs:
         parsed.data.observability?.snapshotIntervalMs
         ?? defaults.observability.snapshotIntervalMs,
+      redactSourceText:
+        parsed.data.observability?.redactSourceText
+        ?? defaults.observability.redactSourceText,
+    },
+    performance: {
+      include: parsed.data.performance?.include ?? defaults.performance.include,
+      exclude: parsed.data.performance?.exclude ?? defaults.performance.exclude,
+      fileProcessingConcurrency: normalizeFileProcessingConcurrency(
+        parsed.data.performance?.fileProcessingConcurrency,
+      ),
+      workerPool: {
+        enabled: parsed.data.performance?.workerPool?.enabled ?? defaults.performance.workerPool.enabled,
+        maxWorkers: normalizeWorkerPoolMaxWorkers(
+          parsed.data.performance?.workerPool?.maxWorkers,
+        ),
+      },
+    },
+    ranking: resolveRankingWeights(parsed.data.ranking),
+    watch: {
+      backend: parsed.data.watch?.backend ?? defaults.watch.backend,
+      debounceMs: parsed.data.watch?.debounceMs ?? defaults.watch.debounceMs,
+    },
+    limits: {
+      maxFilesDiscovered:
+        parsed.data.limits?.maxFilesDiscovered ?? defaults.limits.maxFilesDiscovered,
+      maxFileBytes:
+        parsed.data.limits?.maxFileBytes ?? defaults.limits.maxFileBytes,
+      maxSymbolsPerFile:
+        parsed.data.limits?.maxSymbolsPerFile ?? defaults.limits.maxSymbolsPerFile,
+      maxSymbolResults:
+        parsed.data.limits?.maxSymbolResults ?? defaults.limits.maxSymbolResults,
+      maxTextResults:
+        parsed.data.limits?.maxTextResults ?? defaults.limits.maxTextResults,
+      maxChildProcessOutputBytes:
+        parsed.data.limits?.maxChildProcessOutputBytes
+        ?? defaults.limits.maxChildProcessOutputBytes,
+      maxLiveSearchMatches:
+        parsed.data.limits?.maxLiveSearchMatches ?? defaults.limits.maxLiveSearchMatches,
     },
   };
 }
@@ -208,17 +413,46 @@ export function parseSymbolKind(
 export function createDefaultEngineConfig(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
+  storageMode?: EngineConfig["storageMode"];
+  indexInclude?: string[];
+  indexExclude?: string[];
+  rankingWeights?: RankingWeights;
+  fileProcessingConcurrency?: number;
+  workerPoolEnabled?: boolean;
+  workerPoolMaxWorkers?: number;
+  maxFilesDiscovered?: number;
+  maxFileBytes?: number;
+  maxSymbolsPerFile?: number;
+  maxSymbolResults?: number;
+  maxTextResults?: number;
+  maxChildProcessOutputBytes?: number;
+  maxLiveSearchMatches?: number;
 }): EngineConfig {
   return {
     repoRoot: input.repoRoot,
     languages: [...DEFAULT_LANGUAGES],
     respectGitIgnore: true,
-    storageMode: "wal",
+    storageMode: input.storageMode ?? "wal",
     staleStatus: "unknown",
     summaryStrategy:
       input.summaryStrategy === undefined
         ? DEFAULT_SUMMARY_STRATEGY
         : parseSummaryStrategy(input.summaryStrategy),
+    indexInclude: [...(input.indexInclude ?? [])],
+    indexExclude: [...(input.indexExclude ?? [])],
+    fileProcessingConcurrency:
+      input.fileProcessingConcurrency ?? defaultFileProcessingConcurrency(),
+    workerPoolEnabled: input.workerPoolEnabled ?? false,
+    workerPoolMaxWorkers: input.workerPoolMaxWorkers ?? defaultWorkerPoolMaxWorkers(),
+    maxFilesDiscovered: input.maxFilesDiscovered ?? DEFAULT_MAX_FILES_DISCOVERED,
+    maxFileBytes: input.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
+    maxSymbolsPerFile: input.maxSymbolsPerFile ?? DEFAULT_MAX_SYMBOLS_PER_FILE,
+    maxSymbolResults: input.maxSymbolResults ?? DEFAULT_MAX_SYMBOL_RESULTS,
+    maxTextResults: input.maxTextResults ?? DEFAULT_MAX_TEXT_RESULTS,
+    maxChildProcessOutputBytes:
+      input.maxChildProcessOutputBytes ?? DEFAULT_MAX_CHILD_PROCESS_OUTPUT_BYTES,
+    maxLiveSearchMatches: input.maxLiveSearchMatches ?? DEFAULT_MAX_LIVE_SEARCH_MATCHES,
+    rankingWeights: input.rankingWeights ?? { ...DEFAULT_RANKING_WEIGHTS },
     paths: resolveEnginePaths(input.repoRoot),
   };
 }

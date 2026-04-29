@@ -53,5 +53,6 @@ __screenshots__/
 .codeintel/
 .astrograph/
 .ai-context-engine/
+.profiles/
 .stryker-tmp/
 coverage/stryker*.html

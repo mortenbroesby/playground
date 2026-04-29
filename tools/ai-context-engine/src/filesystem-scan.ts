@@ -1,10 +1,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { fdir } from "fdir";
 
 import { createDefaultEngineConfig } from "./config.ts";
+import { hashString } from "./hash.ts";
+import { createPathMatcher } from "./path-matcher.ts";
 import { supportedLanguageForFile } from "./parser.ts";
+import type { SupportedLanguage } from "./types.ts";
 
 export interface SnapshotEntry {
   path: string;
@@ -27,6 +30,20 @@ interface SupportedFileCandidate {
   relativePath: string;
 }
 
+export interface DiscoveredSourceFile {
+  absolutePath: string;
+  relativePath: string;
+  language: SupportedLanguage;
+  sizeBytes: number;
+}
+
+export interface DiscoveryLimits {
+  include?: string[];
+  exclude?: string[];
+  maxFilesDiscovered?: number;
+  maxFileBytes?: number;
+}
+
 const SKIP_SEGMENTS = new Set([
   ".git",
   ".next",
@@ -39,17 +56,14 @@ const SKIP_SEGMENTS = new Set([
   "node_modules",
 ]);
 
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 export function snapshotHash(entries: SnapshotEntry[]): string {
-  return sha256(
+  return hashString(
     entries
       .slice()
       .sort((left, right) => left.path.localeCompare(right.path))
       .map((entry) => `${entry.path}:${entry.contentHash}`)
       .join("\n"),
+    "directory_snapshot",
   );
 }
 
@@ -120,51 +134,109 @@ export async function scanSupportedFileCandidates(
   rootDir: string,
   currentDir = rootDir,
 ): Promise<SupportedFileCandidate[]> {
-  const entries = await readdir(currentDir, { withFileTypes: true });
-  const results: SupportedFileCandidate[] = [];
+  const results = await discoverSourceFiles({
+    repoRoot: rootDir,
+    startRelativePath: path.relative(rootDir, currentDir),
+    respectGitIgnore: false,
+  });
+  return results.map(({ absolutePath, relativePath }) => ({
+    absolutePath,
+    relativePath,
+  }));
+}
 
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
+export async function discoverSourceFiles(options: {
+  repoRoot: string;
+  startRelativePath?: string;
+  respectGitIgnore?: boolean;
+  include?: string[];
+  exclude?: string[];
+  maxFilesDiscovered?: number;
+  maxFileBytes?: number;
+}): Promise<DiscoveredSourceFile[]> {
+  const startRelativePath = options.startRelativePath ?? "";
+  const startDir = startRelativePath
+    ? path.join(options.repoRoot, startRelativePath)
+    : options.repoRoot;
+  const pathMatcher = createPathMatcher({
+    include: options.include,
+    exclude: options.exclude,
+  });
 
-    const absolutePath = path.join(currentDir, entry.name);
-    const relativePath = path.relative(rootDir, absolutePath);
+  const crawledPaths = await new fdir()
+    .withFullPaths()
+    .exclude((dirName) => SKIP_SEGMENTS.has(dirName))
+    .crawl(startDir)
+    .withPromise();
 
-    if (entry.isDirectory()) {
-      if (SKIP_SEGMENTS.has(entry.name)) {
-        continue;
+  const discoveredFiles = await Promise.all(
+    crawledPaths.map(async (absolutePath) => {
+      const relativePath = path.relative(options.repoRoot, absolutePath);
+      if (relativePath.startsWith(`..${path.sep}`) || relativePath === "..") {
+        return null;
       }
-      results.push(...(await scanSupportedFileCandidates(rootDir, absolutePath)));
-      continue;
-    }
 
-    if (!supportedLanguageForFile(relativePath)) {
-      continue;
-    }
+      const language = supportedLanguageForFile(relativePath);
+      if (!language) {
+        return null;
+      }
+      if (!pathMatcher.matches(relativePath)) {
+        return null;
+      }
 
-    results.push({
-      absolutePath,
-      relativePath,
-    });
+      const fileStat = await stat(absolutePath).catch(() => null);
+      if (!fileStat?.isFile()) {
+        return null;
+      }
+
+      return {
+        absolutePath,
+        relativePath,
+        language,
+        sizeBytes: fileStat.size,
+      };
+    }),
+  );
+
+  const filteredDiscoveredFiles: DiscoveredSourceFile[] = discoveredFiles.filter(
+    (entry): entry is DiscoveredSourceFile => entry !== null,
+  );
+  const respectGitIgnore = options.respectGitIgnore ?? true;
+  const maxFilesDiscovered = options.maxFilesDiscovered ?? Infinity;
+  const maxFileBytes = options.maxFileBytes ?? Infinity;
+  const ignoredPaths = respectGitIgnore
+    ? resolveGitIgnoredPaths(
+        options.repoRoot,
+        filteredDiscoveredFiles.map((entry) => entry.relativePath),
+      )
+    : new Set<string>();
+
+  const limitedDiscoveredFiles = filteredDiscoveredFiles
+    .filter((entry) => entry.sizeBytes <= maxFileBytes)
+    .filter((entry) => !ignoredPaths.has(entry.relativePath))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+
+  if (limitedDiscoveredFiles.length > maxFilesDiscovered) {
+    throw new Error(
+      `Discovered ${limitedDiscoveredFiles.length} supported files, exceeding maxFilesDiscovered=${maxFilesDiscovered}`,
+    );
   }
 
-  return results.sort((left, right) =>
-    left.relativePath.localeCompare(right.relativePath)
-  );
+  return limitedDiscoveredFiles;
 }
 
 export async function loadFilesystemSnapshot(
   repoRoot: string,
+  limits: DiscoveryLimits = {},
 ): Promise<SnapshotEntry[]> {
-  const files = await listSupportedFiles(repoRoot);
+  const files = await listSupportedFiles(repoRoot, repoRoot, limits);
   const entries: SnapshotEntry[] = [];
 
   for (const filePath of files) {
     const content = await readFile(path.join(repoRoot, filePath), "utf8");
     entries.push({
       path: filePath,
-      contentHash: sha256(content),
+      contentHash: hashString(content, "content_fingerprint"),
     });
   }
 
@@ -224,26 +296,30 @@ export async function loadKnownDirectoryStateSnapshot(
 export async function loadSupportedFileStatesForSubtree(
   rootDir: string,
   startRelativePath = "",
+  limits: DiscoveryLimits = {},
 ): Promise<FilesystemStateEntry[]> {
-  const startDir = startRelativePath ? path.join(rootDir, startRelativePath) : rootDir;
-  const config = createDefaultEngineConfig({ repoRoot: rootDir });
-  const candidates = await scanSupportedFileCandidates(rootDir, startDir);
-  const ignoredPaths = config.respectGitIgnore
-    ? resolveGitIgnoredPaths(
-        rootDir,
-        candidates.map((candidate) => candidate.relativePath),
-      )
-    : new Set<string>();
+  const config = createDefaultEngineConfig({
+    repoRoot: rootDir,
+    indexInclude: limits.include,
+    indexExclude: limits.exclude,
+    maxFilesDiscovered: limits.maxFilesDiscovered,
+    maxFileBytes: limits.maxFileBytes,
+  });
+  const discoveredFiles = await discoverSourceFiles({
+    repoRoot: rootDir,
+    startRelativePath,
+    respectGitIgnore: config.respectGitIgnore,
+    include: config.indexInclude,
+    exclude: config.indexExclude,
+    maxFilesDiscovered: config.maxFilesDiscovered,
+    maxFileBytes: config.maxFileBytes,
+  });
   const results: FilesystemStateEntry[] = [];
 
-  for (const candidate of candidates) {
-    if (ignoredPaths.has(candidate.relativePath)) {
-      continue;
-    }
-
-    const fileStat = await stat(candidate.absolutePath);
+  for (const discoveredFile of discoveredFiles) {
+    const fileStat = await stat(discoveredFile.absolutePath);
     results.push({
-      path: candidate.relativePath,
+      path: discoveredFile.relativePath,
       mtimeMs: fileStat.mtimeMs,
       size: fileStat.size,
     });
@@ -254,8 +330,9 @@ export async function loadSupportedFileStatesForSubtree(
 
 export async function loadFilesystemStateSnapshot(
   rootDir: string,
+  limits: DiscoveryLimits = {},
 ): Promise<FilesystemStateEntry[]> {
-  return loadSupportedFileStatesForSubtree(rootDir);
+  return loadSupportedFileStatesForSubtree(rootDir, "", limits);
 }
 
 export function compareDirectoryStates(
@@ -295,18 +372,23 @@ export function compactDirectoryRescanPaths(paths: string[]): string[] {
 export async function listSupportedFiles(
   rootDir: string,
   currentDir = rootDir,
+  limits: DiscoveryLimits = {},
 ): Promise<string[]> {
-  const config = createDefaultEngineConfig({ repoRoot: rootDir });
-  const candidates = await scanSupportedFileCandidates(rootDir, currentDir);
-  if (!config.respectGitIgnore) {
-    return candidates.map((candidate) => candidate.relativePath);
-  }
-
-  const ignoredPaths = resolveGitIgnoredPaths(
-    rootDir,
-    candidates.map((candidate) => candidate.relativePath),
-  );
-  return candidates
-    .map((candidate) => candidate.relativePath)
-    .filter((relativePath) => !ignoredPaths.has(relativePath));
+  const config = createDefaultEngineConfig({
+    repoRoot: rootDir,
+    indexInclude: limits.include,
+    indexExclude: limits.exclude,
+    maxFilesDiscovered: limits.maxFilesDiscovered,
+    maxFileBytes: limits.maxFileBytes,
+  });
+  const discoveredFiles = await discoverSourceFiles({
+    repoRoot: rootDir,
+    startRelativePath: path.relative(rootDir, currentDir),
+    respectGitIgnore: config.respectGitIgnore,
+    include: config.indexInclude,
+    exclude: config.indexExclude,
+    maxFilesDiscovered: config.maxFilesDiscovered,
+    maxFileBytes: config.maxFileBytes,
+  });
+  return discoveredFiles.map((entry) => entry.relativePath);
 }

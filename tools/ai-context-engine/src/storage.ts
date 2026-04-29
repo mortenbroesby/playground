@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, watch as fsWatch } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, realpath, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import pMap from "p-map";
+import { Piscina } from "piscina";
 import {
   Subject,
   buffer,
@@ -19,12 +21,16 @@ import {
 
 import {
   createDefaultEngineConfig,
+  ENGINE_SCHEMA_VERSION,
   ENGINE_STORAGE_VERSION,
   loadRepoEngineConfig,
   normalizeSummaryStrategy,
   resolveEngineRepoRoot,
 } from "./config.ts";
 import { emitEngineEvent } from "./event-sink.ts";
+import { analyzeFileContent } from "./file-analysis.ts";
+import type { FileAnalysisTaskInput, FileAnalysisTaskOutput } from "./file-analysis.ts";
+import { searchLiveText } from "./live-search.ts";
 import {
   compactDirectoryRescanPaths,
   compareDirectoryStates,
@@ -38,14 +44,18 @@ import {
   scanDirectoryStateSnapshot,
   snapshotHash,
 } from "./filesystem-scan.ts";
+import { hashString } from "./hash.ts";
 import type {
   IndexBackendConnection,
   IndexBackendValue,
   IndexStatement,
 } from "./index-backend.ts";
-import { parseSourceFile, supportedLanguageForFile } from "./parser.ts";
+import { createPathMatcher } from "./path-matcher.ts";
+import { supportedLanguageForFile } from "./parser.ts";
+import { containsSecretLikeText } from "./privacy.ts";
 import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
+import { subscribeRepo } from "./watch-backend.ts";
 import {
   ASTROGRAPH_PACKAGE_VERSION,
   ASTROGRAPH_VERSION_PARTS,
@@ -59,6 +69,7 @@ import {
 import type {
   DiagnosticsOptions,
   DiagnosticsResult,
+  DoctorResult,
   ContextBundle,
   ContextBundleItem,
   ContextBundleItemRole,
@@ -70,9 +81,14 @@ import type {
   QueryCodeAssembleResult,
   QueryCodeDiscoverResult,
   QueryCodeIntent,
+  QueryCodeMatchReason,
+  QueryCodeSymbolMatch,
+  QueryCodeTextMatch,
   QueryCodeOptions,
   QueryCodeResult,
   QueryCodeSourceResult,
+  ImportSpecifier,
+  RankingWeights,
   RankedContextCandidate,
   RankedContextResult,
   RepoOutline,
@@ -85,6 +101,7 @@ import type {
   SummarySource,
   SummaryStrategy,
   SupportedLanguage,
+  WatchBackendKind,
   WatchDiagnostics,
   WatchEvent,
   WatchHandle,
@@ -113,6 +130,47 @@ interface DbSymbolRow {
   exported: number;
 }
 
+interface DbFileContentRow extends DbSymbolRow {
+  content_hash: string;
+  integrity_hash: string | null;
+  content: string;
+}
+
+interface TrackedFileRow {
+  id: number;
+  content_hash: string;
+  integrity_hash: string | null;
+  size_bytes: number | null;
+  mtime_ms: number | null;
+}
+
+type AnalyzedFileIndexResult =
+  | {
+    kind: "unchanged";
+    existing: TrackedFileRow;
+  }
+  | {
+    kind: "symbol-limit-exceeded";
+    existing: TrackedFileRow | undefined;
+    symbolCount: number;
+  }
+  | {
+    kind: "content-unchanged";
+    existing: TrackedFileRow;
+    file: Awaited<ReturnType<typeof readRepoFile>>;
+    reparsed: FileAnalysisTaskOutput["parsed"];
+    symbolSignatureHash: string;
+    importHash: string;
+  }
+  | {
+    kind: "reindexed";
+    existing: TrackedFileRow | undefined;
+    file: Awaited<ReturnType<typeof readRepoFile>>;
+    reparsed: FileAnalysisTaskOutput["parsed"];
+    symbolSignatureHash: string;
+    importHash: string;
+  };
+
 interface RepoMetaRecord {
   repoRoot: string;
   storageVersion?: number;
@@ -125,6 +183,77 @@ interface RepoMetaRecord {
   staleStatus: "fresh" | "stale" | "unknown";
   summaryStrategy?: SummaryStrategy;
   watch?: WatchDiagnostics;
+}
+
+interface ObservabilityStatusRecord {
+  host: string;
+  port: number;
+}
+
+type RepoMetaHealthStatus =
+  | "ok"
+  | "missing"
+  | "unreadable"
+  | "missing-integrity"
+  | "integrity-mismatch";
+
+interface RepoMetaHealth {
+  meta: RepoMetaRecord | null;
+  status: RepoMetaHealthStatus;
+}
+
+interface SchemaMigration {
+  toVersion: number;
+  run(db: IndexBackendConnection): void;
+}
+
+function loadParserHealth(db: IndexBackendConnection): DiagnosticsResult["parser"] {
+  const parserStats = typedGet<{
+    indexed_file_count: number;
+    known_file_count: number;
+    fallback_file_count: number;
+    unknown_file_count: number;
+  }>(
+    db.prepare(`
+      SELECT
+        COUNT(*) AS indexed_file_count,
+        SUM(CASE WHEN parser_backend IS NOT NULL THEN 1 ELSE 0 END) AS known_file_count,
+        SUM(CASE WHEN parser_fallback_used = 1 THEN 1 ELSE 0 END) AS fallback_file_count,
+        SUM(CASE WHEN parser_backend IS NULL THEN 1 ELSE 0 END) AS unknown_file_count
+      FROM files
+    `),
+  ) ?? {
+    indexed_file_count: 0,
+    known_file_count: 0,
+    fallback_file_count: 0,
+    unknown_file_count: 0,
+  };
+
+  const fallbackReasons = Object.fromEntries(
+    typedAll<{ reason: string; count: number }>(
+      db.prepare(`
+        SELECT parser_fallback_reason AS reason, COUNT(*) AS count
+        FROM files
+        WHERE parser_fallback_used = 1
+          AND parser_fallback_reason IS NOT NULL
+          AND parser_fallback_reason != ''
+        GROUP BY parser_fallback_reason
+      `),
+    ).map((row) => [row.reason, row.count]),
+  ) as Record<string, number>;
+
+  const knownFileCount = parserStats.known_file_count ?? 0;
+  const fallbackFileCount = parserStats.fallback_file_count ?? 0;
+
+  return {
+    primaryBackend: "oxc",
+    fallbackBackend: "tree-sitter",
+    indexedFileCount: parserStats.indexed_file_count ?? 0,
+    fallbackFileCount,
+    fallbackRate: knownFileCount > 0 ? fallbackFileCount / knownFileCount : null,
+    unknownFileCount: parserStats.unknown_file_count ?? 0,
+    fallbackReasons,
+  };
 }
 
 interface EngineContext {
@@ -155,9 +284,62 @@ const sourceCliEntrypoint = path.join(storageModuleDir, "cli.ts");
 const cliEntrypoint = existsSync(builtCliEntrypoint)
   ? builtCliEntrypoint
   : sourceCliEntrypoint;
+const builtAnalyzeFileWorkerEntrypoint = path.join(
+  storageModuleDir,
+  "..",
+  "dist",
+  "workers",
+  "analyze-file-worker.js",
+);
+const sourceAnalyzeFileWorkerEntrypoint = path.join(
+  storageModuleDir,
+  "workers",
+  "analyze-file-worker.ts",
+);
+let fileAnalysisPool: Piscina<FileAnalysisTaskInput, FileAnalysisTaskOutput> | null = null;
+let fileAnalysisPoolKey: string | null = null;
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function resolveAnalyzeFileWorkerOptions(): {
+  filename: string;
+  execArgv?: string[];
+} {
+  const preferSource =
+    process.env.ASTROGRAPH_USE_SOURCE === "1"
+    || process.env.ASTROGRAPH_USE_SOURCE === "true";
+  const useBuiltTarget = existsSync(builtAnalyzeFileWorkerEntrypoint)
+    && (!preferSource || !existsSync(sourceAnalyzeFileWorkerEntrypoint));
+
+  return useBuiltTarget
+    ? {
+        filename: builtAnalyzeFileWorkerEntrypoint,
+      }
+    : {
+        filename: sourceAnalyzeFileWorkerEntrypoint,
+        execArgv: ["--experimental-strip-types"],
+      };
+}
+
+function getFileAnalysisPool(maxWorkers: number) {
+  const options = resolveAnalyzeFileWorkerOptions();
+  const poolKey = `${options.filename}:${options.execArgv?.join(" ") ?? ""}:${maxWorkers}`;
+
+  if (fileAnalysisPool && fileAnalysisPoolKey === poolKey) {
+    return fileAnalysisPool;
+  }
+
+  fileAnalysisPool = new Piscina<FileAnalysisTaskInput, FileAnalysisTaskOutput>({
+    filename: options.filename,
+    execArgv: options.execArgv,
+    minThreads: 1,
+    maxThreads: maxWorkers,
+    concurrentTasksPerWorker: 1,
+  });
+  fileAnalysisPoolKey = poolKey;
+  return fileAnalysisPool;
 }
 
 function mapSymbolRow(row: DbSymbolRow): SymbolSummary {
@@ -228,6 +410,125 @@ function setLruEntry<TKey, TValue>(
   }
 }
 
+function readMetaNumber(
+  db: IndexBackendConnection,
+  key: string,
+): number | null {
+  const row = typedGet<{ value: string }>(
+    db.prepare("SELECT value FROM meta WHERE key = ?"),
+    key,
+  );
+  if (!row) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(row.value, 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function writeMetaNumber(
+  db: IndexBackendConnection,
+  key: string,
+  value: number,
+) {
+  db.prepare(
+    "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  ).run(key, String(value));
+}
+
+function hasTableColumn(
+  db: IndexBackendConnection,
+  tableName: string,
+  columnName: string,
+) {
+  return typedAll<{ name: string }>(
+    db.prepare(`PRAGMA table_info(${tableName})`),
+  ).some((column) => column.name === columnName);
+}
+
+const SCHEMA_MIGRATIONS: SchemaMigration[] = [
+  {
+    toVersion: 1,
+    run(db) {
+      if (!hasTableColumn(db, "symbols", "summary_source")) {
+        db.exec(
+          "ALTER TABLE symbols ADD COLUMN summary_source TEXT NOT NULL DEFAULT 'signature'",
+        );
+      }
+      if (!hasTableColumn(db, "files", "parser_backend")) {
+        db.exec("ALTER TABLE files ADD COLUMN parser_backend TEXT");
+      }
+      if (!hasTableColumn(db, "files", "parser_fallback_used")) {
+        db.exec(
+          "ALTER TABLE files ADD COLUMN parser_fallback_used INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+      if (!hasTableColumn(db, "files", "parser_fallback_reason")) {
+        db.exec("ALTER TABLE files ADD COLUMN parser_fallback_reason TEXT");
+      }
+    },
+  },
+  {
+    toVersion: 2,
+    run(db) {
+      if (!hasTableColumn(db, "files", "size_bytes")) {
+        db.exec("ALTER TABLE files ADD COLUMN size_bytes INTEGER");
+      }
+      if (!hasTableColumn(db, "files", "mtime_ms")) {
+        db.exec("ALTER TABLE files ADD COLUMN mtime_ms INTEGER");
+      }
+      if (!hasTableColumn(db, "files", "symbol_signature_hash")) {
+        db.exec("ALTER TABLE files ADD COLUMN symbol_signature_hash TEXT");
+      }
+      if (!hasTableColumn(db, "files", "import_hash")) {
+        db.exec("ALTER TABLE files ADD COLUMN import_hash TEXT");
+      }
+    },
+  },
+  {
+    toVersion: 3,
+    run(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS file_dependencies (
+          importer_file_id INTEGER NOT NULL,
+          importer_path TEXT NOT NULL,
+          target_path TEXT NOT NULL,
+          source TEXT NOT NULL,
+          PRIMARY KEY(importer_file_id, target_path, source),
+          FOREIGN KEY(importer_file_id) REFERENCES files(id) ON DELETE CASCADE
+        );
+      `);
+    },
+  },
+  {
+    toVersion: 4,
+    run(db) {
+      if (!hasTableColumn(db, "files", "integrity_hash")) {
+        db.exec("ALTER TABLE files ADD COLUMN integrity_hash TEXT");
+      }
+    },
+  },
+];
+
+function runSchemaMigrations(db: IndexBackendConnection) {
+  const currentVersion = readMetaNumber(db, "schemaVersion") ?? 0;
+
+  for (const migration of SCHEMA_MIGRATIONS) {
+    if (migration.toVersion <= currentVersion) {
+      continue;
+    }
+    migration.run(db);
+    writeMetaNumber(db, "schemaVersion", migration.toVersion);
+  }
+
+  const resolvedVersion = readMetaNumber(db, "schemaVersion") ?? 0;
+  if (resolvedVersion !== ENGINE_SCHEMA_VERSION) {
+    throw new Error(
+      `Astrograph schema migration mismatch. Expected ${ENGINE_SCHEMA_VERSION}, got ${resolvedVersion}.`,
+    );
+  }
+}
+
 function initializeDatabase(db: IndexBackendConnection) {
   db.exec(`
     PRAGMA foreign_keys = ON;
@@ -241,6 +542,14 @@ function initializeDatabase(db: IndexBackendConnection) {
       path TEXT NOT NULL UNIQUE,
       language TEXT NOT NULL,
       content_hash TEXT NOT NULL,
+      integrity_hash TEXT,
+      size_bytes INTEGER,
+      mtime_ms INTEGER,
+      symbol_signature_hash TEXT,
+      import_hash TEXT,
+      parser_backend TEXT,
+      parser_fallback_used INTEGER NOT NULL DEFAULT 0,
+      parser_fallback_reason TEXT,
       symbol_count INTEGER NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -267,6 +576,14 @@ function initializeDatabase(db: IndexBackendConnection) {
       specifiers TEXT NOT NULL,
       FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE
     );
+    CREATE TABLE IF NOT EXISTS file_dependencies (
+      importer_file_id INTEGER NOT NULL,
+      importer_path TEXT NOT NULL,
+      target_path TEXT NOT NULL,
+      source TEXT NOT NULL,
+      PRIMARY KEY(importer_file_id, target_path, source),
+      FOREIGN KEY(importer_file_id) REFERENCES files(id) ON DELETE CASCADE
+    );
     CREATE TABLE IF NOT EXISTS content_blobs (
       file_id INTEGER PRIMARY KEY,
       content TEXT NOT NULL,
@@ -292,15 +609,7 @@ function initializeDatabase(db: IndexBackendConnection) {
     CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
     CREATE INDEX IF NOT EXISTS idx_symbols_file_path ON symbols(file_path);
   `);
-
-  const symbolColumns = typedAll<{ name: string }>(
-    db.prepare("PRAGMA table_info(symbols)"),
-  );
-  if (!symbolColumns.some((column) => column.name === "summary_source")) {
-    db.exec(
-      "ALTER TABLE symbols ADD COLUMN summary_source TEXT NOT NULL DEFAULT 'signature'",
-    );
-  }
+  runSchemaMigrations(db);
 }
 
 function shareDatabaseConnection(actual: IndexBackendConnection): IndexBackendConnection {
@@ -348,6 +657,9 @@ export function clearStorageProcessCaches() {
   clearDatabaseConnectionCache();
   repoRootResolutionCache.clear();
   ensuredStorageRoots.clear();
+  void fileAnalysisPool?.destroy().catch(() => undefined);
+  fileAnalysisPool = null;
+  fileAnalysisPoolKey = null;
 }
 
 function clearDatabaseConnectionCache(databasePath?: string) {
@@ -581,6 +893,20 @@ async function ensureStorage(repoRoot: string, summaryStrategy?: SummaryStrategy
   const config = createDefaultEngineConfig({
     repoRoot: resolvedRepoRoot,
     summaryStrategy: summaryStrategy ?? repoConfig.summaryStrategy,
+    storageMode: repoConfig.storageMode,
+    indexInclude: repoConfig.performance.include,
+    indexExclude: repoConfig.performance.exclude,
+    rankingWeights: repoConfig.ranking,
+    fileProcessingConcurrency: repoConfig.performance.fileProcessingConcurrency,
+    workerPoolEnabled: repoConfig.performance.workerPool.enabled,
+    workerPoolMaxWorkers: repoConfig.performance.workerPool.maxWorkers,
+    maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
+    maxFileBytes: repoConfig.limits.maxFileBytes,
+    maxSymbolsPerFile: repoConfig.limits.maxSymbolsPerFile,
+    maxSymbolResults: repoConfig.limits.maxSymbolResults,
+    maxTextResults: repoConfig.limits.maxTextResults,
+    maxChildProcessOutputBytes: repoConfig.limits.maxChildProcessOutputBytes,
+    maxLiveSearchMatches: repoConfig.limits.maxLiveSearchMatches,
   });
   if (!getLruEntry(ensuredStorageRoots, resolvedRepoRoot)) {
     await mkdir(config.paths.storageDir, { recursive: true });
@@ -793,6 +1119,7 @@ async function writeSidecars(input: {
 function createDefaultWatchDiagnostics(): WatchDiagnostics {
   return {
     status: "idle",
+    backend: null,
     debounceMs: null,
     pollMs: null,
     startedAt: null,
@@ -813,6 +1140,12 @@ function normalizeWatchDiagnostics(value: unknown): WatchDiagnostics {
   const candidate = value as Partial<WatchDiagnostics>;
   return {
     status: candidate.status === "watching" ? "watching" : "idle",
+    backend:
+      candidate.backend === "parcel" ||
+      candidate.backend === "node-fs-watch" ||
+      candidate.backend === "polling"
+        ? candidate.backend
+        : null,
     debounceMs:
       typeof candidate.debounceMs === "number" ? candidate.debounceMs : null,
     pollMs: typeof candidate.pollMs === "number" ? candidate.pollMs : null,
@@ -894,6 +1227,67 @@ async function readRepoMeta(
   }
 }
 
+async function readRepoMetaHealth(
+  repoMetaPath: string,
+  integrityPath: string,
+): Promise<RepoMetaHealth> {
+  const metaContents = await readFile(repoMetaPath, "utf8").catch((error: unknown) => {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  });
+
+  if (metaContents === null) {
+    return {
+      meta: null,
+      status: "missing",
+    };
+  }
+
+  let parsed: RepoMetaRecord;
+  try {
+    parsed = JSON.parse(metaContents) as RepoMetaRecord;
+  } catch {
+    return {
+      meta: null,
+      status: "unreadable",
+    };
+  }
+
+  const meta: RepoMetaRecord = {
+    ...parsed,
+    storageVersion:
+      typeof parsed.storageVersion === "number" &&
+      Number.isInteger(parsed.storageVersion)
+        ? parsed.storageVersion
+        : ENGINE_STORAGE_VERSION,
+    summaryStrategy: normalizeSummaryStrategy(parsed.summaryStrategy),
+    watch: normalizeWatchDiagnostics(parsed.watch),
+  };
+  const integrityContents = await readFile(integrityPath, "utf8").catch((error: unknown) => {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  });
+
+  if (integrityContents === null) {
+    return {
+      meta,
+      status: "missing-integrity",
+    };
+  }
+
+  return {
+    meta,
+    status:
+      integrityContents.trim() === sha256(metaContents)
+        ? "ok"
+        : "integrity-mismatch",
+  };
+}
+
 function loadIndexedSnapshot(
   db: IndexBackendConnection,
 ): SnapshotEntry[] {
@@ -957,6 +1351,58 @@ async function readRepoFile(repoRoot: string, filePath: string) {
     language,
     content,
     mtimeMs: fileStat.mtimeMs,
+    size: fileStat.size,
+  };
+}
+
+async function readRepoFileMetadata(repoRoot: string, filePath: string) {
+  const { absolutePath, relativePath } = normalizeRepoRelativePath(repoRoot, filePath);
+  const language = supportedLanguageForFile(relativePath);
+  if (!language) {
+    throw new Error(`Unsupported source file: ${filePath}`);
+  }
+  if (isGitIgnored(repoRoot, relativePath)) {
+    throw new Error(`Ignored source file: ${relativePath}`);
+  }
+  await assertInsideRepoRoot(repoRoot, absolutePath);
+
+  const fileStat = await stat(absolutePath);
+  return {
+    absolutePath,
+    relativePath,
+    language,
+    mtimeMs: fileStat.mtimeMs,
+    size: fileStat.size,
+  };
+}
+
+function exceedsMaxFileBytes(size: number, maxFileBytes: number): boolean {
+  return size > maxFileBytes;
+}
+
+function exceedsMaxSymbolsPerFile(symbolCount: number, maxSymbolsPerFile: number): boolean {
+  return symbolCount > maxSymbolsPerFile;
+}
+
+async function resolveRepoFileRefreshState(
+  repoRoot: string,
+  filePath: string,
+): Promise<{
+  relativePath: string;
+  exists: boolean;
+  supported: boolean;
+  ignored: boolean;
+}> {
+  const { absolutePath, relativePath } = normalizeRepoRelativePath(repoRoot, filePath);
+  const exists = await stat(absolutePath)
+    .then((entry) => entry.isFile())
+    .catch(() => false);
+
+  return {
+    relativePath,
+    exists,
+    supported: Boolean(supportedLanguageForFile(relativePath)),
+    ignored: isGitIgnored(repoRoot, relativePath),
   };
 }
 
@@ -982,6 +1428,263 @@ function uniqueQueryTerms(value: string): string[] {
   ].filter(Boolean))];
 }
 
+function persistedSymbolCount(db: IndexBackendConnection, fileId: number): number {
+  const countRow = typedGet<{ count: number }>(
+    db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
+    fileId,
+  );
+  return countRow?.count ?? 0;
+}
+
+async function analyzeFileIndexResult(input: {
+  repoRoot: string;
+  filePath: string;
+  summaryStrategy?: SummaryStrategy;
+  forceRefresh?: boolean;
+  existing?: TrackedFileRow;
+  maxSymbolsPerFile: number;
+  workerPool?: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
+}): Promise<AnalyzedFileIndexResult> {
+  const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
+
+  if (
+    !input.forceRefresh
+    && input.existing
+    && input.existing.size_bytes === fileMetadata.size
+    && input.existing.mtime_ms === Math.trunc(fileMetadata.mtimeMs)
+  ) {
+    return {
+      kind: "unchanged",
+      existing: input.existing,
+    };
+  }
+
+  const file = await readRepoFile(input.repoRoot, input.filePath);
+  const analysis = input.workerPool?.enabled
+    ? await getFileAnalysisPool(input.workerPool.maxWorkers).run({
+        relativePath: file.relativePath,
+        language: file.language,
+        content: file.content,
+        summaryStrategy: input.summaryStrategy,
+      })
+    : analyzeFileContent({
+        relativePath: file.relativePath,
+        language: file.language,
+        content: file.content,
+        summaryStrategy: input.summaryStrategy,
+      });
+  const reparsed = analysis.parsed;
+  const { symbolSignatureHash, importHash } = analysis;
+
+  if (exceedsMaxSymbolsPerFile(reparsed.symbols.length, input.maxSymbolsPerFile)) {
+    return {
+      kind: "symbol-limit-exceeded",
+      existing: input.existing,
+      symbolCount: reparsed.symbols.length,
+    };
+  }
+
+  if (!input.forceRefresh && input.existing?.content_hash === reparsed.contentHash) {
+    return {
+      kind: "content-unchanged",
+      existing: input.existing!,
+      file,
+      reparsed,
+      symbolSignatureHash,
+      importHash,
+    };
+  }
+
+  return {
+    kind: "reindexed",
+    existing: input.existing,
+    file,
+    reparsed,
+    symbolSignatureHash,
+    importHash,
+  };
+}
+
+function persistFileIndexResult(
+  db: IndexBackendConnection,
+  analyzed: AnalyzedFileIndexResult,
+): { indexed: boolean; symbolCount: number } {
+  if (analyzed.kind === "unchanged") {
+    return {
+      indexed: false,
+      symbolCount: persistedSymbolCount(db, analyzed.existing.id),
+    };
+  }
+
+  if (analyzed.kind === "symbol-limit-exceeded") {
+    if (analyzed.existing) {
+      clearFileSearchRows(db, analyzed.existing.id);
+      db.prepare("DELETE FROM files WHERE id = ?").run(analyzed.existing.id);
+    }
+
+    return {
+      indexed: false,
+      symbolCount: 0,
+    };
+  }
+
+  if (analyzed.kind === "content-unchanged") {
+    db.prepare(
+      `
+        UPDATE files
+        SET size_bytes = ?, mtime_ms = ?, integrity_hash = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      analyzed.file.size,
+      Math.trunc(analyzed.file.mtimeMs),
+      analyzed.reparsed.integrityHash,
+      analyzed.symbolSignatureHash,
+      analyzed.importHash,
+      new Date().toISOString(),
+      analyzed.existing.id,
+    );
+    return {
+      indexed: false,
+      symbolCount: persistedSymbolCount(db, analyzed.existing.id),
+    };
+  }
+
+  const { existing, file, reparsed, symbolSignatureHash, importHash } = analyzed;
+
+  if (existing) {
+    clearFileSearchRows(db, existing.id);
+    db.prepare("DELETE FROM imports WHERE file_id = ?").run(existing.id);
+    db.prepare("DELETE FROM symbols WHERE file_id = ?").run(existing.id);
+    db.prepare("DELETE FROM content_blobs WHERE file_id = ?").run(existing.id);
+    db.prepare(
+      `
+        UPDATE files
+        SET language = ?, content_hash = ?, integrity_hash = ?, parser_backend = ?, parser_fallback_used = ?, parser_fallback_reason = ?, symbol_count = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      reparsed.language,
+      reparsed.contentHash,
+      reparsed.integrityHash,
+      reparsed.backend,
+      reparsed.fallbackUsed ? 1 : 0,
+      reparsed.fallbackReason,
+      reparsed.symbols.length,
+      new Date().toISOString(),
+      existing.id,
+    );
+    db.prepare(
+      `
+        UPDATE files
+        SET size_bytes = ?, mtime_ms = ?, symbol_signature_hash = ?, import_hash = ?, updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
+      file.size,
+      Math.trunc(file.mtimeMs),
+      symbolSignatureHash,
+      importHash,
+      new Date().toISOString(),
+      existing.id,
+    );
+  } else {
+    db.prepare(
+      `
+        INSERT INTO files (
+          path, language, content_hash, integrity_hash, size_bytes, mtime_ms,
+          symbol_signature_hash, import_hash, parser_backend, parser_fallback_used,
+          parser_fallback_reason, symbol_count, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+    ).run(
+      file.relativePath,
+      reparsed.language,
+      reparsed.contentHash,
+      reparsed.integrityHash,
+      file.size,
+      Math.trunc(file.mtimeMs),
+      symbolSignatureHash,
+      importHash,
+      reparsed.backend,
+      reparsed.fallbackUsed ? 1 : 0,
+      reparsed.fallbackReason,
+      reparsed.symbols.length,
+      new Date().toISOString(),
+    );
+  }
+
+  const fileRow = db
+    .prepare("SELECT id FROM files WHERE path = ?")
+    .get(file.relativePath) as { id: number };
+  db.prepare(
+    "INSERT INTO content_blobs (file_id, content) VALUES (?, ?)",
+  ).run(fileRow.id, file.content);
+  db.prepare(
+    "INSERT INTO content_search (file_id, file_path, content) VALUES (?, ?, ?)",
+  ).run(fileRow.id, file.relativePath, file.content);
+  const insertSymbol = db.prepare(`
+    INSERT INTO symbols (
+      id, file_id, file_path, name, qualified_name, kind, signature,
+      summary, summary_source, start_line, end_line, start_byte, end_byte, exported
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertSymbolSearch = db.prepare(`
+    INSERT INTO symbol_search (
+      symbol_id, file_id, name, qualified_name, signature, summary, file_path, kind
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const symbol of reparsed.symbols) {
+    insertSymbol.run(
+      symbol.id,
+      fileRow.id,
+      file.relativePath,
+      symbol.name,
+      symbol.qualifiedName,
+      symbol.kind,
+      symbol.signature,
+      symbol.summary,
+      symbol.summarySource,
+      symbol.startLine,
+      symbol.endLine,
+      symbol.startByte,
+      symbol.endByte,
+      symbol.exported ? 1 : 0,
+    );
+    insertSymbolSearch.run(
+      symbol.id,
+      fileRow.id,
+      symbol.name,
+      symbol.qualifiedName ?? "",
+      symbol.signature,
+      symbol.summary,
+      file.relativePath,
+      symbol.kind,
+    );
+  }
+  const insertImport = db.prepare(
+    "INSERT INTO imports (file_id, source, specifiers) VALUES (?, ?, ?)",
+  );
+  for (const dependency of reparsed.imports) {
+    insertImport.run(
+      fileRow.id,
+      dependency.source,
+      JSON.stringify(dependency.specifiers),
+    );
+  }
+
+  return {
+    indexed: true,
+    symbolCount: reparsed.symbols.length,
+  };
+}
+
 function quoteFtsTerm(term: string): string {
   return `"${term.replace(/"/g, '""')}"`;
 }
@@ -1005,17 +1708,9 @@ function escapeRegExp(value: string): string {
 }
 
 function matchesFilePattern(filePath: string, pattern?: string): boolean {
-  if (!pattern) {
-    return true;
-  }
-
-  const normalizedPattern = pattern.replaceAll("\\", "/");
-  const regexPattern = escapeRegExp(normalizedPattern)
-    .replace(/\\\*\\\*/g, ".*")
-    .replace(/\\\*/g, "[^/]*")
-    .replace(/\\\?/g, "[^/]");
-
-  return new RegExp(`^${regexPattern}$`, "u").test(filePath);
+  return createPathMatcher({ include: pattern ? [pattern] : undefined }).matches(
+    filePath,
+  );
 }
 
 function estimateTokens(value: string): number {
@@ -1036,7 +1731,11 @@ function rowText(row: DbSymbolRow): string {
     .toLowerCase();
 }
 
-function scoreSymbolRow(row: DbSymbolRow, query: string): number {
+function scoreSymbolRow(
+  row: DbSymbolRow,
+  query: string,
+  weights: RankingWeights,
+): number {
   const normalized = normalizeQuery(query);
   if (!normalized) {
     return 0;
@@ -1052,46 +1751,46 @@ function scoreSymbolRow(row: DbSymbolRow, query: string): number {
   let score = 0;
 
   if (name === normalized) {
-    score += 1000;
+    score += weights.exactName;
   }
   if (qualifiedName === normalized) {
-    score += 900;
+    score += weights.exactQualifiedName;
   }
   if (name.startsWith(normalized)) {
-    score += 700;
+    score += weights.prefixName;
   }
   if (qualifiedName.startsWith(normalized)) {
-    score += 650;
+    score += weights.prefixQualifiedName;
   }
   if (name.includes(normalized)) {
-    score += 500;
+    score += weights.containsName;
   }
   if (qualifiedName.includes(normalized)) {
-    score += 450;
+    score += weights.containsQualifiedName;
   }
   if (signature.includes(normalized)) {
-    score += 250;
+    score += weights.signatureContains;
   }
   if (summary.includes(normalized)) {
-    score += 200;
+    score += weights.summaryContains;
   }
   if (filePath.includes(normalized)) {
-    score += 120;
+    score += weights.filePathContains;
   }
 
   const exactWord = new RegExp(`\\b${escapeRegExp(normalized)}\\b`, "i");
   if (exactWord.test(rowText(row))) {
-    score += 180;
+    score += weights.exactWord;
   }
 
   for (const token of tokens) {
     if (haystack.includes(token)) {
-      score += 70;
+      score += weights.tokenMatch;
     }
   }
 
   if (score > 0 && row.exported) {
-    score += 20;
+    score += weights.exportedBonus;
   }
 
   return score;
@@ -1203,7 +1902,7 @@ function loadSymbolSourceRow(
   db: IndexBackendConnection,
   symbolId: string,
 ) {
-  return typedGet<DbSymbolRow & { content_hash: string; content: string }>(
+  return typedGet<DbFileContentRow>(
     db.prepare(
       `
         SELECT
@@ -1211,7 +1910,7 @@ function loadSymbolSourceRow(
           symbols.signature, symbols.summary, symbols.summary_source,
           symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
           symbols.exported,
-          files.content_hash, content_blobs.content
+          files.content_hash, files.integrity_hash, content_blobs.content
         FROM symbols
         INNER JOIN files ON files.id = symbols.file_id
         INNER JOIN content_blobs ON content_blobs.file_id = files.id
@@ -1262,102 +1961,308 @@ function resolveImportedFilePaths(
   return [];
 }
 
+function normalizeImportSpecifier(
+  value: unknown,
+): ImportSpecifier | null {
+  if (typeof value === "string") {
+    const importedName = value.trim();
+    return importedName
+      ? {
+          kind: "unknown",
+          importedName,
+          localName: null,
+        }
+      : null;
+  }
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const kind = "kind" in value ? value.kind : null;
+  const importedName = "importedName" in value ? value.importedName : null;
+  const localName = "localName" in value ? value.localName : null;
+
+  if (
+    (kind !== "named" && kind !== "default" && kind !== "namespace" && kind !== "unknown")
+    || typeof importedName !== "string"
+    || importedName.trim().length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    kind,
+    importedName: importedName.trim(),
+    localName: typeof localName === "string" && localName.trim().length > 0
+      ? localName.trim()
+      : null,
+  };
+}
+
+function parseStoredImportSpecifiers(serialized: string): ImportSpecifier[] {
+  try {
+    const parsed = JSON.parse(serialized) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((entry) => normalizeImportSpecifier(entry))
+      .filter((entry): entry is ImportSpecifier => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+function rebuildFileDependencies(db: IndexBackendConnection) {
+  db.prepare("DELETE FROM file_dependencies").run();
+
+  const rows = typedAll<{
+    importer_file_id: number;
+    importer_path: string;
+    source: string;
+  }>(
+    db.prepare(`
+      SELECT imports.file_id AS importer_file_id, files.path AS importer_path, imports.source AS source
+      FROM imports
+      INNER JOIN files ON files.id = imports.file_id
+      ORDER BY files.path ASC, imports.source ASC
+    `),
+  );
+  const insertDependency = db.prepare(`
+    INSERT INTO file_dependencies (importer_file_id, importer_path, target_path, source)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  for (const row of rows) {
+    const targetPaths = resolveImportedFilePaths(
+      db,
+      row.importer_path,
+      row.source,
+    );
+    for (const targetPath of targetPaths) {
+      insertDependency.run(
+        row.importer_file_id,
+        row.importer_path,
+        targetPath,
+        row.source,
+      );
+    }
+  }
+}
+
+function loadDirectImporterPaths(
+  db: IndexBackendConnection,
+  targetPath: string,
+): string[] {
+  return typedAll<{ importer_path: string }>(
+    db.prepare(
+      `
+        SELECT importer_path
+        FROM file_dependencies
+        WHERE target_path = ?
+        ORDER BY importer_path ASC
+      `,
+    ),
+    targetPath,
+  ).map((row) => row.importer_path);
+}
+
 function pickDependencyRows(
   db: IndexBackendConnection,
   seedRow: DbSymbolRow,
-): Array<{ row: DbSymbolRow; reason: string }> {
-  const fileRow = typedGet<{ id: number }>(
-    db.prepare("SELECT id FROM files WHERE path = ?"),
-    seedRow.file_path,
-  );
-  if (!fileRow) {
-    return [];
-  }
-
+): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
   const imports = typedAll<{
+    target_path: string;
     source: string;
     specifiers: string;
   }>(
     db.prepare(
       `
-        SELECT source, specifiers
-        FROM imports
-        WHERE file_id = ?
-        ORDER BY source ASC
+        SELECT file_dependencies.target_path AS target_path, file_dependencies.source AS source, imports.specifiers AS specifiers
+        FROM file_dependencies
+        INNER JOIN files ON files.id = file_dependencies.importer_file_id
+        INNER JOIN imports ON imports.file_id = files.id AND imports.source = file_dependencies.source
+        WHERE file_dependencies.importer_path = ?
+        ORDER BY file_dependencies.target_path ASC, file_dependencies.source ASC
       `,
     ),
-    fileRow.id,
+    seedRow.file_path,
   );
 
-  const matches: Array<{ row: DbSymbolRow; reason: string }> = [];
+  const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
   const seen = new Set<string>();
 
   for (const importRow of imports) {
-    const targets = resolveImportedFilePaths(
-      db,
-      seedRow.file_path,
-      importRow.source,
-    );
-    const specifiers = JSON.parse(importRow.specifiers) as string[];
+    const specifiers = parseStoredImportSpecifiers(importRow.specifiers);
 
-    for (const targetPath of targets) {
-      const picked: DbSymbolRow[] = [];
+    const picked: DbSymbolRow[] = [];
 
-      for (const specifier of specifiers) {
-        const row = typedGet<DbSymbolRow>(
-          db.prepare(
-            `
-              SELECT
-                id, name, qualified_name, kind, file_path, signature, summary,
-                summary_source,
-                start_line, end_line, start_byte, end_byte, exported
-              FROM symbols
-              WHERE file_path = ? AND (name = ? OR qualified_name = ?)
-              ORDER BY exported DESC, start_line ASC
-              LIMIT 1
-            `,
-          ),
-          targetPath,
-          specifier,
-          specifier,
-        );
-        if (row) {
-          picked.push(row);
-        }
-      }
-
-      if (picked.length === 0) {
-        const row = typedGet<DbSymbolRow>(
-          db.prepare(
-            `
-              SELECT
-                id, name, qualified_name, kind, file_path, signature, summary,
-                summary_source,
-                start_line, end_line, start_byte, end_byte, exported
-              FROM symbols
-              WHERE file_path = ?
-              ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
-              LIMIT 1
-            `,
-          ),
-          targetPath,
-        );
-        if (row) {
-          picked.push(row);
-        }
-      }
-
-      for (const row of picked) {
-        if (seen.has(row.id)) {
-          continue;
-        }
-        seen.add(row.id);
-        matches.push({
-          row,
-          reason: `import ${importRow.source}`,
-        });
+    for (const specifier of specifiers) {
+      const row = typedGet<DbSymbolRow>(
+        db.prepare(
+          `
+            SELECT
+              id, name, qualified_name, kind, file_path, signature, summary,
+              summary_source,
+              start_line, end_line, start_byte, end_byte, exported
+            FROM symbols
+            WHERE file_path = ? AND (name = ? OR qualified_name = ?)
+            ORDER BY exported DESC, start_line ASC
+            LIMIT 1
+          `,
+        ),
+        importRow.target_path,
+        specifier.importedName,
+        specifier.importedName,
+      );
+      if (row) {
+        picked.push(row);
       }
     }
+
+    if (picked.length === 0) {
+      const row = typedGet<DbSymbolRow>(
+        db.prepare(
+          `
+            SELECT
+              id, name, qualified_name, kind, file_path, signature, summary,
+              summary_source,
+              start_line, end_line, start_byte, end_byte, exported
+            FROM symbols
+            WHERE file_path = ?
+            ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
+            LIMIT 1
+          `,
+        ),
+        importRow.target_path,
+      );
+      if (row) {
+        picked.push(row);
+      }
+    }
+
+    for (const row of picked) {
+      if (seen.has(row.id)) {
+        continue;
+      }
+      seen.add(row.id);
+      matches.push({
+        row,
+        reason: importRow.source.startsWith(".")
+          ? "imports_matched_file"
+          : "reexport_match",
+      });
+    }
+  }
+
+  return matches;
+}
+
+function pickImporterRows(
+  db: IndexBackendConnection,
+  seedRow: DbSymbolRow,
+): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
+  const importers = typedAll<{
+    importer_path: string;
+  }>(
+    db.prepare(
+      `
+        SELECT importer_path
+        FROM file_dependencies
+        WHERE target_path = ?
+        ORDER BY importer_path ASC
+      `,
+    ),
+    seedRow.file_path,
+  );
+
+  const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
+  const seen = new Set<string>();
+
+  for (const importer of importers) {
+    const row = typedGet<DbSymbolRow>(
+      db.prepare(
+        `
+          SELECT
+            id, name, qualified_name, kind, file_path, signature, summary,
+            summary_source,
+            start_line, end_line, start_byte, end_byte, exported
+          FROM symbols
+          WHERE file_path = ?
+          ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
+          LIMIT 1
+        `,
+      ),
+      importer.importer_path,
+    );
+    if (!row || seen.has(row.id)) {
+      continue;
+    }
+    seen.add(row.id);
+    matches.push({
+      row,
+      reason: "imported_by_match",
+    });
+  }
+
+  return matches;
+}
+
+function pickReferenceRows(
+  db: IndexBackendConnection,
+  seedRow: DbSymbolRow,
+): Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> {
+  const importers = typedAll<{
+    importer_path: string;
+    specifiers: string;
+  }>(
+    db.prepare(
+      `
+        SELECT file_dependencies.importer_path AS importer_path, imports.specifiers AS specifiers
+        FROM file_dependencies
+        INNER JOIN files ON files.id = file_dependencies.importer_file_id
+        INNER JOIN imports ON imports.file_id = files.id AND imports.source = file_dependencies.source
+        WHERE file_dependencies.target_path = ?
+        ORDER BY file_dependencies.importer_path ASC
+      `,
+    ),
+    seedRow.file_path,
+  );
+
+  const matches: Array<{ row: DbSymbolRow; reason: QueryCodeMatchReason }> = [];
+  const seen = new Set<string>();
+
+  for (const importer of importers) {
+    const specifiers = parseStoredImportSpecifiers(importer.specifiers);
+    if (!specifiers.some((specifier) => specifier.importedName === seedRow.name)) {
+      continue;
+    }
+
+    const row = typedGet<DbSymbolRow>(
+      db.prepare(
+        `
+          SELECT
+            id, name, qualified_name, kind, file_path, signature, summary,
+            summary_source,
+            start_line, end_line, start_byte, end_byte, exported
+          FROM symbols
+          WHERE file_path = ?
+          ORDER BY exported DESC, kind = 'class' DESC, kind = 'function' DESC, start_line ASC
+          LIMIT 1
+        `,
+      ),
+      importer.importer_path,
+    );
+    if (!row || seen.has(row.id)) {
+      continue;
+    }
+    seen.add(row.id);
+    matches.push({
+      row,
+      reason: "references_match",
+    });
   }
 
   return matches;
@@ -1379,7 +2284,7 @@ function makeContextBundleItem(
 }
 
 function buildSymbolSourceItem(
-  row: DbSymbolRow & { content_hash: string; content: string },
+  row: DbFileContentRow,
   verify: boolean,
   contextLines = 0,
 ): SymbolSourceItem {
@@ -1390,15 +2295,18 @@ function buildSymbolSourceItem(
   return {
     symbol: mapSymbolRow(row),
     source: lines.slice(startLine - 1, endLine).join("\n"),
-    verified: verify ? sha256(row.content) === row.content_hash : false,
+    verified: verify
+      ? row.integrity_hash === hashString(row.content, "integrity")
+        || sha256(row.content) === row.content_hash
+      : false,
     startLine,
     endLine,
   };
 }
 
 interface RankedSeedCandidate {
-  row: DbSymbolRow & { content_hash: string; content: string };
-  reason: string;
+  row: DbFileContentRow;
+  reason: QueryCodeMatchReason;
   score: number;
 }
 
@@ -1416,19 +2324,18 @@ function sortRankedSymbolEntries(
 }
 
 function resolveRankedSeedCandidates(
-  db: IndexBackendConnection,
+  context: EngineContext,
   input: ContextBundleOptions,
 ): RankedSeedCandidate[] {
   if (input.symbolIds?.length) {
     return input.symbolIds
-      .map((symbolId) => loadSymbolSourceRow(db, symbolId))
+      .map((symbolId) => loadSymbolSourceRow(context.db, symbolId))
       .filter(
-        (row): row is DbSymbolRow & { content_hash: string; content: string } =>
-          Boolean(row),
+        (row): row is DbFileContentRow => Boolean(row),
       )
       .map((row, index) => ({
         row,
-        reason: "explicit symbol id",
+        reason: "explicit_symbol_id",
         score: Math.max(1, input.symbolIds!.length - index),
       }));
   }
@@ -1437,17 +2344,21 @@ function resolveRankedSeedCandidates(
     return [];
   }
 
-  return loadSymbolRows(db, { query: input.query })
+  return loadSymbolRows(context.db, { query: input.query })
     .map((row) => ({
       row,
-      score: scoreSymbolRow(row, input.query ?? ""),
+      score: scoreSymbolRow(row, input.query ?? "", context.config.rankingWeights),
     }))
     .filter((entry) => entry.score > 0)
     .sort(sortRankedSymbolEntries)
     .slice(0, 5)
     .map((entry) => ({
-      row: loadSymbolSourceRow(db, entry.row.id),
-      reason: `matched query "${input.query}"`,
+      row: loadSymbolSourceRow(context.db, entry.row.id),
+      reason:
+        normalizeQuery(input.query ?? "") === normalizeQuery(entry.row.name)
+        || normalizeQuery(input.query ?? "") === normalizeQuery(entry.row.qualified_name ?? "")
+          ? "exact_symbol_match"
+          : "query_match",
       score: entry.score,
     }))
     .filter(
@@ -1459,7 +2370,7 @@ function resolveRankedSeedCandidates(
 
 function buildContextBundleFromSeeds(
   db: IndexBackendConnection,
-  input: ContextBundleOptions,
+  input: ContextBundleOptions & Pick<QueryCodeOptions, "includeDependencies" | "includeImporters" | "includeReferences" | "relationDepth">,
   seedCandidates: RankedSeedCandidate[],
 ): ContextBundle {
   const bundleCandidates: Array<ContextBundleItem> = [];
@@ -1480,25 +2391,50 @@ function buildContextBundleFromSeeds(
     );
   }
 
-  for (const seed of seedCandidates) {
-    const dependencyRows = pickDependencyRows(db, seed.row);
-    for (const dependency of dependencyRows) {
-      if (seen.has(dependency.row.id)) {
-        continue;
+  const relationDepth = Math.min(3, Math.max(1, input.relationDepth ?? 1));
+  const includeDependencies = input.includeDependencies ?? true;
+  const includeImporters = input.includeImporters ?? false;
+  const includeReferences = input.includeReferences ?? false;
+  let frontier = seedCandidates.map((seed) => seed.row as DbSymbolRow);
+  const visited = new Set(frontier.map((row) => row.id));
+
+  for (let depth = 0; depth < relationDepth; depth += 1) {
+    const nextFrontier: DbSymbolRow[] = [];
+
+    for (const seedRow of frontier) {
+      const relatedRows = [
+        ...(includeDependencies ? pickDependencyRows(db, seedRow) : []),
+        ...(includeReferences ? pickReferenceRows(db, seedRow) : []),
+        ...(includeImporters ? pickImporterRows(db, seedRow) : []),
+      ];
+
+      for (const related of relatedRows) {
+        if (seen.has(related.row.id)) {
+          continue;
+        }
+        seen.add(related.row.id);
+        const sourceRow = loadSymbolSourceRow(db, related.row.id);
+        if (!sourceRow) {
+          continue;
+        }
+        bundleCandidates.push(
+          makeContextBundleItem(
+            related.row,
+            sourceRow.content.slice(sourceRow.start_byte, sourceRow.end_byte),
+            "dependency",
+            related.reason,
+          ),
+        );
+        if (!visited.has(related.row.id)) {
+          visited.add(related.row.id);
+          nextFrontier.push(related.row);
+        }
       }
-      seen.add(dependency.row.id);
-      const sourceRow = loadSymbolSourceRow(db, dependency.row.id);
-      if (!sourceRow) {
-        continue;
-      }
-      bundleCandidates.push(
-        makeContextBundleItem(
-          dependency.row,
-          sourceRow.content.slice(sourceRow.start_byte, sourceRow.end_byte),
-          "dependency",
-          dependency.reason,
-        ),
-      );
+    }
+
+    frontier = nextFrontier;
+    if (frontier.length === 0) {
+      break;
     }
   }
 
@@ -1529,6 +2465,111 @@ function buildContextBundleFromSeeds(
   };
 }
 
+function buildDiscoverGraphMatches(
+  db: IndexBackendConnection,
+  seedSymbols: SymbolSummary[],
+  input: Pick<QueryCodeOptions, "query" | "includeDependencies" | "includeImporters" | "includeReferences" | "relationDepth" | "includeTextMatches">,
+): {
+  matches: QueryCodeSymbolMatch[];
+  textMatchResults: QueryCodeTextMatch[];
+} {
+  const matches = new Map<string, QueryCodeSymbolMatch>();
+  const query = normalizeQuery(input.query ?? "");
+  const seedRows = seedSymbols
+    .map((symbol) => loadSymbolSourceRow(db, symbol.id))
+    .filter((row): row is DbFileContentRow => Boolean(row));
+
+  for (const symbol of seedSymbols) {
+    matches.set(symbol.id, {
+      symbol,
+      reasons: [
+        query === normalizeQuery(symbol.name) || query === normalizeQuery(symbol.qualifiedName ?? "")
+          ? "exact_symbol_match"
+          : "query_match",
+      ],
+      depth: 0,
+    });
+  }
+
+  const relationDepth = Math.min(3, Math.max(1, input.relationDepth ?? 1));
+  let frontier = seedRows.map((row) => ({ row: row as DbSymbolRow, depth: 0 }));
+  const visited = new Set(frontier.map((entry) => entry.row.id));
+
+  while (frontier.length > 0) {
+    const nextFrontier: Array<{ row: DbSymbolRow; depth: number }> = [];
+
+    for (const entry of frontier) {
+      if (entry.depth >= relationDepth) {
+        continue;
+      }
+
+      const relatedRows = [
+        ...(input.includeDependencies ? pickDependencyRows(db, entry.row) : []),
+        ...(input.includeReferences ? pickReferenceRows(db, entry.row) : []),
+        ...(input.includeImporters ? pickImporterRows(db, entry.row) : []),
+      ];
+
+      for (const related of relatedRows) {
+        const existing = matches.get(related.row.id);
+        if (existing) {
+          if (!existing.reasons.includes(related.reason)) {
+            existing.reasons.push(related.reason);
+          }
+          existing.depth = Math.min(existing.depth, entry.depth + 1);
+        } else {
+          matches.set(related.row.id, {
+            symbol: mapSymbolRow(related.row),
+            reasons: [related.reason],
+            depth: entry.depth + 1,
+          });
+        }
+
+        if (!visited.has(related.row.id)) {
+          visited.add(related.row.id);
+          nextFrontier.push({
+            row: related.row,
+            depth: entry.depth + 1,
+          });
+        }
+      }
+    }
+
+    frontier = nextFrontier;
+  }
+
+  return {
+    matches: [...matches.values()].sort(
+      (left, right) =>
+        left.depth - right.depth ||
+        Number(right.symbol.exported) - Number(left.symbol.exported) ||
+        left.symbol.filePath.localeCompare(right.symbol.filePath) ||
+        left.symbol.startLine - right.symbol.startLine,
+    ),
+    textMatchResults: [],
+  };
+}
+
+function buildTextMatchResults(
+  textMatches: SearchTextMatch[],
+): QueryCodeTextMatch[] {
+  return textMatches.map((match) => ({
+    match,
+    reasons:
+      match.reason === "ripgrep_fallback"
+        ? ["ripgrep_fallback"]
+        : ["text_match"],
+  }));
+}
+
+async function shouldUseLiveTextSearchFallback(input: {
+  repoRoot: string;
+  summaryStrategy?: SummaryStrategy;
+}): Promise<boolean> {
+  const config = await ensureStorage(input.repoRoot, input.summaryStrategy);
+  const meta = await readRepoMeta(config.paths.repoMetaPath);
+  return !meta || meta.staleStatus !== "fresh";
+}
+
 function buildRankedContextResult(
   input: ContextBundleOptions & { query: string },
   seedCandidates: RankedSeedCandidate[],
@@ -1557,135 +2598,6 @@ function buildRankedContextResult(
   };
 }
 
-async function upsertFileIndex(db: IndexBackendConnection, input: {
-  repoRoot: string;
-  filePath: string;
-  summaryStrategy?: SummaryStrategy;
-  forceRefresh?: boolean;
-}) {
-  const file = await readRepoFile(input.repoRoot, input.filePath);
-  const parsed = parseSourceFile({
-    relativePath: file.relativePath,
-    content: file.content,
-    language: file.language,
-    summaryStrategy: input.summaryStrategy,
-  });
-  const existing = db
-    .prepare("SELECT id, content_hash FROM files WHERE path = ?")
-    .get(file.relativePath) as { id: number; content_hash: string } | undefined;
-
-  if (!input.forceRefresh && existing?.content_hash === parsed.contentHash) {
-    const countRow = typedGet<{ count: number }>(
-      db.prepare("SELECT COUNT(*) AS count FROM symbols WHERE file_id = ?"),
-      existing.id,
-    );
-    return {
-      indexed: false,
-      symbolCount: countRow?.count ?? 0,
-    };
-  }
-
-  if (existing) {
-    clearFileSearchRows(db, existing.id);
-    db.prepare("DELETE FROM imports WHERE file_id = ?").run(existing.id);
-    db.prepare("DELETE FROM symbols WHERE file_id = ?").run(existing.id);
-    db.prepare("DELETE FROM content_blobs WHERE file_id = ?").run(existing.id);
-    db.prepare(
-      `
-        UPDATE files
-        SET language = ?, content_hash = ?, symbol_count = ?, updated_at = ?
-        WHERE id = ?
-      `,
-    ).run(
-      parsed.language,
-      parsed.contentHash,
-      parsed.symbols.length,
-      new Date().toISOString(),
-      existing.id,
-    );
-  } else {
-    db.prepare(
-      `
-        INSERT INTO files (path, language, content_hash, symbol_count, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-      `,
-    ).run(
-      file.relativePath,
-      parsed.language,
-      parsed.contentHash,
-      parsed.symbols.length,
-      new Date().toISOString(),
-    );
-  }
-
-  const fileRow = db
-    .prepare("SELECT id FROM files WHERE path = ?")
-    .get(file.relativePath) as { id: number };
-
-  db.prepare(
-    "INSERT INTO content_blobs (file_id, content) VALUES (?, ?)",
-  ).run(fileRow.id, file.content);
-  db.prepare(
-    "INSERT INTO content_search (file_id, file_path, content) VALUES (?, ?, ?)",
-  ).run(fileRow.id, file.relativePath, file.content);
-
-  const insertSymbol = db.prepare(`
-    INSERT INTO symbols (
-      id, file_id, file_path, name, qualified_name, kind, signature, summary,
-      summary_source, start_line, end_line, start_byte, end_byte, exported
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const insertSymbolSearch = db.prepare(`
-    INSERT INTO symbol_search (
-      symbol_id, file_id, name, qualified_name, signature, summary, file_path, kind
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  for (const symbol of parsed.symbols) {
-    insertSymbol.run(
-      symbol.id,
-      fileRow.id,
-      file.relativePath,
-      symbol.name,
-      symbol.qualifiedName,
-      symbol.kind,
-      symbol.signature,
-      symbol.summary,
-      symbol.summarySource,
-      symbol.startLine,
-      symbol.endLine,
-      symbol.startByte,
-      symbol.endByte,
-      symbol.exported ? 1 : 0,
-    );
-    insertSymbolSearch.run(
-      symbol.id,
-      fileRow.id,
-      symbol.name,
-      symbol.qualifiedName ?? "",
-      symbol.signature,
-      symbol.summary,
-      file.relativePath,
-      symbol.kind,
-    );
-  }
-
-  const insertImport = db.prepare(
-    "INSERT INTO imports (file_id, source, specifiers) VALUES (?, ?, ?)",
-  );
-  for (const dependency of parsed.imports) {
-    insertImport.run(
-      fileRow.id,
-      dependency.source,
-      JSON.stringify(dependency.specifiers),
-    );
-  }
-
-  return {
-    indexed: true,
-    symbolCount: parsed.symbols.length,
-  };
-}
-
 function removeFileIndex(
   db: IndexBackendConnection,
   filePath: string,
@@ -1707,22 +2619,30 @@ async function finalizeIndex(
   repoRoot: string,
   indexedAt: string,
   summaryStrategy: SummaryStrategy,
-) {
+): Promise<"fresh" | "stale"> {
+  rebuildFileDependencies(db);
+  const dependencyGraph = loadDependencyGraphHealth(db);
   const totalFiles = countRows(db, "SELECT COUNT(*) AS count FROM files");
   const totalSymbols = countRows(db, "SELECT COUNT(*) AS count FROM symbols");
   const indexedSnapshotHash = snapshotHash(loadIndexedSnapshot(db));
+  const staleStatus =
+    dependencyGraph.brokenRelativeImportCount > 0
+    || dependencyGraph.brokenRelativeSymbolImportCount > 0
+      ? "stale"
+      : "fresh";
   db.prepare(
     "INSERT INTO meta (key, value) VALUES ('staleStatus', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-  ).run("fresh");
+  ).run(staleStatus);
   await writeSidecars({
     repoRoot,
     indexedAt,
     indexedFiles: totalFiles,
     totalSymbols,
     indexedSnapshotHash,
-    staleStatus: "fresh",
+    staleStatus,
     summaryStrategy,
   });
+  return staleStatus;
 }
 
 async function indexFolderDirect(input: {
@@ -1736,8 +2656,19 @@ async function indexFolderDirect(input: {
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
     const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
-    const supportedFiles = await listSupportedFiles(repoRoot);
-    const tracked = db.prepare("SELECT path FROM files").all() as Array<{ path: string }>;
+    const supportedFiles = await listSupportedFiles(repoRoot, repoRoot, {
+      include: config.indexInclude,
+      exclude: config.indexExclude,
+      maxFilesDiscovered: config.maxFilesDiscovered,
+      maxFileBytes: config.maxFileBytes,
+    });
+    const tracked = db.prepare(
+      `
+        SELECT id, path, content_hash, integrity_hash, size_bytes, mtime_ms
+        FROM files
+      `,
+    ).all() as Array<TrackedFileRow & { path: string }>;
+    const trackedRows = new Map(tracked.map((row) => [row.path, row]));
     const trackedPaths = new Set(tracked.map((row) => row.path));
     const nextPaths = new Set(supportedFiles);
 
@@ -1749,13 +2680,26 @@ async function indexFolderDirect(input: {
 
     let indexedFiles = 0;
     let indexedSymbols = 0;
-    for (const filePath of supportedFiles) {
-      const result = await upsertFileIndex(db, {
-        repoRoot,
-        filePath,
-        summaryStrategy: config.summaryStrategy,
-        forceRefresh,
-      });
+    const analyzedFiles = await pMap(
+      supportedFiles,
+      async (filePath) =>
+        analyzeFileIndexResult({
+          repoRoot,
+          filePath,
+          summaryStrategy: config.summaryStrategy,
+          forceRefresh,
+          existing: trackedRows.get(filePath),
+          maxSymbolsPerFile: config.maxSymbolsPerFile,
+          workerPool: {
+            enabled: config.workerPoolEnabled,
+            maxWorkers: config.workerPoolMaxWorkers,
+          },
+        }),
+      { concurrency: config.fileProcessingConcurrency },
+    );
+
+    for (const analyzed of analyzedFiles) {
+      const result = persistFileIndexResult(db, analyzed);
       if (result.indexed) {
         indexedFiles += 1;
         indexedSymbols += result.symbolCount;
@@ -1763,18 +2707,102 @@ async function indexFolderDirect(input: {
     }
 
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+    const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
     return {
       indexedFiles,
       indexedSymbols,
-      staleStatus: "fresh",
+      staleStatus,
     };
   } finally {
     db.close();
   }
 }
 
+async function upsertFileIndex(db: IndexBackendConnection, input: {
+  repoRoot: string;
+  filePath: string;
+  summaryStrategy?: SummaryStrategy;
+  forceRefresh?: boolean;
+  maxSymbolsPerFile: number;
+  workerPool?: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
+}) {
+  const existing = db.prepare(
+    `
+      SELECT id, content_hash, integrity_hash, size_bytes, mtime_ms
+      FROM files
+      WHERE path = ?
+    `,
+  ).get(input.filePath) as TrackedFileRow | undefined;
+
+  const analyzed = await analyzeFileIndexResult({
+    repoRoot: input.repoRoot,
+    filePath: input.filePath,
+    summaryStrategy: input.summaryStrategy,
+    forceRefresh: input.forceRefresh,
+    existing,
+    maxSymbolsPerFile: input.maxSymbolsPerFile,
+    workerPool: input.workerPool,
+  });
+  return persistFileIndexResult(db, analyzed);
+}
+
+async function refreshIndexedFilePath(db: IndexBackendConnection, input: {
+  repoRoot: string;
+  filePath: string;
+  summaryStrategy: SummaryStrategy;
+  forceRefresh: boolean;
+  maxFileBytes: number;
+  maxSymbolsPerFile: number;
+  workerPool: {
+    enabled: boolean;
+    maxWorkers: number;
+  };
+}): Promise<{ indexedFiles: number; indexedSymbols: number }> {
+  const absolutePath = path.join(input.repoRoot, input.filePath);
+  const fileExists = await stat(absolutePath)
+    .then((entry) => entry.isFile())
+    .catch(() => false);
+
+  if (!fileExists) {
+    return {
+      indexedFiles: removeFileIndex(db, input.filePath) ? 1 : 0,
+      indexedSymbols: 0,
+    };
+  }
+
+  if (!supportedLanguageForFile(input.filePath) || isGitIgnored(input.repoRoot, input.filePath)) {
+    return {
+      indexedFiles: removeFileIndex(db, input.filePath) ? 1 : 0,
+      indexedSymbols: 0,
+    };
+  }
+
+  const fileMetadata = await readRepoFileMetadata(input.repoRoot, input.filePath);
+  if (exceedsMaxFileBytes(fileMetadata.size, input.maxFileBytes)) {
+    return {
+      indexedFiles: removeFileIndex(db, input.filePath) ? 1 : 0,
+      indexedSymbols: 0,
+    };
+  }
+
+  const result = await upsertFileIndex(db, {
+    repoRoot: input.repoRoot,
+    filePath: input.filePath,
+    summaryStrategy: input.summaryStrategy,
+    forceRefresh: input.forceRefresh,
+    maxSymbolsPerFile: input.maxSymbolsPerFile,
+    workerPool: input.workerPool,
+  });
+
+  return {
+    indexedFiles: result.indexed ? 1 : 0,
+    indexedSymbols: result.symbolCount,
+  };
+}
 export async function indexFolder(input: {
   repoRoot: string;
   summaryStrategy?: SummaryStrategy;
@@ -1804,19 +2832,52 @@ async function indexFileDirect(input: {
 
   try {
     const meta = await readRepoMeta(config.paths.repoMetaPath);
-    const result = await upsertFileIndex(db, {
+    const fileState = await resolveRepoFileRefreshState(repoRoot, input.filePath);
+    const dependentPaths = loadDirectImporterPaths(db, fileState.relativePath)
+      .filter((candidate) => candidate !== fileState.relativePath);
+
+    let indexedFiles = 0;
+    let indexedSymbols = 0;
+
+    const primaryResult = await refreshIndexedFilePath(db, {
       repoRoot,
-      filePath: input.filePath,
+      filePath: fileState.relativePath,
       summaryStrategy: config.summaryStrategy,
       forceRefresh: meta?.summaryStrategy !== config.summaryStrategy,
+      maxFileBytes: config.maxFileBytes,
+      maxSymbolsPerFile: config.maxSymbolsPerFile,
+      workerPool: {
+        enabled: config.workerPoolEnabled,
+        maxWorkers: config.workerPoolMaxWorkers,
+      },
     });
+    indexedFiles += primaryResult.indexedFiles;
+    indexedSymbols += primaryResult.indexedSymbols;
+
+    for (const dependentPath of dependentPaths) {
+      const dependentResult = await refreshIndexedFilePath(db, {
+        repoRoot,
+        filePath: dependentPath,
+        summaryStrategy: config.summaryStrategy,
+        forceRefresh: true,
+        maxFileBytes: config.maxFileBytes,
+        maxSymbolsPerFile: config.maxSymbolsPerFile,
+        workerPool: {
+          enabled: config.workerPoolEnabled,
+          maxWorkers: config.workerPoolMaxWorkers,
+        },
+      });
+      indexedFiles += dependentResult.indexedFiles;
+      indexedSymbols += dependentResult.indexedSymbols;
+    }
+
     const indexedAt = new Date().toISOString();
-    await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+    const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
     return {
-      indexedFiles: result.indexed ? 1 : 0,
-      indexedSymbols: result.symbolCount,
-      staleStatus: "fresh",
+      indexedFiles,
+      indexedSymbols,
+      staleStatus,
     };
   } finally {
     db.close();
@@ -1844,8 +2905,12 @@ export async function indexFile(input: {
 }
 
 export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
-  const debounceMs = input.debounceMs ?? 100;
   const repoRoot = await resolveRepoRoot(input.repoRoot);
+  const repoConfig = await loadRepoEngineConfig(repoRoot, {
+    repoRootResolved: true,
+  });
+  const debounceMs = input.debounceMs ?? repoConfig.watch.debounceMs;
+  const preferredBackend = input.backend ?? repoConfig.watch.backend;
   const pollMs = Math.max(50, Math.min(debounceMs, 250));
   const watchLogger = storageLogger.child({
     operation: "watch_folder",
@@ -1855,7 +2920,8 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let pollInFlight = false;
   let pollInterval: NodeJS.Timeout | null = null;
   let nativeWatchTimer: NodeJS.Timeout | null = null;
-  let nativeWatcher: import("node:fs").FSWatcher | null = null;
+  let nativeSubscription: { backend: WatchBackendKind; close(): Promise<void> } | null = null;
+  let activeBackend: WatchBackendKind | null = null;
   let usingPollingFallback = false;
   let observedState: FilesystemStateEntry[] = [];
   let observedDirectories: DirectoryStateEntry[] = [];
@@ -1863,9 +2929,11 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
   let reindexCount = 0;
   let lastSummary: IndexSummary | null = null;
   let lastError: string | null = null;
+  let lastEventType: WatchEvent["type"] | null = null;
   const changedPathInputs$ = new Subject<string[]>();
 
   const persistWatchEvent = async (event: WatchEvent) => {
+    lastEventType = event.type;
     if (event.type === "ready") {
       reindexCount = 0;
       lastError = null;
@@ -1886,6 +2954,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       summaryStrategy: input.summaryStrategy,
       watch: {
         status: event.type === "close" ? "idle" : "watching",
+        backend: activeBackend,
         debounceMs,
         pollMs,
         startedAt,
@@ -1982,45 +3051,54 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       const db = openDatabase(config.paths.databasePath);
       const meta = await readRepoMeta(config.paths.repoMetaPath);
       const forceRefresh = meta?.summaryStrategy !== config.summaryStrategy;
+      const dependentPaths = new Set<string>();
 
       let indexedFiles = 0;
       let indexedSymbols = 0;
 
       try {
         for (const filePath of changedPaths) {
-          const absolutePath = path.join(repoRoot, filePath);
-          const fileExists = await stat(absolutePath)
-            .then((entry) => entry.isFile())
-            .catch(() => false);
-
-          if (!fileExists) {
-            if (removeFileIndex(db, filePath)) {
-              indexedFiles += 1;
+          for (const importerPath of loadDirectImporterPaths(db, filePath)) {
+            if (!changedPaths.includes(importerPath) && importerPath !== filePath) {
+              dependentPaths.add(importerPath);
             }
-            continue;
           }
 
-          if (!supportedLanguageForFile(filePath) || isGitIgnored(repoRoot, filePath)) {
-            if (removeFileIndex(db, filePath)) {
-              indexedFiles += 1;
-            }
-            continue;
-          }
-
-          const result = await upsertFileIndex(db, {
+          const result = await refreshIndexedFilePath(db, {
             repoRoot,
             filePath,
             summaryStrategy: config.summaryStrategy,
             forceRefresh,
+            maxFileBytes: config.maxFileBytes,
+            maxSymbolsPerFile: config.maxSymbolsPerFile,
+            workerPool: {
+              enabled: config.workerPoolEnabled,
+              maxWorkers: config.workerPoolMaxWorkers,
+            },
           });
-          if (result.indexed) {
-            indexedFiles += 1;
-            indexedSymbols += result.symbolCount;
-          }
+          indexedFiles += result.indexedFiles;
+          indexedSymbols += result.indexedSymbols;
+        }
+
+        for (const dependentPath of [...dependentPaths].sort()) {
+          const result = await refreshIndexedFilePath(db, {
+            repoRoot,
+            filePath: dependentPath,
+            summaryStrategy: config.summaryStrategy,
+            forceRefresh: true,
+            maxFileBytes: config.maxFileBytes,
+            maxSymbolsPerFile: config.maxSymbolsPerFile,
+            workerPool: {
+              enabled: config.workerPoolEnabled,
+              maxWorkers: config.workerPoolMaxWorkers,
+            },
+          });
+          indexedFiles += result.indexedFiles;
+          indexedSymbols += result.indexedSymbols;
         }
 
         const indexedAt = new Date().toISOString();
-        await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
+        const staleStatus = await finalizeIndex(db, repoRoot, indexedAt, config.summaryStrategy);
 
         return {
           type: "reindex",
@@ -2028,7 +3106,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
           summary: {
             indexedFiles,
             indexedSymbols,
-            staleStatus: "fresh",
+            staleStatus,
           },
         } satisfies WatchEvent;
       } finally {
@@ -2097,7 +3175,16 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       ]);
 
       for (const directoryPath of directoriesToRescan) {
-        const subtreeState = await loadSupportedFileStatesForSubtree(repoRoot, directoryPath);
+        const subtreeState = await loadSupportedFileStatesForSubtree(
+          repoRoot,
+          directoryPath,
+          {
+            include: repoConfig.performance.include,
+            exclude: repoConfig.performance.exclude,
+            maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
+            maxFileBytes: repoConfig.limits.maxFileBytes,
+          },
+        );
         for (const entry of subtreeState) {
           currentStateMap.set(entry.path, entry);
           if (!previousStateMap.has(entry.path)) {
@@ -2145,6 +3232,7 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
       return;
     }
     usingPollingFallback = true;
+    activeBackend = "polling";
     watchLogger.warn({
       event: "watch_polling_fallback",
       pollMs,
@@ -2154,18 +3242,59 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     }, pollMs);
   };
 
-  const startNativeWatcher = () => {
+  const startNativeWatcher = async () => {
     try {
-      nativeWatcher = fsWatch(repoRoot, { recursive: true }, () => {
-        scheduleNativeWatchSweep();
-      });
-      watchLogger.debug({ event: "watch_native_started" });
-      nativeWatcher.on("error", () => {
-        nativeWatcher?.close();
-        nativeWatcher = null;
-        startPollingFallback();
+      nativeSubscription = await subscribeRepo(
+        repoRoot,
+        () => {
+          scheduleNativeWatchSweep();
+        },
+        {
+          backend: preferredBackend,
+          onError: () => {
+            void nativeSubscription?.close().catch(() => undefined);
+            nativeSubscription = null;
+            activeBackend = "polling";
+            usingPollingFallback = true;
+            watchLogger.warn({ event: "watch_native_failed" });
+            emitEngineEvent({
+              repoRoot,
+              source: "watch",
+              event: "watch.backend-fallback",
+              level: "warn",
+              data: {
+                backend: "polling",
+              },
+            });
+            void writeWatchDiagnostics({
+              repoRoot,
+              summaryStrategy: input.summaryStrategy,
+              watch: {
+                status: "watching",
+                backend: activeBackend,
+                debounceMs,
+                pollMs,
+                startedAt,
+                lastEvent: lastEventType,
+                lastEventAt: new Date().toISOString(),
+                lastChangedPaths: [],
+                reindexCount,
+                lastError,
+                lastSummary,
+              },
+            }).catch(() => undefined);
+            startPollingFallback();
+          },
+        },
+      );
+      activeBackend = nativeSubscription.backend;
+      watchLogger.debug({
+        event: "watch_native_started",
+        backend: activeBackend,
       });
     } catch {
+      nativeSubscription = null;
+      activeBackend = "polling";
       startPollingFallback();
     }
   };
@@ -2214,11 +3343,16 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
     changedPaths: [],
     summary: initialSummary,
   } satisfies WatchEvent;
+  observedState = await loadFilesystemStateSnapshot(repoRoot, {
+    include: repoConfig.performance.include,
+    exclude: repoConfig.performance.exclude,
+    maxFilesDiscovered: repoConfig.limits.maxFilesDiscovered,
+    maxFileBytes: repoConfig.limits.maxFileBytes,
+  });
+  observedDirectories = await scanDirectoryStateSnapshot(repoRoot);
+  await startNativeWatcher();
   await persistWatchEvent(readyEvent);
   await emitWatchEvent(input.onEvent, readyEvent);
-  observedState = await loadFilesystemStateSnapshot(repoRoot);
-  observedDirectories = await scanDirectoryStateSnapshot(repoRoot);
-  startNativeWatcher();
 
   return {
     async close() {
@@ -2234,8 +3368,8 @@ export async function watchFolder(input: WatchOptions): Promise<WatchHandle> {
         clearInterval(pollInterval);
         pollInterval = null;
       }
-      nativeWatcher?.close();
-      nativeWatcher = null;
+      await nativeSubscription?.close().catch(() => undefined);
+      nativeSubscription = null;
       changedPathInputs$.complete();
       await processingDone;
       flushSubscription.unsubscribe();
@@ -2353,6 +3487,10 @@ function searchSymbolsInContext(
   context: EngineContext,
   input: SearchSymbolsOptions,
 ): SymbolSummary[] {
+  const resultLimit = Math.min(
+    input.limit ?? context.config.maxSymbolResults,
+    context.config.maxSymbolResults,
+  );
   const rows = loadSymbolRows(context.db, {
     query: input.query,
     kind: input.kind,
@@ -2364,7 +3502,7 @@ function searchSymbolsInContext(
   return rows
     .map((row) => ({
       row,
-      score: scoreSymbolRow(row, normalizedQuery),
+      score: scoreSymbolRow(row, normalizedQuery, context.config.rankingWeights),
     }))
     .filter((entry) => entry.score > 0)
     .sort(
@@ -2375,7 +3513,7 @@ function searchSymbolsInContext(
         left.row.start_line - right.row.start_line ||
         left.row.name.localeCompare(right.row.name),
     )
-    .slice(0, input.limit ?? 20)
+    .slice(0, resultLimit)
     .map((entry) => mapSymbolRow(entry.row));
 }
 
@@ -2433,6 +3571,7 @@ function searchTextInContext(
   );
   const lowerQuery = input.query.toLowerCase();
   const matches: SearchTextMatch[] = [];
+  const maxTextResults = context.config.maxTextResults;
 
   for (const row of rows) {
     if (!matchesFilePattern(row.file_path, input.filePattern)) {
@@ -2440,6 +3579,9 @@ function searchTextInContext(
     }
     const lines = row.content.split("\n");
     lines.forEach((line, index) => {
+      if (matches.length >= maxTextResults) {
+        return;
+      }
       if (line.toLowerCase().includes(lowerQuery)) {
         matches.push({
           filePath: row.file_path,
@@ -2448,6 +3590,9 @@ function searchTextInContext(
         });
       }
     });
+    if (matches.length >= maxTextResults) {
+      break;
+    }
   }
 
   return matches;
@@ -2456,6 +3601,17 @@ function searchTextInContext(
 export async function searchText(
   input: SearchTextOptions,
 ): Promise<SearchTextMatch[]> {
+  if (await shouldUseLiveTextSearchFallback({ repoRoot: input.repoRoot })) {
+    const config = await ensureStorage(input.repoRoot);
+    return searchLiveText({
+      repoRoot: config.repoRoot,
+      query: input.query,
+      filePattern: input.filePattern,
+      maxMatches: Math.min(config.maxLiveSearchMatches, config.maxTextResults),
+      maxOutputBytes: config.maxChildProcessOutputBytes,
+    });
+  }
+
   const context = await createEngineContext(input);
 
   try {
@@ -2468,10 +3624,36 @@ export async function searchText(
 export async function queryCode(
   input: QueryCodeOptions,
 ): Promise<QueryCodeResult> {
+  const resolvedIntent = resolveQueryCodeIntent(input);
+  if (
+    resolvedIntent === "discover"
+    && input.includeTextMatches
+    && await shouldUseLiveTextSearchFallback({
+      repoRoot: input.repoRoot,
+    })
+  ) {
+    const config = await ensureStorage(input.repoRoot);
+    const textMatches = await searchLiveText({
+      repoRoot: config.repoRoot,
+      query: input.query ?? "",
+      filePattern: input.filePattern,
+      maxMatches: Math.min(config.maxLiveSearchMatches, config.maxTextResults),
+      maxOutputBytes: config.maxChildProcessOutputBytes,
+    });
+    return {
+      intent: "discover",
+      query: input.query ?? "",
+      symbolMatches: [],
+      textMatches,
+      matches: [],
+      textMatchResults: buildTextMatchResults(textMatches),
+    };
+  }
+
   const context = await createEngineContext(input);
 
   try {
-    switch (resolveQueryCodeIntent(input)) {
+    switch (resolvedIntent) {
       case "discover": {
         const symbolMatches = searchSymbolsInContext(context, {
           repoRoot: context.config.repoRoot,
@@ -2488,12 +3670,19 @@ export async function queryCode(
               filePattern: input.filePattern,
             })
           : [];
+        const graphMatches = buildDiscoverGraphMatches(
+          context.db,
+          symbolMatches,
+          input,
+        );
 
         const result: QueryCodeDiscoverResult = {
           intent: "discover",
           query: input.query ?? "",
           symbolMatches,
           textMatches,
+          matches: graphMatches.matches,
+          textMatchResults: buildTextMatchResults(textMatches),
         };
         return result;
       }
@@ -2524,6 +3713,9 @@ export async function queryCode(
               repoRoot: context.config.repoRoot,
               query: input.query,
               tokenBudget: input.tokenBudget,
+              includeDependencies: input.includeDependencies,
+              includeImporters: input.includeImporters,
+              relationDepth: input.relationDepth,
             })
           : null;
         const bundle = ranked
@@ -2533,6 +3725,9 @@ export async function queryCode(
               query: input.query,
               symbolIds: input.symbolIds,
               tokenBudget: input.tokenBudget,
+              includeDependencies: input.includeDependencies,
+              includeImporters: input.includeImporters,
+              relationDepth: input.relationDepth,
             });
 
         const result: QueryCodeAssembleResult = {
@@ -2585,7 +3780,7 @@ function getContextBundleFromContext(
     repoRoot: context.config.repoRoot,
     ...normalizedSeeds,
   };
-  const seedCandidates = resolveRankedSeedCandidates(context.db, normalizedInput).slice(0, 3);
+  const seedCandidates = resolveRankedSeedCandidates(context, normalizedInput).slice(0, 3);
   return buildContextBundleFromSeeds(context.db, normalizedInput, seedCandidates);
 }
 
@@ -2605,13 +3800,17 @@ function getRankedContextFromContext(context: EngineContext, input: {
   repoRoot: string;
   query: string;
   tokenBudget?: number;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  includeReferences?: boolean;
+  relationDepth?: number;
 }): RankedContextResult {
   validateRankedContextOptions(input);
   const normalizedInput = {
     ...input,
     repoRoot: context.config.repoRoot,
   };
-  const seedCandidates = resolveRankedSeedCandidates(context.db, normalizedInput);
+  const seedCandidates = resolveRankedSeedCandidates(context, normalizedInput);
   const bundle = buildContextBundleFromSeeds(context.db, normalizedInput, seedCandidates.slice(0, 3));
   return buildRankedContextResult(normalizedInput, seedCandidates, bundle);
 }
@@ -2620,6 +3819,10 @@ export async function getRankedContext(input: {
   repoRoot: string;
   query: string;
   tokenBudget?: number;
+  includeDependencies?: boolean;
+  includeImporters?: boolean;
+  includeReferences?: boolean;
+  relationDepth?: number;
 }): Promise<RankedContextResult> {
   const context = await createEngineContext(input);
 
@@ -2692,16 +3895,13 @@ function getSymbolSourceFromContext(context: EngineContext, input: {
           symbols.signature, symbols.summary, symbols.summary_source,
           symbols.start_line, symbols.end_line, symbols.start_byte, symbols.end_byte,
           symbols.exported,
-          files.content_hash, content_blobs.content
+          files.content_hash, files.integrity_hash, content_blobs.content
         FROM symbols
         INNER JOIN files ON files.id = symbols.file_id
         INNER JOIN content_blobs ON content_blobs.file_id = files.id
         WHERE symbols.id = ?
       `,
-    ).get(symbolId) as (DbSymbolRow & {
-      content_hash: string;
-      content: string;
-    }) | undefined;
+    ).get(symbolId) as DbFileContentRow | undefined;
 
     if (!row) {
       throw new Error(`Symbol not indexed: ${symbolId}`);
@@ -2747,13 +3947,26 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
   const repoRoot = config.repoRoot;
 
   try {
-    const meta = await readRepoMeta(config.paths.repoMetaPath);
+    const metaHealth = await readRepoMetaHealth(
+      config.paths.repoMetaPath,
+      config.paths.integrityPath,
+    );
+    const meta = metaHealth.meta;
     const indexedEntries = loadIndexedSnapshot(db);
+    const dependencyGraph = loadDependencyGraphHealth(db);
     const indexedSnapshotHash =
       meta?.indexedSnapshotHash ?? (indexedEntries.length > 0 ? snapshotHash(indexedEntries) : null);
     const scanFreshness = input.scanFreshness === true;
-    const drift = scanFreshness
-      ? compareSnapshots(indexedEntries, await loadFilesystemSnapshot(repoRoot))
+  const drift = scanFreshness
+      ? compareSnapshots(
+          indexedEntries,
+          await loadFilesystemSnapshot(repoRoot, {
+            include: config.indexInclude,
+            exclude: config.indexExclude,
+            maxFilesDiscovered: config.maxFilesDiscovered,
+            maxFileBytes: config.maxFileBytes,
+          }),
+        )
       : {
           missingPaths: [] as string[],
           extraPaths: [] as string[],
@@ -2771,8 +3984,23 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       indexedAt !== null ? Math.max(0, Date.now() - Date.parse(indexedAt)) : null;
     const staleReasons: string[] = [];
 
-    if (!meta) {
+    if (metaHealth.status === "missing") {
       staleReasons.push("index metadata missing");
+    }
+    if (metaHealth.status === "unreadable") {
+      staleReasons.push("index metadata unreadable");
+    }
+    if (metaHealth.status === "missing-integrity") {
+      staleReasons.push("index metadata integrity missing");
+    }
+    if (metaHealth.status === "integrity-mismatch") {
+      staleReasons.push("index metadata integrity mismatch");
+    }
+    if (dependencyGraph.brokenRelativeImportCount > 0) {
+      staleReasons.push("unresolved relative imports");
+    }
+    if (dependencyGraph.brokenRelativeSymbolImportCount > 0) {
+      staleReasons.push("unresolved relative symbol imports");
     }
     if (scanFreshness) {
       if (drift.missingFiles > 0) {
@@ -2793,7 +4021,11 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
           : meta
             ? "stale"
             : "unknown"
-        : meta?.staleStatus ?? "unknown";
+        : staleReasons.length > 0
+          ? meta
+            ? "stale"
+            : "unknown"
+          : meta?.staleStatus ?? "unknown";
     const summarySources = Object.fromEntries(
       typedAll<{ summary_source: SummarySource; count: number }>(
         db.prepare(
@@ -2812,6 +4044,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       storageDir: config.paths.storageDir,
       databasePath: config.paths.databasePath,
       storageVersion: meta?.storageVersion ?? ENGINE_STORAGE_VERSION,
+      schemaVersion: readMetaNumber(db, "schemaVersion") ?? ENGINE_SCHEMA_VERSION,
       storageMode: config.storageMode,
       storageBackend: SQLITE_INDEX_BACKEND.backendName,
       staleStatus,
@@ -2832,8 +4065,382 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       indexedSnapshotHash,
       currentSnapshotHash: drift.currentSnapshotHash,
       staleReasons,
+      parser: loadParserHealth(db),
+      dependencyGraph,
       watch: meta?.watch ?? createDefaultWatchDiagnostics(),
     };
+  } finally {
+    db.close();
+  }
+}
+
+async function readObservabilityStatusFile(storageDir: string): Promise<ObservabilityStatusRecord | null> {
+  try {
+    const parsed = JSON.parse(
+      await readFile(path.join(storageDir, "observability-server.json"), "utf8"),
+    ) as Record<string, unknown>;
+    return typeof parsed.host === "string" && typeof parsed.port === "number"
+      ? { host: parsed.host, port: parsed.port }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function isObservabilityHealthy(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${url}health`, {
+      signal: AbortSignal.timeout(750),
+      headers: { Accept: "application/json" },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveDoctorObservability(
+  repoRoot: string,
+  storageDir: string,
+): Promise<DoctorResult["observability"]> {
+  const repoConfig = await loadRepoEngineConfig(repoRoot, { repoRootResolved: true });
+
+  if (!repoConfig.observability.enabled) {
+    return {
+      enabled: false,
+      configuredHost: repoConfig.observability.host,
+      configuredPort: repoConfig.observability.port,
+      status: "disabled",
+      url: null,
+    };
+  }
+
+  const status = await readObservabilityStatusFile(storageDir);
+  const host = status?.host ?? repoConfig.observability.host;
+  const port = status?.port ?? repoConfig.observability.port;
+  const url = `http://${host}:${port}/`;
+  const healthy = await isObservabilityHealthy(url);
+
+  return {
+    enabled: true,
+    configuredHost: repoConfig.observability.host,
+    configuredPort: repoConfig.observability.port,
+    status: healthy ? "running" : status ? "unhealthy" : "not-running",
+    url,
+  };
+}
+
+function loadDependencyGraphHealth(
+  db: IndexBackendConnection,
+): DoctorResult["dependencyGraph"] {
+  const brokenDependencyRows = typedAll<{
+    importer_path: string;
+    source: string;
+  }>(
+    db.prepare(`
+      SELECT files.path AS importer_path, imports.source AS source
+      FROM imports
+      INNER JOIN files ON files.id = imports.file_id
+      LEFT JOIN file_dependencies
+        ON file_dependencies.importer_file_id = imports.file_id
+        AND file_dependencies.source = imports.source
+      WHERE (imports.source LIKE './%' OR imports.source LIKE '../%' OR imports.source LIKE '/%')
+        AND file_dependencies.target_path IS NULL
+      ORDER BY files.path ASC, imports.source ASC
+    `),
+  );
+  const affectedImporters = [...new Set(
+    brokenDependencyRows.map((row) => row.importer_path),
+  )];
+  const brokenRelativeSymbolRows = typedAll<{
+    importer_path: string;
+    target_path: string;
+    specifiers: string;
+  }>(
+    db.prepare(`
+      SELECT
+        file_dependencies.importer_path AS importer_path,
+        file_dependencies.target_path AS target_path,
+        imports.specifiers AS specifiers
+      FROM file_dependencies
+      INNER JOIN files ON files.id = file_dependencies.importer_file_id
+      INNER JOIN imports
+        ON imports.file_id = files.id
+        AND imports.source = file_dependencies.source
+      WHERE file_dependencies.source LIKE './%'
+        OR file_dependencies.source LIKE '../%'
+        OR file_dependencies.source LIKE '/%'
+      ORDER BY file_dependencies.importer_path ASC, file_dependencies.target_path ASC
+    `),
+  );
+
+  const brokenRelativeSymbolImporters = new Set<string>();
+  let brokenRelativeSymbolImportCount = 0;
+
+  for (const row of brokenRelativeSymbolRows) {
+    const missingNamedSpecifiers = parseStoredImportSpecifiers(row.specifiers)
+      .filter((specifier) => specifier.kind === "named")
+      .filter((specifier) => {
+        const exportedSymbol = typedGet<{ id: string }>(
+          db.prepare(
+            `
+              SELECT id
+              FROM symbols
+              WHERE file_path = ?
+                AND exported = 1
+                AND (name = ? OR qualified_name = ?)
+              LIMIT 1
+            `,
+          ),
+          row.target_path,
+          specifier.importedName,
+          specifier.importedName,
+        );
+        return !exportedSymbol;
+      });
+
+    if (missingNamedSpecifiers.length === 0) {
+      continue;
+    }
+
+    brokenRelativeSymbolImportCount += missingNamedSpecifiers.length;
+    brokenRelativeSymbolImporters.add(row.importer_path);
+  }
+
+  const allAffectedImporters = [...new Set([
+    ...affectedImporters,
+    ...brokenRelativeSymbolImporters,
+  ])];
+  const sampleImporterPaths = allAffectedImporters.slice(0, 5);
+
+  return {
+    brokenRelativeImportCount: brokenDependencyRows.length,
+    brokenRelativeSymbolImportCount,
+    affectedImporterCount: allAffectedImporters.length,
+    sampleImporterPaths,
+  };
+}
+
+function loadPrivacyHealth(
+  db: IndexBackendConnection,
+): DoctorResult["privacy"] {
+  const rows = typedAll<{ file_path: string; content: string }>(
+    db.prepare(`
+      SELECT files.path AS file_path, content_blobs.content AS content
+      FROM content_blobs
+      INNER JOIN files ON files.id = content_blobs.file_id
+      ORDER BY files.path ASC
+    `),
+  );
+  const sampleFilePaths: string[] = [];
+  let secretLikeFileCount = 0;
+
+  for (const row of rows) {
+    if (!containsSecretLikeText(row.content)) {
+      continue;
+    }
+
+    secretLikeFileCount += 1;
+    if (sampleFilePaths.length < 5) {
+      sampleFilePaths.push(row.file_path);
+    }
+  }
+
+  return {
+    secretLikeFileCount,
+    sampleFilePaths,
+  };
+}
+
+function buildDoctorWarnings(result: DoctorResult): string[] {
+  const warnings: string[] = [];
+
+  if (result.indexStatus === "not-indexed") {
+    warnings.push("No Astrograph index was found for this repository yet.");
+  }
+  if (result.indexStatus === "stale") {
+    warnings.push("Indexed repository data is stale.");
+  }
+  if (result.parser.unknownFileCount > 0) {
+    warnings.push(
+      `Parser health is unavailable for ${result.parser.unknownFileCount} indexed file(s) created before parser metrics were recorded.`,
+    );
+  }
+  if ((result.parser.fallbackRate ?? 0) > 0) {
+    warnings.push(
+      `Parser fallback was used for ${result.parser.fallbackFileCount} of ${result.parser.indexedFileCount} indexed file(s).`,
+    );
+  }
+  if (result.dependencyGraph.brokenRelativeImportCount > 0) {
+    warnings.push(
+      `Dependency graph contains ${result.dependencyGraph.brokenRelativeImportCount} unresolved relative import(s) across ${result.dependencyGraph.affectedImporterCount} importer file(s).`,
+    );
+  }
+  if (result.dependencyGraph.brokenRelativeSymbolImportCount > 0) {
+    warnings.push(
+      `Dependency graph contains ${result.dependencyGraph.brokenRelativeSymbolImportCount} unresolved relative symbol import(s).`,
+    );
+  }
+  if (result.observability.enabled && result.observability.status !== "running") {
+    warnings.push(
+      `Observability is enabled but currently ${result.observability.status}.`,
+    );
+  }
+  if (result.privacy.secretLikeFileCount > 0) {
+    warnings.push(
+      `Indexed source contains ${result.privacy.secretLikeFileCount} file(s) with obvious secret-like content.`,
+    );
+  }
+  if (result.watch.status !== "watching") {
+    warnings.push("Watch mode is not currently running.");
+  }
+
+  return warnings;
+}
+
+function buildMetaHealthWarnings(status: RepoMetaHealthStatus): string[] {
+  switch (status) {
+    case "unreadable":
+      return ["Index metadata is unreadable."];
+    case "missing-integrity":
+      return ["Index metadata integrity file is missing."];
+    case "integrity-mismatch":
+      return ["Index metadata integrity check failed."];
+    default:
+      return [];
+  }
+}
+
+function buildDoctorSuggestedActions(result: DoctorResult): string[] {
+  const actions: string[] = [];
+
+  if (result.indexStatus === "not-indexed") {
+    actions.push(`Run \`pnpm exec astrograph cli index-folder --repo ${result.repoRoot}\` to create the initial index.`);
+  }
+  if (result.indexStatus === "stale") {
+    actions.push(`Run \`pnpm exec astrograph cli index-folder --repo ${result.repoRoot}\` to refresh the stale index.`);
+  }
+  if (result.parser.unknownFileCount > 0) {
+    actions.push("Reindex the repository to backfill parser health metrics on older indexed files.");
+  }
+  if (result.dependencyGraph.brokenRelativeImportCount > 0) {
+    const sample = result.dependencyGraph.sampleImporterPaths[0];
+    actions.push(
+      sample
+        ? `Fix or reindex importer paths such as \`${sample}\` so Astrograph can resolve their relative dependencies again.`
+        : "Fix or reindex importer paths with unresolved relative dependencies.",
+    );
+  }
+  if (result.dependencyGraph.brokenRelativeSymbolImportCount > 0) {
+    const sample = result.dependencyGraph.sampleImporterPaths[0];
+    actions.push(
+      sample
+        ? `Update importer paths such as \`${sample}\` or restore the expected exported symbols in their relative dependencies.`
+        : "Update importer paths or restore the expected exported symbols in their relative dependencies.",
+    );
+  }
+  if (result.observability.enabled && result.observability.status !== "running") {
+    actions.push(`Run \`pnpm exec astrograph observability --repo ${result.repoRoot}\` to start the local observability server.`);
+  }
+  if (result.privacy.secretLikeFileCount > 0) {
+    const sample = result.privacy.sampleFilePaths[0];
+    actions.push(
+      sample
+        ? `Review indexed file(s) such as \`${sample}\` and remove or rotate any real secrets that should not live in source.`
+        : "Review indexed files with secret-like content and remove or rotate any real secrets that should not live in source.",
+    );
+  }
+  if (result.watch.status !== "watching") {
+    actions.push(`Run \`pnpm exec astrograph cli watch --repo ${result.repoRoot}\` if you want automatic local refresh while editing.`);
+  }
+
+  return actions;
+}
+
+function buildMetaHealthSuggestedActions(
+  repoRoot: string,
+  status: RepoMetaHealthStatus,
+): string[] {
+  switch (status) {
+    case "unreadable":
+    case "missing-integrity":
+    case "integrity-mismatch":
+      return [
+        `Rebuild Astrograph metadata with \`pnpm exec astrograph cli index-folder --repo ${repoRoot}\` because the repo-local metadata sidecars are corrupted or incomplete.`,
+      ];
+    default:
+      return [];
+  }
+}
+
+export async function doctor(input: DiagnosticsOptions): Promise<DoctorResult> {
+  const resolvedRepoRoot = await resolveEngineRepoRoot(input.repoRoot);
+  const health = await diagnostics({
+    ...input,
+    repoRoot: resolvedRepoRoot,
+  });
+  const metaHealth = await readRepoMetaHealth(
+    path.join(health.storageDir, "repo-meta.json"),
+    path.join(health.storageDir, "integrity.sha256"),
+  );
+  const db = openDatabase(health.databasePath);
+
+  try {
+    const importCount = countRows(db, "SELECT COUNT(*) AS count FROM imports");
+    const dependencyGraph = loadDependencyGraphHealth(db);
+    const privacy = loadPrivacyHealth(db);
+    const observability = await resolveDoctorObservability(
+      resolvedRepoRoot,
+      health.storageDir,
+    );
+    const result: DoctorResult = {
+      repoRoot: resolvedRepoRoot,
+      storageDir: health.storageDir,
+      databasePath: health.databasePath,
+      storageVersion: health.storageVersion,
+      schemaVersion: health.schemaVersion,
+      storageBackend: health.storageBackend,
+      storageMode: health.storageMode,
+      indexStatus:
+        health.indexedAt === null && health.indexedFiles === 0
+          ? "not-indexed"
+          : health.staleStatus === "stale"
+            ? "stale"
+            : "indexed",
+      freshness: {
+        status: health.staleStatus,
+        mode: health.freshnessMode,
+        scanned: health.freshnessScanned,
+        indexedAt: health.indexedAt,
+        indexAgeMs: health.indexAgeMs,
+        indexedFiles: health.indexedFiles,
+        currentFiles: health.currentFiles,
+        indexedSymbols: health.indexedSymbols,
+        indexedImports: importCount,
+        missingFiles: health.missingFiles,
+        changedFiles: health.changedFiles,
+        extraFiles: health.extraFiles,
+      },
+      parser: {
+        ...health.parser,
+      },
+      dependencyGraph,
+      observability,
+      privacy,
+      watch: health.watch,
+      warnings: [],
+      suggestedActions: [],
+    };
+
+    result.warnings = [
+      ...buildDoctorWarnings(result),
+      ...buildMetaHealthWarnings(metaHealth.status),
+    ];
+    result.suggestedActions = [
+      ...buildDoctorSuggestedActions(result),
+      ...buildMetaHealthSuggestedActions(result.repoRoot, metaHealth.status),
+    ];
+    return result;
   } finally {
     db.close();
   }

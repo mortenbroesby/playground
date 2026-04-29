@@ -70,13 +70,29 @@ function isGeneratedPath(filePath) {
   return /(^|\/)(dist|\.next|\.turbo|node_modules)\//.test(filePath);
 }
 
+function isTestPath(filePath) {
+  return (
+    /(^|\/)(tests?|__tests__|__mocks__|fixtures)\//.test(filePath) ||
+    /\.(test|spec)\.[^.]+$/.test(filePath)
+  );
+}
+
+function isMarkdownLikePath(filePath) {
+  return /\.(md|mdx)$/i.test(filePath);
+}
+
 function isRelevantChange(filePath) {
-  if (isDocPath(filePath) || isGeneratedPath(filePath)) {
+  if (
+    isDocPath(filePath) ||
+    isGeneratedPath(filePath) ||
+    isTestPath(filePath) ||
+    isMarkdownLikePath(filePath)
+  ) {
     return false;
   }
 
   return (
-    /\.(cjs|css|html|js|jsx|json|mdx|mjs|scss|ts|tsx|ya?ml)$/.test(filePath) ||
+    /\.(cjs|css|html|js|jsx|json|mjs|scss|ts|tsx|ya?ml)$/.test(filePath) ||
     filePath.startsWith(".agents/hooks/") ||
     filePath.startsWith(".agents/rules/") ||
     filePath.startsWith(".codex/rules/") ||

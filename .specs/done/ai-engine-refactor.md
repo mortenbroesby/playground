@@ -1,5 +1,12 @@
 # Agent Spec — AI Context Engine Improvement Program
 
+## Status
+
+Done and archived on `2026-04-28`.
+
+This spec is kept in `.specs/done/` as a completed implementation record for
+the `astrograph-ai-engine-refactor` branch work.
+
 ## Mission
 
 Improve `tools/ai-context-engine` so it is easier to validate, easier to debug, safer on local repositories, and better at returning relevant context for coding agents.
@@ -25,6 +32,42 @@ Inspect the existing README, package scripts, CLI, MCP contract, storage/indexin
 7. Update docs and tests.
 
 ## Execution order
+
+## Final State
+
+As of `2026-04-28`, the primary slices in this spec are landed on
+`astrograph-ai-engine-refactor`:
+
+- Phase 1 complete: benchmark corpus plus retrieval-quality harness
+- Phase 2 complete: `doctor` command and operator-friendly health output
+- Phase 3 complete: broader JS/TS parser coverage and parser diagnostics
+- Phase 4 complete: graph-aware `query_code` reasons plus bounded dependency,
+  importer, and reference expansion
+- Phase 5 complete:
+  - explicit DB schema migrations
+  - persisted file metadata for faster noop refresh decisions
+  - single-file deletion/rename cleanup
+  - persisted file dependency edges
+  - unresolved relative imports surfaced in `doctor`
+  - unresolved relative imports promoted into `diagnostics` stale signals
+  - bounded dependent-importer refresh during incremental index and watch flows
+  - stronger importer follow-up via exact symbol-reference expansion
+- Phase 6 complete:
+  - repo config for include/exclude, ranking weights, watch defaults, storage
+    mode, observability redaction, and result limits
+  - privacy-safe observability defaults and secret-like source warnings
+  - package intent clarified in metadata and docs
+- Phase 7 complete: docs and tests updated across benchmark, doctor, parser,
+  graph expansion, config, limits, privacy, and package/observability surfaces
+
+Related branch work from `.specs/done/performance-deps.md` also landed on the
+same branch and now backs several later-phase implementation details here.
+
+Open follow-up status:
+
+- no clear mandatory implementation gaps remain for this spec's main scope
+- remaining work is maintenance-oriented: keep docs/spec progress current and
+  keep the interface suite stable as observability metadata evolves
 
 ### Phase 1 — Measurement
 

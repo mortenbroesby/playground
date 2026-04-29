@@ -40,9 +40,10 @@ export interface BenchmarkTaskTarget {
 
 export interface BenchmarkTaskResult {
   taskId: string;
+  query: string;
   workflowId: string;
   allowedPaths: string[];
-  target: BenchmarkTaskTarget;
+  targets: BenchmarkTaskTarget[];
   baselineTokens: number;
   estimatedBaselineTokens?: number;
   retrievedTokens: number;
@@ -52,7 +53,28 @@ export interface BenchmarkTaskResult {
   latencyMs: number;
   success: boolean;
   evidence: string[];
+  rankedEvidence: string[];
+  matches: BenchmarkTargetMatch[];
+  metrics: BenchmarkTaskMetrics;
   notes: string[];
+}
+
+export interface BenchmarkTargetMatch {
+  target: BenchmarkTaskTarget;
+  matched: boolean;
+  rank: number | null;
+  evidence: string | null;
+}
+
+export interface BenchmarkTaskMetrics {
+  targetCount: number;
+  hitCount: number;
+  recallPct: number;
+  firstRelevantRank: number | null;
+  reciprocalRank: number;
+  precisionAt3: number;
+  top1Hit: boolean;
+  top3Hit: boolean;
 }
 
 export interface BenchmarkSummary {
@@ -60,11 +82,23 @@ export interface BenchmarkSummary {
   workflowCount: number;
   successCount: number;
   failureCount: number;
+  targetCount: number;
+  hitCount: number;
+  overallRecallPct: number;
+  averageRecallPct: number;
+  averageReciprocalRank: number;
+  averagePrecisionAt3: number;
+  top1HitCount: number;
+  top3HitCount: number;
   baselineTokens: number;
   estimatedBaselineTokens?: number;
   retrievedTokens: number;
   estimatedRetrievedTokens?: number;
   tokenReductionPct: number;
+  totalLatencyMs: number;
+  averageLatencyMs: number;
+  totalToolCalls: number;
+  averageToolCalls: number;
 }
 
 export interface BenchmarkResults {

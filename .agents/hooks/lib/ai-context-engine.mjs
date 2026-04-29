@@ -5,11 +5,40 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 function resolveAiContextEngineInvocation(projectRoot) {
+  const workspaceWrapper = path.join(
+    projectRoot,
+    'tools',
+    'ai-context-engine',
+    'scripts',
+    'ai-context-engine.mjs',
+  );
   const localBin = path.join(projectRoot, 'node_modules', '.bin', 'astrograph');
+  const packageLocalBin = path.join(
+    projectRoot,
+    'tools',
+    'ai-context-engine',
+    'node_modules',
+    '.bin',
+    'astrograph',
+  );
+
+  if (existsSync(workspaceWrapper)) {
+    return {
+      command: process.execPath,
+      prefixArgs: [workspaceWrapper],
+    };
+  }
 
   if (existsSync(localBin)) {
     return {
       command: localBin,
+      prefixArgs: [],
+    };
+  }
+
+  if (existsSync(packageLocalBin)) {
+    return {
+      command: packageLocalBin,
       prefixArgs: [],
     };
   }
@@ -166,6 +195,35 @@ async function readObservabilityStatus(observabilityStatusPath) {
   return parsed;
 }
 
+async function readLogTail(filePath, maxChars = 4000) {
+  try {
+    const contents = await fs.readFile(filePath, 'utf8');
+    return contents.slice(-maxChars);
+  } catch {
+    return '';
+  }
+}
+
+function extractObservabilityStartupFailure(logTail) {
+  const lines = logTail
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return lines.at(-1) ?? null;
+}
+
+function isBenignObservabilityStartupFailure(message) {
+  return (
+    message.includes('Failed to listen at ')
+    || message.includes('bun is required for astrograph observability mode.')
+  );
+}
+
 async function isObservabilityHealthy(status) {
   if (!status) {
     return false;
@@ -183,7 +241,14 @@ async function isObservabilityHealthy(status) {
   }
 }
 
-async function waitForObservabilityStatus(observabilityStatusPath, timeoutMs = 5000) {
+async function waitForObservabilityStatus(
+  observabilityStatusPath,
+  {
+    child = null,
+    observabilityLogPath = null,
+    timeoutMs = 15000,
+  } = {},
+) {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
@@ -192,10 +257,29 @@ async function waitForObservabilityStatus(observabilityStatusPath, timeoutMs = 5
       return status;
     }
 
+    if (child?.exitCode !== null) {
+      const logTail = observabilityLogPath
+        ? await readLogTail(observabilityLogPath)
+        : '';
+      const failureMessage = extractObservabilityStartupFailure(logTail);
+      throw new Error(
+        failureMessage
+          ?? `ai-context-engine observability server exited with code ${child.exitCode}`,
+      );
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
-  return null;
+  const logTail = observabilityLogPath
+    ? await readLogTail(observabilityLogPath)
+    : '';
+  const failureMessage = extractObservabilityStartupFailure(logTail);
+
+  throw new Error(
+    failureMessage
+      ?? 'ai-context-engine observability server did not report healthy startup',
+  );
 }
 
 export async function ensureAiContextEngineObservability(
@@ -250,10 +334,10 @@ export async function ensureAiContextEngineObservability(
 
     child.unref();
 
-    const status = await waitForObservabilityStatus(observabilityStatusPath);
-    if (!status) {
-      throw new Error('ai-context-engine observability server did not report healthy startup');
-    }
+    const status = await waitForObservabilityStatus(observabilityStatusPath, {
+      child,
+      observabilityLogPath,
+    });
 
     return {
       status: 'started',
@@ -263,6 +347,19 @@ export async function ensureAiContextEngineObservability(
       observabilityLogPath,
       url: `http://${status.host}:${status.port}/`,
     };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (!force && isBenignObservabilityStartupFailure(message)) {
+      return {
+        status: 'unavailable',
+        message,
+        observabilityStatusPath,
+        observabilityLogPath,
+      };
+    }
+
+    throw error;
   } finally {
     closeSync(stdoutFd);
     closeSync(stderrFd);

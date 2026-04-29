@@ -2,19 +2,141 @@
   "schemaVersion": 1,
   "benchmark": "ai-context-engine",
   "repo": "playground",
-  "repoSha": "97d82c70eec5af8e9c391fc9208d6ac9536af04f",
+  "repoSha": "74f79fa02cb2956dfce8dcef4333dfeb0de1a1bf",
   "tokenizer": "cl100k_base",
   "tasks": [
     {
       "id": "task-corpus-loader",
       "path": "tasks/task-corpus-loader.md",
       "slice": "tools/ai-context-engine/bench",
-      "workflows": ["baseline", "discovery-first", "symbol-first", "bundle"],
+      "workflows": ["baseline", "discovery-first", "symbol-first", "text-first", "bundle"],
       "allowedPaths": ["tools/ai-context-engine/bench/src/corpus.ts"],
       "targets": [
         {
           "kind": "symbol",
           "value": "loadBenchmarkCorpus",
+          "mode": "exact"
+        },
+        {
+          "kind": "symbol",
+          "value": "loadBenchmarkTaskCard",
+          "mode": "exact"
+        }
+      ]
+    },
+    {
+      "id": "task-runner-artifacts",
+      "path": "tasks/task-runner-artifacts.md",
+      "slice": "tools/ai-context-engine/bench",
+      "workflows": ["baseline", "text-first", "bundle"],
+      "allowedPaths": [
+        "tools/ai-context-engine/bench/src/runner.ts",
+        "tools/ai-context-engine/bench/src/report.ts"
+      ],
+      "targets": [
+        {
+          "kind": "symbol",
+          "value": "runBenchmark",
+          "mode": "exact"
+        },
+        {
+          "kind": "symbol",
+          "value": "createBenchmarkResultsArtifact",
+          "mode": "exact"
+        },
+        {
+          "kind": "symbol",
+          "value": "renderBenchmarkReportMarkdown",
+          "mode": "exact"
+        }
+      ]
+    },
+    {
+      "id": "task-token-accounting",
+      "path": "tasks/task-token-accounting.md",
+      "slice": "tools/ai-context-engine/bench",
+      "workflows": ["baseline", "text-first", "bundle"],
+      "allowedPaths": [
+        "tools/ai-context-engine/bench/src/tokenizer.ts",
+        "tools/ai-context-engine/bench/src/workflows.ts"
+      ],
+      "targets": [
+        {
+          "kind": "symbol",
+          "value": "countTokens",
+          "mode": "exact"
+        },
+        {
+          "kind": "symbol",
+          "value": "estimateTokens",
+          "mode": "exact"
+        },
+        {
+          "kind": "symbol",
+          "value": "computeEstimatedBaselineForTask",
+          "mode": "exact"
+        }
+      ]
+    },
+    {
+      "id": "task-cli-entrypoint",
+      "path": "tasks/task-cli-entrypoint.md",
+      "slice": "tools/ai-context-engine",
+      "workflows": ["baseline", "text-first"],
+      "allowedPaths": [
+        "tools/ai-context-engine/bench/src/cli.ts",
+        "tools/ai-context-engine/package.json"
+      ],
+      "targets": [
+        {
+          "kind": "symbol",
+          "value": "main",
+          "mode": "exact"
+        },
+        {
+          "kind": "text",
+          "value": "bench:corpus",
+          "mode": "exact"
+        }
+      ]
+    },
+    {
+      "id": "task-bundle-workflow",
+      "path": "tasks/task-bundle-workflow.md",
+      "slice": "tools/ai-context-engine/bench",
+      "workflows": ["baseline", "discovery-first", "text-first", "bundle"],
+      "allowedPaths": ["tools/ai-context-engine/bench/src/workflows.ts"],
+      "targets": [
+        {
+          "kind": "symbol",
+          "value": "bundleWorkflow",
+          "mode": "exact"
+        },
+        {
+          "kind": "symbol",
+          "value": "getContextBundle",
+          "mode": "exact"
+        }
+      ]
+    },
+    {
+      "id": "task-strict-snapshot",
+      "path": "tasks/task-strict-snapshot.md",
+      "slice": "tools/ai-context-engine/bench",
+      "workflows": ["baseline", "text-first", "bundle"],
+      "allowedPaths": [
+        "tools/ai-context-engine/bench/src/runner.ts",
+        "tools/ai-context-engine/bench/src/snapshot.ts"
+      ],
+      "targets": [
+        {
+          "kind": "symbol",
+          "value": "getRepoSnapshot",
+          "mode": "exact"
+        },
+        {
+          "kind": "symbol",
+          "value": "assertStrictSnapshot",
           "mode": "exact"
         }
       ]

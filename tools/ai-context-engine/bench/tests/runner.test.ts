@@ -30,12 +30,17 @@ describe("benchmark runner", () => {
       expect(results.tokenizer).toBe("cl100k_base");
       expect(results.approximateTokenizer).toBe("tokenx");
       expect(results.repoSha).toBe(fixture.repoSha);
-      expect(results.corpus.taskCount).toBe(1);
+      expect(results.corpus.taskCount).toBe(6);
       expect(corpusLock.snapshot.repoSha).toBe(fixture.repoSha);
       expect(results.tasks[0]).toMatchObject({
         taskId: "task-corpus-loader",
+        query: "loadBenchmarkCorpus",
         workflowId: "symbol-first",
         success: true,
+        metrics: {
+          targetCount: 2,
+          hitCount: 1,
+        },
       });
       expect(results.tasks[0].estimatedBaselineTokens).toBeGreaterThan(0);
       expect(results.tasks[0].estimatedRetrievedTokens).toBeGreaterThan(0);

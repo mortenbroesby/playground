@@ -101,6 +101,7 @@ function main() {
     assessment.reason,
     "Policy: use major.minor.patch-alpha.increment in tools/ai-context-engine/package.json.",
     "Bump increment on every Astrograph commit.",
+    "Never reset the alpha increment, including across patch, minor, or major bumps.",
     "Use patch for backward-compatible fixes/internal work, minor for backward-compatible features, and major for breaking changes.",
   ].join("\n");
 

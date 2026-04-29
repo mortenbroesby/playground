@@ -17,25 +17,13 @@ approval_mode = "approve"
 [mcp_servers.obsidian-memory.tools.memory_unfold]
 approval_mode = "approve"
 
+# BEGIN ASTROGRAPH
 [mcp_servers.astrograph]
-command = "pnpm"
-args = [
-  "exec",
-  "astrograph",
-  "mcp",
-]
+command = "node"
+args = ["tools/ai-context-engine/scripts/ai-context-engine.mjs", "mcp"]
 cwd = "."
 startup_timeout_sec = 90
-enabled_tools = [
-  "index_folder",
-  "index_file",
-  "get_file_outline",
-  "get_file_tree",
-  "get_repo_outline",
-  "suggest_initial_queries",
-  "query_code",
-  "diagnostics",
-]
+enabled_tools = ["index_folder", "index_file", "get_file_outline", "get_file_tree", "get_repo_outline", "suggest_initial_queries", "query_code", "diagnostics"]
 
 [mcp_servers.astrograph.tools.index_folder]
 approval_mode = "approve"
@@ -60,6 +48,7 @@ approval_mode = "approve"
 
 [mcp_servers.astrograph.tools.diagnostics]
 approval_mode = "approve"
+# END ASTROGRAPH
 
 [mcp_servers.jcodemunch]
 command = "jcodemunch-mcp"

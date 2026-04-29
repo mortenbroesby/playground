@@ -1,3 +1,5 @@
+import { realpath } from "node:fs/promises";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { handleCli } from "../src/cli.ts";
@@ -113,6 +115,7 @@ describe("mutation smoke cli boundaries", () => {
 
   it("preserves boolean flag and omitted optional number semantics", async () => {
     const repoRoot = await createFixtureRepo();
+    const resolvedRepoRoot = await realpath(repoRoot);
     await indexFolder({ repoRoot });
 
     const [symbol] = await searchSymbols({
@@ -223,6 +226,42 @@ describe("mutation smoke cli boundaries", () => {
           id: symbol!.id,
         },
         verified: true,
+      },
+    });
+
+    const doctorText = await handleCli([
+      "doctor",
+      "--repo",
+      repoRoot,
+    ]);
+    expect(doctorText).toContain("Astrograph Doctor");
+    expect(doctorText).toContain("Index: indexed");
+    expect(doctorText).toContain("Parser: fallback 0.0%");
+
+    const doctorJson = JSON.parse(
+      await handleCli([
+        "doctor",
+        "--repo",
+        repoRoot,
+        "--json",
+      ]),
+    );
+    expect(doctorJson).toMatchObject({
+      repoRoot: resolvedRepoRoot,
+      indexStatus: "indexed",
+      freshness: {
+        indexedFiles: 2,
+        indexedSymbols: 5,
+        indexedImports: 1,
+      },
+      parser: {
+        indexedFileCount: 2,
+        fallbackFileCount: 0,
+        fallbackRate: 0,
+      },
+      observability: {
+        enabled: false,
+        status: "disabled",
       },
     });
   }, 30_000);

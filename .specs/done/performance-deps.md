@@ -1,5 +1,12 @@
 # Performance Dependencies Implementation Spec
 
+## Status
+
+Done and archived on `2026-04-28`.
+
+This spec is kept in `.specs/done/` as a completed implementation record for
+the `astrograph-ai-engine-refactor` branch work.
+
 **Recommended filename:** `performance-dependencies-implementation-spec.md`
 
 ## Mission
@@ -89,6 +96,36 @@ Do not make SQLite writes concurrent from multiple workers.
 Do not remove existing watch-mode or polling fallbacks until replacement behavior is proven.
 
 ## Implementation Phases
+
+## Final State
+
+As of `2026-04-28`, the main implementation slices in this spec are landed on
+`astrograph-ai-engine-refactor`:
+
+- Phase 1 complete: baseline perf scripts, JSON result output, README/docs
+  wiring, and focused script coverage
+- Phase 2 complete: `fdir`-backed discovery in runtime and perf flows with
+  deterministic scanner coverage
+- Phase 3 complete: centralized compiled glob matching via `picomatch`
+- Phase 4 complete: `xxHash` for routine fingerprints while preserving
+  `SHA-256` for integrity checks
+- Phase 5 complete: bounded `p-map` parallel file analysis with single-writer
+  SQLite persistence preserved
+- Phase 6 complete: optional `Piscina` worker-pool analysis for indexing,
+  single-file refresh, and watch-triggered refresh
+- Phase 7 complete: `@parcel/watcher`-backed native watch abstraction with
+  explicit fallback reporting and config defaults
+- Phase 8 complete: optional `@vscode/ripgrep` live-disk fallback for stale or
+  missing indexed text search
+- Phase 9 closed as no-switch: serialization benchmarking landed, but the
+  benchmark did not justify replacing the default public JSON path
+- Phase 10 complete: `clinic` and `0x` profiling entrypoints plus workflow docs
+
+Open follow-up status:
+
+- none required to satisfy this spec's main implementation scope
+- watch event-to-refresh latency benchmarking remains an optional future
+  measurement task if a more controlled fixture is introduced
 
 ---
 

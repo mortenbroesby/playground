@@ -118,7 +118,7 @@ function EventRow({ entry }: { entry: ToolLedgerEntry }) {
         ) : (
           <div className="savings-chip savings-chip--muted">
             <strong>No savings estimate</strong>
-            <span>Not every tool has a defensible baseline</span>
+            <span>Legacy event without a recorded estimate</span>
           </div>
         )}
       </div>

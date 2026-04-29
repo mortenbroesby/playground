@@ -1,11 +1,13 @@
-import { realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import {
   diagnostics,
+  doctor,
   getContextBundle,
   getFileContent,
   getFileOutline,
@@ -21,11 +23,76 @@ import {
   suggestInitialQueries,
   watchFolder,
 } from "../src/index.ts";
+import { resolveEnginePaths } from "../src/config.ts";
 import { cleanupFixtureRepos, createFixtureRepo } from "./fixture-repo.ts";
 
 afterEach(async () => {
   await cleanupFixtureRepos();
 });
+
+function snapshotIndexedRows(repoRoot: string) {
+  const paths = resolveEnginePaths(repoRoot);
+  const db = new Database(paths.databasePath, { readonly: true });
+  const files = db.prepare(
+    `
+      SELECT
+        path,
+        language,
+        content_hash,
+        integrity_hash,
+        size_bytes,
+        symbol_signature_hash,
+        import_hash,
+        parser_backend,
+        parser_fallback_used,
+        parser_fallback_reason,
+        symbol_count
+      FROM files
+      ORDER BY path ASC
+    `,
+  ).all();
+  const symbols = db.prepare(
+    `
+      SELECT
+        file_path,
+        name,
+        qualified_name,
+        kind,
+        signature,
+        summary,
+        summary_source,
+        start_line,
+        end_line,
+        exported
+      FROM symbols
+      ORDER BY file_path ASC, start_line ASC, name ASC
+    `,
+  ).all();
+  const imports = db.prepare(
+    `
+      SELECT
+        files.path AS file_path,
+        imports.source,
+        imports.specifiers
+      FROM imports
+      INNER JOIN files ON files.id = imports.file_id
+      ORDER BY files.path ASC, imports.source ASC
+    `,
+  ).all();
+  db.close();
+
+  return { files, symbols, imports };
+}
+
+function readIndexedFileUpdatedAt(repoRoot: string, filePath: string): string | null {
+  const paths = resolveEnginePaths(repoRoot);
+  const db = new Database(paths.databasePath, { readonly: true });
+  const row = db.prepare(
+    "SELECT updated_at FROM files WHERE path = ?",
+  ).get(filePath) as { updated_at: string } | undefined;
+  db.close();
+  return row?.updated_at ?? null;
+}
 
 describe("ai-context-engine behavior", () => {
   const it = (name: string, fn: (...args: never[]) => unknown, timeout = 15000) =>
@@ -80,6 +147,42 @@ describe("ai-context-engine behavior", () => {
     expect(suggestions[0]).toContain("Greeter");
   });
 
+  it("doctor gives useful guidance before the repo has been indexed", async () => {
+    const repoRoot = await createFixtureRepo();
+    const resolvedRepoRoot = await realpath(repoRoot);
+
+    const result = await doctor({ repoRoot });
+
+    expect(result).toMatchObject({
+      repoRoot: resolvedRepoRoot,
+      schemaVersion: 4,
+      indexStatus: "not-indexed",
+      freshness: {
+        indexedFiles: 0,
+        indexedSymbols: 0,
+        indexedImports: 0,
+      },
+      parser: {
+        indexedFileCount: 0,
+        fallbackFileCount: 0,
+        fallbackRate: null,
+      },
+      dependencyGraph: {
+        brokenRelativeImportCount: 0,
+        brokenRelativeSymbolImportCount: 0,
+        affectedImporterCount: 0,
+      },
+      observability: {
+        enabled: false,
+        status: "disabled",
+      },
+    });
+    expect(result.warnings).toContain(
+      "No Astrograph index was found for this repository yet.",
+    );
+    expect(result.suggestedActions[0]).toContain("index-folder");
+  });
+
   it("prefers leading doc comments for symbol summaries by default", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -125,17 +228,31 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.0.1-alpha.8",
+      engineVersion: "0.1.0-alpha.46",
       engineVersionParts: {
         major: 0,
-        minor: 0,
-        patch: 1,
-        increment: 8,
+        minor: 1,
+        patch: 0,
+        increment: 46,
       },
+      schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
       summarySources: {
         "doc-comment": 4,
         signature: 1,
+      },
+      parser: {
+        primaryBackend: "oxc",
+        fallbackBackend: "tree-sitter",
+        indexedFileCount: 2,
+        fallbackFileCount: 0,
+        fallbackRate: 0,
+        unknownFileCount: 0,
+      },
+      dependencyGraph: {
+        brokenRelativeImportCount: 0,
+        brokenRelativeSymbolImportCount: 0,
+        affectedImporterCount: 0,
       },
       watch: {
         status: "idle",
@@ -286,6 +403,60 @@ module.exports = {
       path.join(canonicalRepoRoot, ".astrograph", "index.sqlite"),
     );
     expect(health.storageVersion).toBe(1);
+    expect(health.schemaVersion).toBe(4);
+  });
+
+  it("migrates legacy Astrograph schema state before serving diagnostics", async () => {
+    const repoRoot = await createFixtureRepo();
+    const paths = resolveEnginePaths(repoRoot);
+
+    await import("node:fs/promises").then((fs) =>
+      fs.mkdir(paths.storageDir, { recursive: true }),
+    );
+
+    const legacyDb = new Database(paths.databasePath);
+    legacyDb.exec(`
+      CREATE TABLE meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+      CREATE TABLE files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT NOT NULL UNIQUE,
+        language TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        symbol_count INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    legacyDb.close();
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.schemaVersion).toBe(4);
+
+    const migratedDb = new Database(paths.databasePath, { readonly: true });
+    const fileColumns = migratedDb
+      .prepare("PRAGMA table_info(files)")
+      .all() as Array<{ name: string }>;
+    const dependencyTable = migratedDb
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'file_dependencies'")
+      .get() as { name: string } | undefined;
+    const schemaVersionRow = migratedDb
+      .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
+      .get() as { value: string } | undefined;
+    migratedDb.close();
+
+    expect(fileColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining([
+        "size_bytes",
+        "mtime_ms",
+        "integrity_hash",
+        "symbol_signature_hash",
+        "import_hash",
+      ]),
+    );
+    expect(dependencyTable?.name).toBe("file_dependencies");
+    expect(schemaVersionRow?.value).toBe("4");
   });
 
   it("supports symbol and text search plus exact retrieval", async () => {
@@ -325,6 +496,427 @@ module.exports = {
     expect(textMatches[0]).toMatchObject({
       filePath: "src/strings.ts",
     });
+  });
+
+  it("falls back to live-disk text search when the index is missing", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "Hello",
+    });
+
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
+    });
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "Hello",
+      includeTextMatches: true,
+    });
+
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(discoverResult.symbolMatches).toEqual([]);
+    expect(discoverResult.textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
+    });
+    expect(discoverResult.textMatchResults[0]).toMatchObject({
+      reasons: ["ripgrep_fallback"],
+    });
+  });
+
+  it("falls back to live-disk text search when index metadata is stale", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const paths = resolveEnginePaths(repoRoot);
+    await writeFile(
+      paths.repoMetaPath,
+      `${JSON.stringify({
+        repoRoot,
+        storageVersion: 1,
+        indexedAt: new Date().toISOString(),
+        indexedFiles: 2,
+        indexedSymbols: 5,
+        indexedSnapshotHash: "stale",
+        storageMode: "wal",
+        storageBackend: "sqlite",
+        staleStatus: "stale",
+        summaryStrategy: "doc-comments-first",
+        watch: {
+          status: "idle",
+          backend: null,
+          debounceMs: null,
+          pollMs: null,
+          startedAt: null,
+          lastEvent: null,
+          lastEventAt: null,
+          lastChangedPaths: [],
+          reindexCount: 0,
+          lastError: null,
+          lastSummary: null,
+        },
+      }, null, 2)}\n`,
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "strings.ts"),
+      `// Format an area label for display.
+export function formatLabel(value: number): string {
+  return \`Area: \${value.toFixed(2)}\`;
+}
+
+/** Friendly greeter for string output. */
+export class Greeter {
+  // Return a greeting for the provided name.
+  greet(name: string): string {
+    return "Bonjour " + name;
+  }
+}
+`,
+    );
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "Bonjour",
+    });
+
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/strings.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
+    });
+  });
+
+  it("applies repo-config live search limits during ripgrep fallback", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxLiveSearchMatches: 1,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "many.ts"),
+      Array.from({ length: 5 }, () => "export const repeated = 'hello';").join("\n"),
+    );
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "hello",
+    });
+
+    expect(textMatches).toHaveLength(1);
+    expect(textMatches[0]).toMatchObject({
+      filePath: "src/many.ts",
+      source: "live_disk_match",
+      reason: "ripgrep_fallback",
+    });
+  });
+
+  it("applies repo-config result limits to indexed symbol and text retrieval", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxSymbolResults: 1,
+          maxTextResults: 2,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "greeter-utils.ts"),
+      `export function greetAgain(name: string): string {
+  return "Hello again " + name;
+}
+`,
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "many.ts"),
+      [
+        "export const first = 'hello';",
+        "export const second = 'hello';",
+        "export const third = 'hello';",
+      ].join("\n"),
+    );
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "greet",
+      limit: 5,
+    });
+    expect(symbolMatches).toHaveLength(1);
+
+    const textMatches = await searchText({
+      repoRoot,
+      query: "hello",
+    });
+    expect(textMatches).toHaveLength(2);
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      query: "hello",
+      includeTextMatches: true,
+    });
+
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(discoverResult.textMatches).toHaveLength(2);
+  });
+
+  it("skips oversized files during indexed discovery when maxFileBytes is configured", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxFileBytes: 512,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "large.ts"),
+      `export const large = "${"x".repeat(2048)}";\n`,
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    expect(summary.indexedFiles).toBe(2);
+
+    const outline = await getRepoOutline({ repoRoot });
+    expect(outline.totalFiles).toBe(2);
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).not.toContain("src/large.ts");
+  });
+
+  it("skips symbol-heavy files during indexed discovery when maxSymbolsPerFile is configured", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxSymbolsPerFile: 3,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "crowded.ts"),
+      `export const one = 1;
+export const two = 2;
+export const three = 3;
+export const four = 4;
+`,
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    expect(summary).toMatchObject({
+      indexedFiles: 2,
+      staleStatus: "fresh",
+    });
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).not.toContain("src/crowded.ts");
+  });
+
+  it("applies repo-config include and exclude globs during indexed discovery", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          include: ["src/**/*.ts"],
+          exclude: ["src/math.ts"],
+        },
+      }),
+    );
+
+    const summary = await indexFolder({ repoRoot });
+    expect(summary).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 3,
+      staleStatus: "fresh",
+    });
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).toEqual(["src/strings.ts"]);
+  });
+
+  it("stores routine fingerprint hashes separately from integrity content hashes", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const paths = resolveEnginePaths(repoRoot);
+    const db = new Database(paths.databasePath, { readonly: true });
+    const rows = db
+      .prepare(
+        `
+          SELECT path, content_hash, integrity_hash, symbol_signature_hash, import_hash
+          FROM files
+          ORDER BY path ASC
+        `,
+      )
+      .all() as Array<{
+      path: string;
+      content_hash: string;
+      integrity_hash: string | null;
+      symbol_signature_hash: string | null;
+      import_hash: string | null;
+    }>;
+    db.close();
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => /^xxh64:[0-9a-f]{16}$/u.test(row.content_hash))).toBe(true);
+    expect(rows.every((row) => /^sha256:[0-9a-f]{64}$/u.test(row.integrity_hash ?? ""))).toBe(
+      true,
+    );
+    expect(
+      rows.every((row) => /^xxh64:[0-9a-f]{16}$/u.test(row.symbol_signature_hash ?? "")),
+    ).toBe(true);
+    expect(rows.every((row) => /^xxh64:[0-9a-f]{16}$/u.test(row.import_hash ?? ""))).toBe(
+      true,
+    );
+  });
+
+  it("produces deterministic index output across file processing concurrency settings", async () => {
+    const serialRepoRoot = await createFixtureRepo();
+    const parallelRepoRoot = await createFixtureRepo();
+    const generatedModules = Array.from({ length: 12 }, (_, index) => ({
+      relativePath: path.join("src", `generated-${index}.ts`),
+      content: `import { formatLabel } from "./strings.js";
+
+export function generated${index}(value: number): string {
+  return formatLabel(value + ${index});
+}
+`,
+    }));
+
+    for (const repoRoot of [serialRepoRoot, parallelRepoRoot]) {
+      await Promise.all(generatedModules.map((module) =>
+        writeFile(path.join(repoRoot, module.relativePath), module.content),
+      ));
+    }
+
+    await writeFile(
+      path.join(serialRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 1,
+        },
+      }),
+    );
+    await writeFile(
+      path.join(parallelRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 4,
+        },
+      }),
+    );
+
+    const [serialSummary, parallelSummary] = await Promise.all([
+      indexFolder({ repoRoot: serialRepoRoot }),
+      indexFolder({ repoRoot: parallelRepoRoot }),
+    ]);
+
+    expect(parallelSummary).toEqual(serialSummary);
+    expect(await getRepoOutline({ repoRoot: parallelRepoRoot })).toEqual(
+      await getRepoOutline({ repoRoot: serialRepoRoot }),
+    );
+    expect(await getFileTree({ repoRoot: parallelRepoRoot })).toEqual(
+      await getFileTree({ repoRoot: serialRepoRoot }),
+    );
+    expect(snapshotIndexedRows(parallelRepoRoot)).toEqual(
+      snapshotIndexedRows(serialRepoRoot),
+    );
+  });
+
+  it("produces equivalent index output with and without the worker pool enabled", async () => {
+    const directRepoRoot = await createFixtureRepo();
+    const workerRepoRoot = await createFixtureRepo();
+    const generatedModules = Array.from({ length: 12 }, (_, index) => ({
+      relativePath: path.join("src", `worker-generated-${index}.ts`),
+      content: `import { formatLabel } from "./strings.js";
+
+export function workerGenerated${index}(value: number): string {
+  return formatLabel(value + ${index});
+}
+`,
+    }));
+
+    for (const repoRoot of [directRepoRoot, workerRepoRoot]) {
+      await Promise.all(generatedModules.map((module) =>
+        writeFile(path.join(repoRoot, module.relativePath), module.content),
+      ));
+    }
+
+    await writeFile(
+      path.join(directRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 4,
+          workerPool: {
+            enabled: false,
+            maxWorkers: 1,
+          },
+        },
+      }),
+    );
+    await writeFile(
+      path.join(workerRepoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          fileProcessingConcurrency: 4,
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
+        },
+      }),
+    );
+
+    const [directSummary, workerSummary] = await Promise.all([
+      indexFolder({ repoRoot: directRepoRoot }),
+      indexFolder({ repoRoot: workerRepoRoot }),
+    ]);
+
+    expect(workerSummary).toEqual(directSummary);
+    expect(await getRepoOutline({ repoRoot: workerRepoRoot })).toEqual(
+      await getRepoOutline({ repoRoot: directRepoRoot }),
+    );
+    expect(await getFileTree({ repoRoot: workerRepoRoot })).toEqual(
+      await getFileTree({ repoRoot: directRepoRoot }),
+    );
+    expect(snapshotIndexedRows(workerRepoRoot)).toEqual(
+      snapshotIndexedRows(directRepoRoot),
+    );
   });
 
   it("offers a unified query surface for discovery, source retrieval, and assembly", async () => {
@@ -428,6 +1020,199 @@ module.exports = {
       tokenBudget: 120,
     });
     expect(assembleResult.intent).toBe("assemble");
+  });
+
+  it("explains graph-aware discover results with dependency and importer reasons", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const dependencyResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "area",
+      includeDependencies: true,
+      relationDepth: 1,
+    });
+    expect(dependencyResult.intent).toBe("discover");
+    if (dependencyResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(dependencyResult.matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "area",
+          }),
+          reasons: ["exact_symbol_match"],
+          depth: 0,
+        }),
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "formatLabel",
+          }),
+          reasons: expect.arrayContaining(["imports_matched_file"]),
+        }),
+      ]),
+    );
+
+    const importerResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "formatLabel",
+      includeImporters: true,
+      relationDepth: 1,
+    });
+    expect(importerResult.intent).toBe("discover");
+    if (importerResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(importerResult.matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "formatLabel",
+          }),
+          reasons: ["exact_symbol_match"],
+          depth: 0,
+        }),
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "area",
+          }),
+          reasons: expect.arrayContaining(["imported_by_match"]),
+        }),
+      ]),
+    );
+  });
+
+  it("expands graph-aware results through exact symbol references without broad importer spillover", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+
+export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "best-consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderBest(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "first-consumer.ts"),
+      `import { firstFormatter } from "./formatters.js";
+
+export function renderFirst(value: number): string {
+  return firstFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const discoverResult = await queryCode({
+      repoRoot,
+      intent: "discover",
+      query: "bestFormatter",
+      includeDependencies: false,
+      includeReferences: true,
+      relationDepth: 1,
+    });
+    expect(discoverResult.intent).toBe("discover");
+    if (discoverResult.intent !== "discover") {
+      throw new Error("Expected discover result");
+    }
+    expect(discoverResult.matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "bestFormatter",
+          }),
+          reasons: expect.arrayContaining(["exact_symbol_match"]),
+        }),
+        expect.objectContaining({
+          symbol: expect.objectContaining({
+            name: "renderBest",
+          }),
+          reasons: expect.arrayContaining(["references_match"]),
+        }),
+      ]),
+    );
+    expect(
+      discoverResult.matches.some((entry) => entry.symbol.name === "renderFirst"),
+    ).toBe(false);
+
+    const bundle = await getContextBundle({
+      repoRoot,
+      query: "bestFormatter",
+      includeDependencies: false,
+      includeReferences: true,
+      relationDepth: 1,
+      tokenBudget: 220,
+    });
+    expect(bundle.items.some((item) => item.symbol.name === "renderBest")).toBe(true);
+    expect(bundle.items.some((item) => item.symbol.name === "renderFirst")).toBe(false);
+  });
+
+  it("expands assembled query context with bounded graph relations", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const assembleResult = await queryCode({
+      repoRoot,
+      intent: "assemble",
+      query: "formatLabel",
+      tokenBudget: 160,
+      includeDependencies: true,
+      includeImporters: true,
+      relationDepth: 1,
+      includeRankedCandidates: true,
+    });
+
+    expect(assembleResult.intent).toBe("assemble");
+    if (assembleResult.intent !== "assemble") {
+      throw new Error("Expected assemble result");
+    }
+
+    expect(assembleResult.bundle.usedTokens).toBeLessThanOrEqual(
+      assembleResult.bundle.tokenBudget,
+    );
+    expect(assembleResult.bundle.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "target",
+          symbol: expect.objectContaining({
+            name: "formatLabel",
+          }),
+          reason: "exact_symbol_match",
+        }),
+        expect.objectContaining({
+          role: expect.stringMatching(/target|dependency/),
+          symbol: expect.objectContaining({
+            name: "area",
+          }),
+          reason: expect.stringMatching(/query_match|imported_by_match/),
+        }),
+      ]),
+    );
+    expect(assembleResult.ranked?.candidates[0]).toMatchObject({
+      reason: "exact_symbol_match",
+      symbol: {
+        name: "formatLabel",
+      },
+    });
   });
 
   it("rejects invalid search and retrieval boundaries at the library layer", async () => {
@@ -626,6 +1411,46 @@ module.exports = {
     });
   });
 
+  it("accepts windows-style file patterns in search filters", async () => {
+    const repoRoot = await createFixtureRepo();
+    await mkdir(path.join(repoRoot, "src", "nested"), { recursive: true });
+
+    await writeFile(
+      path.join(repoRoot, "src", "nested", "widget.ts"),
+      `export function nestedWidget() {
+  return "nested";
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "nestedWidget",
+      filePattern: "src\\**\\*.ts",
+    });
+    const textMatches = await searchText({
+      repoRoot,
+      query: "nested",
+      filePattern: "src\\**\\*.ts",
+    });
+
+    expect(symbolMatches).toEqual([
+      expect.objectContaining({
+        name: "nestedWidget",
+        filePath: "src/nested/widget.ts",
+      }),
+    ]);
+    expect(textMatches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          filePath: "src/nested/widget.ts",
+        }),
+      ]),
+    );
+  });
+
   it("preserves substring search behavior when FTS shortlists are too narrow", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -779,7 +1604,7 @@ export function area(radius: number): string {
     });
     expect(rankedContext.candidates[0]).toMatchObject({
       rank: 1,
-      reason: 'matched query "Greeter"',
+      reason: "exact_symbol_match",
       symbol: {
         name: "Greeter",
         filePath: "src/strings.ts",
@@ -837,6 +1662,366 @@ export function renderValue(value: number): string {
     );
   });
 
+  it("refreshes dependency edges when an importer changes its imported symbol", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+
+export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter as format } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return format(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const initialBundle = await getContextBundle({
+      repoRoot,
+      query: "renderValue",
+      tokenBudget: 200,
+    });
+    expect(initialBundle.items.some((item) => item.symbol.name === "bestFormatter")).toBe(
+      true,
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { firstFormatter as format } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return format(value);
+}
+`,
+    );
+
+    const refresh = await indexFile({
+      repoRoot,
+      filePath: "src/consumer.ts",
+    });
+    expect(refresh).toMatchObject({
+      indexedFiles: 1,
+      staleStatus: "fresh",
+    });
+
+    const updatedBundle = await getContextBundle({
+      repoRoot,
+      query: "renderValue",
+      tokenBudget: 200,
+    });
+    expect(updatedBundle.items.some((item) => item.symbol.name === "firstFormatter")).toBe(
+      true,
+    );
+    expect(updatedBundle.items.some((item) => item.symbol.name === "bestFormatter")).toBe(
+      false,
+    );
+  });
+
+  it("re-evaluates direct importers when an exporter changes during single-file refresh", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const initialImporterUpdatedAt = readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts");
+    expect(initialImporterUpdatedAt).not.toBeNull();
+
+    await delay(20);
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return \`value=\${value.toFixed(2)}\`;
+}
+`,
+    );
+
+    const refresh = await indexFile({
+      repoRoot,
+      filePath: "src/formatters.ts",
+    });
+
+    expect(refresh).toMatchObject({
+      indexedFiles: 2,
+      staleStatus: "fresh",
+    });
+
+    const importerUpdatedAt = readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts");
+    expect(importerUpdatedAt).not.toBe(initialImporterUpdatedAt);
+  });
+
+  it("doctor surfaces unresolved relative imports and affected importers", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "broken-consumer.ts"),
+      `import { missingValue } from "./missing.js";
+
+export function renderBroken(): string {
+  return String(missingValue);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const result = await doctor({ repoRoot });
+
+    expect(result.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/broken-consumer.ts"],
+    });
+    expect(result.warnings).toContain(
+      "Dependency graph contains 1 unresolved relative import(s) across 1 importer file(s).",
+    );
+    expect(
+      result.suggestedActions.some((entry) =>
+        entry.includes("src/broken-consumer.ts"),
+      ),
+    ).toBe(true);
+  });
+
+  it("doctor and diagnostics report unresolved relative symbol imports", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const doctorResult = await doctor({ repoRoot });
+    expect(doctorResult.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 0,
+      brokenRelativeSymbolImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/consumer.ts"],
+    });
+    expect(doctorResult.warnings).toContain(
+      "Dependency graph contains 1 unresolved relative symbol import(s).",
+    );
+    expect(
+      doctorResult.suggestedActions.some((entry) =>
+        entry.includes("src/consumer.ts")
+      ),
+    ).toBe(true);
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 0,
+      brokenRelativeSymbolImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/consumer.ts"],
+    });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("unresolved relative symbol imports");
+  });
+
+  it("doctor warns on obvious secret-like indexed source content without marking the index stale", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "secrets.ts"),
+      `export const leakedKey = "sk-abcdefghijklmnopqrstuvwxyz123456";
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const result = await doctor({ repoRoot });
+
+    expect(result.privacy).toMatchObject({
+      secretLikeFileCount: 1,
+      sampleFilePaths: ["src/secrets.ts"],
+    });
+    expect(result.warnings).toContain(
+      "Indexed source contains 1 file(s) with obvious secret-like content.",
+    );
+    expect(
+      result.suggestedActions.some((entry) =>
+        entry.includes("src/secrets.ts"),
+      ),
+    ).toBe(true);
+    expect(result.indexStatus).toBe("indexed");
+    expect(result.freshness.status).toBe("fresh");
+  });
+
+  it("uses repo-config storage mode in diagnostics and doctor output", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        storageMode: "wal",
+      }),
+    );
+
+    await indexFolder({ repoRoot });
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.storageMode).toBe("wal");
+
+    const result = await doctor({ repoRoot });
+    expect(result.storageMode).toBe("wal");
+  });
+
+  it("applies repo-config ranking weights to symbol search and ranked context", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        ranking: {
+          exactName: 0,
+          exactQualifiedName: 0,
+          prefixName: 0,
+          prefixQualifiedName: 0,
+          containsName: 0,
+          containsQualifiedName: 0,
+          signatureContains: 0,
+          summaryContains: 2000,
+          filePathContains: 0,
+          exactWord: 0,
+          tokenMatch: 0,
+          exportedBonus: 0,
+        },
+      }),
+    );
+
+    await writeFile(
+      path.join(repoRoot, "src", "area-helper.ts"),
+      `/** Radius helper for area-related output. */
+export function helperValue(): string {
+  return "helper";
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const symbolMatches = await searchSymbols({
+      repoRoot,
+      query: "radius",
+    });
+    expect(symbolMatches[0]).toMatchObject({
+      name: "helperValue",
+      filePath: "src/area-helper.ts",
+    });
+
+    const rankedContext = await getRankedContext({
+      repoRoot,
+      query: "radius",
+      tokenBudget: 120,
+    });
+    expect(rankedContext.candidates[0]).toMatchObject({
+      reason: "query_match",
+      symbol: {
+        name: "helperValue",
+        filePath: "src/area-helper.ts",
+      },
+    });
+  });
+
+  it("reports corrupted index metadata and suggests a rebuild", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    const paths = resolveEnginePaths(repoRoot);
+    const meta = JSON.parse(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(paths.repoMetaPath, "utf8")
+      ),
+    ) as Record<string, unknown>;
+
+    await writeFile(
+      paths.repoMetaPath,
+      `${JSON.stringify({
+        ...meta,
+        indexedFiles: 999,
+      }, null, 2)}\n`,
+    );
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("index metadata integrity mismatch");
+
+    const result = await doctor({ repoRoot });
+    expect(result.warnings).toContain("Index metadata integrity check failed.");
+    expect(
+      result.suggestedActions.some((entry) =>
+        entry.includes("index-folder"),
+      ),
+    ).toBe(true);
+  });
+
+  it("diagnostics marks unresolved relative imports as stale dependency drift", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "broken-consumer.ts"),
+      `import { missingValue } from "./missing.js";
+
+export function renderBroken(): string {
+  return String(missingValue);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    const health = await diagnostics({ repoRoot });
+
+    expect(health.dependencyGraph).toMatchObject({
+      brokenRelativeImportCount: 1,
+      affectedImporterCount: 1,
+      sampleImporterPaths: ["src/broken-consumer.ts"],
+    });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("unresolved relative imports");
+  });
+
   it("can refresh a single file without a full rebuild", async () => {
     const repoRoot = await createFixtureRepo();
 
@@ -878,6 +2063,189 @@ export function circumference(radius: number): string {
     expect(health).toMatchObject({
       freshnessMode: "metadata",
       freshnessScanned: false,
+    });
+  });
+
+  it("removes existing indexed rows when single-file refresh exceeds maxSymbolsPerFile", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        limits: {
+          maxSymbolsPerFile: 3,
+        },
+      }),
+    );
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `export const PI = 3.14;
+export const TAU = 6.28;
+export function area(radius: number): number {
+  return PI * radius * radius;
+}
+export function circumference(radius: number): number {
+  return TAU * radius;
+}
+`,
+    );
+
+    const update = await indexFile({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+
+    expect(update).toMatchObject({
+      indexedFiles: 0,
+      indexedSymbols: 0,
+      staleStatus: "fresh",
+    });
+
+    const fileTree = await getFileTree({ repoRoot });
+    expect(fileTree.map((entry) => entry.path)).not.toContain("src/math.ts");
+    expect(await searchSymbols({ repoRoot, query: "circumference" })).toHaveLength(0);
+  });
+
+  it("marks single-file refresh stale when an exporter change breaks downstream symbol imports", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+`,
+    );
+
+    const update = await indexFile({
+      repoRoot,
+      filePath: "src/formatters.ts",
+    });
+
+    expect(update).toMatchObject({
+      indexedFiles: 2,
+      indexedSymbols: 2,
+      staleStatus: "stale",
+    });
+
+    const health = await diagnostics({ repoRoot });
+    expect(health.staleStatus).toBe("stale");
+    expect(health.staleReasons).toContain("unresolved relative symbol imports");
+  });
+
+  it("can refresh a single file with worker-pool analysis enabled", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        performance: {
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
+        },
+      }),
+    );
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "math.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+    );
+
+    const update = await indexFile({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+
+    expect(update).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 2,
+      staleStatus: "fresh",
+    });
+    expect(
+      (await searchSymbols({ repoRoot, query: "circumference" }))[0]?.name,
+    ).toBe("circumference");
+  });
+
+  it("removes stale index entries when single-file refresh targets a deleted or renamed file", async () => {
+    const repoRoot = await createFixtureRepo();
+
+    await indexFolder({ repoRoot });
+
+    await writeFile(
+      path.join(repoRoot, "src", "math-renamed.ts"),
+      `import { formatLabel } from "./strings.js";
+
+export function perimeter(radius: number): string {
+  return formatLabel(2 * radius);
+}
+`,
+    );
+    await rm(path.join(repoRoot, "src", "math.ts"));
+
+    const removed = await indexFile({
+      repoRoot,
+      filePath: "src/math.ts",
+    });
+    expect(removed).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 0,
+      staleStatus: "fresh",
+    });
+    const fileTreeAfterRemoval = await getFileTree({ repoRoot });
+    expect(fileTreeAfterRemoval.map((entry) => entry.path)).not.toContain(
+      "src/math.ts",
+    );
+
+    const added = await indexFile({
+      repoRoot,
+      filePath: "src/math-renamed.ts",
+    });
+    expect(added).toMatchObject({
+      indexedFiles: 1,
+      indexedSymbols: 1,
+      staleStatus: "fresh",
+    });
+
+    const perimeterMatches = await searchSymbols({
+      repoRoot,
+      query: "perimeter",
+    });
+    expect(perimeterMatches[0]).toMatchObject({
+      name: "perimeter",
+      filePath: "src/math-renamed.ts",
     });
   });
 
@@ -943,6 +2311,7 @@ export function circumference(radius: number): string {
       const health = await diagnostics({ repoRoot });
       expect(health.watch).toMatchObject({
         status: "watching",
+        backend: expect.stringMatching(/^(parcel|node-fs-watch|polling)$/u),
         debounceMs: 50,
         pollMs: 50,
         lastEvent: "reindex",
@@ -961,9 +2330,253 @@ export function circumference(radius: number): string {
     const closedHealth = await diagnostics({ repoRoot });
     expect(closedHealth.watch).toMatchObject({
       status: "idle",
+      backend: expect.stringMatching(/^(parcel|node-fs-watch|polling)$/u),
       lastEvent: "close",
     });
     expect(closedHealth.watch.reindexCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("uses repo-config watch defaults when explicit watch options are omitted", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[] }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        watch: {
+          backend: "polling",
+          debounceMs: 75,
+        },
+      }),
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      const health = await diagnostics({ repoRoot });
+      expect(health.watch).toMatchObject({
+        status: "watching",
+        backend: "polling",
+        debounceMs: 75,
+        pollMs: 75,
+        lastEvent: "reindex",
+        lastChangedPaths: ["src/math.ts"],
+      });
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("supports watch refresh with worker-pool analysis enabled", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[] }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "astrograph.config.json"),
+      JSON.stringify({
+        watch: {
+          backend: "polling",
+          debounceMs: 75,
+        },
+        performance: {
+          workerPool: {
+            enabled: true,
+            maxWorkers: 2,
+          },
+        },
+      }),
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "math.ts"),
+        `import { formatLabel } from "./strings.js";
+
+export const PI = 3.14;
+
+export function circumference(radius: number): string {
+  return formatLabel(2 * PI * radius + 1);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      expect(
+        (await searchSymbols({ repoRoot, query: "circumference" }))[0]?.name,
+      ).toBe("circumference");
+      const health = await diagnostics({ repoRoot });
+      expect(health.watch).toMatchObject({
+        status: "watching",
+        backend: "polling",
+        debounceMs: 75,
+        pollMs: 75,
+        lastEvent: "reindex",
+        lastChangedPaths: ["src/math.ts"],
+      });
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("reports stale watch refresh summaries when exporter changes break downstream symbol imports", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{
+      changedPaths: string[];
+      indexedFiles?: number | undefined;
+      staleStatus?: string | undefined;
+    }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            indexedFiles: event.summary?.indexedFiles,
+            staleStatus: event.summary?.staleStatus,
+          });
+        }
+      },
+    });
+
+    try {
+      await writeFile(
+        path.join(repoRoot, "src", "formatters.ts"),
+        `export function firstFormatter(value: number): string {
+  return value.toFixed(1);
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      expect(reindexEvents[0]).toMatchObject({
+        changedPaths: ["src/formatters.ts"],
+        indexedFiles: 2,
+        staleStatus: "stale",
+      });
+
+      const health = await diagnostics({ repoRoot });
+      expect(health.staleStatus).toBe("stale");
+      expect(health.staleReasons).toContain("unresolved relative symbol imports");
+      expect(health.watch.lastSummary?.staleStatus).toBe("stale");
+    } finally {
+      await watcher.close();
+    }
+  });
+
+  it("re-evaluates direct importers during watch refresh when an exporter changes", async () => {
+    const repoRoot = await createFixtureRepo();
+    const reindexEvents: Array<{ changedPaths: string[]; indexedFiles?: number | undefined }> = [];
+
+    await writeFile(
+      path.join(repoRoot, "src", "formatters.ts"),
+      `export function bestFormatter(value: number): string {
+  return value.toFixed(2);
+}
+`,
+    );
+    await writeFile(
+      path.join(repoRoot, "src", "consumer.ts"),
+      `import { bestFormatter } from "./formatters.js";
+
+export function renderValue(value: number): string {
+  return bestFormatter(value);
+}
+`,
+    );
+
+    const watcher = await watchFolder({
+      repoRoot,
+      debounceMs: 50,
+      onEvent(event) {
+        if (event.type === "reindex") {
+          reindexEvents.push({
+            changedPaths: event.changedPaths,
+            indexedFiles: event.summary?.indexedFiles,
+          });
+        }
+      },
+    });
+
+    try {
+      const initialImporterUpdatedAt = readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts");
+      expect(initialImporterUpdatedAt).not.toBeNull();
+
+      await delay(20);
+      await writeFile(
+        path.join(repoRoot, "src", "formatters.ts"),
+        `export function bestFormatter(value: number): string {
+  return \`value=\${value.toFixed(2)}\`;
+}
+`,
+      );
+
+      await waitFor(() => reindexEvents.length >= 1, 4000);
+
+      expect(reindexEvents[0]).toMatchObject({
+        changedPaths: ["src/formatters.ts"],
+        indexedFiles: 2,
+      });
+      expect(readIndexedFileUpdatedAt(repoRoot, "src/consumer.ts")).not.toBe(
+        initialImporterUpdatedAt,
+      );
+    } finally {
+      await watcher.close();
+    }
   });
 
   it("removes deleted files during watch refresh without a full folder reindex", async () => {

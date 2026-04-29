@@ -391,3 +391,282 @@ a mandatory runtime concern for every MCP or CLI call.
   target the scoped package name while preserving the existing `astrograph` bin.
 - Bumped Astrograph from `0.0.1-alpha.7` to `0.0.1-alpha.8` for the package
   identity change.
+
+## Astrograph benchmark harness Phase 1 contract (2026-04-27)
+
+- Expanded the checked-in corpus benchmark from a single smoke task to six
+  golden queries covering corpus loading, runner artifacts, token accounting,
+  the CLI entrypoint, bundle retrieval, and strict snapshot enforcement.
+- Kept the existing `tools/ai-context-engine/bench` scaffold, but changed the
+  Phase 1 result contract to report more than pass/fail:
+  - recall-like target hit rates
+  - first relevant rank, reciprocal rank, and precision at 3
+  - exact and estimated token totals
+  - tool-call counts and latency
+- Documented `pnpm --filter @astrograph/astrograph bench:corpus` as the
+  default one-command local benchmark entrypoint.
+- Standardized the corpus-run artifacts under
+  `.benchmarks/ai-context-engine/latest/`:
+  - `results.json`
+  - `report.md`
+  - `corpus.lock.json`
+- Bumped Astrograph from `0.0.1-alpha.8` to `0.0.1-alpha.9` for the benchmark
+  contract and docs update.
+
+## Astrograph hook invocation and observability bootstrap fix (2026-04-27)
+
+- Fixed the shared hook helper to resolve Astrograph through the repo-local
+  workspace wrapper at
+  `tools/ai-context-engine/scripts/ai-context-engine.mjs` before falling back
+  to `node_modules/.bin/astrograph` or `pnpm exec astrograph`.
+- This removes the false `Command "astrograph" not found` failures from the
+  repo refresh hooks in workspace development, where the root-level bin shim is
+  not guaranteed to exist.
+- Tightened observability bootstrap reporting so it surfaces the actual startup
+  failure reason from `.astrograph/observability.log` instead of timing out with
+  a generic unhealthy-startup message.
+- Session bootstrap now treats known local-environment limitations like
+  `Failed to listen at 127.0.0.1` as `unavailable` rather than as a misleading
+  hard error, while explicit force-start paths still fail loudly.
+
+## Astrograph Codex install block repair (2026-04-27)
+
+- Repaired the repo-local Codex MCP block so Astrograph no longer relies on the
+  broken workspace-root command `pnpm exec astrograph mcp`.
+- Local workspace repos now install Astrograph into Codex through the
+  deterministic wrapper command:
+  `node tools/ai-context-engine/scripts/ai-context-engine.mjs mcp`
+- Standalone external repos still receive the npm-oriented install block using
+  `npx @astrograph/astrograph mcp`.
+- The installer now replaces legacy unmarked `[mcp_servers.astrograph]` blocks
+  instead of appending duplicate Astrograph sections when re-run.
+- Bumped Astrograph from `0.0.1-alpha.9` to `0.0.1-alpha.10` for the Codex
+  installer and config repair.
+
+## Astrograph doctor command Phase 2 (2026-04-27)
+
+- Added `astrograph cli doctor --repo ...` with a text report for engineers and
+  `astrograph cli doctor --repo ... --json` for machine-readable output.
+- Kept `doctor` thin by building it on top of `diagnostics` plus direct SQLite
+  counts for indexed import totals and parser-health metadata.
+- Extended file indexing metadata to persist:
+  - `parser_backend`
+  - `parser_fallback_used`
+  - `parser_fallback_reason`
+- `doctor` now reports:
+  - repo root, storage path, storage backend/mode, schema version
+  - index status and freshness counts
+  - indexed file, symbol, and import totals
+  - parser fallback rate and unknown parser-health coverage
+  - observability status and watch status
+  - warnings plus suggested next actions
+- Bumped Astrograph from `0.0.1-alpha.10` to `0.0.1-alpha.11` for the Phase 2
+  doctor contract and parser-health metadata slice.
+
+## Astrograph parser coverage Phase 3 (2026-04-27)
+
+- Broadened the primary Oxc parser path to cover more of the JS/TS constructs
+  from the refactor spec without needing a new parser layer:
+  - export specifiers that mark prior declarations as exported
+  - named re-exports like `export { foo as bar } from "./dep"`
+  - anonymous default function/class exports
+  - class constructors, accessors, fields, and methods
+  - object-literal callable members on exported constants
+  - TypeScript namespaces with nested exported declarations
+- Added a focused parser golden test to lock those constructs down directly at
+  the parser layer instead of relying only on indexing behavior tests.
+- Promoted parser health into `diagnostics` so the lower-level engine surface
+  now reports fallback counts, unknown coverage, and grouped fallback reasons
+  per indexed repository.
+- Bumped Astrograph from `0.0.1-alpha.11` to `0.0.1-alpha.12` for the Phase 3
+  parser coverage and diagnostics slice.
+
+## Astrograph graph-aware retrieval Phase 4 (2026-04-27)
+
+- Extended `query_code` so discover and assemble flows can now opt into
+  bounded graph expansion with:
+  - `includeDependencies`
+  - `includeImporters`
+  - `relationDepth`
+- Graph-aware results now carry explicit explanation reasons instead of opaque
+  ranking text:
+  - `exact_symbol_match`
+  - `query_match`
+  - `text_match`
+  - `imports_matched_file`
+  - `imported_by_match`
+  - `reexport_match`
+- Discover mode now returns structured match metadata instead of only flat
+  symbol/text arrays, while still preserving the older `symbolMatches` and
+  `textMatches` surfaces for compatibility.
+- Preserved backward compatibility for the older `get_context_bundle` and
+  `get_ranked_context` APIs by keeping dependency expansion on by default there,
+  even though graph traversal is opt-in on the newer `query_code` discover
+  surface.
+- Added focused behavior coverage for dependency/importer reasons, bounded
+  graph expansion in assembled bundles, and the aliased-import dependency path.
+- Bumped Astrograph from `0.0.1-alpha.12` to `0.0.1-alpha.13` for the Phase 4
+  graph-aware retrieval slice.
+
+## Astrograph schema migration and incremental metadata Phase 5A (2026-04-27)
+
+- Replaced the old ad hoc schema drift checks with an explicit DB
+  `schemaVersion` stored in SQLite `meta`, plus a small migration runner that
+  upgrades legacy local indexes in place.
+- Left the repo-root storage version file in place as a separate concern:
+  `storageVersion` still describes the `.astrograph/` runtime contract, while
+  `schemaVersion` now reports the live SQLite layout.
+- Added new persisted file metadata fields on `files`:
+  - `size_bytes`
+  - `mtime_ms`
+  - `symbol_signature_hash`
+  - `import_hash`
+- `index_file` / `index_folder` now skip obvious no-op files earlier by
+  comparing stored size and mtime before rereading source, and they backfill
+  the new hash fields when a migrated row is touched even if content did not
+  materially change.
+- Promoted `schemaVersion` into both `diagnostics` and `doctor`, and added a
+  regression test that boots a legacy DB layout and verifies Astrograph
+  migrates it before serving health data.
+- The interface test harness now forces `ASTROGRAPH_USE_SOURCE=1` when it boots
+  the package wrapper so source-only contract changes are exercised directly in
+  branch work without relying on a rebuilt `dist/`.
+- Bumped Astrograph from `0.0.1-alpha.13` to `0.0.1-alpha.14` for this first
+  Phase 5 slice.
+
+## Astrograph single-file deletion cleanup follow-up (2026-04-27)
+
+- Tightened the next incremental-refresh edge case after Phase 5A:
+  `index-file` now removes an existing index row cleanly when the targeted path
+  was deleted, renamed away, newly ignored, or otherwise no longer indexable,
+  instead of surfacing a missing-file error.
+- That makes one-file repair flows line up with existing watch-mode and
+  full-folder cleanup behavior, which is important for commit-hook and
+  selective-refresh automation.
+- Added focused behavior coverage for the deleted/renamed case and bumped
+  Astrograph from `0.0.1-alpha.14` to `0.0.1-alpha.15`.
+
+## Astrograph persisted dependency edges follow-up (2026-04-27)
+
+- Added a persisted `file_dependencies` table to the SQLite schema and bumped
+  the DB `schemaVersion` from `2` to `3`.
+- Finalize steps now rebuild resolved file-to-file dependency edges from the
+  current `imports` table, instead of making importer/dependency traversal rely
+  only on ad hoc path resolution during query time.
+- `pickDependencyRows` and `pickImporterRows` now read those persisted edges,
+  which means a single-file importer refresh invalidates stale dependency
+  relations immediately when the importer changes which target or symbol it
+  pulls in.
+- Added a focused regression where `consumer.ts` switches from
+  `bestFormatter` to `firstFormatter`; after `index-file consumer.ts`,
+  Astrograph now returns the new dependency and stops returning the old one.
+- Bumped Astrograph from `0.0.1-alpha.15` to `0.0.1-alpha.16` for this
+  dependency-edge invalidation slice.
+
+## Astrograph unresolved importer warnings follow-up (2026-04-27)
+
+- Extended `doctor` with dependency-graph health for unresolved relative
+  imports.
+- The doctor surface now reports:
+  - `brokenRelativeImportCount`
+  - `affectedImporterCount`
+  - `sampleImporterPaths`
+- Added warnings and suggested actions when relative imports no longer resolve,
+  so broken importer files are visible even before broader dependent-file
+  orchestration lands.
+- Added a focused regression around `src/broken-consumer.ts` importing a
+  missing target and bumped Astrograph from `0.0.1-alpha.16` to
+  `0.0.1-alpha.17`.
+
+## Astrograph unresolved importer diagnostics follow-up (2026-04-27)
+
+- Promoted unresolved relative imports from a `doctor`-only warning into the
+  core `diagnostics` surface.
+- `diagnostics` now returns dependency-graph health and marks the index stale
+  with `staleReasons: ["unresolved relative imports"]` when importer edges are
+  broken, even without an explicit filesystem drift scan.
+- Added a focused diagnostics regression for the broken-import case and bumped
+  Astrograph from `0.0.1-alpha.17` to `0.0.1-alpha.18`.
+
+## Astrograph performance baseline detour Phase 1 (2026-04-27)
+
+- Documented the main `ai-engine-refactor` branch state directly in
+  `.specs/ai-engine-refactor.md` before switching to the separate
+  `performance-deps` detour.
+- Added the first measurement-only baseline scripts:
+  - `bench:perf`
+  - `bench:perf:index`
+  - `bench:perf:query`
+- The new baseline runs against a temporary clean repo copy, prints a compact
+  human summary to `stderr`, and emits JSON to `stdout` for regression
+  comparison.
+- The first slice measures:
+  - cold index time
+  - warm noop refresh time
+  - warm small changed-file refresh time
+  - file discovery time
+  - file hashing time
+  - parser and symbol extraction time
+  - approximate SQLite write cost
+  - `query_code` discover and assemble latency percentiles
+- Added a smoke test for the aggregate JSON output and documented current
+  progress in `.specs/performance-deps.md`.
+- Explicitly deferred watch event-to-refresh timing until a tighter, more
+  comparable fixture exists.
+- Bumped Astrograph from `0.0.1-alpha.18` to `0.0.1-alpha.19`.
+
+## Astrograph performance dependency detour Phase 2 (2026-04-27)
+
+- Landed the next `performance-deps` slice on the same feature branch by
+  replacing the handwritten recursive candidate walk with a shared
+  `fdir`-backed source discovery adapter in `filesystem-scan.ts`.
+- Reused that same adapter in the perf scripts and the smaller benchmark
+  harness so runtime discovery and measured discovery now share one code path.
+- Added focused discovery tests covering:
+  - deterministic sort order
+  - junk-directory skips
+  - `.gitignore` filtering
+  - subtree-relative discovery
+  - symlink escape safety
+- Kept the scope narrow: no new glob layer yet, no watch-path changes yet, and
+  no additional ranking or parser work folded into this slice.
+- Bumped Astrograph from `0.0.1-alpha.19` to `0.0.1-alpha.20`.
+
+## Temporary jCodemunch-first navigation rollback (2026-04-27)
+
+- Verified `jcodemunch-mcp` is still installed locally and runnable in this
+  repo, with the repo-local Codex MCP block already present.
+- Switched the repo guidance back to `jcodemunch`-first for now, while keeping
+  Astrograph installed in parallel as the secondary path during the transition.
+- Updated the shared workflow surface so agents stop assuming Astrograph is the
+  primary navigation tool:
+  - `AGENTS.md`
+  - `.agents/rules/repo-workflow.md`
+  - `CLAUDE.md`
+  - `scripts/ralph/prompt.md`
+  - `.agents/hooks/code-navigation-guard.mjs`
+- Left the repo-local `.codex/config.toml` MCP blocks intact for both engines;
+  this slice changes agent preference and guardrails, not the parallel install
+  topology.
+
+## Repo-scoped jCodemunch init for Codex-safe use (2026-04-27)
+
+- Checked `jcodemunch-mcp init --help` and confirmed it has no native Codex
+  client target; it only knows MCP client registrations such as Claude Code,
+  Claude Desktop, Cursor, Windsurf, and Continue.
+- Used the Codex-safe subset instead of broad client registration:
+  - `jcodemunch-mcp init --client none --claude-md project --index --audit --yes`
+- That kept the existing repo-local `.codex/config.toml` setup untouched,
+  avoided new global client registration, avoided new Claude hook changes, and
+  limited repo changes to the local `CLAUDE.md` policy append plus a fresh
+  index/audit run.
+- The audit reported no issues and the project-local `CLAUDE.md` now contains
+  the generated jCodemunch code exploration policy block.
+
+## AGENTS.md jCodemunch policy mirror (2026-04-27)
+
+- Added a compact `Code Exploration Policy` section to `AGENTS.md` so the
+  Codex-facing repo bootstrap now mirrors the practical jCodemunch navigation
+  rules that `jcodemunch-mcp init` appended into `CLAUDE.md`.
+- Kept the `AGENTS.md` version shorter and repo-specific rather than copying
+  the entire generated Claude block verbatim.
