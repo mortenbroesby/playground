@@ -19,8 +19,8 @@ importers:
         specifier: ^9.1.7
         version: 9.1.7
       lint-prepush:
-        specifier: ^3.0.3
-        version: 3.0.3(typescript@5.9.3)
+        specifier: ^3.0.2
+        version: 3.0.2(typescript@5.9.3)
       markdownlint-cli2:
         specifier: ^0.17.0
         version: 0.17.2
@@ -4821,8 +4821,8 @@ packages:
   linkify-it@5.0.0:
     resolution: {integrity: sha512-5aHCbzQRADcdP+ATqnDuhhJ/MRIqDkZX5pyjFHRRysS8vZ5AbqGEoFIb6pYHPZ+L/OC2Lc+xT8uHVVR5CAK/wQ==}
 
-  lint-prepush@3.0.3:
-    resolution: {integrity: sha512-/fj0eA6gqUiZPmG0EI/Am0UGf6Jk3Xyx//r3EmDJsZSqHShQC/+RsHP3Db8rjaCfuRsHGtbN9My5F+tERR8j8w==}
+  lint-prepush@3.0.2:
+    resolution: {integrity: sha512-up/V+rJwdy4qste2nluZVHY1rm4SUupnifF2H+So/W1+86lsVWu1bs0aasgIJhOesErtGQDHelBl7pbBS+LZ+g==}
     engines: {node: '>=18.18.0'}
     hasBin: true
 
@@ -11881,7 +11881,7 @@ snapshots:
     dependencies:
       uc.micro: 2.1.0
 
-  lint-prepush@3.0.3(typescript@5.9.3):
+  lint-prepush@3.0.2(typescript@5.9.3):
     dependencies:
       chalk: 5.6.2
       cosmiconfig: 9.0.1(typescript@5.9.3)
