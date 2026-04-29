@@ -341,6 +341,7 @@ Notes:
   command on both revisions and comparing the generated HTML/report artifacts in
   `.profiles/`.
 - Profiling artifacts are intentionally gitignored.
+
 ## What's Next?
 
 Current priorities are clear:
