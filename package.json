@@ -32,10 +32,9 @@
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
     "agents:check": "node scripts/agent-setup-check.mjs",
-    "skills:install": "node scripts/skills.mjs install",
     "skills:list": "node scripts/skills.mjs list",
+    "skills:search": "node scripts/skills.mjs search",
     "skills:read": "node scripts/skills.mjs read",
-    "skills:sync": "node scripts/skills.mjs sync",
     "ralph:init": "node scripts/ralph/init.mjs",
     "ralph:loop": "node scripts/ralph/loop.mjs",
     "prepare": "husky"

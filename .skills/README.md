@@ -1,6 +1,6 @@
 # Repo-Owned Skills
 
-This directory is the target canonical home for repo-owned first-party skills.
+This directory is the canonical home for repo-owned first-party skills.
 
 Architecture intent:
 
@@ -17,5 +17,7 @@ Target command surface:
 Current migration status:
 
 - `STORY-1` defines the architecture and boundaries
-- later stories move checked-in skills here and rewire the command surface
+- `STORY-2` moved the checked-in repo-owned skill tree here and updated the
+  canonical scripts and checks to treat `.skills/` as the source of truth
+- legacy runtime skill adapters and the old `.agents/skills/` tree are removed
 - external downloaded skills stay out of this checked-in directory

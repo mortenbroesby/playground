@@ -15,11 +15,11 @@ const requiredPaths = [
   ".agents/commands",
   ".agents/context",
   ".agents/rules",
-  ".agents/skills",
   ".agents/references",
   ".agents/context/README.md",
   ".agents/context/active-context.md",
-  ".agents/skills/engineering-workflow/SKILL.md",
+  ".skills",
+  ".skills/engineering-workflow/SKILL.md",
   ".codex/rules/playground.rules",
   ".claude/settings.json",
   ".husky/post-commit",
@@ -29,18 +29,18 @@ const requiredPaths = [
 const forbiddenPaths = [
   ".claude-plugin",
   "plugins",
+  ".claude/skills",
+  ".codex/skills",
+  ".github/skills",
+  ".opencode/skills",
 ];
 
 const symlinks = new Map([
   [".claude/commands", "../.agents/commands"],
   [".claude/hooks", "../.agents/hooks"],
   [".claude/rules", "../.agents/rules"],
-  [".claude/skills", "../.agents/skills"],
   [".codex/prompts", "../.agents/commands"],
-  [".codex/skills", "../.agents/skills"],
-  [".github/skills", "../.agents/skills"],
   [".opencode/commands", "../.agents/commands"],
-  [".opencode/skills", "../.agents/skills"],
   ["codex/rules", "../.codex/rules"],
 ]);
 
