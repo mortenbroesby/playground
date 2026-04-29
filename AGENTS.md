@@ -30,8 +30,6 @@ Thin bootstrap for coding agents in this repo.
   `diagnostics` when you specifically want to validate or compare the newer
   retrieval path.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
-- Use [`.agents/context/active-context.md`](.agents/context/active-context.md)
-  only as compact current-state or handoff context when present.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
 
