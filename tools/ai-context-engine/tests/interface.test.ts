@@ -258,6 +258,23 @@ describe("ai-context-engine interfaces", () => {
         deepIndexedFiles: 2,
         pendingDeepIndexedFiles: 0,
       },
+      languageRegistry: {
+        byLanguage: expect.arrayContaining([
+          expect.objectContaining({
+            language: "ts",
+            extensions: [".ts"],
+            tiers: ["discovery", "structured", "graph"],
+            summaryStrategies: ["doc-comments-first", "signature-only"],
+          }),
+        ]),
+        byFallbackExtension: expect.arrayContaining([
+          expect.objectContaining({
+            extension: ".md",
+            tiers: ["discovery"],
+            summarySource: "markdown-headings",
+          }),
+        ]),
+      },
     });
 
     const filteredStdout = await handleCli([
@@ -708,7 +725,12 @@ export function circumference(radius: number): string {
           byLanguage: expect.arrayContaining([
             {
               language: "ts",
+              extensions: [".ts"],
               tiers: ["discovery", "structured", "graph"],
+              summaryStrategies: ["doc-comments-first", "signature-only"],
+              toolAvailability: expect.objectContaining({
+                graph: expect.arrayContaining(["query_code"]),
+              }),
             },
           ]),
           byFallbackExtension: expect.arrayContaining([
@@ -716,6 +738,9 @@ export function circumference(radius: number): string {
               extension: ".md",
               tiers: ["discovery"],
               summarySource: "markdown-headings",
+              toolAvailability: expect.objectContaining({
+                discovery: expect.arrayContaining(["get_file_summary"]),
+              }),
             },
           ]),
         },

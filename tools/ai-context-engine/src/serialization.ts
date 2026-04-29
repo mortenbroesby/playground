@@ -64,6 +64,57 @@ const readinessSchema = {
   },
 } as const;
 
+const tierToolAvailabilitySchema = {
+  type: "object",
+  properties: {
+    discovery: {
+      type: "array",
+      items: { type: "string" },
+    },
+    structured: {
+      type: "array",
+      items: { type: "string" },
+    },
+    graph: {
+      type: "array",
+      items: { type: "string" },
+    },
+  },
+} as const;
+
+const languageSupportDescriptorSchema = {
+  type: "object",
+  properties: {
+    language: { type: "string" },
+    extensions: {
+      type: "array",
+      items: { type: "string" },
+    },
+    tiers: {
+      type: "array",
+      items: { type: "string" },
+    },
+    summaryStrategies: {
+      type: "array",
+      items: { type: "string" },
+    },
+    toolAvailability: tierToolAvailabilitySchema,
+  },
+} as const;
+
+const fallbackSupportDescriptorSchema = {
+  type: "object",
+  properties: {
+    extension: { type: "string" },
+    tiers: {
+      type: "array",
+      items: { type: "string" },
+    },
+    summarySource: { type: "string" },
+    toolAvailability: tierToolAvailabilitySchema,
+  },
+} as const;
+
 const diagnosticsSchema = {
   type: "object",
   properties: {
@@ -130,6 +181,19 @@ const diagnosticsSchema = {
         sampleImporterPaths: {
           type: "array",
           items: { type: "string" },
+        },
+      },
+    },
+    languageRegistry: {
+      type: "object",
+      properties: {
+        byLanguage: {
+          type: "array",
+          items: languageSupportDescriptorSchema,
+        },
+        byFallbackExtension: {
+          type: "array",
+          items: fallbackSupportDescriptorSchema,
         },
       },
     },
@@ -278,22 +342,13 @@ const projectStatusSchema = {
         byLanguage: {
           type: "array",
           items: {
-            type: "object",
-            properties: {
-              language: { type: "string" },
-              tiers: { type: "array", items: { type: "string" } },
-            },
+            ...languageSupportDescriptorSchema,
           },
         },
         byFallbackExtension: {
           type: "array",
           items: {
-            type: "object",
-            properties: {
-              extension: { type: "string" },
-              tiers: { type: "array", items: { type: "string" } },
-              summarySource: { type: "string" },
-            },
+            ...fallbackSupportDescriptorSchema,
           },
         },
       },

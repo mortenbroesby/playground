@@ -33,6 +33,9 @@
   tests stay focused on normal verification:
   - `test:slow`
   - `test:mutation-smoke`
+- started the explicit language-registry slice so support tiers, summary
+  strategies, and tool availability stop depending on scattered hard-coded
+  assumptions
 
 ## Verification
 
@@ -46,3 +49,6 @@
 - the readiness slice is only partially complete in the current checkpoint; the
   code and tests are being pushed before the full `STORY-4` closeout because
   the user requested a clean branch checkpoint
+- the language-registry slice is being pushed as a checkpoint before the full
+  `STORY-5` closeout; the registry is centralized in code, but broader
+  verification and any remaining docs polish still need completion

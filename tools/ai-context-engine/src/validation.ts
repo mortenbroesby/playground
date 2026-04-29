@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { getSupportedLanguages } from "./language-registry.ts";
 import type {
   ContextBundleOptions,
   FindFilesOptions,
@@ -13,10 +14,14 @@ import type {
   SymbolKind,
   FileSummaryOptions,
 } from "./types.ts";
+import { SUMMARY_STRATEGIES, SUPPORTED_LANGUAGES } from "./types.ts";
 
-const supportedLanguageSchema = z.enum(["ts", "tsx", "js", "jsx"]);
+const supportedLanguageSchema = z.enum(getSupportedLanguages() as [
+  SupportedLanguage,
+  ...SupportedLanguage[],
+]);
 const symbolKindSchema = z.enum(["function", "class", "method", "constant", "type"]);
-const summaryStrategySchema = z.enum(["doc-comments-first", "signature-only"]);
+const summaryStrategySchema = z.enum(SUMMARY_STRATEGIES);
 const queryCodeIntentSchema = z.enum(["discover", "source", "assemble", "auto"]);
 
 const finiteNumberSchema = z.number().finite();
@@ -320,7 +325,9 @@ export function parseCliSupportedLanguage(
 
   const parsed = supportedLanguageSchema.safeParse(value);
   if (!parsed.success) {
-    throw new Error(`Unsupported --${key}: ${value}. Expected one of: ts, tsx, js, jsx`);
+    throw new Error(
+      `Unsupported --${key}: ${value}. Expected one of: ${SUPPORTED_LANGUAGES.join(", ")}`,
+    );
   }
 
   return parsed.data;
@@ -357,7 +364,7 @@ export function parseCliSummaryStrategy(
   const parsed = summaryStrategySchema.safeParse(value);
   if (!parsed.success) {
     throw new Error(
-      `Unsupported --${key}: ${value}. Expected one of: doc-comments-first, signature-only`,
+      `Unsupported --${key}: ${value}. Expected one of: ${SUMMARY_STRATEGIES.join(", ")}`,
     );
   }
 

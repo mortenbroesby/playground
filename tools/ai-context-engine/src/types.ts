@@ -1,11 +1,13 @@
-export type SupportedLanguage = "ts" | "tsx" | "js" | "jsx";
+export const SUPPORTED_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export type StorageMode = "wal";
 export type IndexBackendName = "sqlite";
 
 export type StaleStatus = "unknown" | "fresh" | "stale";
 
-export type SummaryStrategy = "doc-comments-first" | "signature-only";
+export const SUMMARY_STRATEGIES = ["doc-comments-first", "signature-only"] as const;
+export type SummaryStrategy = (typeof SUMMARY_STRATEGIES)[number];
 
 export type SummarySource = "doc-comment" | "signature";
 
@@ -280,7 +282,8 @@ export interface FileContentResult {
   content: string;
 }
 
-export type SupportTier = "discovery" | "structured" | "graph";
+export const SUPPORT_TIERS = ["discovery", "structured", "graph"] as const;
+export type SupportTier = (typeof SUPPORT_TIERS)[number];
 export type FileSummarySource =
   | "structured"
   | "markdown-headings"
@@ -294,6 +297,27 @@ export interface FileSupportProfile {
   activeTier: SupportTier;
   availableTiers: SupportTier[];
   reason: "supported-language" | "fallback-extension" | "generic-discovery";
+}
+
+export interface TierToolAvailability {
+  discovery: EngineToolName[];
+  structured: EngineToolName[];
+  graph: EngineToolName[];
+}
+
+export interface LanguageSupportDescriptor {
+  language: SupportedLanguage;
+  extensions: string[];
+  tiers: SupportTier[];
+  summaryStrategies: SummaryStrategy[];
+  toolAvailability: TierToolAvailability;
+}
+
+export interface FallbackSupportDescriptor {
+  extension: string;
+  tiers: SupportTier[];
+  summarySource: Exclude<FileSummarySource, "structured">;
+  toolAvailability: TierToolAvailability;
 }
 
 export interface FindFilesOptions {
@@ -533,6 +557,10 @@ export interface DiagnosticsResult {
   readiness: ReadinessStatus;
   parser: ParserHealthDiagnostics;
   dependencyGraph: DoctorDependencyGraphHealth;
+  languageRegistry: {
+    byLanguage: LanguageSupportDescriptor[];
+    byFallbackExtension: FallbackSupportDescriptor[];
+  };
   watch: WatchDiagnostics;
 }
 
@@ -568,13 +596,12 @@ export interface ProjectStatusResult {
     };
     byLanguage: Array<{
       language: SupportedLanguage;
+      extensions: string[];
       tiers: SupportTier[];
+      summaryStrategies: SummaryStrategy[];
+      toolAvailability: TierToolAvailability;
     }>;
-    byFallbackExtension: Array<{
-      extension: string;
-      tiers: SupportTier[];
-      summarySource: Exclude<FileSummarySource, "structured">;
-    }>;
+    byFallbackExtension: FallbackSupportDescriptor[];
   };
   watch: WatchDiagnostics;
 }

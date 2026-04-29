@@ -51,8 +51,18 @@ import type {
   IndexBackendValue,
   IndexStatement,
 } from "./index-backend.ts";
+import {
+  availableSupportTiersForFile,
+  getFallbackSupportForFile,
+  getLanguageRegistrySnapshot,
+  listDiscoverySummarySources,
+  listFallbackExtensions,
+  listLanguagesForTier,
+  supportReasonForFile,
+  supportedLanguageForFile,
+  supportTierForFile,
+} from "./language-registry.ts";
 import { createPathMatcher } from "./path-matcher.ts";
-import { supportedLanguageForFile } from "./parser.ts";
 import { containsSecretLikeText } from "./privacy.ts";
 import { getLogger } from "./logger.ts";
 import { SQLITE_INDEX_BACKEND } from "./sqlite-backend.ts";
@@ -108,7 +118,6 @@ import type {
   SearchSymbolsOptions,
   SearchTextOptions,
   SearchTextMatch,
-  SupportTier,
   SymbolSourceResult,
   SymbolSourceItem,
   SymbolSummary,
@@ -169,30 +178,6 @@ const DISCOVERY_SKIP_SEGMENTS = new Set([
   "dist",
   "node_modules",
 ]);
-
-const DISCOVERY_FALLBACK_EXTENSIONS = [
-  ".md",
-  ".mdx",
-  ".json",
-  ".yaml",
-  ".yml",
-  ".sql",
-  ".sh",
-  ".txt",
-] as const;
-
-const DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION = {
-  ".md": "markdown-headings",
-  ".mdx": "markdown-headings",
-  ".json": "json-top-level-keys",
-  ".yaml": "yaml-top-level-keys",
-  ".yml": "yaml-top-level-keys",
-  ".sql": "sql-schema-objects",
-  ".sh": "shell-functions",
-  ".txt": "text-lines",
-} as const satisfies Record<string, Exclude<FileSummarySource, "structured">>;
-
-const GRAPH_LANGUAGES: SupportedLanguage[] = ["ts", "tsx", "js", "jsx"];
 
 type AnalyzedFileIndexResult =
   | {
@@ -1870,26 +1855,6 @@ function matchesFilePattern(filePath: string, pattern?: string): boolean {
   );
 }
 
-function supportTierForLanguage(language: SupportedLanguage | null): SupportTier {
-  return language ? "graph" : "discovery";
-}
-
-function availableSupportTiersForFile(language: SupportedLanguage | null): SupportTier[] {
-  return language
-    ? ["discovery", "structured", "graph"]
-    : ["discovery"];
-}
-
-function supportReasonForFile(relativePath: string, language: SupportedLanguage | null) {
-  if (language) {
-    return "supported-language" as const;
-  }
-  const extension = path.extname(relativePath).toLowerCase();
-  return extension in DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION
-    ? "fallback-extension" as const
-    : "generic-discovery" as const;
-}
-
 function summarizeReadiness(discoveryReady: boolean, deepRetrievalReady: boolean): string {
   if (deepRetrievalReady) {
     return "discovery-ready and deep-retrieval-ready";
@@ -2033,11 +1998,11 @@ function summarizeDiscoveryContent(relativePath: string, content: string): {
   summary: string;
   hints: string[];
 } {
-  const extension = path.extname(relativePath).toLowerCase();
+  const fallbackSupport = getFallbackSupportForFile(relativePath);
   const lines = content.split(/\r?\n/);
   const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
 
-  if (extension === ".md" || extension === ".mdx") {
+  if (fallbackSupport?.summarySource === "markdown-headings") {
     const headings = nonEmptyLines
       .filter((line) => /^#{1,6}\s+/.test(line))
       .slice(0, 3)
@@ -2049,7 +2014,7 @@ function summarizeDiscoveryContent(relativePath: string, content: string): {
     };
   }
 
-  if (extension === ".json") {
+  if (fallbackSupport?.summarySource === "json-top-level-keys") {
     try {
       const parsed = JSON.parse(content) as Record<string, unknown>;
       const topLevelKeys = parsed && typeof parsed === "object" && !Array.isArray(parsed)
@@ -2065,7 +2030,7 @@ function summarizeDiscoveryContent(relativePath: string, content: string): {
     }
   }
 
-  if (extension === ".yaml" || extension === ".yml") {
+  if (fallbackSupport?.summarySource === "yaml-top-level-keys") {
     const topLevelKeys = lines
       .map((line) => line.match(/^([A-Za-z0-9_-]+):\s*/)?.[1] ?? null)
       .filter((value): value is string => value !== null)
@@ -2077,7 +2042,7 @@ function summarizeDiscoveryContent(relativePath: string, content: string): {
     };
   }
 
-  if (extension === ".sql") {
+  if (fallbackSupport?.summarySource === "sql-schema-objects") {
     const objects = [...content.matchAll(/\b(?:create|alter)\s+(?:table|view|function|index)\s+([A-Za-z0-9_."]+)/gi)]
       .map((match) => match[1]?.replaceAll("\"", ""))
       .filter((value): value is string => Boolean(value))
@@ -2089,7 +2054,7 @@ function summarizeDiscoveryContent(relativePath: string, content: string): {
     };
   }
 
-  if (extension === ".sh") {
+  if (fallbackSupport?.summarySource === "shell-functions") {
     const functions = lines
       .map((line) => line.match(/^\s*([A-Za-z0-9_]+)\s*\(\)\s*\{/)?.[1] ?? null)
       .filter((value): value is string => value !== null)
@@ -4080,10 +4045,11 @@ export async function findFiles(
       .filter((filePath) => matchesFilePattern(filePath, normalizedInput.filePattern))
       .map((filePath) => {
         const match = scoreFindFileMatch(filePath, normalizedInput.query);
+        const language = supportedLanguageForFile(filePath);
         return {
           filePath,
           fileName: path.basename(filePath),
-          language: supportedLanguageForFile(filePath),
+          language,
           indexed: indexedPaths.has(filePath),
           match,
         };
@@ -4100,7 +4066,7 @@ export async function findFiles(
         filePath: entry.filePath,
         fileName: entry.fileName,
         language: entry.language,
-        supportTier: supportTierForLanguage(entry.language),
+        supportTier: supportTierForFile(entry.language),
         indexed: entry.indexed,
         matchReason: entry.match.reason,
       }));
@@ -4150,7 +4116,7 @@ export async function getFileSummary(
         supportTier: "structured",
         support: {
           activeTier: "structured",
-          availableTiers: availableSupportTiersForFile(language),
+          availableTiers: availableSupportTiersForFile(relativePath, language),
           reason: supportReasonForFile(relativePath, language),
         },
         indexed,
@@ -4172,7 +4138,7 @@ export async function getFileSummary(
       supportTier: "discovery",
       support: {
         activeTier: "discovery",
-        availableTiers: availableSupportTiersForFile(language),
+        availableTiers: availableSupportTiersForFile(relativePath, language),
         reason: supportReasonForFile(relativePath, language),
       },
       indexed,
@@ -4193,6 +4159,7 @@ export async function getProjectStatus(
 ): Promise<ProjectStatusResult> {
   validateProjectStatusOptions(input);
   const diagnosticsResult = await diagnostics(input);
+  const languageRegistry = getLanguageRegistrySnapshot();
   const readinessSummary = summarizeReadiness(
     diagnosticsResult.readiness.discoveryReady,
     diagnosticsResult.readiness.deepRetrievalReady,
@@ -4218,27 +4185,18 @@ export async function getProjectStatus(
     },
     supportTiers: {
       discovery: {
-        languages: GRAPH_LANGUAGES,
-        fallbackExtensions: [...DISCOVERY_FALLBACK_EXTENSIONS],
-        summarySources: [...new Set(Object.values(DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION))],
+        languages: listLanguagesForTier("discovery"),
+        fallbackExtensions: listFallbackExtensions(),
+        summarySources: listDiscoverySummarySources(),
       },
       structured: {
-        languages: GRAPH_LANGUAGES,
+        languages: listLanguagesForTier("structured"),
       },
       graph: {
-        languages: GRAPH_LANGUAGES,
+        languages: listLanguagesForTier("graph"),
       },
-      byLanguage: GRAPH_LANGUAGES.map((language) => ({
-        language,
-        tiers: availableSupportTiersForFile(language),
-      })),
-      byFallbackExtension: Object.entries(DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION).map(
-        ([extension, summarySource]) => ({
-          extension,
-          tiers: ["discovery"] as SupportTier[],
-          summarySource,
-        }),
-      ),
+      byLanguage: languageRegistry.byLanguage,
+      byFallbackExtension: languageRegistry.byFallbackExtension,
     },
     watch: diagnosticsResult.watch,
   };
@@ -4665,6 +4623,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       meta,
       indexedFiles,
     });
+    const languageRegistry = getLanguageRegistrySnapshot();
 
     return {
       engineVersion: ASTROGRAPH_PACKAGE_VERSION,
@@ -4696,6 +4655,7 @@ export async function diagnostics(input: DiagnosticsOptions): Promise<Diagnostic
       readiness,
       parser: loadParserHealth(db),
       dependencyGraph,
+      languageRegistry,
       watch: meta?.watch ?? createDefaultWatchDiagnostics(),
     };
   } finally {

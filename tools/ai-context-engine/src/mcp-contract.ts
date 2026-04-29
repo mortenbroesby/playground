@@ -217,7 +217,7 @@ export const MCP_TOOL_DEFINITIONS = [
       symbolIds: zod.array(stringSchema("Indexed symbol id")).describe("Optional indexed symbol ids").optional(),
       filePath: stringSchema("Optional path relative to the repository root").optional(),
       kind: stringSchema("Optional symbol kind filter").optional(),
-      language: stringSchema("Optional language filter (ts, tsx, js, jsx)").optional(),
+      language: stringSchema("Optional supported language filter").optional(),
       filePattern: stringSchema("Optional glob-like file path filter").optional(),
       limit: numberSchema("Optional maximum number of symbol results").optional(),
       contextLines: numberSchema("Optional surrounding context line count").optional(),
