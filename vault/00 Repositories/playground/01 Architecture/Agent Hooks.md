@@ -36,47 +36,33 @@ runtime supports it.
 
 ## Shared Policy
 
-- `.agents/hooks/lib/core.mjs` owns shared payload parsing, output helpers, path
-  resolution, secret redaction, and best-effort logging.
-- `.agents/hooks/agent-hooks.mjs` remains a compatibility dispatcher for
-  runtimes that need one command, but Claude Code is wired to focused scripts.
-- Focused hook entrypoints handle session context, prompt secret scanning,
-  Bash command gating, file protection, artifact write blocking, write-content
-  secret scanning, post-edit protected-file auditing, notifications, and
-  audit-only logging.
-- It treats hook stdin as untrusted input, resolves edit paths against the
-  project root, blocks edits outside that root, and redacts secret-like values
-  before writing hook logs.
-- The policy should stay deterministic and narrow. If a check is uncertain, the
-  hook should explain the risk clearly rather than guessing.
+- `.agents/hooks/lib/core.mjs` owns shared parsing, path resolution, redaction,
+  and logging helpers.
+- `.agents/hooks/agent-hooks.mjs` is a compatibility dispatcher; Claude uses
+  focused hook scripts directly.
+- The hooks cover session context, prompt and write secret scanning, dangerous
+  command gating, file protection, notifications, and audit logging.
+- Hook stdin is untrusted, writes must stay inside the repo root, and uncertain
+  checks should fail with a clear explanation instead of guessing.
 
 ## Runtime Mapping
 
-- Claude Code: `.claude/settings.json` invokes specific `.agents/hooks/*.mjs`
-  entrypoints for `SessionStart`, `UserPromptSubmit`, `Notification`,
-  `PreToolUse`, `PostToolUse`, and `SessionEnd`.
-- Codex: `.codex/hooks.json` invokes the shared `SessionStart`,
-  dangerous-command, and logging hooks.
+- Claude Code calls focused `.agents/hooks/*.mjs` entrypoints.
+- Codex calls the shared `SessionStart`, dangerous-command, and logging hooks.
 
 ## Security Defaults
 
-- Block destructive shell commands.
-- Block force-pushes unless a later policy explicitly allows them.
-- Block secret-like prompt content and secret file writes.
-- Block edits to generated output directories.
-- Block edits outside the project root.
-- Keep hooks fast, use specific runtime matchers, and keep personal hook
-  overrides in ignored local settings.
+- Block destructive shell commands and force-pushes by default.
+- Block secret-like prompt content, secret file writes, generated-output edits,
+  and writes outside the project root.
+- Keep hooks fast and keep personal overrides in ignored local settings.
 
 ## Freshness Bootstrap
 
-- `SessionStart` now best-effort ensures one detached repo-local
-  `ai-context-engine` watch process is running from `.ai-context-engine/`.
-- The hook stays fast: it only checks or launches the background watcher and
-  returns session context immediately.
-- The watcher owns initial indexing plus incremental refresh for later local
-  edits and external file changes, reducing stale-index windows for both agent
-  and end-user flows.
+- `SessionStart` best-effort ensures one detached repo-local
+  `ai-context-engine` watcher is running.
+- The hook only checks or launches the watcher, then returns immediately.
+- The watcher owns initial indexing and incremental refresh.
 
 ## Repository Hooks
 
@@ -85,6 +71,5 @@ runtime supports it.
 
 ## Follow-Up
 
-- Add more policy only when a real recurring need appears.
-- Keep hook architecture documented here; executable policy lives in
-  `.agents/hooks/`.
+- Add policy only for recurring needs.
+- Keep the explanation here and the enforcement in `.agents/hooks/`.
