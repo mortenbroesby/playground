@@ -19,6 +19,7 @@ links:
   children: []
   related:
     - "mem-20260429-task-board"
+    - "mem-20260429-retain-only-intentional-archived-notes"
   supersedes: []
   superseded_by: []
 retention:
