@@ -1,0 +1,48 @@
+## Codebase Patterns
+- Add only reusable patterns here.
+- Shared agent policy should live in `.agents/rules/`.
+- Shared hook logic should live in `.agents/hooks/`, but runtime adapter
+  registration files remain runtime-specific.
+- Repo-owned skills should stay in `.skills/` and be loaded on demand via
+  `pnpm skills:list|search|read`.
+
+## Run Log
+
+- 2026-04-29: Reviewed first-party runtime docs and tightened the contract:
+  Codex uses repository `AGENTS.md` guidance and local config; Claude supports
+  project slash commands and hooks via `.claude/*`; Copilot CLI supports
+  repository custom instructions and `.github/hooks/*.json`.
+- 2026-04-29: Added `.agents/references/agent-runtimes/shared-contract.md` and
+  tightened the runtime reference folder into compact contract-style files with
+  source links.
+- 2026-04-29: Added a clearer README with TOC and read-more pointers so the
+  runtime knowledge base works as a small sitemap instead of a loose note dump.
+- 2026-04-29: STORY-3 completed. Defined the supported shared hook subset as
+  session-start plus user-prompt-submit, and marked tool lifecycle,
+  notification, and stop/session-end hooks as runtime-specific adapter
+  extensions. Files changed:
+  `.agents/references/agent-runtimes/shared-contract.md`,
+  `.agents/references/agent-runtimes/codex.md`,
+  `.agents/references/agent-runtimes/claude.md`,
+  `.agents/references/agent-runtimes/copilot-cli.md`. Reusable learning:
+  shared hook logic can stay in `.agents/hooks/`, but only session-start and
+  prompt-submit are safe to describe as cross-agent by default.
+
+- 2026-04-29: STORY-3 blocked by environment. Planned contract edits target
+  .agents/references/agent-runtimes/shared-contract.md, codex.md, claude.md,
+  and copilot-cli.md to define the portable shared hook subset as
+  session-start plus user-prompt-submit, with tool lifecycle, notification,
+  and stop/session-end hooks treated as runtime-specific extensions. Blocker:
+  this harness returns EPERM for writes under .agents/references/agent-runtimes/
+  even though the files are readable and .ralph/ remains writable. Files
+  changed: .ralph/cross-agent-runtime-contract/progress.txt. Checks run: none;
+  verification was deferred because the required docs could not be edited.
+  Reusable learning: treat .agents/references/* as effectively read-only in
+  this session unless the harness write restriction is lifted. Next step: rerun
+  the iteration in an environment that permits writes under .agents/references/,
+  then apply the scoped contract doc updates and run pnpm agents:check plus
+  pnpm lint:md before marking STORY-3 complete.
+- 2026-04-29: Parent session resolved the same STORY-3 directly in the main
+  worktree. The contract docs now define `session-start` plus
+  `user-prompt-submit` as the supported shared hook subset, `prd.json` marks
+  STORY-3 complete, and both `pnpm agents:check` and `pnpm lint:md` passed.

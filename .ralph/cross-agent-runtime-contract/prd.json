@@ -1,0 +1,50 @@
+{
+  "title": "Tighten cross-agent runtime contract for rules, hooks, and on-demand skills",
+  "branchName": "",
+  "checks": [
+    "pnpm agents:check",
+    "pnpm lint:md"
+  ],
+  "stories": [
+    {
+      "id": "STORY-1",
+      "title": "Research first-party runtime surfaces and define the shared contract",
+      "priority": "high",
+      "status": "completed",
+      "passes": true,
+      "notes": "Use first-party docs where possible to clarify the contract for Codex, Claude, and Copilot CLI. The contract should state that rules are shared by default, hooks are shared at the implementation layer but require runtime-specific adapter registration, and repo-owned skills remain shared `.skills/` content loaded on demand."
+    },
+    {
+      "id": "STORY-2",
+      "title": "Tighten runtime references into compact contract-style docs",
+      "priority": "high",
+      "status": "completed",
+      "passes": true,
+      "notes": "Reshape the runtime knowledge base into a concise folder with one shared contract file plus one short file per runtime. Add entry points, repo contract, current adapter setup, source links, and a sitemap-style README."
+    },
+    {
+      "id": "STORY-3",
+      "title": "Define the supported cross-agent hook subset",
+      "priority": "high",
+      "status": "completed",
+      "passes": true,
+      "notes": "Clarify which hook events are safe to treat as shared across Codex, Claude, and Copilot CLI. The likely shared minimum is startup/session-start plus user-prompt submission, with richer pre/post tool hooks treated as runtime-specific extensions."
+    },
+    {
+      "id": "STORY-4",
+      "title": "Add a Copilot CLI hook adapter plan without forking hook logic",
+      "priority": "medium",
+      "status": "pending",
+      "passes": false,
+      "notes": "Design the repo adapter shape for `.github/hooks/*.json` so Copilot CLI can call shared `.agents/hooks/*.mjs` scripts instead of introducing a separate hook implementation layer."
+    },
+    {
+      "id": "STORY-5",
+      "title": "Document runtime-specific skill mapping strategy",
+      "priority": "medium",
+      "status": "pending",
+      "passes": false,
+      "notes": "Keep shared skill bodies in `.skills/`, loaded on demand, and document where runtime-specific tool mappings should live. Codex already has a mapping reference; Copilot and Claude may need companion references, not divergent skill bodies."
+    }
+  ]
+}

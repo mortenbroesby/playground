@@ -1,0 +1,3 @@
+Blocked on a harness write restriction. Writes to `.agents/references/agent-runtimes/*.md` fail with `EPERM`, while reads from those files and writes under `.ralph/` still work, so I could not implement `STORY-3` in the actual contract docs.
+
+I recorded the blocker and the intended doc changes in [progress.txt](/Users/macbook/personal/playground/.ralph/cross-agent-runtime-contract/progress.txt). `prd.json` was left unchanged, as required for an incomplete story, and I did not run `pnpm agents:check` or `pnpm lint:md` because the required edits could not be applied. The existing unrelated worktree changes in `.agents/rules/agent-infrastructure.md` and `.agents/references/agent-runtimes/` were left untouched.

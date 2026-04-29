@@ -23,6 +23,13 @@ paths:
 - Keep shared commands, hooks, skills, and instruction rules under `.agents/`.
 - Keep compact shared checklists under `.agents/references/` when a skill needs
   small supporting reference material.
+- Keep runtime support notes in
+  `.agents/references/agent-runtimes/` rather than expanding `AGENTS.md`,
+  `CLAUDE.md`, or Copilot instructions into long runtime catalogs.
+- Treat `.agents/references/agent-runtimes/shared-contract.md` as the contract
+  for what should stay shared across runtimes: rules shared by default, hooks
+  shared at the implementation layer with adapter-specific registration, and
+  skills shared as on-demand `.skills/` content.
 - Runtime-specific directories should stay thin:
   `.claude/*`, `.codex/*`, and `.opencode/*`.
 - Put reusable lifecycle prompts in `.agents/commands/`. Repo-owned skills live
