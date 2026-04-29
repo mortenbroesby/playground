@@ -1,8 +1,0 @@
-{
-  "generatedAt": "2026-04-29T20:54:55.808Z",
-  "branch": "refactor_agentic-setup",
-  "storyId": "STORY-3",
-  "storyTitle": "Define the supported cross-agent hook subset",
-  "storyStatus": "pending",
-  "promptPath": ".ralph/cross-agent-runtime-contract/prompt-2026-04-29T20-54-55.806Z.md"
-}
