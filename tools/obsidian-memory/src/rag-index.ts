@@ -624,39 +624,63 @@ function resolveNoteType(
 }
 
 function inferTypeFromPath(relativeFile: string): NoteType {
-  if (relativeFile === "00 Repo Home.md") {
+  if (
+    relativeFile === "00 Repo Home.md" ||
+    /(^|\/)00 Repositories\/[^/]+\/00 Repo Home\.md$/.test(relativeFile)
+  ) {
     return "repo-home";
   }
 
-  if (relativeFile.startsWith("01 Architecture/")) {
+  if (
+    relativeFile.startsWith("01 Architecture/") ||
+    /(^|\/)01 Architecture\//.test(relativeFile)
+  ) {
     return "architecture-record";
   }
 
-  if (relativeFile.startsWith("02 Decisions/")) {
+  if (
+    relativeFile.startsWith("02 Decisions/") ||
+    /(^|\/)02 Decisions\//.test(relativeFile)
+  ) {
     return "architecture-record";
   }
 
-  if (relativeFile.startsWith("03 Sessions/")) {
+  if (
+    relativeFile.startsWith("03 Sessions/") ||
+    /(^|\/)03 Sessions\//.test(relativeFile)
+  ) {
     return "session";
   }
 
-  if (relativeFile.startsWith("04 Tasks/")) {
+  if (
+    relativeFile.startsWith("04 Tasks/") ||
+    /(^|\/)04 Tasks\//.test(relativeFile)
+  ) {
     return "todo";
   }
 
-  if (relativeFile.startsWith("specs/")) {
+  if (relativeFile.startsWith("specs/") || /(^|\/)specs\//.test(relativeFile)) {
     return "spec";
   }
 
-  if (relativeFile.startsWith("investigations/")) {
+  if (
+    relativeFile.startsWith("investigations/") ||
+    /(^|\/)investigations\//.test(relativeFile)
+  ) {
     return "investigation";
   }
 
-  if (relativeFile.startsWith("references/")) {
+  if (
+    relativeFile.startsWith("references/") ||
+    /(^|\/)references\//.test(relativeFile)
+  ) {
     return "reference";
   }
 
-  if (relativeFile.startsWith("glossary/")) {
+  if (
+    relativeFile.startsWith("glossary/") ||
+    /(^|\/)glossary\//.test(relativeFile)
+  ) {
     return "glossary";
   }
 
@@ -806,7 +830,10 @@ function splitIntoHeadingChunks(body: string, documentTitle: string) {
     const h2Match = line.match(/^##\s+(.+)$/);
 
     if (h1Match) {
+      pushCurrent();
       currentHeading = h1Match[1].trim();
+      currentHeadingLevel = 0;
+      currentLines = [];
       continue;
     }
 

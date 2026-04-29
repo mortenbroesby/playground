@@ -190,3 +190,115 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
     ),
   );
 });
+
+test("rag:index infers canonical nested vault note types when frontmatter type is missing", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-nested-type-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(
+      vaultRoot,
+      "00 Repositories/playground/03 Sessions/2026-04-30 Missing Type.md",
+    ),
+    `---
+repo_slug: playground
+summary: Missing type frontmatter.
+---
+
+# Missing Type
+
+## Summary
+
+Session body.
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  const noteRegistry = JSON.parse(
+    await readFile(path.join(outputRoot, "note-registry.json"), "utf8"),
+  );
+  const note = noteRegistry[0];
+
+  assert.equal(note.type, "session");
+  assert.equal(note.status, "active");
+});
+
+test("rag:index keeps sibling H1 sections in separate chunks", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-h1-split-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs/multi-h1.md"),
+    `---
+type: spec
+repo_slug: playground
+summary: Multi H1.
+---
+
+# First
+
+Intro first.
+
+## A
+
+Alpha.
+
+# Second
+
+Second intro.
+
+## B
+
+Beta.
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  const chunkIndex = JSON.parse(
+    await readFile(path.join(outputRoot, "chunk-index.json"), "utf8"),
+  );
+  const secondChunk = chunkIndex.find((chunk) => chunk.heading === "Second");
+
+  assert.ok(secondChunk);
+  assert.match(secondChunk.text, /Second intro\./);
+  assert.doesNotMatch(secondChunk.text, /## A/);
+  assert.doesNotMatch(secondChunk.text, /Alpha\./);
+});

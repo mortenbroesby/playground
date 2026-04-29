@@ -345,3 +345,30 @@ test("assembleMemoryContext reports omitted items when token budget truncates", 
   assert.ok(context.omitted.length >= 1);
   assert.equal(context.omitted[0].reason, "token_budget");
 });
+
+test("assembleMemoryContext does not exceed token budget when first candidate is oversized", () => {
+  const context = assembleMemoryContext({
+    query: "typed RAG memory",
+    tokenBudget: 5,
+    candidates: [
+      {
+        noteId: "note-spec",
+        chunkId: "oversized-chunk",
+        sourceFile: "vault/specs/rag-rebuild.md",
+        sourcePath: "vault/specs/rag-rebuild.md § Oversized",
+        heading: "Oversized",
+        noteType: "spec",
+        status: "active",
+        score: 10,
+        matchReasons: ["plan-type:spec"],
+        text: "x".repeat(80),
+      },
+    ],
+  });
+
+  assert.equal(context.selectedCount, 0);
+  assert.equal(context.estimatedTokens, 0);
+  assert.equal(context.omitted.length, 1);
+  assert.equal(context.omitted[0].reason, "token_budget");
+  assert.equal(context.truncated, true);
+});

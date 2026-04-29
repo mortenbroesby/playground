@@ -686,7 +686,7 @@ export function assembleMemoryContext(input) {
   for (const candidate of input.candidates.slice(0, maxItems)) {
     const candidateTokens = estimateTokens(candidate.text);
 
-    if (items.length > 0 && estimatedTokens + candidateTokens > tokenBudget) {
+    if (estimatedTokens + candidateTokens > tokenBudget) {
       omitted.push({
         noteId: candidate.noteId,
         chunkId: candidate.chunkId,
