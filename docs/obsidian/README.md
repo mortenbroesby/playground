@@ -7,7 +7,7 @@ Use this when you want:
 
 - a single Obsidian vault that can track multiple repositories
 - one repo home note per codebase
-- fast session, decision, and question capture
+- fast session, decision, architecture, spec, and task capture
 - Git-backed Markdown notes instead of a separate database
 
 ## What lives where
@@ -25,8 +25,8 @@ Keep cross-session memory in Obsidian:
 - architecture summaries
 - decision notes
 - session logs
-- open questions
-- dashboard views
+- specs
+- tasks
 
 ## Bootstrap a vault
 
@@ -38,17 +38,11 @@ pnpm rag:init
 
 What it creates:
 
-- top-level vault folders such as `00 Inbox`, `02 Repositories`, and `04 Templates`
-- a `playground` repo area under `02 Repositories/playground/`
-- generic templates for repo notes
+- the repo-memory folders under `00 Repositories/<repo-slug>/`
+- typed note templates under `90 Templates/`
+- Templater helper scripts under `91 Scripts/templater/`
 - one seeded `00 Repo Home.md` for this repository
-- one repository index dashboard
-- one Obsidian URI cheatsheet note
-- one QuickAdd recipes note with concrete capture-path patterns
-- one QuickAdd package export plus a lower-level `choices[]` JSON snippet under `06 Exports/quickadd/`
-- Templater helper scripts under `05 Scripts/templater/`
 - a portable `obsidian-vault` RAG corpus under `.rag/`
-- a local `.git/hooks/post-commit` symlink that re-indexes when committed `vault/` files changed
 
 Re-run with `--force` if you want to overwrite the generated starter notes:
 
@@ -92,38 +86,37 @@ Recommended community plugins:
 
 Recommended plugin settings:
 
-- Templates folder: `04 Templates`
-- Templater template folder: `04 Templates`
-- Templater script folder: `05 Scripts/templater`
+- Templates folder: `90 Templates`
+- Templater template folder: `90 Templates`
+- Templater script folder: `91 Scripts/templater`
 
 ## Recommended note model
 
-Each repository gets a folder under `02 Repositories/<repo-slug>/` with:
+Each repository gets a folder under `00 Repositories/<repo-slug>/` with:
 
 - `00 Repo Home.md`
 - `01 Architecture/`
 - `02 Decisions/`
 - `03 Sessions/`
-- `04 Questions/`
-- `05 Maps/`
-- `06 Exports/`
-- `07 Archive/`
+- `04 Tasks/`
 
 Use Properties on every structured note:
 
-- repos use `type: repo`
-- sessions use `type: repo-session`
-- decisions use `type: repo-decision`
-- questions use `type: repo-question`
+- repo home notes use `type: repo-home`
+- architecture and decision notes use `type: architecture-record`
+- session notes use `type: session`
+- spec notes use `type: spec`
+- task notes use `type: todo`
 
 Keep tags narrow:
 
 - `type/repo`
+- `type/architecture`
 - `type/session`
 - `type/decision`
-- `type/question`
+- `type/spec`
+- `type/task`
 - `state/active`
-- `state/blocked`
 - `state/archived`
 - `repo/<slug>`
 
@@ -147,26 +140,27 @@ Use the package file first. The `data-snippet` file is the manual fallback.
 1. Open QuickAdd settings.
 2. Choose `Import package...`.
 3. Paste the contents of `06 Exports/quickadd/<repo>-repo-brain.quickadd.json`.
-4. Import the generated repo-home, session, decision, and question template choices.
+4. Import the generated repo-home, session, and decision template choices.
 
 ### Manual setup or fallback
 
 If you still prefer hand-built choices, this is the intended structure:
 
 1. `New Repo`
-   Create `02 Repositories/<repo>/00 Repo Home.md` from `04 Templates/repo-home.md`.
+   Create `00 Repositories/<repo>/00 Repo Home.md` from `90 Templates/repo-home.md`.
 2. `Log Session`
-   Create a note under `02 Repositories/<repo>/03 Sessions/` from `04 Templates/repo-session.md`.
+   Create a note under `00 Repositories/<repo>/03 Sessions/` from `90 Templates/repo-session.md`.
 3. `Capture Decision`
-   Create a note under `02 Repositories/<repo>/02 Decisions/` from `04 Templates/repo-decision.md`.
-4. `Capture Question`
-   Create a note under `02 Repositories/<repo>/04 Questions/` from `04 Templates/repo-question.md`.
-5. `Append Worklog`
+   Create a note under `00 Repositories/<repo>/02 Decisions/` from `90 Templates/repo-decision.md`.
+4. `Capture Architecture`
+   Create a note under `00 Repositories/<repo>/01 Architecture/` from `90 Templates/repo-architecture.md`.
+5. `Capture Task`
+   Create a note under `00 Repositories/<repo>/04 Tasks/tasks/` from `90 Templates/repo-task.md`.
+6. `Append Worklog`
    Append one bullet to today's daily note or call the generated Advanced URI links.
 
-You also get a generated `05 Scripts/QuickAdd Recipes.md` note inside the target vault so the
-capture-path patterns are visible from within Obsidian, plus a `06 Exports/quickadd/README.md`
-note with import and merge guidance.
+You may still create your own QuickAdd choices, but the typed template files in
+`90 Templates/` are now the important source of truth for manual note capture.
 
 ## Local RAG verification
 
@@ -206,7 +200,7 @@ pnpm obsidian:verify-rag
 What it proves:
 
 - a vault can be bootstrapped locally
-- representative architecture, decision, question, and session notes can be added as Markdown
+- representative architecture, decision, task, and session notes can be added as Markdown
 - local retrieval over note text plus structured metadata returns the expected note for codebase
   memory questions
 
@@ -220,6 +214,7 @@ friendly enough to support local RAG-style memory on top of plain files.
 - [`docs/obsidian/templates/repo-home.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-home.md)
 - [`docs/obsidian/templates/repo-session.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-session.md)
 - [`docs/obsidian/templates/repo-decision.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-decision.md)
-- [`docs/obsidian/templates/repo-question.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-question.md)
-- [`docs/obsidian/templates/daily-note.md`](/Users/macbook/personal/playground/docs/obsidian/templates/daily-note.md)
+- [`docs/obsidian/templates/repo-architecture.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-architecture.md)
+- [`docs/obsidian/templates/repo-spec.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-spec.md)
+- [`docs/obsidian/templates/repo-task.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-task.md)
 - [`docs/obsidian/templater/repo_context.js`](/Users/macbook/personal/playground/docs/obsidian/templater/repo_context.js)

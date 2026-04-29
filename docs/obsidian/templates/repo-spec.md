@@ -1,12 +1,14 @@
 ---
 id: mem-<% tp.date.now("YYYYMMDD") %>-<% tp.file.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") %>
-type: session
+type: spec
 repo_slug: <% tp.user.repo_context.currentRepo(tp) %>
 title: <% tp.file.title %>
 status: active
 created: <% tp.date.now("YYYY-MM-DD") %>
 updated: <% tp.date.now("YYYY-MM-DD") %>
-owner: agent
+owner: morten
+summary:
+keywords: []
 links:
   parents: []
   children: []
@@ -14,30 +16,26 @@ links:
   supersedes: []
   superseded_by: []
 retention:
-  review_after: <% tp.date.now("YYYY-MM-DD", 14) %>
-  expires_after: <% tp.date.now("YYYY-MM-DD", 180) %>
-  keep: false
-started_at: <% tp.date.now("YYYY-MM-DD HH:mm") %>
-summary:
-keywords: []
-branch:
-goal:
-outcome:
-touched_paths: []
-decisions: []
-blockers: []
-next_step:
+  review_after: <% tp.date.now("YYYY-MM-DD", 30) %>
+  expires_after: null
+  keep: true
 tags:
-  - type/session
+  - type/spec
   - repo/<% tp.user.repo_context.currentRepo(tp) %>
 ---
 
 ## Goal
 
-## What Changed
+## Non-Goals
 
-## Decisions
+## Current State
 
-## Blockers
+## Proposed Design
 
-## Next Step
+## Implementation Plan
+
+## Acceptance Criteria
+
+## Verification
+
+## Open Questions

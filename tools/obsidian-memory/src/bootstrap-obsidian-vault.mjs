@@ -213,6 +213,21 @@ async function main() {
       args.force,
     ),
     copyPlainFile(
+      path.join(assetsRoot, "templates", "repo-architecture.md"),
+      path.join(vaultPath, "90 Templates", "repo-architecture.md"),
+      args.force,
+    ),
+    copyPlainFile(
+      path.join(assetsRoot, "templates", "repo-spec.md"),
+      path.join(vaultPath, "90 Templates", "repo-spec.md"),
+      args.force,
+    ),
+    copyPlainFile(
+      path.join(assetsRoot, "templates", "repo-task.md"),
+      path.join(vaultPath, "90 Templates", "repo-task.md"),
+      args.force,
+    ),
+    copyPlainFile(
       path.join(assetsRoot, "templater", "repo_context.js"),
       path.join(vaultPath, "91 Scripts", "templater", "repo_context.js"),
       args.force,
