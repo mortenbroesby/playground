@@ -22,8 +22,6 @@ retention:
   keep: false
 ---
 
-# 2026-04-13 — Uplink Game Input Modes
-
 ## Summary
 
 Implemented a persistent input mode setting (`mouse` vs `keyboard`) for the Uplink mini-game and split the hack loop to support both play styles.
@@ -48,4 +46,3 @@ Implemented a persistent input mode setting (`mouse` vs `keyboard`) for the Upli
 
 - `packages/remotes/uplink-game/src/game/scenes/NetworkMapScene.ts`
 - `packages/remotes/uplink-game/src/game/scenes/HackScene.ts`
-

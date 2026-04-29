@@ -32,8 +32,6 @@ touched_paths:
   - "vault/00 Repositories/playground/00 Repo Home.md"
 ---
 
-# Architecture Memory Backfill
-
 ## Goal
 
 The architecture folder existed but only contained `.gitkeep`, so future agents had no durable
@@ -54,4 +52,3 @@ host routing, todo mount contracts, Spotify now-playing, and the RAG memory work
 
 When future work changes architecture, update the nearest architecture note or add a decision note
 in the same commit.
-

@@ -33,8 +33,6 @@ touched_paths:
   - "vault/00 Repositories/playground/01 Architecture/Repo Memory Architecture.md"
 ---
 
-# jCodemunch Codex Setup
-
 ## Outcome
 
 Registered `jcodemunch` as a global Codex MCP server and indexed
@@ -59,4 +57,3 @@ and historical context.
 ## Note
 
 Current Codex sessions need a restart before newly registered MCP tools appear in the tool list.
-

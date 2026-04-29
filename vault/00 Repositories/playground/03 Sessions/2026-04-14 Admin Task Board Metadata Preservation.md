@@ -39,8 +39,6 @@ touched_paths:
   - "apps/admin/vite.config.ts"
 ---
 
-# Admin Task Board Metadata Preservation
-
 ## Outcome
 
 Adjusted the admin board parser and serializer so the vault task board no
@@ -64,4 +62,3 @@ serializer rewrote the document into a reduced shape.
 - Existing task markdown is preserved through raw task blocks.
 - Known editable fields still update when changed through the admin UI.
 - Admin integration tests need a `15000` ms timeout in this environment.
-

@@ -484,6 +484,43 @@ function extractSummary(body) {
   return paragraphs[0] ?? "";
 }
 
+function normalizeComparableTitle(value) {
+  return normalizeWhitespace(value)
+    .replace(/[—–-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeBodyForStrictFrontmatter(body, title) {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  let startIndex = 0;
+
+  while (startIndex < lines.length && lines[startIndex].trim() === "") {
+    startIndex += 1;
+  }
+
+  const firstContentLine = lines[startIndex] ?? "";
+  const headingMatch = firstContentLine.match(/^#\s+(.+)$/);
+
+  if (
+    headingMatch &&
+    normalizeComparableTitle(headingMatch[1]) === normalizeComparableTitle(title)
+  ) {
+    startIndex += 1;
+
+    while (startIndex < lines.length && lines[startIndex].trim() === "") {
+      startIndex += 1;
+    }
+  }
+
+  return lines
+    .slice(startIndex)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function inferTypeFromRepoPath(relativeFile) {
   if (relativeFile === "00 Repo Home.md") {
     return "repo-home";
@@ -949,8 +986,6 @@ export function renderTypedNoteTemplate({
       `  keep: ${keep}`,
       "---",
       "",
-      `# ${title}`,
-      "",
       ...config.sections.flatMap((section) => [section, ""]),
     ].join("\n"),
   };
@@ -986,8 +1021,9 @@ export function planFrontmatterFix({
   const noteStatus = resolveNoteStatus(rawStatus, noteType.value);
   const title =
     toStringValue(frontmatter.title) ?? extractDocumentTitle(body, relativeRepoPath);
+  const normalizedBody = normalizeBodyForStrictFrontmatter(body, title);
   const summary =
-    toStringValue(frontmatter.summary) ?? extractSummary(body) ?? "";
+    toStringValue(frontmatter.summary) ?? extractSummary(normalizedBody) ?? "";
   const created = resolveDateString(
     frontmatter,
     relativeRepoPath,
@@ -1035,7 +1071,7 @@ export function planFrontmatterFix({
   const renderedContent = `${renderFrontmatter({
     ...canonicalFrontmatter,
     ...extraFrontmatter,
-  })}\n\n${body}`;
+  })}\n\n${normalizedBody}\n`;
   const changes = [];
 
   if (!toStringValue(frontmatter.id)) {
@@ -1077,6 +1113,10 @@ export function planFrontmatterFix({
     changes.push("add_summary");
   }
 
+  if (normalizedBody !== body.trim()) {
+    changes.push("normalize_body");
+  }
+
   const existingLinks = extractLinkGroups(frontmatter);
   if (JSON.stringify(existingLinks) !== JSON.stringify(links)) {
     changes.push("normalize_links");
@@ -1104,9 +1144,9 @@ export function planFrontmatterFix({
     created: canonicalFrontmatter.created,
     updated: canonicalFrontmatter.updated,
     changes: Array.from(new Set(changes)),
-    changed: changes.length > 0,
-    content: renderedContent,
-  };
+      changed: changes.length > 0,
+      content: renderedContent,
+    };
 }
 
 export async function fixFrontmatter({
@@ -1178,7 +1218,7 @@ export async function fixFrontmatter({
 
   if (apply) {
     await Promise.all(
-      changedPlans.map((plan) => writeFile(plan.absolutePath, `${plan.content}\n`, "utf8")),
+      changedPlans.map((plan) => writeFile(plan.absolutePath, plan.content, "utf8")),
     );
   }
 

@@ -38,8 +38,6 @@ touched_paths:
   - "docs/superpowers/specs/2026-04-11-obsidian-rag-memory-design.md"
 ---
 
-# Superpowers Cleanup
-
 ## Outcome
 
 The useful planning content from `docs/superpowers/` now lives in the vault at
@@ -48,4 +46,3 @@ The useful planning content from `docs/superpowers/` now lives in the vault at
 The old `docs/superpowers/` files were removed so the repo keeps one canonical
 planning archive instead of splitting historical notes across hidden docs and
 the vault.
-

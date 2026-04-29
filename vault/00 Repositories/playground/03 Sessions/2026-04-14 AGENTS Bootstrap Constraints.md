@@ -34,8 +34,6 @@ touched_paths:
   - ".agents/rules/agent-infrastructure.md"
 ---
 
-# AGENTS Bootstrap Constraints
-
 ## Outcome
 
 Removed the root README `Agent workflow` section because it duplicated internal
@@ -52,4 +50,3 @@ Added explicit constraints to `.agents/rules/agent-infrastructure.md` so
 
 The detailed shared-agent surface still lives under `.agents/`, while the root
 `AGENTS.md` remains the short load-first pointer file.
-

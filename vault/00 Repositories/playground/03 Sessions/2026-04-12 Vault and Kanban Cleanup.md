@@ -35,8 +35,6 @@ touched_paths:
   - "vault/00 Repositories/playground/00 Repo Home.md"
 ---
 
-# Vault And Kanban Cleanup
-
 ## Outcome
 
 The hidden `.specs/` folder was replaced with a vault-backed archive note:
@@ -52,4 +50,3 @@ vault archive:
 
 - Keep future implementation specs in the vault once they are approved.
 - Keep `KANBAN.md` task-shaped and short enough to scan quickly.
-

@@ -191,6 +191,7 @@ test("renderTypedNoteTemplate creates strict frontmatter for new notes", () => {
   assert.ok(rendered.content.includes('type: "todo"'));
   assert.ok(rendered.content.includes('summary: "Create a cleanup dry-run command."'));
   assert.ok(rendered.content.includes("## Done when"));
+  assert.ok(!rendered.content.includes("# Add cleanup dry-run"));
 });
 
 test("findWriteDuplicates catches active duplicates by title or summary", () => {
@@ -251,12 +252,14 @@ test("planFrontmatterFix normalizes legacy session metadata without changing the
   assert.ok(plan.changes.includes("set_retention"));
   assert.ok(plan.changes.includes("drop_repo"));
   assert.ok(plan.changes.includes("drop_date"));
+  assert.ok(plan.changes.includes("normalize_body"));
   assert.ok(plan.content.includes('type: "session"'));
   assert.ok(plan.content.includes('repo_slug: "playground"'));
   assert.ok(plan.content.includes('created: "2026-04-11"'));
   assert.ok(plan.content.includes('updated: "2026-04-11"'));
   assert.ok(plan.content.includes('owner: "agent"'));
-  assert.ok(plan.content.endsWith("Backfill the architecture notes."));
+  assert.ok(!plan.content.includes("# Architecture Memory Backfill"));
+  assert.ok(plan.content.endsWith("Backfill the architecture notes.\n"));
 });
 
 test("fixFrontmatter dry-run reports changed notes and apply rewrites metadata in place", async () => {

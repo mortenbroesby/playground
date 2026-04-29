@@ -38,8 +38,6 @@ touched_paths:
   - "README.md"
 ---
 
-# jCodemunch First Agent Workflow
-
 ## Outcome
 
 The repo now documents and enforces a jcodemunch-first exploration flow for
@@ -66,4 +64,3 @@ warned instead of blocked, and edited code files trigger best-effort
 
 - `node --check .agents/hooks/jcodemunch-guard.mjs`
 - `node --check .agents/hooks/jcodemunch-reindex.mjs`
-

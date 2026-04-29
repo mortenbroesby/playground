@@ -22,8 +22,6 @@ retention:
   keep: false
 ---
 
-# Uplink Game — Keyboard Layout & Pointer Mode (Apr 13)
-
 ## Changes
 
 ### QWERTY stagger keyboard in bottom-left
@@ -49,4 +47,3 @@ retention:
 - Tween auto-progress and tap bonuses stack — pointer taps can complete a tool early
 - Physical keyboard also works in mouse mode (events registered unconditionally)
 - Tool label stays `[EXECUTING...]` in mouse mode; keyboard shows highlighted target key
-

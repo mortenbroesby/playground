@@ -36,8 +36,6 @@ touched_paths:
   - "README.md"
 ---
 
-# Agent Skills Lifecycle Adaptation
-
 ## Outcome
 
 The repo now carries repo-native lifecycle skills that map more directly to the
@@ -72,4 +70,3 @@ The repo keeps its existing thin-adapter architecture:
 
 - `pnpm agents:check`
 - `pnpm lint:md`
-
