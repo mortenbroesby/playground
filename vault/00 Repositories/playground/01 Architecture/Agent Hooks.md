@@ -7,7 +7,7 @@ status: "accepted"
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "morten"
-summary: "Shared hook policy for Codex and Claude Code, with shared session-start ai-context-engine freshness bootstrap and focused runtime adapters."
+summary: "Shared hook policy for Codex and Claude Code, with a slim session-start context and best-effort ai-context-engine bootstrap kept mostly silent unless something is broken."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -63,6 +63,9 @@ runtime supports it.
   `ai-context-engine` watcher is running.
 - The hook only checks or launches the watcher, then returns immediately.
 - The watcher owns initial indexing and incremental refresh.
+- Default session-start context stays intentionally small.
+- Success-path watch and observability details should stay out of the default
+  context unless they are needed to explain a failure.
 
 ## Repository Hooks
 

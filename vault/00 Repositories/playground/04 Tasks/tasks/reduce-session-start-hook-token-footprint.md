@@ -3,11 +3,11 @@ id: "reduce-session-start-hook-token-footprint"
 type: "todo"
 repo_slug: "playground"
 title: "Reduce session-start hook token footprint"
-status: "active"
+status: "done"
 created: "2026-04-30"
 updated: "2026-04-30"
 owner: "morten"
-summary: "The session-start hook currently injects policy, git state, install readiness, and watch/observability status into every session; shrink it to the minimum useful default context."
+summary: "The session-start hook now keeps only minimal default context, with watch and observability details surfaced only on failures."
 tags: []
 keywords:
   - "tokens"
