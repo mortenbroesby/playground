@@ -7,7 +7,7 @@ status: "accepted"
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "morten"
-summary: "Date: 2026-04-14"
+summary: "Optional low-token handoff context may exist, but there is no canonical active-context file in the repo today."
 tags: []
 keywords: []
 links:
@@ -40,11 +40,13 @@ a short current-state summary:
 - next step
 - a few relevant files or commands
 
-## Location
+## Current State
 
-The shared file lives at `.agents/context/active-context.md`.
+There is no canonical shared `active-context` file in the repo today.
 
-This keeps the surface cross-agent and avoids runtime-specific memory drift.
+If a compact handoff file is added again later, treat it as optional helper
+context rather than required infrastructure. The source of truth remains the
+vault plus `obsidian-memory`.
 
 ## Non-Goals
 
