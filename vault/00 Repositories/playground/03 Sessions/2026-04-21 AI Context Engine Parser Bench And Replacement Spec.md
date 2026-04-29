@@ -1,84 +1,73 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 22:40
-branch: main
-summary: Added an in-process `ai-context-engine` benchmark harness with token-savings reporting, hardened the current large-file parser path with overlap-aware chunk ownership, and wrote the parser replacement spec targeting `oxc-parser` plus `oxc-resolver` with tightly bounded Tree-sitter fallback during migration.
+id: mem-20260421-ai-context-engine-parser-bench-replacement-spec
+type: session
+repo_slug: playground
+title: AI Context Engine Parser Bench And Replacement Spec
+status: done
+created: 2026-04-21
+updated: 2026-04-21
+owner: agent
+summary: Added a small benchmark harness for `ai-context-engine`, hardened large-file parsing with overlap-aware chunk ownership, and wrote the parser replacement spec targeting Oxc with only tightly bounded Tree-sitter fallback.
+tags:
+  - type/session
+  - repo/playground
 keywords:
   - ai-context-engine
   - benchmark
   - parser
-  - tree-sitter
   - oxc
-  - token-savings
-  - spec
+  - tree-sitter
+links:
+  parents: []
+  children: []
+  related:
+    - mem-a19019048d5b4a0e
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-05-05
+  expires_after: 2026-10-18
+  keep: false
+started_at: 2026-04-21 22:40
+branch: main
 touched_paths:
   - packages/ai-context-engine/package.json
   - packages/ai-context-engine/scripts/benchmark-small.mjs
   - packages/ai-context-engine/src/parser.ts
   - packages/ai-context-engine/tests/engine-behavior.test.ts
   - .specs/ai-context-engine-parser-replacement-spec.md
-tags:
-  - type/session
-  - repo/playground
+goal: Turn parser work into a measured implementation path instead of an open-ended discussion.
+outcome: The benchmark path, safer large-file fallback, and concrete migration spec landed together.
+decisions:
+  - Benchmark token savings and parser behavior directly instead of relying on intuition.
+  - Target Oxc as the primary parser and keep Tree-sitter fallback tightly bounded behind the parser facade.
+blockers: []
+next_step: Use the spec and benchmark to drive the actual parser migration slices, not another broad planning loop.
 ---
 
-# AI Context Engine Parser Bench And Replacement Spec
+## Goal
 
-## Summary
-
-This session moved the parser work from vague discussion into measurable and
-actionable shape.
-
-Three things landed together:
-
-- an in-process benchmark harness for `@playground/ai-context-engine`
-- a safer large-file Tree-sitter workaround with chunk overlap ownership
-- a concrete parser replacement spec that targets Oxc while allowing tightly
-  bounded Tree-sitter fallback during migration
+Make parser work measurable and implementation-ready.
 
 ## What Changed
 
-- added `bench:small` to the package and implemented
-  `packages/ai-context-engine/scripts/benchmark-small.mjs`
-- benchmark output now reports:
-  - parser and library-surface latency
-  - token-savings versus naive raw-source baselines
-  - parser fallback hints
-- upgraded the current Tree-sitter large-file workaround from simple chunking to
-  overlap-aware chunk ownership so declarations spanning chunk boundaries are
-  indexed once instead of being missed or duplicated
-- added behavior coverage for:
-  - large-file symbol extraction after single-pass parse failure
-  - declaration indexing across chunk boundaries
-- added `.specs/ai-context-engine-parser-replacement-spec.md` with:
-  - `oxc-parser` + `oxc-resolver` as the primary recommendation
-  - temporary Tree-sitter fallback only inside the parser facade
-  - fallback telemetry requirements
-  - stop conditions if the migration gets too spaghetti-sloppy
-  - explicit definition of done
+- added a small in-process benchmark harness for `ai-context-engine`
+- hardened the large-file fallback path with overlap-aware chunk ownership
+- wrote the parser replacement spec with Oxc as the primary target and
+  Tree-sitter fallback constrained to the parser facade
 
-## Benchmark Signal
+## Why It Mattered
 
-`pnpm --filter @playground/ai-context-engine bench:small` currently shows:
-
-- `searchSymbols`: about `74ms` and about `87%` token savings
-- `getSymbolSource` batch: about `103ms` and about `81%` token savings
-- `getRankedContext`: about `92ms` and about `85%` token savings
-- `diagnostics`: still the slow outlier at about `1.15s`
-- `src/storage.ts`: no longer empty-fallback parses; it now extracts about
-  `65` symbols and `8` imports in the benchmark path
-
-## Why It Matters
-
-The benchmark now gives the engine a comparison surface that is useful against
-other retrieval tools, not just an internal timing toy. At the same time, the
-replacement spec is now strict enough to guide implementation without quietly
-turning into a permanent dual-parser system.
+This turned parser migration from vague discussion into a benchmarked path with
+explicit boundaries and stop conditions.
 
 ## Verification
 
 - `pnpm --filter @playground/ai-context-engine type-check`
 - `pnpm --filter @playground/ai-context-engine test -- --run tests/engine-behavior.test.ts`
 - `pnpm --filter @playground/ai-context-engine bench:small`
+
+## Next Step
+
+Keep future parser notes focused on implementation outcomes rather than
+repeating the migration rationale captured here.

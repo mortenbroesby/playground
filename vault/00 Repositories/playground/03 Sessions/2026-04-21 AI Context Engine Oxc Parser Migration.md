@@ -1,47 +1,62 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 23:05
-branch: main
-summary: Replaced the primary `ai-context-engine` parser path with Oxc, retained Tree-sitter only as a parser-facade fallback, and updated the small benchmark to report backend and fallback metadata.
+id: mem-20260421-ai-context-engine-oxc-parser-migration
+type: session
+repo_slug: playground
+title: AI Context Engine Oxc Parser Migration
+status: done
+created: 2026-04-21
+updated: 2026-04-21
+owner: agent
+summary: Moved `ai-context-engine` to an Oxc-first parser path, kept Tree-sitter only as a bounded fallback behind the parser facade, and updated the small benchmark to report backend and fallback metadata.
+tags:
+  - type/session
+  - repo/playground
 keywords:
   - ai-context-engine
   - oxc
   - parser
-  - tree-sitter
   - benchmark
+links:
+  parents: []
+  children: []
+  related:
+    - mem-20260421-ai-context-engine-parser-bench-replacement-spec
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: 2026-05-05
+  expires_after: 2026-10-18
+  keep: false
+started_at: 2026-04-21 23:05
+branch: main
 touched_paths:
   - packages/ai-context-engine/package.json
   - packages/ai-context-engine/src/parser.ts
   - packages/ai-context-engine/scripts/benchmark-small.mjs
-  - pnpm-lock.yaml
-tags:
-  - type/session
-  - repo/playground
+goal: Replace the primary parser path with Oxc while keeping fallback behavior explicit and measurable.
+outcome: Oxc became the primary backend, Tree-sitter stayed behind the parser facade, and the benchmark began reporting backend and fallback metadata.
+decisions:
+  - Use Oxc as the main parser for JS/TS indexing.
+  - Keep Tree-sitter only as a bounded fallback during migration, not a co-equal runtime model.
+blockers: []
+next_step: Treat resolver work and eventual Tree-sitter removal as later slices, not part of this migration checkpoint.
 ---
 
-# AI Context Engine Oxc Parser Migration
+## Goal
 
-## Summary
-
-Moved `@playground/ai-context-engine` to an Oxc-first parser path for JS/TS
-files. Tree-sitter remains only as a bounded fallback behind `src/parser.ts`
-when Oxc throws, which keeps the migration rail explicit instead of leaking a
-second parser model across the package.
-
-The small benchmark now records which backend parsed each file and whether a
-fallback was used, so the migration can be measured rather than asserted.
+Prove Oxc can carry the primary indexing path without leaking a dual-parser
+architecture across the package.
 
 ## What Changed
 
-- added `oxc-parser` as the primary parse backend dependency
-- kept Tree-sitter in place only for parser-facade fallback behavior
-- extended `ParsedFile` with `backend`, `fallbackUsed`, and `fallbackReason`
-- implemented Oxc-based symbol and import extraction for the current engine
-  surfaces
-- preserved the existing Tree-sitter chunking fallback for parse failures
-- updated `bench:small` to report parser backend and fallback metadata
+- added Oxc as the primary parse backend
+- kept Tree-sitter only for parser-facade fallback behavior
+- extended the benchmark to report backend choice and fallback usage
+
+## Why It Mattered
+
+This established a clean migration checkpoint: Oxc was proven on the main path,
+and fallback behavior stayed explicit instead of silently spreading.
 
 ## Verification
 
@@ -49,17 +64,6 @@ fallback was used, so the migration can be measured rather than asserted.
 - `pnpm --filter @playground/ai-context-engine test -- --run tests/engine-behavior.test.ts tests/interface.test.ts`
 - `pnpm --filter @playground/ai-context-engine bench:small`
 
-## Benchmark Highlights
+## Next Step
 
-- `src/storage.ts`: `29.5 ms` median parse time, `65` symbols, `8` imports,
-  backend `oxc`, no fallback
-- `searchSymbols`: `58.8 ms`, `88.4%` token savings vs raw baseline
-- `getSymbolSource` batch: `41.8 ms`, `81.4%` token savings
-- `getRankedContext`: `90.5 ms`, `86.1%` token savings
-- `diagnosticsFromSubdir`: `796.9 ms`
-
-## Notes
-
-This slice is parser-first, not full parser-plus-resolver migration. The engine
-now proves that Oxc can carry the primary indexing path, but module resolution
-and any eventual Tree-sitter removal still belong to later slices.
+Keep resolver follow-up and full Tree-sitter removal in later dedicated notes.
