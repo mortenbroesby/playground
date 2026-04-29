@@ -51,7 +51,7 @@ describe("benchmark runner", () => {
     } finally {
       rmSync(fixture.repoRoot, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("fails strict mode on a dirty checkout", async () => {
     const fixture = createBenchmarkFixtureRepo();

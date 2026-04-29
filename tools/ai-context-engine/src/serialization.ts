@@ -1,9 +1,13 @@
 import fastJson from "fast-json-stringify";
 import type {
   DiagnosticsResult,
+  FindFilesMatch,
   FileTreeEntry,
+  FileSummaryResult,
   IndexSummary,
+  ProjectStatusResult,
   RepoOutline,
+  SearchTextMatch,
 } from "./types.ts";
 
 interface SerializeOptions {
@@ -44,6 +48,70 @@ const watchDiagnosticsSchema = {
         { type: "null" },
       ],
     },
+  },
+} as const;
+
+const readinessSchema = {
+  type: "object",
+  properties: {
+    stage: { type: "string" },
+    discoveryReady: { type: "boolean" },
+    deepRetrievalReady: { type: "boolean" },
+    deepening: { type: "boolean" },
+    discoveredFiles: { type: "integer" },
+    deepIndexedFiles: { type: "integer" },
+    pendingDeepIndexedFiles: { type: "integer" },
+  },
+} as const;
+
+const tierToolAvailabilitySchema = {
+  type: "object",
+  properties: {
+    discovery: {
+      type: "array",
+      items: { type: "string" },
+    },
+    structured: {
+      type: "array",
+      items: { type: "string" },
+    },
+    graph: {
+      type: "array",
+      items: { type: "string" },
+    },
+  },
+} as const;
+
+const languageSupportDescriptorSchema = {
+  type: "object",
+  properties: {
+    language: { type: "string" },
+    extensions: {
+      type: "array",
+      items: { type: "string" },
+    },
+    tiers: {
+      type: "array",
+      items: { type: "string" },
+    },
+    summaryStrategies: {
+      type: "array",
+      items: { type: "string" },
+    },
+    toolAvailability: tierToolAvailabilitySchema,
+  },
+} as const;
+
+const fallbackSupportDescriptorSchema = {
+  type: "object",
+  properties: {
+    extension: { type: "string" },
+    tiers: {
+      type: "array",
+      items: { type: "string" },
+    },
+    summarySource: { type: "string" },
+    toolAvailability: tierToolAvailabilitySchema,
   },
 } as const;
 
@@ -88,6 +156,7 @@ const diagnosticsSchema = {
       type: "array",
       items: { type: "string" },
     },
+    readiness: readinessSchema,
     parser: {
       type: "object",
       properties: {
@@ -112,6 +181,19 @@ const diagnosticsSchema = {
         sampleImporterPaths: {
           type: "array",
           items: { type: "string" },
+        },
+      },
+    },
+    languageRegistry: {
+      type: "object",
+      properties: {
+        byLanguage: {
+          type: "array",
+          items: languageSupportDescriptorSchema,
+        },
+        byFallbackExtension: {
+          type: "array",
+          items: fallbackSupportDescriptorSchema,
         },
       },
     },
@@ -143,10 +225,146 @@ const fileTreeSchema = {
   },
 } as const;
 
+const findFilesSchema = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: {
+      filePath: { type: "string" },
+      fileName: { type: "string" },
+      language: { type: ["string", "null"] },
+      supportTier: { type: "string" },
+      indexed: { type: "boolean" },
+      matchReason: { type: "string" },
+    },
+  },
+} as const;
+
+const searchTextSchema = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: {
+      filePath: { type: "string" },
+      line: { type: "integer" },
+      preview: { type: "string" },
+      source: { type: ["string", "null"] },
+      reason: { type: ["string", "null"] },
+    },
+  },
+} as const;
+
+const fileSummarySchema = {
+  type: "object",
+  properties: {
+    filePath: { type: "string" },
+    fileName: { type: "string" },
+    language: { type: ["string", "null"] },
+    supportTier: { type: "string" },
+    support: {
+      type: "object",
+      properties: {
+        activeTier: { type: "string" },
+        availableTiers: {
+          type: "array",
+          items: { type: "string" },
+        },
+        reason: { type: "string" },
+      },
+    },
+    indexed: { type: "boolean" },
+    summarySource: { type: "string" },
+    summary: { type: "string" },
+    confidence: { type: "string" },
+    symbolCount: { type: "integer" },
+    topSymbols: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          kind: { type: "string" },
+          line: { type: "integer" },
+        },
+      },
+    },
+    hints: {
+      type: "array",
+      items: { type: "string" },
+    },
+  },
+} as const;
+
+const projectStatusSchema = {
+  type: "object",
+  properties: {
+    repoRoot: { type: "string" },
+    summary: { type: "string" },
+    readiness: readinessSchema,
+    freshness: {
+      type: "object",
+      properties: {
+        staleStatus: { type: "string" },
+        staleReasons: {
+          type: "array",
+          items: { type: "string" },
+        },
+        indexedFiles: { type: "integer" },
+        indexedSymbols: { type: "integer" },
+        changedFiles: { type: "integer" },
+        missingFiles: { type: "integer" },
+        extraFiles: { type: "integer" },
+      },
+    },
+    supportTiers: {
+      type: "object",
+      properties: {
+        discovery: {
+          type: "object",
+          properties: {
+            languages: { type: "array", items: { type: "string" } },
+            fallbackExtensions: { type: "array", items: { type: "string" } },
+            summarySources: { type: "array", items: { type: "string" } },
+          },
+        },
+        structured: {
+          type: "object",
+          properties: {
+            languages: { type: "array", items: { type: "string" } },
+          },
+        },
+        graph: {
+          type: "object",
+          properties: {
+            languages: { type: "array", items: { type: "string" } },
+          },
+        },
+        byLanguage: {
+          type: "array",
+          items: {
+            ...languageSupportDescriptorSchema,
+          },
+        },
+        byFallbackExtension: {
+          type: "array",
+          items: {
+            ...fallbackSupportDescriptorSchema,
+          },
+        },
+      },
+    },
+    watch: watchDiagnosticsSchema,
+  },
+} as const;
+
 const stringifyIndexSummary = fastJson(indexSummarySchema);
 const stringifyDiagnostics = fastJson(diagnosticsSchema);
 const stringifyRepoOutline = fastJson(repoOutlineSchema);
 const stringifyFileTree = fastJson(fileTreeSchema);
+const stringifyFindFiles = fastJson(findFilesSchema);
+const stringifySearchText = fastJson(searchTextSchema);
+const stringifyFileSummary = fastJson(fileSummarySchema);
+const stringifyProjectStatus = fastJson(projectStatusSchema);
 
 const COMPACT_SERIALIZERS = new Map<string, (value: unknown) => string>([
   ["init", (value) => stringifyDiagnostics(value as DiagnosticsResult)],
@@ -155,6 +373,14 @@ const COMPACT_SERIALIZERS = new Map<string, (value: unknown) => string>([
   ["index-folder", (value) => stringifyIndexSummary(value as IndexSummary)],
   ["index_file", (value) => stringifyIndexSummary(value as IndexSummary)],
   ["index-file", (value) => stringifyIndexSummary(value as IndexSummary)],
+  ["find_files", (value) => stringifyFindFiles(value as FindFilesMatch[])],
+  ["find-files", (value) => stringifyFindFiles(value as FindFilesMatch[])],
+  ["search_text", (value) => stringifySearchText(value as SearchTextMatch[])],
+  ["search-text", (value) => stringifySearchText(value as SearchTextMatch[])],
+  ["get_file_summary", (value) => stringifyFileSummary(value as FileSummaryResult)],
+  ["get-file-summary", (value) => stringifyFileSummary(value as FileSummaryResult)],
+  ["get_project_status", (value) => stringifyProjectStatus(value as ProjectStatusResult)],
+  ["get-project-status", (value) => stringifyProjectStatus(value as ProjectStatusResult)],
   ["get_repo_outline", (value) => stringifyRepoOutline(value as RepoOutline)],
   ["get-repo-outline", (value) => stringifyRepoOutline(value as RepoOutline)],
   ["get_file_tree", (value) => stringifyFileTree(value as FileTreeEntry[])],

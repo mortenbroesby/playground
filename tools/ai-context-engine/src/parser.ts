@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import path from "node:path";
 
 import Parser from "tree-sitter";
 import javascript from "tree-sitter-javascript";
@@ -7,6 +6,10 @@ import tsLanguages from "tree-sitter-typescript";
 import { parseSync as parseOxcSync } from "oxc-parser";
 
 import { hashString } from "./hash.ts";
+import {
+  getLanguageSupport,
+  supportedLanguageForFile as supportedLanguageForFileFromRegistry,
+} from "./language-registry.ts";
 import type {
   ImportSpecifier,
   SummarySource,
@@ -70,7 +73,7 @@ function isRecoverableParseFailure(error: unknown): boolean {
 }
 
 function languageFor(language: SupportedLanguage) {
-  switch (language) {
+  switch (getLanguageSupport(language).language) {
     case "ts":
       return tsLanguages.typescript;
     case "tsx":
@@ -1449,24 +1452,6 @@ function parseWithTreeSitter(input: {
   };
 }
 
-export function supportedLanguageForFile(filePath: string): SupportedLanguage | null {
-  const ext = path.extname(filePath).toLowerCase();
-  switch (ext) {
-    case ".ts":
-      return "ts";
-    case ".tsx":
-      return "tsx";
-    case ".js":
-    case ".cjs":
-    case ".mjs":
-      return "js";
-    case ".jsx":
-      return "jsx";
-    default:
-      return null;
-  }
-}
-
 export function parseSourceFile(input: {
   relativePath: string;
   content: string;
@@ -1481,4 +1466,8 @@ export function parseSourceFile(input: {
       fallbackReason: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+export function supportedLanguageForFile(filePath: string): SupportedLanguage | null {
+  return supportedLanguageForFileFromRegistry(filePath);
 }
