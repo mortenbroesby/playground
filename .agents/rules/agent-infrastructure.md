@@ -3,7 +3,6 @@ paths:
   - ".agents/**"
   - ".claude/**"
   - ".codex/**"
-  - ".github/skills/**"
   - ".opencode/**"
   - "AGENTS.md"
 ---
@@ -12,9 +11,7 @@ paths:
 
 - Keep `AGENTS.md` thin. Durable policy belongs in `.agents/rules/`, executable
   policy in `.agents/hooks/`, and command escalation policy in `.codex/rules/`.
-- Keep durable memory in `vault/` plus `obsidian-memory`; any compact active
-  context should live in a shared `.agents/context/` surface so Claude and
-  Codex can use the same file.
+- Keep durable memory in `vault/` plus `obsidian-memory`.
 - Treat `AGENTS.md` as a bootstrap, not a catalog:
   keep it to a few short sections, prefer pointers over inventories, and avoid
   repeating details that already live under `.agents/`.
@@ -24,16 +21,24 @@ paths:
   one pointer to the owning docs surface.
 - Keep `codex/rules` as a compatibility symlink to `.codex/rules`.
 - Keep shared commands, hooks, skills, and instruction rules under `.agents/`.
-- Keep any optional active-context bootstrap under `.agents/context/`; do not
-  introduce runtime-specific memory files when a shared file can serve both
-  Codex and Claude.
 - Keep compact shared checklists under `.agents/references/` when a skill needs
   small supporting reference material.
-- Runtime-specific directories should be thin adapters or symlinks:
-  `.claude/*`, `.codex/*`, `.github/skills`, and `.opencode/*`.
-- Put reusable lifecycle prompts in `.agents/commands/` and reusable skills in
-  `.agents/skills/`; do not import plugin-specific wrappers when shared files
-  can serve Codex and Claude.
+- Keep runtime support notes in
+  `.agents/references/agent-runtimes/` rather than expanding `AGENTS.md`,
+  `CLAUDE.md`, or Copilot instructions into long runtime catalogs.
+- Treat `.agents/references/agent-runtimes/shared-contract.md` as the contract
+  for what should stay shared across runtimes: rules shared by default, hooks
+  shared at the implementation layer with adapter-specific registration, and
+  skills shared as on-demand `.skills/` content.
+- Runtime-specific directories should stay thin:
+  `.claude/*`, `.codex/*`, and `.opencode/*`.
+- Put reusable lifecycle prompts in `.agents/commands/`. Repo-owned skills live
+  in `.skills/`; do not mirror or symlink them into runtime-specific skill
+  directories.
+- Hook and Claude settings edits are protected by default. When an
+  infrastructure refactor genuinely needs them, add the exact repo-relative
+  path to `.agents/settings.cjs` under `infrastructureEditAllowlist`, make the
+  edit, then remove the allowlist entry once the refactor is complete.
 - Hook scripts should be focused, deterministic, fast, and single-purpose.
 - Validate hook stdin as untrusted input; resolve paths against the project root;
   redact secrets before logging.
@@ -42,4 +47,4 @@ paths:
 - Keep hook architecture notes in
   `vault/02 Repositories/playground/01 Architecture/Agent Hooks.md`.
 - Run `pnpm agents:check` after changing agent adapters, hooks, rules, or
-  symlinks.
+  `.skills/`.

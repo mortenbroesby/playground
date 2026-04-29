@@ -1,3 +1,2 @@
-pnpm lint:md || exit 1
-pnpm --filter @astrograph/astrograph type-lint
+node scripts/prepush-checks.mjs || exit 1
 node scripts/astrograph-smart-refresh.mjs push >/dev/null 2>&1 || true

@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
 import {
   firstNonEmpty,
   getProjectRoot,
   getToolInput,
   isDirectEntrypoint,
+  loadAgentSettings,
   preToolDeny,
   runHook,
 } from './lib/core.mjs';
@@ -58,15 +57,6 @@ const DANGEROUS_COMMAND_PATTERNS = [
     reason: 'Package publishing is blocked from agent hooks. Use CI or run it manually.',
   },
 ];
-
-function loadAgentSettings(projectRoot) {
-  const settingsPath = path.join(projectRoot, '.agents', 'settings.json');
-  try {
-    return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-  } catch {
-    return {};
-  }
-}
 
 function allowsDirectMainPush(command, projectRoot) {
   if (/\bCODEX_ALLOW_DIRECT_MAIN_PUSH=1\b/.test(command)) {
