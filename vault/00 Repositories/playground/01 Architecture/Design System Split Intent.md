@@ -3,11 +3,11 @@ id: "mem-20260429-design-system-split-intent"
 type: "architecture-record"
 repo_slug: "playground"
 title: "Design System Split Intent"
-status: "accepted"
+status: "archived"
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "morten"
-summary: "The repo is intentionally moving toward separate personal and playground design systems while keeping a shared primitive base for now."
+summary: "Archived intent note; the active source of truth for this direction now lives in the design-system migration plan."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -22,7 +22,8 @@ links:
   children: []
   related: []
   supersedes: []
-  superseded_by: []
+  superseded_by:
+    - "mem-20260429-design-system-split-migration-plan"
 retention:
   review_after: "2026-10-26"
   expires_after: null

@@ -3,11 +3,11 @@ id: "mem-20260429-agent-skills-import-matrix"
 type: "architecture-record"
 repo_slug: "playground"
 title: "Agent Skills Import Matrix"
-status: "accepted"
+status: "archived"
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "morten"
-summary: "Import/adapt/reject matrix for bringing addyosmani agent-skills concepts into the repo-native .agents architecture."
+summary: "Archived migration-era matrix for comparing addyosmani agent-skills ideas against the repo’s current on-demand `.skills` model."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -22,7 +22,9 @@ links:
   children: []
   related: []
   supersedes: []
-  superseded_by: []
+  superseded_by:
+    - "mem-20260429-root-skills-architecture"
+    - "mem-20260429-use-root-skills-as-canonical-repo-owned-skills-store"
 retention:
   review_after: "2026-10-26"
   expires_after: null

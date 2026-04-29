@@ -3,11 +3,11 @@ id: "mem-20260429-uplink-hacker-typer-mechanic"
 type: "architecture-record"
 repo_slug: "playground"
 title: "Uplink: Hacker Typer Mechanic"
-status: "accepted"
+status: "archived"
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "morten"
-summary: "**Added:** 2026-04-13 **File:** `packages/remotes/uplink-game/src/game/scenes/HackScene.ts`"
+summary: "Archived feature-change note for the original hacker-typer mechanic in `HackScene.ts`; useful as history, not as a current architecture record."
 tags: []
 keywords: []
 links:

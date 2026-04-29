@@ -7,7 +7,7 @@ status: "accepted"
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "morten"
-summary: "Incremental plan to separate the personal and playground design systems while keeping shared primitives in place."
+summary: "Canonical design-system note for splitting the personal and playground surfaces while keeping shared primitives in place."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -43,6 +43,9 @@ Split the visual system into two surface-specific layers:
 
 Do not duplicate the component library. Move surface-specific decisions out of
 scattered class strings and into named layers.
+
+This note now replaces the earlier standalone intent note and serves as the
+single source of truth for both the design direction and the migration plan.
 
 ## Current Status
 

@@ -3,11 +3,11 @@ id: "mem-20260429-active-context-layer"
 type: "architecture-record"
 repo_slug: "playground"
 title: "Active Context Layer"
-status: "accepted"
+status: "archived"
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "morten"
-summary: "Optional low-token handoff context may exist, but there is no canonical active-context file in the repo today."
+summary: "Archived clarification note from the transition away from a shared active-context file; durable memory remains vault-first."
 tags: []
 keywords: []
 links:
@@ -15,7 +15,8 @@ links:
   children: []
   related: []
   supersedes: []
-  superseded_by: []
+  superseded_by:
+    - "mem-20260417-keep-vault-as-canonical-repo-memory"
 retention:
   review_after: "2026-10-26"
   expires_after: null
