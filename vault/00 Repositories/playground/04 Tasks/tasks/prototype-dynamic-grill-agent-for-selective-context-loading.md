@@ -3,11 +3,11 @@ id: "prototype-dynamic-grill-agent-for-selective-context-loading"
 type: "todo"
 repo_slug: "playground"
 title: "Prototype dynamic grill agent for selective context loading"
-status: "active"
+status: "done"
 created: "2026-04-30"
 updated: "2026-04-30"
 owner: "morten"
-summary: "Explore a lightweight bootstrap or grill agent that decides which repo rules, references, and skills to load so the main agent only pays for task-relevant context."
+summary: "A lightweight `pnpm skills:route` classifier now recommends a narrow skill and rule set so the main agent only pays for task-relevant context."
 tags: []
 keywords:
   - "agents"
@@ -43,15 +43,13 @@ after slimming the obvious hotspots.
 
 ## Outcome
 
-A bootstrap decision layer that can classify the task, load one narrow default
-rule set, and then selectively pull in only the skills or colder references
-that the current task actually needs.
+A bootstrap decision layer now classifies a task, keeps `repo-workflow` plus
+`skill-routing` as the hot baseline, and selectively recommends only the
+additional skills and path-scoped rules the task actually needs.
 
-## Notes
+## Landed
 
-- Start with a simple state machine or decision tree, not a heavyweight
-  planner.
-- Keep the bootstrap layer cheap enough that it saves more context than it
-  costs.
-- Define how it interacts with `AGENTS.md`, always-applied rules, and
-  `pnpm skills:read`.
+- added `pnpm skills:route "<task>"` as a cheap bootstrap classifier
+- kept the implementation as a local state machine instead of a new always-on
+  hook or agent
+- left deeper rule-slimming and skill-load auditing for post-merge follow-up

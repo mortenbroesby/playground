@@ -5,9 +5,9 @@ repo_slug: "playground"
 title: "Root Skills Architecture"
 status: "accepted"
 created: "2026-04-29"
-updated: "2026-04-29"
+updated: "2026-04-30"
 owner: "morten"
-summary: "Root `.skills` is the canonical repo-owned skill store, with command-first discovery and thin startup routing."
+summary: "Root `.skills` is the canonical repo-owned skill store, with command-first discovery, lightweight task routing, and thin startup bootstrap."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -43,6 +43,7 @@ should stay thin and route users to a command-first discovery surface:
 
 - `pnpm skills:list`
 - `pnpm skills:search`
+- `pnpm skills:route "<task>"`
 - `pnpm skills:read <skill-name>`
 
 Load full `SKILL.md` bodies only on explicit read.
@@ -58,7 +59,8 @@ model is thin startup bootstrap, command-first discovery, and explicit reads.
 - Each skill keeps the current contract: `SKILL.md` plus optional support files.
 - `AGENTS.md` and `CLAUDE.md` stay thin and should not embed the full catalog.
 - Runtime adapter directories are compatibility surfaces, not authoring homes.
-- `list` and `search` handle discovery; `read` loads one chosen skill on demand.
+- `list` and `search` handle discovery; `route` cheaply recommends a narrow
+  skill set; `read` loads one chosen skill on demand.
 - External downloaded skills stay separate from repo-owned first-party skills.
 
 ## Migration Invariants

@@ -56,6 +56,8 @@ Thin bootstrap for coding agents in this repo.
 - Repo-owned skills live in [`.skills/`](.skills/).
 - Discover skills on demand with `pnpm skills:list` and
   `pnpm skills:search <query>`.
+- Route a task to the narrowest useful skill set with
+  `pnpm skills:route "<task>"`.
 - Load a skill only when needed with `pnpm skills:read <skill-name>`.
 - Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) to
   decide which skills to load for which kinds of tasks.

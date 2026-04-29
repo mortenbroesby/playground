@@ -43,6 +43,7 @@
     "agents:check": "node scripts/agent-setup-check.mjs",
     "skills:list": "node scripts/skills.mjs list",
     "skills:search": "node scripts/skills.mjs search",
+    "skills:route": "node scripts/skills.mjs route",
     "skills:read": "node scripts/skills.mjs read",
     "ralph:init": "node scripts/ralph/init.mjs",
     "ralph:loop": "node scripts/ralph/loop.mjs",
