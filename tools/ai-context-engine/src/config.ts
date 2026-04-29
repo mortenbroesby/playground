@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { getSupportedLanguages } from "./language-registry.ts";
 import type {
   EngineConfig,
   EnginePaths,
@@ -17,8 +18,7 @@ import type {
   SymbolKind,
   SummaryStrategy,
 } from "./types.ts";
-
-const DEFAULT_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
+import { SUMMARY_STRATEGIES as SUMMARY_STRATEGY_VALUES } from "./types.ts";
 
 export const ENGINE_STORAGE_DIRNAME = ".astrograph";
 export const ENGINE_STORAGE_VERSION = 1;
@@ -54,10 +54,7 @@ export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
   exportedBonus: 20,
 };
 
-const SUMMARY_STRATEGIES = new Set<SummaryStrategy>([
-  "doc-comments-first",
-  "signature-only",
-]);
+const SUMMARY_STRATEGIES = new Set<SummaryStrategy>(SUMMARY_STRATEGY_VALUES);
 
 const SYMBOL_KINDS = new Set<SymbolKind>([
   "function",
@@ -71,6 +68,10 @@ export const ENGINE_TOOLS: EngineToolName[] = [
   "init",
   "index_folder",
   "index_file",
+  "find_files",
+  "search_text",
+  "get_file_summary",
+  "get_project_status",
   "get_repo_outline",
   "get_file_tree",
   "get_file_outline",
@@ -136,7 +137,7 @@ const repoLimitsConfigSchema = z.object({
 });
 
 const repoEngineConfigSchema = z.object({
-  summaryStrategy: z.enum(["doc-comments-first", "signature-only"]).optional(),
+  summaryStrategy: z.enum(SUMMARY_STRATEGY_VALUES).optional(),
   storageMode: z.enum(["wal"]).optional(),
   observability: repoObservabilityConfigSchema.optional(),
   performance: repoPerformanceConfigSchema.optional(),
@@ -430,7 +431,7 @@ export function createDefaultEngineConfig(input: {
 }): EngineConfig {
   return {
     repoRoot: input.repoRoot,
-    languages: [...DEFAULT_LANGUAGES],
+    languages: getSupportedLanguages(),
     respectGitIgnore: true,
     storageMode: input.storageMode ?? "wal",
     staleStatus: "unknown",

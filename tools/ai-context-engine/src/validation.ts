@@ -1,18 +1,28 @@
 import { z } from "zod";
 
+import { getSupportedLanguages } from "./language-registry.ts";
 import type {
   ContextBundleOptions,
+  FindFilesOptions,
+  FileSummaryOptions,
+  ProjectStatusOptions,
   QueryCodeIntent,
   QueryCodeOptions,
+  SearchTextOptions,
   SearchSymbolsOptions,
   SummaryStrategy,
   SupportedLanguage,
   SymbolKind,
 } from "./types.ts";
+import { SUMMARY_STRATEGIES } from "./types.ts";
 
-const supportedLanguageSchema = z.enum(["ts", "tsx", "js", "jsx"]);
+const supportedLanguages = getSupportedLanguages();
+const supportedLanguageSchema = z.enum(supportedLanguages as [
+  SupportedLanguage,
+  ...SupportedLanguage[],
+]);
 const symbolKindSchema = z.enum(["function", "class", "method", "constant", "type"]);
-const summaryStrategySchema = z.enum(["doc-comments-first", "signature-only"]);
+const summaryStrategySchema = z.enum(SUMMARY_STRATEGIES);
 const queryCodeIntentSchema = z.enum(["discover", "source", "assemble", "auto"]);
 
 const finiteNumberSchema = z.number().finite();
@@ -213,6 +223,54 @@ export function validateSearchSymbolsOptions(
   }
 }
 
+function trimRequiredString(value: string | undefined, message: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new Error(message);
+  }
+  return trimmed;
+}
+
+export function validateFindFilesOptions(
+  input: Pick<FindFilesOptions, "query" | "filePattern" | "limit">,
+): Pick<FindFilesOptions, "query" | "filePattern"> {
+  if (input.limit !== undefined) {
+    requirePositiveNumber(input.limit, "limit");
+  }
+
+  const query = trimToOptional(input.query);
+  const filePattern = trimToOptional(input.filePattern);
+  if (!query && !filePattern) {
+    throw new Error("find_files requires a non-empty query or filePattern");
+  }
+
+  return {
+    query,
+    filePattern,
+  };
+}
+
+export function validateSearchTextOptions(
+  input: Pick<SearchTextOptions, "query" | "limit">,
+): void {
+  trimRequiredString(input.query, "search_text requires a non-empty query");
+  if (input.limit !== undefined) {
+    requirePositiveNumber(input.limit, "limit");
+  }
+}
+
+export function validateFileSummaryOptions(
+  input: Pick<FileSummaryOptions, "filePath">,
+): void {
+  trimRequiredString(input.filePath, "get_file_summary requires a non-empty filePath");
+}
+
+export function validateProjectStatusOptions(
+  _input: Pick<ProjectStatusOptions, "scanFreshness">,
+): void {
+  // Reserved for future expansion of project status filters.
+}
+
 export function normalizeContextBundleSeeds(
   input: Pick<ContextBundleOptions, "query" | "symbolIds">,
 ): Pick<ContextBundleOptions, "query" | "symbolIds"> {
@@ -268,7 +326,9 @@ export function parseCliSupportedLanguage(
 
   const parsed = supportedLanguageSchema.safeParse(value);
   if (!parsed.success) {
-    throw new Error(`Unsupported --${key}: ${value}. Expected one of: ts, tsx, js, jsx`);
+    throw new Error(
+      `Unsupported --${key}: ${value}. Expected one of: ${supportedLanguages.join(", ")}`,
+    );
   }
 
   return parsed.data;
@@ -305,7 +365,7 @@ export function parseCliSummaryStrategy(
   const parsed = summaryStrategySchema.safeParse(value);
   if (!parsed.success) {
     throw new Error(
-      `Unsupported --${key}: ${value}. Expected one of: doc-comments-first, signature-only`,
+      `Unsupported --${key}: ${value}. Expected one of: ${SUMMARY_STRATEGIES.join(", ")}`,
     );
   }
 

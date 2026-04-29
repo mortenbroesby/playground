@@ -2,7 +2,13 @@ import type { z } from "zod";
 import * as zod from "zod";
 
 import { parseSummaryStrategy } from "./config.ts";
-import { parseQueryCodeMcpInput } from "./validation.ts";
+import {
+  parseQueryCodeMcpInput,
+  validateFindFilesOptions,
+  validateFileSummaryOptions,
+  validateProjectStatusOptions,
+  validateSearchTextOptions,
+} from "./validation.ts";
 import { ASTROGRAPH_PACKAGE_VERSION } from "./version.ts";
 
 type EngineModule = typeof import("./index.ts");
@@ -80,6 +86,81 @@ export const MCP_TOOL_DEFINITIONS = [
       }),
   },
   {
+    name: "find_files",
+    description: "Find repo files by path/name query and optional glob filter.",
+    inputSchema: {
+      repoRoot: stringSchema("Repository root path"),
+      query: stringSchema("Optional path or file-name query").optional(),
+      filePattern: stringSchema("Optional glob-like file path filter").optional(),
+      limit: numberSchema("Optional maximum number of file results").optional(),
+    },
+    execute: async (engine, args) => {
+      const input = {
+        repoRoot: requireString(args, "repoRoot"),
+        query: typeof args.query === "string" ? args.query : undefined,
+        filePattern: typeof args.filePattern === "string" ? args.filePattern : undefined,
+        limit: typeof args.limit === "number" ? args.limit : undefined,
+      };
+      const normalized = validateFindFilesOptions(input);
+      return engine.findFiles({
+        ...input,
+        ...normalized,
+      });
+    },
+  },
+  {
+    name: "search_text",
+    description: "Search text across indexed or live repo content with bounded results.",
+    inputSchema: {
+      repoRoot: stringSchema("Repository root path"),
+      query: stringSchema("Case-insensitive search query"),
+      filePattern: stringSchema("Optional glob-like file path filter").optional(),
+      limit: numberSchema("Optional maximum number of text results").optional(),
+    },
+    execute: async (engine, args) => {
+      const input = {
+        repoRoot: requireString(args, "repoRoot"),
+        query: requireString(args, "query"),
+        filePattern: typeof args.filePattern === "string" ? args.filePattern : undefined,
+        limit: typeof args.limit === "number" ? args.limit : undefined,
+      };
+      validateSearchTextOptions(input);
+      return engine.searchText(input);
+    },
+  },
+  {
+    name: "get_file_summary",
+    description: "Return a deterministic summary for an indexed or discovery-only file.",
+    inputSchema: {
+      repoRoot: stringSchema("Repository root path"),
+      filePath: stringSchema("Path relative to the repository root"),
+    },
+    execute: async (engine, args) => {
+      const input = {
+        repoRoot: requireString(args, "repoRoot"),
+        filePath: requireString(args, "filePath"),
+      };
+      validateFileSummaryOptions(input);
+      return engine.getFileSummary(input);
+    },
+  },
+  {
+    name: "get_project_status",
+    description: "Report readiness, freshness, support tiers, and watcher health.",
+    inputSchema: {
+      repoRoot: stringSchema("Repository root path"),
+      scanFreshness: booleanSchema("When true, walk and hash the live repository to detect drift").optional(),
+    },
+    execute: async (engine, args) => {
+      const input = {
+        repoRoot: requireString(args, "repoRoot"),
+        scanFreshness: args.scanFreshness === true,
+      };
+      validateProjectStatusOptions(input);
+      return engine.getProjectStatus(input);
+    },
+  },
+  {
     name: "get_repo_outline",
     description: "Return file and symbol counts grouped by language.",
     inputSchema: {
@@ -136,7 +217,7 @@ export const MCP_TOOL_DEFINITIONS = [
       symbolIds: zod.array(stringSchema("Indexed symbol id")).describe("Optional indexed symbol ids").optional(),
       filePath: stringSchema("Optional path relative to the repository root").optional(),
       kind: stringSchema("Optional symbol kind filter").optional(),
-      language: stringSchema("Optional language filter (ts, tsx, js, jsx)").optional(),
+      language: stringSchema("Optional supported language filter").optional(),
       filePattern: stringSchema("Optional glob-like file path filter").optional(),
       limit: numberSchema("Optional maximum number of symbol results").optional(),
       contextLines: numberSchema("Optional surrounding context line count").optional(),

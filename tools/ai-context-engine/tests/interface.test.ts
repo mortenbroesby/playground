@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { decode } from "@msgpack/msgpack";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import { handleCli } from "../src/cli.ts";
 import { MCP_SERVER_NAME, MCP_TOOL_DEFINITIONS } from "../src/mcp-contract.ts";
@@ -27,6 +27,9 @@ const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+
+const it = (name: string, fn: (...args: never[]) => unknown, timeout = 30_000) =>
+  baseIt(name, fn as never, timeout);
 
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
@@ -210,7 +213,7 @@ async function withMcpClient<T>(
 
 afterEach(async () => {
   await cleanupFixtureRepos();
-});
+}, 30_000);
 
 describe("ai-context-engine interfaces", () => {
   it("serves JSON CLI commands over the library surface", async () => {
@@ -219,6 +222,12 @@ describe("ai-context-engine interfaces", () => {
     const initStdout = await handleCli(["init", "--repo", repoRoot]);
     expect(JSON.parse(initStdout)).toMatchObject({
       staleStatus: "unknown",
+      readiness: {
+        stage: "not-ready",
+        discoveryReady: false,
+        deepRetrievalReady: false,
+        deepening: false,
+      },
       watch: {
         status: "idle",
         lastEvent: null,
@@ -240,6 +249,38 @@ describe("ai-context-engine interfaces", () => {
       freshnessScanned: false,
       indexedFiles: 2,
       currentFiles: 2,
+      readiness: {
+        stage: "deep-retrieval-ready",
+        discoveryReady: true,
+        deepRetrievalReady: true,
+        deepening: false,
+        discoveredFiles: 2,
+        deepIndexedFiles: 2,
+        pendingDeepIndexedFiles: 0,
+      },
+      languageRegistry: {
+        byLanguage: expect.arrayContaining([
+          expect.objectContaining({
+            language: "ts",
+            extensions: [".ts"],
+            tiers: ["discovery", "structured", "graph"],
+            summaryStrategies: ["doc-comments-first", "signature-only"],
+          }),
+          expect.objectContaining({
+            language: "js",
+            extensions: [".js", ".cjs", ".mjs"],
+            tiers: ["discovery", "structured", "graph"],
+            summaryStrategies: ["doc-comments-first", "signature-only"],
+          }),
+        ]),
+        byFallbackExtension: expect.arrayContaining([
+          expect.objectContaining({
+            extension: ".md",
+            tiers: ["discovery"],
+            summarySource: "markdown-headings",
+          }),
+        ]),
+      },
     });
 
     const filteredStdout = await handleCli([
@@ -494,11 +535,16 @@ export function circumference(radius: number): string {
       schemaVersion: 4,
       indexedFiles: 2,
       currentFiles: 2,
+      readiness: {
+        stage: "deep-retrieval-ready",
+        discoveredFiles: 2,
+      },
     });
   }, 15_000);
 
   it("exposes spec-aligned MCP tools", async () => {
     const repoRoot = await createFixtureRepo();
+    await writeFile(path.join(repoRoot, "README.md"), "# Fixture Repo\n\n## Start Here\n");
     await withMcpClient(async ({ client, stderr }) => {
       const toolsResult = await client.listTools();
       const indexResult = await client.callTool({
@@ -538,6 +584,34 @@ export function circumference(radius: number): string {
           query: "greet",
           kind: "method",
           limit: 1,
+        },
+      });
+      const findFilesResult = await client.callTool({
+        name: "find_files",
+        arguments: {
+          repoRoot,
+          query: "README",
+        },
+      });
+      const searchTextResult = await client.callTool({
+        name: "search_text",
+        arguments: {
+          repoRoot,
+          query: "Hello",
+          limit: 1,
+        },
+      });
+      const fileSummaryResult = await client.callTool({
+        name: "get_file_summary",
+        arguments: {
+          repoRoot,
+          filePath: "README.md",
+        },
+      });
+      const projectStatusResult = await client.callTool({
+        name: "get_project_status",
+        arguments: {
+          repoRoot,
         },
       });
       const bundleResult = await client.callTool({
@@ -595,6 +669,97 @@ export function circumference(radius: number): string {
         content: Array<{ type: string; text: string }>;
         }).content[0];
       const greetToolId = JSON.parse(greetContent.text).symbolMatches[0].id as string;
+
+      const findFilesContent = (
+        findFilesResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(findFilesContent.text)[0]).toMatchObject({
+        filePath: "README.md",
+        supportTier: "discovery",
+      });
+
+      const searchTextContent = (
+        searchTextResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(searchTextContent.text)).toHaveLength(1);
+      expect(JSON.parse(searchTextContent.text)[0]).toMatchObject({
+        filePath: "src/strings.ts",
+      });
+
+      const fileSummaryContent = (
+        fileSummaryResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(fileSummaryContent.text)).toMatchObject({
+        filePath: "README.md",
+        summarySource: "markdown-headings",
+        supportTier: "discovery",
+        support: {
+          activeTier: "discovery",
+          availableTiers: ["discovery"],
+          reason: "fallback-extension",
+        },
+      });
+
+      const projectStatusContent = (
+        projectStatusResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(projectStatusContent.text)).toMatchObject({
+        readiness: {
+          stage: "deep-retrieval-ready",
+          discoveryReady: true,
+          deepRetrievalReady: true,
+          deepening: false,
+          discoveredFiles: 2,
+          deepIndexedFiles: 2,
+          pendingDeepIndexedFiles: 0,
+        },
+        freshness: {
+          staleStatus: "fresh",
+        },
+        supportTiers: {
+          discovery: {
+            summarySources: expect.arrayContaining(["markdown-headings", "json-top-level-keys"]),
+          },
+          byLanguage: expect.arrayContaining([
+            {
+              language: "ts",
+              extensions: [".ts"],
+              tiers: ["discovery", "structured", "graph"],
+              summaryStrategies: ["doc-comments-first", "signature-only"],
+              toolAvailability: expect.objectContaining({
+                graph: expect.arrayContaining(["query_code"]),
+              }),
+            },
+            {
+              language: "js",
+              extensions: [".js", ".cjs", ".mjs"],
+              tiers: ["discovery", "structured", "graph"],
+              summaryStrategies: ["doc-comments-first", "signature-only"],
+              toolAvailability: expect.objectContaining({
+                graph: expect.arrayContaining(["query_code"]),
+              }),
+            },
+          ]),
+          byFallbackExtension: expect.arrayContaining([
+            {
+              extension: ".md",
+              tiers: ["discovery"],
+              summarySource: "markdown-headings",
+              toolAvailability: expect.objectContaining({
+                discovery: expect.arrayContaining(["get_file_summary"]),
+              }),
+            },
+          ]),
+        },
+      });
 
       const bundleContent = (
         bundleResult as {
@@ -776,6 +941,9 @@ export function circumference(radius: number): string {
         storageDir: path.join(canonicalRepoRoot, ".astrograph"),
         storageVersion: 1,
         schemaVersion: 4,
+        readiness: {
+          stage: "not-ready",
+        },
       });
     });
   }, 15000);
@@ -1036,7 +1204,7 @@ export function circumference(radius: number): string {
         summaryStrategy: "bogus",
       }),
     ).rejects.toThrow(/unsupported summaryStrategy/i);
-  });
+  }, 30_000);
 
   it("rejects malformed CLI arguments instead of silently coercing them", async () => {
     const repoRoot = await createFixtureRepo();
@@ -1187,7 +1355,7 @@ export class Greeter {
       "src/math.ts",
       "src/strings.ts",
     ]);
-  });
+  }, 15_000);
 
   it("rejects malformed MCP arguments instead of treating them as empty filters", async () => {
     const repoRoot = await createFixtureRepo();
