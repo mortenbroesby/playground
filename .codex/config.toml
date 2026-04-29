@@ -121,3 +121,4 @@ approval_mode = "approve"
 
 [features]
 codex_hooks = true
+multi_agent = true

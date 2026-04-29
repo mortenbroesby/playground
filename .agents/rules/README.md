@@ -4,6 +4,8 @@ Shared instruction rules for agents working in this repository.
 
 - `repo-workflow.md`: always-on repo workflow, navigation, memory, and
   verification policy.
+- `skill-routing.md`: always-on guidance for when to load which on-demand
+  skills.
 - `frontend.md`: path-scoped frontend implementation and design policy.
 - `agent-infrastructure.md`: path-scoped policy for hooks, rules, skills, and
   agent configuration.
@@ -11,7 +13,7 @@ Shared instruction rules for agents working in this repository.
 Shared lifecycle prompts live in `.agents/commands/` and are exposed to Claude
 as commands and to Codex as prompts through symlinks. The compact
 `engineering-workflow` skill is the umbrella lifecycle. Repo-native lifecycle
-skills under `.agents/skills/` adapt the compatible parts of
+skills under `.skills/` adapt the compatible parts of
 `addyosmani/agent-skills` without importing Claude-specific plugin state or
 runtime-specific scaffolding.
 

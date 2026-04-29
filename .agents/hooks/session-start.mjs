@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import {
   ensureAiContextEngineObservability,
   ensureAiContextEngineWatch,
@@ -63,28 +65,56 @@ function buildDynamicGitContext(cwd) {
   return parts.join(' | ');
 }
 
+function getInstallReadiness(projectRoot) {
+  const rootNodeModules = path.join(projectRoot, 'node_modules');
+  const astrographBin = path.join(projectRoot, 'node_modules', '.bin', 'astrograph');
+  const obsidianNodeModules = path.join(projectRoot, 'tools', 'obsidian-memory', 'node_modules');
+
+  const missing = [];
+
+  if (!existsSync(rootNodeModules)) {
+    missing.push('node_modules/');
+  }
+
+  if (!existsSync(astrographBin)) {
+    missing.push('node_modules/.bin/astrograph');
+  }
+
+  if (!existsSync(obsidianNodeModules)) {
+    missing.push('tools/obsidian-memory/node_modules/');
+  }
+
+  return {
+    ready: missing.length === 0,
+    missing,
+  };
+}
+
 export async function handleSessionStart(payload) {
   const cwd = getProjectRoot(payload);
   const dynamicContext = buildDynamicGitContext(cwd);
+  const installReadiness = getInstallReadiness(cwd);
   let watchStatus = null;
   let observabilityStatus = null;
 
-  try {
-    watchStatus = await ensureAiContextEngineWatch(cwd);
-  } catch (error) {
-    watchStatus = {
-      status: 'error',
-      message: error instanceof Error ? error.message : String(error),
-    };
-  }
+  if (installReadiness.ready) {
+    try {
+      watchStatus = await ensureAiContextEngineWatch(cwd);
+    } catch (error) {
+      watchStatus = {
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
 
-  try {
-    observabilityStatus = await ensureAiContextEngineObservability(cwd);
-  } catch (error) {
-    observabilityStatus = {
-      status: 'error',
-      message: error instanceof Error ? error.message : String(error),
-    };
+    try {
+      observabilityStatus = await ensureAiContextEngineObservability(cwd);
+    } catch (error) {
+      observabilityStatus = {
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   const baseContext = [
@@ -98,6 +128,12 @@ export async function handleSessionStart(payload) {
 
   if (dynamicContext) {
     baseContext.push(`Current git state: ${dynamicContext}`);
+  }
+
+  if (!installReadiness.ready) {
+    baseContext.push(
+      `Dependencies appear missing for repo startup tooling. Run \`pnpm install\` before relying on obsidian-memory or ai-context-engine. Missing: ${installReadiness.missing.join(', ')}`,
+    );
   }
 
   if (watchStatus?.status === 'started' || watchStatus?.status === 'already-running') {

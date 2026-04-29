@@ -37,6 +37,8 @@ Keep this file loose:
 ### "TODOs"
 
 - Pull in relevant setup from superpowers.
+  - https://github.com/obra/superpowers/blob/main/skills/using-superpowers/SKILL.md
+  - https://github.com/obra/superpowers
 - Add unit tests for our hooks.
 - Setup smth like <https://github.com/cfngc4594/agent-notify>
 - Consider how we could use <https://github.com/tree-sitter/tree-sitter>
