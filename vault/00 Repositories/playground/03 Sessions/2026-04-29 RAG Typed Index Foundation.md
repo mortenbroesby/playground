@@ -107,6 +107,9 @@ rebuild index generation first while keeping the current query path working.
 - applied the first remediation batch to 10 legacy session notes under
   `03 Sessions/` and reindexed the vault, reducing `rag:doctor` synthetic-ID
   warnings from 114 notes to 104 notes without changing note bodies
+- applied the second remediation batch to the next 10 `03 Sessions/` notes and
+  reindexed again, reducing `rag:doctor` synthetic-ID warnings further from 104
+  notes to 95 notes
 
 ## Verification
 

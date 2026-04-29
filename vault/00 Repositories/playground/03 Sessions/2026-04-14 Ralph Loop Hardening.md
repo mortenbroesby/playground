@@ -1,24 +1,37 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-14
-started_at: 2026-04-14 23:28
-summary: Hardened the Ralph runner by ignoring local run artifacts and surfacing better failure breadcrumbs.
-keywords:
-  - ralph
-  - workflow
-  - gitignore
-  - runner
-  - diagnostics
-touched_paths:
-  - .gitignore
-  - scripts/ralph/loop.mjs
+id: "mem-20260414-ralph-loop-hardening"
+type: "session"
+repo_slug: "playground"
+title: "Ralph Loop Hardening"
+status: "active"
+created: "2026-04-14"
+updated: "2026-04-14"
+owner: "agent"
+summary: "Hardened the Ralph runner by ignoring local run artifacts and surfacing better failure breadcrumbs."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ralph"
+  - "workflow"
+  - "gitignore"
+  - "runner"
+  - "diagnostics"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-28"
+  expires_after: "2026-10-11"
+  keep: false
+started_at: "2026-04-14 23:28"
+touched_paths:
+  - ".gitignore"
+  - "scripts/ralph/loop.mjs"
 ---
-
-# Ralph Loop Hardening
 
 ## Outcome
 
