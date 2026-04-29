@@ -6,7 +6,10 @@ import path from "node:path";
 
 import {
   buildCleanupReport,
+  buildWriteTargetPath,
   classifyMemoryInput,
+  findWriteDuplicates,
+  renderTypedNoteTemplate,
   verifyTypedMemory,
 } from "../src/rag-governance.mjs";
 
@@ -157,4 +160,53 @@ test("verifyTypedMemory fails when typed index has unresolved links and syntheti
   assert.equal(result.passed, false);
   assert.ok(result.errors.some((error) => error.startsWith("Unresolved links present")));
   assert.ok(result.warnings.some((warning) => warning.includes("Synthetic note ids")));
+});
+
+test("buildWriteTargetPath routes typed notes into the new spec folders", () => {
+  const target = buildWriteTargetPath({
+    vaultRoot: "/tmp/vault",
+    repoSlug: "playground",
+    noteType: "spec",
+    title: "Rebuild RAG memory",
+    createdAt: new Date("2026-04-29T00:00:00.000Z"),
+  });
+
+  assert.equal(target.noteId, "mem-20260429-rebuild-rag-memory");
+  assert.ok(target.relativePath.endsWith("00 Repositories/playground/specs/2026-04-29 Rebuild RAG memory.md"));
+});
+
+test("renderTypedNoteTemplate creates strict frontmatter for new notes", () => {
+  const rendered = renderTypedNoteTemplate({
+    noteType: "todo",
+    repoSlug: "playground",
+    title: "Add cleanup dry-run",
+    summary: "Create a cleanup dry-run command.",
+    owner: "agent",
+    createdAt: new Date("2026-04-29T00:00:00.000Z"),
+  });
+
+  assert.ok(rendered.content.includes('id: "mem-20260429-add-cleanup-dry-run"'));
+  assert.ok(rendered.content.includes('type: "todo"'));
+  assert.ok(rendered.content.includes('summary: "Create a cleanup dry-run command."'));
+  assert.ok(rendered.content.includes("## Done when"));
+});
+
+test("findWriteDuplicates catches active duplicates by title or summary", () => {
+  const duplicates = findWriteDuplicates({
+    noteRegistry: [
+      {
+        id: "mem-1",
+        type: "spec",
+        title: "Rebuild RAG memory",
+        summary: "Spec for rebuilding repo memory.",
+        status: "active",
+        path: "vault/specs/rebuild-rag-memory.md",
+      },
+    ],
+    noteType: "spec",
+    title: "Rebuild RAG memory",
+    summary: "Different summary",
+  });
+
+  assert.equal(duplicates.length, 1);
 });

@@ -18,6 +18,7 @@ touched_paths:
   - tools/obsidian-memory/src/rag-classify.mjs
   - tools/obsidian-memory/src/rag-clean.mjs
   - tools/obsidian-memory/src/rag-doctor.mjs
+  - tools/obsidian-memory/src/rag-write.mjs
   - tools/obsidian-memory/src/rag-query.mjs
   - tools/obsidian-memory/src/rag-mcp-server.mjs
   - tools/obsidian-memory/src/verify-obsidian-rag.mjs
@@ -85,6 +86,13 @@ rebuild index generation first while keeping the current query path working.
 - confirmed the real repo still fails `rag:doctor` because most vault notes have
   synthetic IDs and sparse links, which is the expected migration backlog from
   the stricter schema
+- added a first `rag:write` command that creates new notes only in the spec’s
+  typed folder layout (`architecture/`, `specs/`, `sessions/`, `todos/`,
+  `investigations/`, `references/`, `glossary/`)
+- added strict template generation for new notes so freshly written memory no
+  longer adds synthetic IDs or legacy frontmatter shapes
+- added dedupe checks against the typed note registry before write and a
+  `--dry-run` mode to inspect the exact output path and frontmatter safely
 
 ## Verification
 
@@ -95,9 +103,10 @@ rebuild index generation first while keeping the current query path working.
 - `pnpm --filter @playground/obsidian-memory rag:clean --dry-run`
 - `pnpm --filter @playground/obsidian-memory rag:doctor`
 - `pnpm --filter @playground/obsidian-memory rag:verify`
+- `pnpm --filter @playground/obsidian-memory rag:write --type spec --title 'Rebuild RAG memory' --summary 'Spec for rebuilding repo memory.' --dry-run`
 
 ## Next Step
 
-Start shrinking the migration backlog that `rag:doctor` now surfaces:
-introduce stricter frontmatter remediation, link backfills, and eventually
-`rag:write` so new notes stop adding to the legacy debt.
+Start shrinking the migration backlog that `rag:doctor` surfaces by adding
+frontmatter remediation and link-backfill flows for the existing vault, now
+that new notes can be created in the strict typed format.

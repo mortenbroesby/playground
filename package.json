@@ -29,6 +29,7 @@
     "rag:query": "pnpm --filter @playground/obsidian-memory rag:query",
     "rag:test": "pnpm --filter @playground/obsidian-memory rag:test",
     "rag:verify": "pnpm --filter @playground/obsidian-memory rag:verify",
+    "rag:write": "pnpm --filter @playground/obsidian-memory rag:write",
     "ctrl:daemon": "npx @bulletproof-sh/ctrl-daemon@latest --force",
     "test": "turbo test",
     "test:integration": "pnpm --filter @playground/todo-app test:integration",

@@ -7,6 +7,117 @@ const REQUIRED_SOURCE_PATHS = [
   "91 Scripts",
 ];
 
+const WRITE_TYPE_CONFIG = {
+  "architecture-record": {
+    folder: "architecture",
+    defaultStatus: "proposed",
+    owner: "morten",
+    keep: true,
+    reviewAfterDays: 180,
+    expiresAfterDays: null,
+    sections: [
+      "## Context",
+      "## Decision",
+      "## Alternatives considered",
+      "## Consequences",
+      "## Follow-up actions",
+    ],
+  },
+  spec: {
+    folder: "specs",
+    defaultStatus: "active",
+    owner: "morten",
+    keep: true,
+    reviewAfterDays: 30,
+    expiresAfterDays: null,
+    sections: [
+      "## Goal",
+      "## Non-goals",
+      "## Current state",
+      "## Proposed design",
+      "## Implementation plan",
+      "## Acceptance criteria",
+      "## Verification",
+      "## Open questions",
+    ],
+  },
+  session: {
+    folder: "sessions",
+    defaultStatus: "active",
+    owner: "agent",
+    keep: false,
+    reviewAfterDays: 14,
+    expiresAfterDays: 180,
+    sections: [
+      "## Goal",
+      "## Actions taken",
+      "## Files touched",
+      "## Findings",
+      "## Decisions that need ADRs",
+      "## Todos created",
+      "## Next handoff",
+    ],
+  },
+  todo: {
+    folder: "todos",
+    defaultStatus: "active",
+    owner: "morten",
+    keep: false,
+    reviewAfterDays: 30,
+    expiresAfterDays: null,
+    sections: [
+      "## Task",
+      "## Why",
+      "## Done when",
+      "## Links",
+    ],
+  },
+  investigation: {
+    folder: "investigations",
+    defaultStatus: "active",
+    owner: "agent",
+    keep: false,
+    reviewAfterDays: 60,
+    expiresAfterDays: 180,
+    sections: [
+      "## Question",
+      "## Findings",
+      "## Options",
+      "## Recommendation",
+      "## Uncertainty",
+      "## Sources",
+      "## Follow-up",
+    ],
+  },
+  reference: {
+    folder: "references",
+    defaultStatus: "accepted",
+    owner: "morten",
+    keep: true,
+    reviewAfterDays: 180,
+    expiresAfterDays: null,
+    sections: [
+      "## Purpose",
+      "## Commands",
+      "## Notes",
+      "## Related links",
+    ],
+  },
+  glossary: {
+    folder: "glossary",
+    defaultStatus: "accepted",
+    owner: "morten",
+    keep: true,
+    reviewAfterDays: 365,
+    expiresAfterDays: null,
+    sections: [
+      "## Definition",
+      "## Why it matters here",
+      "## Related terms",
+    ],
+  },
+};
+
 const REQUIRED_INDEX_FILES = [
   "manifest.json",
   "note-registry.json",
@@ -57,6 +168,23 @@ function tryParseDate(value) {
   return Number.isNaN(parsed.valueOf()) ? null : parsed;
 }
 
+function addDays(date, days) {
+  const nextDate = new Date(date);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return nextDate;
+}
+
+function formatDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function slugify(value) {
+  return normalize(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+
 function estimateTokens(value) {
   if (!value) {
     return 0;
@@ -95,6 +223,129 @@ export async function loadTypedMemoryArtifacts(indexRoot) {
     diagnostics: files.find(([fileName]) => fileName === "diagnostics.json")[1],
     cleanupReport: files.find(([fileName]) => fileName === "cleanup-report.json")[1],
   };
+}
+
+export function getWriteTypeConfig(noteType) {
+  const config = WRITE_TYPE_CONFIG[noteType];
+
+  if (!config) {
+    throw new Error(`Unsupported note type: ${noteType}`);
+  }
+
+  return config;
+}
+
+export function buildWriteTargetPath({ vaultRoot, repoSlug, noteType, title, createdAt = new Date() }) {
+  const config = getWriteTypeConfig(noteType);
+  const datePrefix = formatDate(createdAt);
+  const slug = slugify(title);
+  const fileName = `${datePrefix} ${title}.md`;
+
+  return {
+    noteId: `mem-${datePrefix.replaceAll("-", "")}-${slug}`,
+    relativePath: path.join(
+      "00 Repositories",
+      repoSlug,
+      config.folder,
+      fileName,
+    ),
+    absolutePath: path.join(
+      vaultRoot,
+      "00 Repositories",
+      repoSlug,
+      config.folder,
+      fileName,
+    ),
+    slug,
+  };
+}
+
+export function findWriteDuplicates({ noteRegistry, noteType, title, summary }) {
+  const normalizedTitle = normalize(title);
+  const normalizedSummary = normalize(summary ?? "");
+
+  return noteRegistry.filter((note) => {
+    if (note.type !== noteType) {
+      return false;
+    }
+
+    const titleMatches = normalize(note.title) === normalizedTitle;
+    const summaryMatches =
+      normalizedSummary.length > 0 && normalize(note.summary ?? "") === normalizedSummary;
+    const activeEnough = note.status !== "archived" && note.status !== "superseded";
+
+    return activeEnough && (titleMatches || summaryMatches);
+  });
+}
+
+export function renderTypedNoteTemplate({
+  noteType,
+  repoSlug,
+  title,
+  summary,
+  owner,
+  createdAt = new Date(),
+}) {
+  const config = getWriteTypeConfig(noteType);
+  const created = formatDate(createdAt);
+  const reviewAfter = config.reviewAfterDays === null
+    ? "null"
+    : `"${formatDate(addDays(createdAt, config.reviewAfterDays))}"`;
+  const expiresAfter = config.expiresAfterDays === null
+    ? "null"
+    : `"${formatDate(addDays(createdAt, config.expiresAfterDays))}"`;
+  const keep = config.keep ? "true" : "false";
+  const slug = slugify(title);
+  const noteId = `mem-${created.replaceAll("-", "")}-${slug}`;
+
+  return {
+    noteId,
+    content: [
+      "---",
+      `id: "${noteId}"`,
+      `type: "${noteType}"`,
+      `repo_slug: "${repoSlug}"`,
+      `title: "${title}"`,
+      `status: "${config.defaultStatus}"`,
+      `created: "${created}"`,
+      `updated: "${created}"`,
+      `owner: "${owner || config.owner}"`,
+      `summary: "${summary}"`,
+      "tags: []",
+      "keywords: []",
+      "links:",
+      "  parents: []",
+      "  children: []",
+      "  related: []",
+      "  supersedes: []",
+      "  superseded_by: []",
+      "retention:",
+      `  review_after: ${reviewAfter}`,
+      `  expires_after: ${expiresAfter}`,
+      `  keep: ${keep}`,
+      "---",
+      "",
+      `# ${title}`,
+      "",
+      ...config.sections.flatMap((section) => [section, ""]),
+    ].join("\n"),
+  };
+}
+
+export function validateWriteInput({ noteType, title, summary }) {
+  if (!noteType) {
+    throw new Error("--type is required");
+  }
+
+  getWriteTypeConfig(noteType);
+
+  if (!title?.trim()) {
+    throw new Error("--title is required");
+  }
+
+  if (!summary?.trim()) {
+    throw new Error("--summary is required");
+  }
 }
 
 export function classifyMemoryInput(input) {

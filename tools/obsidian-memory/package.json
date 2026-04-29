@@ -15,6 +15,7 @@
     "rag:doctor": "node ./src/rag-doctor.mjs",
     "rag:query": "node ./src/rag-query.mjs",
     "rag:verify": "node ./src/verify-obsidian-rag.mjs",
+    "rag:write": "node ./src/rag-write.mjs",
     "mcp": "node ./src/rag-mcp-server.mjs",
     "rag:test": "node --test ./tests/*.test.mjs",
     "test:retrieval": "node --test ./tests/*.test.mjs"
