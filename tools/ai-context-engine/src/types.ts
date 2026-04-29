@@ -1,5 +1,4 @@
-export const SUPPORTED_LANGUAGES = ["ts", "tsx", "js", "jsx"] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+export type SupportedLanguage = "ts" | "tsx" | "js" | "jsx";
 
 export type StorageMode = "wal";
 export type IndexBackendName = "sqlite";

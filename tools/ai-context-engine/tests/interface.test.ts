@@ -266,6 +266,12 @@ describe("ai-context-engine interfaces", () => {
             tiers: ["discovery", "structured", "graph"],
             summaryStrategies: ["doc-comments-first", "signature-only"],
           }),
+          expect.objectContaining({
+            language: "js",
+            extensions: [".js", ".cjs", ".mjs"],
+            tiers: ["discovery", "structured", "graph"],
+            summaryStrategies: ["doc-comments-first", "signature-only"],
+          }),
         ]),
         byFallbackExtension: expect.arrayContaining([
           expect.objectContaining({
@@ -726,6 +732,15 @@ export function circumference(radius: number): string {
             {
               language: "ts",
               extensions: [".ts"],
+              tiers: ["discovery", "structured", "graph"],
+              summaryStrategies: ["doc-comments-first", "signature-only"],
+              toolAvailability: expect.objectContaining({
+                graph: expect.arrayContaining(["query_code"]),
+              }),
+            },
+            {
+              language: "js",
+              extensions: [".js", ".cjs", ".mjs"],
               tiers: ["discovery", "structured", "graph"],
               summaryStrategies: ["doc-comments-first", "signature-only"],
               toolAvailability: expect.objectContaining({

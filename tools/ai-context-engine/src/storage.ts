@@ -4066,7 +4066,7 @@ export async function findFiles(
         filePath: entry.filePath,
         fileName: entry.fileName,
         language: entry.language,
-        supportTier: supportTierForFile(entry.language),
+        supportTier: supportTierForFile(entry.filePath, entry.language),
         indexed: entry.indexed,
         matchReason: entry.match.reason,
       }));

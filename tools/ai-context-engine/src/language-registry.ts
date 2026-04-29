@@ -9,7 +9,7 @@ import type {
   SupportTier,
   TierToolAvailability,
 } from "./types.ts";
-import { SUMMARY_STRATEGIES } from "./types.ts";
+import { SUMMARY_STRATEGIES, SUPPORT_TIERS } from "./types.ts";
 
 const DISCOVERY_TOOL_AVAILABILITY: TierToolAvailability = {
   discovery: [
@@ -38,6 +38,9 @@ const GRAPH_TOOL_AVAILABILITY: TierToolAvailability = {
 };
 
 const GRAPH_SUMMARY_STRATEGIES: SummaryStrategy[] = [...SUMMARY_STRATEGIES];
+const SUPPORT_TIER_RANK = new Map(
+  SUPPORT_TIERS.map((tier, index) => [tier, index] as const),
+);
 
 export const LANGUAGE_SUPPORT_REGISTRY: LanguageSupportDescriptor[] = [
   {
@@ -189,8 +192,15 @@ export function supportReasonForFile(
   return getFallbackSupportForFile(filePath) ? "fallback-extension" : "generic-discovery";
 }
 
-export function supportTierForFile(language: SupportedLanguage | null): SupportTier {
-  return language ? "graph" : "discovery";
+export function supportTierForFile(
+  filePath: string,
+  language: SupportedLanguage | null,
+): SupportTier {
+  return availableSupportTiersForFile(filePath, language).reduce((highest, candidate) =>
+    (SUPPORT_TIER_RANK.get(candidate) ?? -1) > (SUPPORT_TIER_RANK.get(highest) ?? -1)
+      ? candidate
+      : highest,
+  );
 }
 
 export function getLanguageRegistrySnapshot(): {

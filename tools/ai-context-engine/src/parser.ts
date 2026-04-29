@@ -6,7 +6,10 @@ import tsLanguages from "tree-sitter-typescript";
 import { parseSync as parseOxcSync } from "oxc-parser";
 
 import { hashString } from "./hash.ts";
-import { getLanguageSupport } from "./language-registry.ts";
+import {
+  getLanguageSupport,
+  supportedLanguageForFile as supportedLanguageForFileFromRegistry,
+} from "./language-registry.ts";
 import type {
   ImportSpecifier,
   SummarySource,
@@ -1463,4 +1466,8 @@ export function parseSourceFile(input: {
       fallbackReason: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+export function supportedLanguageForFile(filePath: string): SupportedLanguage | null {
+  return supportedLanguageForFileFromRegistry(filePath);
 }

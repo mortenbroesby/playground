@@ -4,6 +4,7 @@ import { getSupportedLanguages } from "./language-registry.ts";
 import type {
   ContextBundleOptions,
   FindFilesOptions,
+  FileSummaryOptions,
   ProjectStatusOptions,
   QueryCodeIntent,
   QueryCodeOptions,
@@ -12,11 +13,11 @@ import type {
   SummaryStrategy,
   SupportedLanguage,
   SymbolKind,
-  FileSummaryOptions,
 } from "./types.ts";
-import { SUMMARY_STRATEGIES, SUPPORTED_LANGUAGES } from "./types.ts";
+import { SUMMARY_STRATEGIES } from "./types.ts";
 
-const supportedLanguageSchema = z.enum(getSupportedLanguages() as [
+const supportedLanguages = getSupportedLanguages();
+const supportedLanguageSchema = z.enum(supportedLanguages as [
   SupportedLanguage,
   ...SupportedLanguage[],
 ]);
@@ -326,7 +327,7 @@ export function parseCliSupportedLanguage(
   const parsed = supportedLanguageSchema.safeParse(value);
   if (!parsed.success) {
     throw new Error(
-      `Unsupported --${key}: ${value}. Expected one of: ${SUPPORTED_LANGUAGES.join(", ")}`,
+      `Unsupported --${key}: ${value}. Expected one of: ${supportedLanguages.join(", ")}`,
     );
   }
 

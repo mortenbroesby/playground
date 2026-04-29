@@ -36,6 +36,9 @@
 - started the explicit language-registry slice so support tiers, summary
   strategies, and tool availability stop depending on scattered hard-coded
   assumptions
+- completed the core registry wiring so runtime support-tier decisions and CLI
+  language validation read from the explicit registry rather than duplicated
+  constants
 
 ## Verification
 
@@ -52,3 +55,5 @@
 - the language-registry slice is being pushed as a checkpoint before the full
   `STORY-5` closeout; the registry is centralized in code, but broader
   verification and any remaining docs polish still need completion
+- package-smoke verification for the registry closeout is still blocked in the
+  temp install step because `pnpm add <packed tgz>` needs registry access
