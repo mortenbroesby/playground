@@ -13,6 +13,10 @@ keywords:
   - graph-index
 touched_paths:
   - tools/obsidian-memory/src/rag-index.ts
+  - tools/obsidian-memory/src/obsidian-rag.mjs
+  - tools/obsidian-memory/src/rag-query.mjs
+  - tools/obsidian-memory/src/rag-mcp-server.mjs
+  - tools/obsidian-memory/tests/obsidian-rag.test.mjs
   - tools/obsidian-memory/tests/rag-index.test.mjs
   - tools/obsidian-memory/package.json
   - package.json
@@ -56,13 +60,24 @@ rebuild index generation first while keeping the current query path working.
 - added `rag:test` and a new fixture-driven index test covering typed output,
   graph edges, unresolved-link diagnostics, and backward-compatible corpus
   generation
+- moved retrieval off `obsidian-vault.corpus.json` and onto the typed
+  `note-registry.json`, `chunk-index.json`, and `graph-index.json` outputs
+- added a lightweight query planner with expected note types and default
+  negative status filters
+- updated ranking to combine lexical scoring with type boosts, status boosts,
+  selective recency boosts, exact lookup boosts, graph-aware expansion, and a
+  small duplicate-note penalty
+- rewired `rag:query` and the MCP memory server to load the typed `.rag/`
+  index root directly while preserving the existing command and tool surfaces
 
 ## Verification
 
 - `pnpm --filter @playground/obsidian-memory rag:test`
 - `pnpm --filter @playground/obsidian-memory rag:index --json`
+- `pnpm --filter @playground/obsidian-memory rag:query --query 'What should we build for typed RAG memory?' --limit 3 --budget 300`
 
 ## Next Step
 
-Move retrieval off the legacy corpus and onto the new registry/chunk/graph
-indexes, starting with query planning and type/status-aware ranking.
+Add the next spec surfaces on top of the typed index foundation:
+`rag:classify`, stronger validation/doctor flows, and a first real cleanup
+report lifecycle.

@@ -2,7 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -11,13 +11,14 @@ import { findProjectRoot } from "workspace-tools";
 import {
   findMemoryChunk,
   getMemoryContext,
-  indexMemoryCorpus,
+  loadMemoryCorpus,
+  planMemoryQuery,
   retrieveMemoryCandidates,
 } from "./obsidian-rag.mjs";
 
 const serverVersion = "1.0.0";
 const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
-const corpusPath = path.join(repoRoot, ".rag", "obsidian-vault.corpus.json");
+const indexRoot = path.join(repoRoot, ".rag");
 
 const toolDefinitions = [
   {
@@ -48,7 +49,7 @@ const toolDefinitions = [
         note_type: {
           type: "string",
           description:
-            "Optional note type filter, for example repo, repo-architecture, repo-decision, or repo-session.",
+            "Optional note type filter, for example session, spec, architecture-record, or todo.",
         },
       },
       required: ["query"],
@@ -107,7 +108,9 @@ let loadedCorpus = null;
 
 function ensureCorpus() {
   try {
-    statSync(corpusPath);
+    statSync(path.join(indexRoot, "manifest.json"));
+    statSync(path.join(indexRoot, "chunk-index.json"));
+    statSync(path.join(indexRoot, "note-registry.json"));
   } catch {
     const result = spawnSync("pnpm", ["rag:index"], {
       cwd: repoRoot,
@@ -117,17 +120,17 @@ function ensureCorpus() {
 
     if (result.status !== 0) {
       throw new Error(
-        `Unable to build obsidian-vault corpus with pnpm rag:index.\n${result.stderr || result.stdout}`,
+        `Unable to build typed memory indexes with pnpm rag:index.\n${result.stderr || result.stdout}`,
       );
     }
   }
 }
 
-function loadCorpus() {
+async function loadCorpus() {
   ensureCorpus();
 
-  const raw = readFileSync(corpusPath, "utf8");
-  const stat = statSync(corpusPath);
+  const manifestPath = path.join(indexRoot, "manifest.json");
+  const stat = statSync(manifestPath);
 
   if (loadedCorpus?.mtimeMs === stat.mtimeMs) {
     return loadedCorpus.value;
@@ -135,14 +138,14 @@ function loadCorpus() {
 
   loadedCorpus = {
     mtimeMs: stat.mtimeMs,
-    value: JSON.parse(raw),
+    value: await loadMemoryCorpus(indexRoot),
   };
 
   return loadedCorpus.value;
 }
 
-function searchMemory(args) {
-  const corpus = indexMemoryCorpus(loadCorpus());
+async function searchMemory(args) {
+  const corpus = await loadCorpus();
   const limit = Number.isFinite(args.limit)
     ? Math.max(1, Math.min(20, args.limit))
     : 5;
@@ -153,12 +156,14 @@ function searchMemory(args) {
     throw new Error("query is required");
   }
 
+  const queryPlan = planMemoryQuery(query);
   const hits = retrieveMemoryCandidates({
     corpus,
     query,
     limit,
     repoSlug: args.repo_slug,
     noteType: args.note_type,
+    queryPlan,
   }).filter((hit) => hasSubstantiveContent(hit));
 
   if (hits.length === 0) {
@@ -173,7 +178,7 @@ function searchMemory(args) {
     return [
       `#${index + 1} score=${chunk.score}`,
       `source_path: ${chunk.sourcePath}`,
-      `type: ${chunk.noteType ?? "unknown"} repo: ${chunk.repoSlug ?? "unknown"}`,
+      `type: ${chunk.noteType ?? "unknown"} status: ${chunk.status ?? "unknown"} repo: ${chunk.repoSlug ?? "unknown"}`,
       `heading: ${chunk.heading}`,
       chunk.summary ? `summary: ${chunk.summary}` : null,
       "",
@@ -194,8 +199,8 @@ function searchMemory(args) {
   ].join("\n");
 }
 
-function unfoldMemory(args) {
-  const corpus = indexMemoryCorpus(loadCorpus());
+async function unfoldMemory(args) {
+  const corpus = await loadCorpus();
   const chunk = findMemoryChunk({
     corpus,
     sourcePath: args.source_path?.trim(),
@@ -212,10 +217,10 @@ function unfoldMemory(args) {
   return formatFullChunk(chunk);
 }
 
-function contextMemory(args) {
+async function contextMemory(args) {
   const repoSlug = args.repo_slug ?? "playground";
   const fullDetail = args.detail === "full";
-  const corpus = indexMemoryCorpus(loadCorpus());
+  const corpus = await loadCorpus();
   const chunks = getMemoryContext({
     corpus,
     repoSlug,
@@ -267,7 +272,7 @@ function formatFullChunk(chunk, headingLine = null) {
   return [
     headingLine,
     `source_path: ${chunk.sourcePath}`,
-    `type: ${chunk.noteType ?? "unknown"} repo: ${chunk.repoSlug ?? "unknown"}`,
+    `type: ${chunk.noteType ?? "unknown"} status: ${chunk.status ?? "unknown"} repo: ${chunk.repoSlug ?? "unknown"}`,
     `heading: ${chunk.heading}`,
     chunk.summary ? `summary: ${chunk.summary}` : null,
     "",
@@ -349,25 +354,25 @@ function resultText(text) {
   };
 }
 
-function handleToolCall(params) {
+async function handleToolCall(params) {
   const args = params.arguments ?? {};
 
   if (params.name === "memory_search") {
-    return resultText(searchMemory(args));
+    return resultText(await searchMemory(args));
   }
 
   if (params.name === "memory_unfold") {
-    return resultText(unfoldMemory(args));
+    return resultText(await unfoldMemory(args));
   }
 
   if (params.name === "memory_context") {
-    return resultText(contextMemory(args));
+    return resultText(await contextMemory(args));
   }
 
   throw new Error(`Unknown tool: ${params.name}`);
 }
 
-function handleRequest(message) {
+async function handleRequest(message) {
   if (message.method === "initialize") {
     return {
       protocolVersion: message.params?.protocolVersion ?? "2024-11-05",
@@ -438,9 +443,7 @@ rl.on("line", (line) => {
     return;
   }
 
-  try {
-    sendResponse(message.id, handleRequest(message));
-  } catch (error) {
-    sendError(message.id, error);
-  }
+  Promise.resolve(handleRequest(message))
+    .then((result) => sendResponse(message.id, result))
+    .catch((error) => sendError(message.id, error));
 });
