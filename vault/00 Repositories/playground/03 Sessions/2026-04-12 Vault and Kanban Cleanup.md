@@ -3,7 +3,7 @@ id: "mem-20260412-vault-and-kanban-cleanup"
 type: "session"
 repo_slug: "playground"
 title: "Vault And Kanban Cleanup"
-status: "done"
+status: archived
 created: "2026-04-12"
 updated: "2026-04-12"
 owner: "agent"

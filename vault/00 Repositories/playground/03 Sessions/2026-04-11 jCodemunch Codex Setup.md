@@ -3,7 +3,7 @@ id: "mem-20260411-jcodemunch-codex-setup"
 type: "session"
 repo_slug: "playground"
 title: "jCodemunch Codex Setup"
-status: "done"
+status: archived
 created: "2026-04-11"
 updated: "2026-04-11"
 owner: "agent"

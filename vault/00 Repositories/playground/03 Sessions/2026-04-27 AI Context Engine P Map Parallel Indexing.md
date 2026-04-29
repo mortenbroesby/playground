@@ -3,7 +3,7 @@ id: "mem-20260427-ai-context-engine-p-map-parallel-indexing"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine P Map Parallel Indexing"
-status: "done"
+status: archived
 created: "2026-04-27"
 updated: "2026-04-27"
 owner: "agent"

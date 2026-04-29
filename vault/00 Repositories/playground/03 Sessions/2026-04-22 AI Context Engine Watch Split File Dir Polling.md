@@ -3,7 +3,7 @@ id: "mem-20260422-ai-context-engine-watch-split-file-dir-polling"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine Watch Split File Dir Polling"
-status: "done"
+status: archived
 created: "2026-04-22"
 updated: "2026-04-22"
 owner: "agent"

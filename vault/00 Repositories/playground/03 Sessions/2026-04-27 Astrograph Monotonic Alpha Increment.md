@@ -3,7 +3,7 @@ id: "mem-20260427-astrograph-monotonic-alpha-increment"
 type: "session"
 repo_slug: "playground"
 title: "Astrograph Monotonic Alpha Increment"
-status: "done"
+status: archived
 created: "2026-04-27"
 updated: "2026-04-27"
 owner: "agent"

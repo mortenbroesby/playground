@@ -3,7 +3,7 @@ id: "mem-20260422-rag-improvement-specs-and-graphify-design"
 type: "session"
 repo_slug: "playground"
 title: "RAG Improvement Specs And Graphify Design"
-status: "done"
+status: archived
 created: "2026-04-22"
 updated: "2026-04-22"
 owner: "agent"

@@ -42,5 +42,13 @@ staged note under `vault/00 Repositories/` before commit. The note can be a deci
 architecture note, or open question, but it must live in the repo-brain vault path so `pnpm
 rag:index` can include it in the `obsidian-memory` corpus.
 
-Intentional exceptions can use `SKIP_MEMORY_CHECK=1 git commit ...`, but the default workflow should
-make memory capture the path of least resistance.
+Intentional exceptions can use `SKIP_MEMORY_CHECK=1 git commit ...`, but the
+default workflow should make memory capture the path of least resistance.
+
+When the guard requires a note, the agent should choose the note type with the
+repo's memory note routing state machine:
+
+- task note for unresolved follow-up work
+- decision note for durable policy or workflow defaults
+- architecture note for structural or source-of-truth changes
+- session note for everything else worth preserving

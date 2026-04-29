@@ -3,7 +3,7 @@ id: "mem-20260427-2026-04-27-ai-context-engine-limits-config"
 type: "session"
 repo_slug: "playground"
 title: "2026-04-27 AI Context Engine Limits Config"
-status: "done"
+status: archived
 created: "2026-04-27"
 updated: "2026-04-27"
 owner: "agent"

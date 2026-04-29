@@ -3,7 +3,7 @@ id: "mem-20260425-ai-context-engine-hook-and-mcp-adoption"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine Hook And MCP Adoption"
-status: "done"
+status: archived
 created: "2026-04-25"
 updated: "2026-04-25"
 owner: "agent"

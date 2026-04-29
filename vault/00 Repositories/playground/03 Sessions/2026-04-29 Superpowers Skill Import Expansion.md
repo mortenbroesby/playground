@@ -3,7 +3,7 @@ id: "mem-20260429-superpowers-skill-import-expansion"
 type: "session"
 repo_slug: "playground"
 title: "Superpowers Skill Import Expansion"
-status: "active"
+status: archived
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "agent"

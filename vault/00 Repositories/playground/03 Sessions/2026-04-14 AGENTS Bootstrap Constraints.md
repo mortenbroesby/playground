@@ -3,7 +3,7 @@ id: "mem-20260414-agents-bootstrap-constraints"
 type: "session"
 repo_slug: "playground"
 title: "AGENTS Bootstrap Constraints"
-status: "done"
+status: archived
 created: "2026-04-14"
 updated: "2026-04-14"
 owner: "agent"

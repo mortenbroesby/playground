@@ -3,7 +3,7 @@ id: mem-20260425-mcp-startup-hardening-jcodemunch-fallback
 type: session
 repo_slug: playground
 title: MCP Startup Hardening And Jcodemunch Fallback
-status: done
+status: archived
 created: 2026-04-25
 updated: 2026-04-29
 owner: agent
@@ -25,7 +25,8 @@ links:
   related:
     - mem-20260411-jcodemunch-codex-setup
   supersedes: []
-  superseded_by: []
+  superseded_by:
+    - mem-20260425-use-official-mcp-sdk-and-keep-jcodemunch-fallback
 retention:
   review_after: 2026-05-09
   expires_after: 2026-10-22

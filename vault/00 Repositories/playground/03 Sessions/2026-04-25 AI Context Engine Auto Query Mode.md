@@ -3,7 +3,7 @@ id: "mem-20260425-ai-context-engine-auto-query-mode"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine Auto Query Mode"
-status: "done"
+status: archived
 created: "2026-04-25"
 updated: "2026-04-25"
 owner: "agent"

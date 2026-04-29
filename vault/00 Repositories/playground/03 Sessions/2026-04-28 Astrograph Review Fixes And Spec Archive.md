@@ -3,7 +3,7 @@ id: "mem-20260428-astrograph-review-fixes-and-spec-archive"
 type: "session"
 repo_slug: "playground"
 title: "Astrograph Review Fixes And Spec Archive"
-status: "done"
+status: archived
 created: "2026-04-28"
 updated: "2026-04-28"
 owner: "agent"

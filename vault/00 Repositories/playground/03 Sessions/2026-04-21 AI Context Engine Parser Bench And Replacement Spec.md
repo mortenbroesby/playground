@@ -3,7 +3,7 @@ id: mem-20260421-ai-context-engine-parser-bench-replacement-spec
 type: session
 repo_slug: playground
 title: AI Context Engine Parser Bench And Replacement Spec
-status: done
+status: archived
 created: 2026-04-21
 updated: 2026-04-21
 owner: agent

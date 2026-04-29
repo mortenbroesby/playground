@@ -3,7 +3,7 @@ id: "mem-20260414-vault-task-board-integration"
 type: "session"
 repo_slug: "playground"
 title: "Vault Task Board Integration"
-status: "done"
+status: archived
 created: "2026-04-14"
 updated: "2026-04-14"
 owner: "agent"

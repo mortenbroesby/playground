@@ -3,7 +3,7 @@ id: "mem-20260429-astrograph-readme-lint-fix-after-merge"
 type: "session"
 repo_slug: "playground"
 title: "Astrograph README Lint Fix After Merge"
-status: "active"
+status: archived
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "agent"

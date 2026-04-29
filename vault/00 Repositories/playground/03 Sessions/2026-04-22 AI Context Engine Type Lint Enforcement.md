@@ -3,7 +3,7 @@ id: "mem-20260422-ai-context-engine-type-lint-enforcement"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine Type Lint Enforcement"
-status: "done"
+status: archived
 created: "2026-04-22"
 updated: "2026-04-22"
 owner: "agent"

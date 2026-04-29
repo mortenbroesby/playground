@@ -3,7 +3,7 @@ id: "mem-20260414-task-board-task-file-migration"
 type: "session"
 repo_slug: "playground"
 title: "Task Board Task File Migration"
-status: "done"
+status: archived
 created: "2026-04-14"
 updated: "2026-04-14"
 owner: "agent"

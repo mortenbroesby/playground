@@ -3,7 +3,7 @@ id: "mem-20260417-stryker-smoke-adoption-for-ai-context-engine"
 type: "session"
 repo_slug: "playground"
 title: "Stryker smoke adoption for `ai-context-engine`"
-status: "done"
+status: archived
 created: "2026-04-17"
 updated: "2026-04-17"
 owner: "agent"

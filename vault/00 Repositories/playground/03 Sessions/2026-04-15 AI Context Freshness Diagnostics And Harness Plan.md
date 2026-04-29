@@ -3,7 +3,7 @@ id: "mem-20260415-ai-context-freshness-diagnostics-and-harness-plan"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Freshness Diagnostics And Harness Plan"
-status: "done"
+status: archived
 created: "2026-04-15"
 updated: "2026-04-15"
 owner: "agent"

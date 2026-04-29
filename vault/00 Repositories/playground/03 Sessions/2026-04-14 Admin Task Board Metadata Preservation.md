@@ -3,7 +3,7 @@ id: "mem-20260414-admin-task-board-metadata-preservation"
 type: "session"
 repo_slug: "playground"
 title: "Admin Task Board Metadata Preservation"
-status: "done"
+status: archived
 created: "2026-04-14"
 updated: "2026-04-14"
 owner: "agent"

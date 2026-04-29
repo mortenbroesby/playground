@@ -3,7 +3,7 @@ id: "mem-20260429-lint-prepush-hook-wiring"
 type: "session"
 repo_slug: "playground"
 title: "Lint Prepush Hook Wiring"
-status: "active"
+status: archived
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "agent"
@@ -15,7 +15,8 @@ links:
   children: []
   related: []
   supersedes: []
-  superseded_by: []
+  superseded_by:
+    - "mem-20260429-prefer-repo-owned-pre-push-checks-over-third-party-dispatcher"
 retention:
   review_after: "2026-05-13"
   expires_after: "2026-10-26"

@@ -3,7 +3,7 @@ id: "mem-20260417-final-stage-actionability-rule"
 type: "session"
 repo_slug: "playground"
 title: "Final Stage Actionability Rule"
-status: "done"
+status: archived
 created: "2026-04-17"
 updated: "2026-04-17"
 owner: "agent"

@@ -3,7 +3,7 @@ id: "mem-20260429-astrograph-merge-main-and-version-bump"
 type: "session"
 repo_slug: "playground"
 title: "Astrograph Merge Main And Version Bump"
-status: "active"
+status: archived
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "agent"

@@ -3,7 +3,7 @@ id: "mem-20260421-ai-context-engine-ranked-context-surface"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine Ranked Context Surface"
-status: "done"
+status: archived
 created: "2026-04-21"
 updated: "2026-04-21"
 owner: "agent"

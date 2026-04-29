@@ -3,7 +3,7 @@ id: "mem-20260414-opt-in-ralph-runner"
 type: "session"
 repo_slug: "playground"
 title: "Opt-In Ralph Runner"
-status: "done"
+status: archived
 created: "2026-04-14"
 updated: "2026-04-14"
 owner: "agent"

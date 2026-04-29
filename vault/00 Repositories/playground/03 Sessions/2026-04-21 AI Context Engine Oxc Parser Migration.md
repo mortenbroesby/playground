@@ -3,7 +3,7 @@ id: mem-20260421-ai-context-engine-oxc-parser-migration
 type: session
 repo_slug: playground
 title: AI Context Engine Oxc Parser Migration
-status: done
+status: archived
 created: 2026-04-21
 updated: 2026-04-21
 owner: agent
@@ -22,7 +22,8 @@ links:
   related:
     - mem-20260421-ai-context-engine-parser-bench-replacement-spec
   supersedes: []
-  superseded_by: []
+  superseded_by:
+    - mem-20260421-prefer-oxc-as-primary-parser
 retention:
   review_after: 2026-05-05
   expires_after: 2026-10-18

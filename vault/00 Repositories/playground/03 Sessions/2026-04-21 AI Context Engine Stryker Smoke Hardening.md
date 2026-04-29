@@ -3,7 +3,7 @@ id: "mem-20260421-ai-context-engine-stryker-smoke-hardening"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine Stryker Smoke Hardening"
-status: "done"
+status: archived
 created: "2026-04-21"
 updated: "2026-04-21"
 owner: "agent"

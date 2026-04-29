@@ -3,7 +3,7 @@ id: mem-20260417-memos-evaluation-ideas
 type: session
 repo_slug: playground
 title: MemOS Evaluation Ideas
-status: done
+status: archived
 created: 2026-04-17
 updated: 2026-04-17
 owner: agent
@@ -21,7 +21,8 @@ links:
   related:
     - mem-20260429-repo-memory-architecture
   supersedes: []
-  superseded_by: []
+  superseded_by:
+    - mem-20260417-keep-vault-as-canonical-repo-memory
 retention:
   review_after: 2026-05-01
   expires_after: 2026-10-14

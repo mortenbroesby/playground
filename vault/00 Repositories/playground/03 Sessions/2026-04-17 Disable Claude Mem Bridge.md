@@ -3,7 +3,7 @@ id: "mem-20260417-disable-claude-mem-bridge"
 type: "session"
 repo_slug: "playground"
 title: "Disable Claude Mem Bridge"
-status: "done"
+status: archived
 created: "2026-04-17"
 updated: "2026-04-17"
 owner: "agent"

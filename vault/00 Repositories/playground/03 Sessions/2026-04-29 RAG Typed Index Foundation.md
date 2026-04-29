@@ -3,7 +3,7 @@ id: "mem-20260429-rag-typed-index-foundation"
 type: "session"
 repo_slug: "playground"
 title: "RAG Typed Index Foundation"
-status: "active"
+status: archived
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "agent"

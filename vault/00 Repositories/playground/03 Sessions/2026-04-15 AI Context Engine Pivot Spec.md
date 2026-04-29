@@ -3,7 +3,7 @@ id: "mem-20260415-ai-context-engine-pivot-spec"
 type: "session"
 repo_slug: "playground"
 title: "AI Context Engine Pivot Spec"
-status: "done"
+status: archived
 created: "2026-04-15"
 updated: "2026-04-29"
 owner: "agent"

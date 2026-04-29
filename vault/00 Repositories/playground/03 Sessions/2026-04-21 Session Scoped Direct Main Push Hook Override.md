@@ -3,7 +3,7 @@ id: "mem-20260421-session-scoped-direct-main-push-hook-override"
 type: "session"
 repo_slug: "playground"
 title: "Session Scoped Direct Main Push Hook Override"
-status: "done"
+status: archived
 created: "2026-04-21"
 updated: "2026-04-21"
 owner: "agent"

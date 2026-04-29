@@ -3,7 +3,7 @@ id: mem-20260427-ai-context-engine-picomatch-path-matching
 type: session
 repo_slug: playground
 title: AI Context Engine Picomatch Path Matching And Hash Routing
-status: done
+status: archived
 created: 2026-04-27
 updated: 2026-04-27
 owner: agent

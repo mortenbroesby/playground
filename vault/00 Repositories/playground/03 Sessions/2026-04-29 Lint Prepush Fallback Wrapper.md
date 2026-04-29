@@ -3,7 +3,7 @@ id: "mem-20260429-lint-prepush-fallback-wrapper"
 type: "session"
 repo_slug: "playground"
 title: "Lint Prepush Fallback Wrapper"
-status: "active"
+status: archived
 created: "2026-04-29"
 updated: "2026-04-29"
 owner: "agent"

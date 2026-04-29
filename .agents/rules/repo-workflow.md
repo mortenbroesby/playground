@@ -43,6 +43,9 @@ alwaysApply: true
 - Treat the vault plus `obsidian-memory` as the only durable repo memory.
 - Before answering architecture, historical, or decision questions, query
   `obsidian-memory` when available.
+- When `pnpm knowledge:check` or a related warning requires a memory note, use
+  the state machine in `.agents/rules/memory-note-routing.md` to choose
+  between a task, decision, architecture, or session note.
 - After editing vault notes, run `pnpm rag:index` when fresh memory is needed
   before commit.
 
