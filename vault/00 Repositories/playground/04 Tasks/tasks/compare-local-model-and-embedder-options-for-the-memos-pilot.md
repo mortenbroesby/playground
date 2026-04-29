@@ -1,14 +1,29 @@
 ---
-type: repo-task
-repo: playground
-id: compare-local-model-and-embedder-options-for-the-memos-pilot
-priority: P2
-status: Ready
+id: "compare-local-model-and-embedder-options-for-the-memos-pilot"
+type: "todo"
+repo_slug: "playground"
+title: "Compare local model and embedder options for the MemOS pilot"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "The MemOS pilot only makes sense if the local model and embedding path is practical enough to run without paid providers or excessive setup friction."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
 ai_appetite: 80
+priority: "P2"
 source: "[run-a-fully-local-memos-pilot-with-one-client.md](</Users/macbook/personal/playground/vault/00 Repositories/playground/04 Tasks/tasks/run-a-fully-local-memos-pilot-with-one-client.md>)."
 ---
-
-# Compare local model and embedder options for the MemOS pilot
 
 ## Why
 

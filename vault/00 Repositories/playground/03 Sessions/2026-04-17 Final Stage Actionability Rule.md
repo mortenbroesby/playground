@@ -1,23 +1,36 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-17
-started_at: 2026-04-17 19:40
-summary: Added an always-on final-stage workflow rule that tells agents to end on a concrete action or a textual y-or-Enter default instead of optional prose.
-keywords:
-  - workflow
-  - agent rules
-  - codex
-  - approval
-  - actionability
-touched_paths:
-  - .agents/rules/repo-workflow.md
+id: "mem-20260417-final-stage-actionability-rule"
+type: "session"
+repo_slug: "playground"
+title: "Final Stage Actionability Rule"
+status: "done"
+created: "2026-04-17"
+updated: "2026-04-17"
+owner: "agent"
+summary: "Added an always-on final-stage workflow rule that tells agents to end on a concrete action or a textual y-or-Enter default instead of optional prose."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "workflow"
+  - "agent rules"
+  - "codex"
+  - "approval"
+  - "actionability"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-01"
+  expires_after: "2026-10-14"
+  keep: false
+started_at: "2026-04-17 19:40"
+touched_paths:
+  - ".agents/rules/repo-workflow.md"
 ---
-
-# Final Stage Actionability Rule
 
 ## Outcome
 

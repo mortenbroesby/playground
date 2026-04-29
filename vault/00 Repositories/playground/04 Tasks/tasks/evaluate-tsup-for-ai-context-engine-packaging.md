@@ -1,14 +1,29 @@
 ---
-type: repo-task
-repo: playground
-id: evaluate-tsup-for-ai-context-engine-packaging
-priority: P2
-status: Backlog
+id: "evaluate-tsup-for-ai-context-engine-packaging"
+type: "todo"
+repo_slug: "playground"
+title: "Evaluate tsup for ai-context-engine packaging"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "The AI context engine and benchmark harness currently run directly from TypeScript via Node strip-types mode. That is simple and works well for private workspace use, but it does not produce a distributable `dist/` contract if we later want to publish, bundle, or harden runtime startup behavior."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
 ai_appetite: 20
+priority: "P2"
 source: "follow-up from ai-context-engine phase 2 closeout"
 ---
-
-# Evaluate tsup for ai-context-engine packaging
 
 ## Why
 

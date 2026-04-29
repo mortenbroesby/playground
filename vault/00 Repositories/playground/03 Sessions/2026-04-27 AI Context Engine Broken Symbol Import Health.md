@@ -1,11 +1,29 @@
 ---
-date: 2026-04-27
-project: playground
-branch: astrograph-ai-engine-refactor
-area: tools/ai-context-engine
+id: "mem-20260427-ai-context-engine-broken-symbol-import-health"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Broken Symbol Import Health"
+status: "done"
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "Close a remaining Phase 5 dependency-graph gap by reporting relative imports whose target files still exist but no longer export the named symbols that the importer expects."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+area: "tools/ai-context-engine"
+branch: "astrograph-ai-engine-refactor"
+project: "playground"
 ---
-
-# AI Context Engine Broken Symbol Import Health
 
 ## Goal
 

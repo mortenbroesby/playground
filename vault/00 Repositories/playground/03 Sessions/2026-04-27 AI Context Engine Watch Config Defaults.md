@@ -1,35 +1,48 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-27
-started_at: 2026-04-27 16:50
-branch: astrograph-ai-engine-refactor
-summary: Extended the Phase 7 watch slice in `tools/ai-context-engine` with repo-configurable watch backend selection and debounce defaults.
-keywords:
-  - ai-context-engine
-  - astrograph
-  - watch mode
-  - parcel-watcher
-  - config
-  - debounce
-  - diagnostics
-  - performance
-touched_paths:
-  - tools/ai-context-engine/package.json
-  - tools/ai-context-engine/README.md
-  - tools/ai-context-engine/src/config.ts
-  - tools/ai-context-engine/src/index.ts
-  - tools/ai-context-engine/src/storage.ts
-  - tools/ai-context-engine/src/types.ts
-  - tools/ai-context-engine/src/watch-backend.ts
-  - tools/ai-context-engine/tests/engine-behavior.test.ts
-  - tools/ai-context-engine/tests/engine-contract.test.ts
+id: "mem-20260427-ai-context-engine-watch-config-defaults"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Watch Config Defaults"
+status: "done"
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "Extended the Phase 7 watch slice in `tools/ai-context-engine` with repo-configurable watch backend selection and debounce defaults."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "astrograph"
+  - "watch mode"
+  - "parcel-watcher"
+  - "config"
+  - "debounce"
+  - "diagnostics"
+  - "performance"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+branch: "astrograph-ai-engine-refactor"
+started_at: "2026-04-27 16:50"
+touched_paths:
+  - "tools/ai-context-engine/package.json"
+  - "tools/ai-context-engine/README.md"
+  - "tools/ai-context-engine/src/config.ts"
+  - "tools/ai-context-engine/src/index.ts"
+  - "tools/ai-context-engine/src/storage.ts"
+  - "tools/ai-context-engine/src/types.ts"
+  - "tools/ai-context-engine/src/watch-backend.ts"
+  - "tools/ai-context-engine/tests/engine-behavior.test.ts"
+  - "tools/ai-context-engine/tests/engine-contract.test.ts"
 ---
-
-# AI Context Engine Watch Config Defaults
 
 ## Summary
 

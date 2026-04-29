@@ -1,25 +1,38 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: The host owns top-level routing and splits the product into a public personal-site shell and a denser playground shell.
-keywords:
-  - host routing
-  - public shell
-  - playground shell
-  - route ownership
-  - redirects
-related_paths:
-  - apps/host/src/application/routes
-  - apps/host/src/application/layouts/public-layout.tsx
-  - apps/host/src/application/layouts/playground-layout.tsx
-  - apps/host/src/application/App.tsx
+id: "mem-20260429-host-routing-and-shells"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Host Routing and Shells"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "The host owns top-level routing and splits the product into a public personal-site shell and a denser playground shell."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "host routing"
+  - "public shell"
+  - "playground shell"
+  - "route ownership"
+  - "redirects"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+related_paths:
+  - "apps/host/src/application/routes"
+  - "apps/host/src/application/layouts/public-layout.tsx"
+  - "apps/host/src/application/layouts/playground-layout.tsx"
+  - "apps/host/src/application/App.tsx"
 ---
-
-# Host Routing and Shells
 
 ## Ownership
 

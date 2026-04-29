@@ -1,4 +1,26 @@
-# AI Context Engine Backend Boundary And Dogfood
+---
+id: "mem-20260422-ai-context-engine-backend-boundary-and-dogfood"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Backend Boundary And Dogfood"
+status: "done"
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Introduced an internal index-backend boundary for `tools/ai-context-engine` while keeping SQLite as the current implementation, and updated shared agent workflow docs so the engine is the repo-owned default for code retrieval."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+---
 
 ## Summary
 

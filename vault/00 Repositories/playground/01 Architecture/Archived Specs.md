@@ -1,19 +1,32 @@
 ---
-type: repo-architecture
-repo: playground
-status: archived
-summary: Consolidated archive of approved design specs that were previously stored in `.specs/`.
-keywords:
-  - specs
-  - architecture
-  - archive
-  - design
+id: "mem-20260429-archived-specs"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Archived Specs"
+status: "archived"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Consolidated archive of approved design specs that were previously stored in `.specs/`."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "specs"
+  - "architecture"
+  - "archive"
+  - "design"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Archived Specs
 
 This note replaces the hidden `.specs/` folder as the durable home for approved
 design specs. Keep the short version here and link to the implementation notes

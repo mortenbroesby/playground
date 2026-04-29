@@ -1,36 +1,49 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-27
-started_at: 2026-04-27 17:00
-branch: astrograph-ai-engine-refactor
-summary: Landed the first Phase 6 `.specs/performance-deps.md` slice in `tools/ai-context-engine`: optional Piscina-backed file analysis during folder indexing with main-thread persistence unchanged.
-keywords:
-  - ai-context-engine
-  - astrograph
-  - piscina
-  - worker pool
-  - indexing
-  - performance
-  - parsing
-  - tests
-touched_paths:
-  - tools/ai-context-engine/package.json
-  - tools/ai-context-engine/README.md
-  - tools/ai-context-engine/src/config.ts
-  - tools/ai-context-engine/src/file-analysis.ts
-  - tools/ai-context-engine/src/storage.ts
-  - tools/ai-context-engine/src/types.ts
-  - tools/ai-context-engine/src/workers/analyze-file-worker.ts
-  - tools/ai-context-engine/tests/engine-behavior.test.ts
-  - tools/ai-context-engine/tests/engine-contract.test.ts
-  - pnpm-lock.yaml
+id: "mem-20260427-ai-context-engine-piscina-worker-pool"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Piscina Worker Pool"
+status: "done"
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "Landed the first Phase 6 `.specs/performance-deps.md` slice in `tools/ai-context-engine`: optional Piscina-backed file analysis during folder indexing with main-thread persistence unchanged."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "astrograph"
+  - "piscina"
+  - "worker pool"
+  - "indexing"
+  - "performance"
+  - "parsing"
+  - "tests"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+branch: "astrograph-ai-engine-refactor"
+started_at: "2026-04-27 17:00"
+touched_paths:
+  - "tools/ai-context-engine/package.json"
+  - "tools/ai-context-engine/README.md"
+  - "tools/ai-context-engine/src/config.ts"
+  - "tools/ai-context-engine/src/file-analysis.ts"
+  - "tools/ai-context-engine/src/storage.ts"
+  - "tools/ai-context-engine/src/types.ts"
+  - "tools/ai-context-engine/src/workers/analyze-file-worker.ts"
+  - "tools/ai-context-engine/tests/engine-behavior.test.ts"
+  - "tools/ai-context-engine/tests/engine-contract.test.ts"
+  - "pnpm-lock.yaml"
 ---
-
-# AI Context Engine Piscina Worker Pool
 
 ## Summary
 

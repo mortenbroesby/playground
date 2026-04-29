@@ -1,4 +1,26 @@
-# AI Context Engine Type Lint Enforcement
+---
+id: "mem-20260422-ai-context-engine-type-lint-enforcement"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Type Lint Enforcement"
+status: "done"
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Made `ai-context-engine` type cleanliness a required gate before push and a required predecessor for Turbo builds."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+---
 
 ## Summary
 

@@ -1,30 +1,43 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 21:47
-branch: feat/ai-context-engine-phase2-watch
-summary: Added a workspace bin wrapper for `@playground/ai-context-engine`, documented the shorter invocation path, and aligned local Codex hook configuration in the repo.
-keywords:
-  - ai-context-engine
-  - cli
-  - workspace-bin
-  - codex-hooks
-  - pnpm
-touched_paths:
-  - package.json
-  - .codex/config.toml
-  - .codex/hooks.json
-  - packages/ai-context-engine/package.json
-  - packages/ai-context-engine/scripts/ai-context-engine.mjs
-  - packages/ai-context-engine/tests/interface.test.ts
-  - packages/ai-context-engine/README.md
+id: "mem-20260421-ai-context-engine-workspace-bin-wrapper"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Workspace Bin Wrapper"
+status: "done"
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Added a workspace bin wrapper for `@playground/ai-context-engine`, documented the shorter invocation path, and aligned local Codex hook configuration in the repo."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "cli"
+  - "workspace-bin"
+  - "codex-hooks"
+  - "pnpm"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "feat/ai-context-engine-phase2-watch"
+started_at: "2026-04-21 21:47"
+touched_paths:
+  - "package.json"
+  - ".codex/config.toml"
+  - ".codex/hooks.json"
+  - "packages/ai-context-engine/package.json"
+  - "packages/ai-context-engine/scripts/ai-context-engine.mjs"
+  - "packages/ai-context-engine/tests/interface.test.ts"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Workspace Bin Wrapper
 
 ## Summary
 

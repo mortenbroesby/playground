@@ -19,7 +19,7 @@ links:
   parents: []
   children: []
   related:
-    - mem-e8176da1801c596b
+    - mem-20260429-repo-memory-architecture
   supersedes: []
   superseded_by: []
 retention:

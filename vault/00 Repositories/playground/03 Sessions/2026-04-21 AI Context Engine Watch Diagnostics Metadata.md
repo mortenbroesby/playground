@@ -1,29 +1,42 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 22:07
-branch: main
-summary: Extended `@playground/ai-context-engine` diagnostics with persisted watch-session metadata so recent watch health is inspectable outside the live CLI stream.
-keywords:
-  - ai-context-engine
-  - diagnostics
-  - watch-mode
-  - mvp
-  - repo-meta
-touched_paths:
-  - packages/ai-context-engine/src/types.ts
-  - packages/ai-context-engine/src/storage.ts
-  - packages/ai-context-engine/src/index.ts
-  - packages/ai-context-engine/tests/engine-behavior.test.ts
-  - packages/ai-context-engine/tests/interface.test.ts
-  - packages/ai-context-engine/README.md
+id: "mem-20260421-ai-context-engine-watch-diagnostics-metadata"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Watch Diagnostics Metadata"
+status: "done"
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Extended `@playground/ai-context-engine` diagnostics with persisted watch-session metadata so recent watch health is inspectable outside the live CLI stream."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "diagnostics"
+  - "watch-mode"
+  - "mvp"
+  - "repo-meta"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "main"
+started_at: "2026-04-21 22:07"
+touched_paths:
+  - "packages/ai-context-engine/src/types.ts"
+  - "packages/ai-context-engine/src/storage.ts"
+  - "packages/ai-context-engine/src/index.ts"
+  - "packages/ai-context-engine/tests/engine-behavior.test.ts"
+  - "packages/ai-context-engine/tests/interface.test.ts"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Watch Diagnostics Metadata
 
 ## Summary
 

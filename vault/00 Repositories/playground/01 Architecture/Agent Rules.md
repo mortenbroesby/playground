@@ -1,22 +1,35 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: Shared cross-agent rules now keep AGENTS.md thin while Codex execpolicy controls host command escalation.
-keywords:
-  - agents
-  - rules
-  - skills
-  - commands
-  - codex
-  - claude code
-  - policy
+id: "mem-20260429-agent-rules"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Agent Rules"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Shared cross-agent rules now keep AGENTS.md thin while Codex execpolicy controls host command escalation."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "agents"
+  - "rules"
+  - "skills"
+  - "commands"
+  - "codex"
+  - "claude code"
+  - "policy"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Agent Rules
 
 ## Intent
 

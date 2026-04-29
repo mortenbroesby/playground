@@ -1,19 +1,32 @@
 ---
-type: repo-architecture
-repo: playground
-status: archived
-summary: Archived planning docs that used to live under docs/superpowers.
-keywords:
-  - superpowers
-  - plans
-  - specs
-  - archive
+id: "mem-20260429-superpowers-archive"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Superpowers Archive"
+status: "archived"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Archived planning docs that used to live under docs/superpowers."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "superpowers"
+  - "plans"
+  - "specs"
+  - "archive"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Superpowers Archive
 
 `docs/superpowers/` was a planning-only workspace. The useful parts now live
 here as a compact archive.

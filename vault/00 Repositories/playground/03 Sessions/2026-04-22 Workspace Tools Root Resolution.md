@@ -1,4 +1,26 @@
-# Workspace Tools Root Resolution
+---
+id: "mem-20260422-workspace-tools-root-resolution"
+type: "session"
+repo_slug: "playground"
+title: "Workspace Tools Root Resolution"
+status: "done"
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Installed `workspace-tools` and replaced brittle repo-root path climbing in root scripts and Obsidian memory tooling with workspace-aware root discovery."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+---
 
 ## Summary
 

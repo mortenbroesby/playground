@@ -1,20 +1,33 @@
 ---
-type: repo-architecture
-repo: playground
-status: proposed
-summary: Proposed root `.skills` architecture for repo-owned skills, with command-first discovery and thin startup routing.
-keywords:
-  - skills
-  - on-demand
-  - architecture
-  - agents
-  - startup
+id: "mem-20260429-root-skills-architecture"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Root Skills Architecture"
+status: "proposed"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Proposed root `.skills` architecture for repo-owned skills, with command-first discovery and thin startup routing."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "skills"
+  - "on-demand"
+  - "architecture"
+  - "agents"
+  - "startup"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Root Skills Architecture
 
 ## Intent
 

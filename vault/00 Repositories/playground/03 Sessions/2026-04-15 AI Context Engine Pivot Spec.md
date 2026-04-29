@@ -1,4 +1,26 @@
-# AI Context Engine Pivot Spec
+---
+id: "mem-20260415-ai-context-engine-pivot-spec"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Pivot Spec"
+status: "done"
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Pivot the abandoned `@playground/code-intel` slice into the canonical `@playground/ai-context-engine` package and follow [`/.specs/ai-code-context-engine-spec.md`](../../../.specs/ai-code-context-engine-spec.md) as the source spec."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

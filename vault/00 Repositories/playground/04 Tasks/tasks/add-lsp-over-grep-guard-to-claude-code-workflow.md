@@ -1,14 +1,29 @@
 ---
-type: repo-task
-repo: playground
-id: add-lsp-over-grep-guard-to-claude-code-workflow
-priority: P1
-status: Backlog
+id: "add-lsp-over-grep-guard-to-claude-code-workflow"
+type: "todo"
+repo_slug: "playground"
+title: "Add LSP-over-Grep guard to Claude Code workflow"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Grep-based code search causes Claude to read 3–5 files at random from 20+ matches, burning 1,500–2,500 tokens per file (~6,500 total). LSP via jcodemunch returns exact answers in ~600 tokens. Tested for a week with 100% success."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
 ai_appetite: 30
+priority: "P1"
 source: "week-long manual testing, confirmed 100% success rate"
 ---
-
-# Add LSP-over-Grep guard to Claude Code workflow
 
 ## Why
 

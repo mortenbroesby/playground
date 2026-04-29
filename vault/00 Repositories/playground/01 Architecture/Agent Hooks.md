@@ -1,20 +1,33 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: Shared hook policy for Codex and Claude Code, with shared session-start ai-context-engine freshness bootstrap and focused runtime adapters.
-keywords:
-  - hooks
-  - codex
-  - claude code
-  - security
-  - notifications
+id: "mem-20260429-agent-hooks"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Agent Hooks"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Shared hook policy for Codex and Claude Code, with shared session-start ai-context-engine freshness bootstrap and focused runtime adapters."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "hooks"
+  - "codex"
+  - "claude code"
+  - "security"
+  - "notifications"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Agent Hooks
 
 ## Intent
 

@@ -1,16 +1,30 @@
 ---
-type: session-note
-repo: playground
-date: 2026-04-25
-summary: Added auto intent resolution to ai-context-engine query_code so CLI and MCP callers can omit explicit intent in common cases.
+id: "mem-20260425-ai-context-engine-auto-query-mode"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Auto Query Mode"
+status: "done"
+created: "2026-04-25"
+updated: "2026-04-25"
+owner: "agent"
+summary: "Added auto intent resolution to ai-context-engine query_code so CLI and MCP callers can omit explicit intent in common cases."
 tags:
-  - type/session
-  - repo/playground
-  - ai-context-engine
-  - retrieval
+  - "type/session"
+  - "repo/playground"
+  - "ai-context-engine"
+  - "retrieval"
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-09"
+  expires_after: "2026-10-22"
+  keep: false
 ---
-
-# AI Context Engine Auto Query Mode
 
 ## What changed
 

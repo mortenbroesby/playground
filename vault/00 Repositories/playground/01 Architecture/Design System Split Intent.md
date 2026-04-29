@@ -1,25 +1,38 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: The repo is intentionally moving toward separate personal and playground design systems while keeping a shared primitive base for now.
-keywords:
-  - design system
-  - personal surface
-  - playground surface
-  - shared primitives
-  - theme layers
-related_paths:
-  - packages/ui/src
-  - apps/host/src/ui
-  - apps/host/src/application/layouts/public-layout.tsx
-  - apps/host/src/application/layouts/playground-layout.tsx
+id: "mem-20260429-design-system-split-intent"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Design System Split Intent"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "The repo is intentionally moving toward separate personal and playground design systems while keeping a shared primitive base for now."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "design system"
+  - "personal surface"
+  - "playground surface"
+  - "shared primitives"
+  - "theme layers"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+related_paths:
+  - "packages/ui/src"
+  - "apps/host/src/ui"
+  - "apps/host/src/application/layouts/public-layout.tsx"
+  - "apps/host/src/application/layouts/playground-layout.tsx"
 ---
-
-# Design System Split Intent
 
 ## Intent
 

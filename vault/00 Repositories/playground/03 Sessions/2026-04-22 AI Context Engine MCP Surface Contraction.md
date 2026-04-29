@@ -1,4 +1,26 @@
-# AI Context Engine MCP Surface Contraction
+---
+id: "mem-20260422-ai-context-engine-mcp-surface-contraction"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine MCP Surface Contraction"
+status: "done"
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Narrowed `@playground/ai-context-engine`'s MCP contract so agents use `query_code` as the single retrieval entrypoint instead of a parallel set of granular retrieval tools."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+---
 
 ## Summary
 

@@ -1,14 +1,29 @@
 ---
-type: repo-task
-repo: playground
-id: harden-stryker-smoke-survivors-for-ai-context-engine
-priority: P1
-status: Ready
+id: "harden-stryker-smoke-survivors-for-ai-context-engine"
+type: "todo"
+repo_slug: "playground"
+title: "Harden Stryker smoke survivors for `ai-context-engine`"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "The first carved-down Stryker smoke run completed fast enough to keep, but it still left meaningful survivors in the exact boundary logic the smoke profile targets."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
 ai_appetite: 70
+priority: "P1"
 source: "Follow-up from the first `@playground/ai-context-engine` Stryker smoke run on 2026-04-17."
 ---
-
-# Harden Stryker smoke survivors for `ai-context-engine`
 
 ## Why
 

@@ -1,4 +1,26 @@
-# AI Context Freshness Diagnostics And Harness Plan
+---
+id: "mem-20260415-ai-context-freshness-diagnostics-and-harness-plan"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Freshness Diagnostics And Harness Plan"
+status: "done"
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Improve `@playground/ai-context-engine` diagnostics so freshness is derived from real filesystem drift, and split the benchmark work into a policy spec plus a concrete harness implementation spec."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

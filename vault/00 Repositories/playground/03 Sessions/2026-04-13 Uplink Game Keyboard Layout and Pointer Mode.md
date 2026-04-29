@@ -3,11 +3,11 @@ id: "mem-20260413-uplink-game-keyboard-layout-pointer-mode-apr-13"
 type: "session"
 repo_slug: "playground"
 title: "Uplink Game — Keyboard Layout & Pointer Mode (Apr 13)"
-status: "active"
+status: "done"
 created: "2026-04-13"
 updated: "2026-04-13"
 owner: "agent"
-summary: ""
+summary: "Updated the Uplink keyboard overlay to a staggered QWERTY layout, added pointer-mode keyboard support, and introduced a silent pointer progress multiplier plus correct-key hit flash feedback."
 tags: []
 keywords: []
 links:

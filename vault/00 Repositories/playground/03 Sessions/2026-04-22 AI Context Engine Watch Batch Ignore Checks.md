@@ -1,24 +1,37 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-22
-started_at: 2026-04-22 00:03
-branch: main
-summary: Batched `git check-ignore` resolution for `ai-context-engine` file discovery and watch scans so supported-file scans no longer spawn one Git process per candidate path.
-keywords:
-  - ai-context-engine
-  - watch
-  - gitignore
-  - performance
-  - git
-touched_paths:
-  - packages/ai-context-engine/src/storage.ts
+id: "mem-20260422-ai-context-engine-watch-batch-ignore-checks"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Watch Batch Ignore Checks"
+status: "done"
+created: "2026-04-22"
+updated: "2026-04-22"
+owner: "agent"
+summary: "Batched `git check-ignore` resolution for `ai-context-engine` file discovery and watch scans so supported-file scans no longer spawn one Git process per candidate path."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "watch"
+  - "gitignore"
+  - "performance"
+  - "git"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-06"
+  expires_after: "2026-10-19"
+  keep: false
+branch: "main"
+started_at: "2026-04-22 00:03"
+touched_paths:
+  - "packages/ai-context-engine/src/storage.ts"
 ---
-
-# AI Context Engine Watch Batch Ignore Checks
 
 ## Summary
 

@@ -1,4 +1,26 @@
-# Root Skills On Demand Migration
+---
+id: "mem-20260429-root-skills-on-demand-migration"
+type: "session"
+repo_slug: "playground"
+title: "Root Skills On Demand Migration"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "The repo moved repo-owned skills out of `.agents/skills` into root `.skills/` and removed runtime-specific `*/skills` adapters entirely."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
+---
 
 ## Summary
 

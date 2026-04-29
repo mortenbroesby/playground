@@ -1,12 +1,29 @@
 ---
-date: 2026-04-29
+id: "mem-20260429-remove-third-party-lint-prepush"
+type: "session"
+repo_slug: "playground"
+title: "Remove Third-Party Lint Prepush"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "Reverted the `lint-prepush` npm package integration from the pre-push hook."
 tags:
-  - repo-memory
-  - tooling
-  - hooks
+  - "repo-memory"
+  - "tooling"
+  - "hooks"
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
 ---
-
-# Remove Third-Party Lint Prepush
 
 Reverted the `lint-prepush` npm package integration from the pre-push hook.
 

@@ -1,10 +1,26 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-17
+id: "mem-20260417-stryker-smoke-adoption-for-ai-context-engine"
+type: "session"
+repo_slug: "playground"
+title: "Stryker smoke adoption for `ai-context-engine`"
+status: "done"
+created: "2026-04-17"
+updated: "2026-04-17"
+owner: "agent"
+summary: "A first StrykerJS setup now exists for `packages/ai-context-engine` with two profiles and an explicit opt-in gate:"
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-01"
+  expires_after: "2026-10-14"
+  keep: false
 ---
-
-# Stryker smoke adoption for `ai-context-engine`
 
 ## Outcome
 

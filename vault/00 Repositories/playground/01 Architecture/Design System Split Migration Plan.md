@@ -1,25 +1,38 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: Incremental plan to separate the personal and playground design systems while keeping shared primitives in place.
-keywords:
-  - design system migration
-  - personal system
-  - playground system
-  - shared primitives
-  - surface recipes
-related_paths:
-  - packages/ui/src
-  - apps/host/src/ui
-  - apps/host/src/application/layouts/public-layout.tsx
-  - apps/host/src/application/layouts/playground-layout.tsx
+id: "mem-20260429-design-system-split-migration-plan"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Design System Split Migration Plan"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Incremental plan to separate the personal and playground design systems while keeping shared primitives in place."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "design system migration"
+  - "personal system"
+  - "playground system"
+  - "shared primitives"
+  - "surface recipes"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+related_paths:
+  - "packages/ui/src"
+  - "apps/host/src/ui"
+  - "apps/host/src/application/layouts/public-layout.tsx"
+  - "apps/host/src/application/layouts/playground-layout.tsx"
 ---
-
-# Design System Split Migration Plan
 
 ## Goal
 

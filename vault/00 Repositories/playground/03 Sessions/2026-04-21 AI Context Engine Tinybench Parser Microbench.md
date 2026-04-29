@@ -1,26 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 23:41
-branch: main
-summary: Switched the `ai-context-engine` parser microbenchmark to Tinybench while preserving the existing product-specific benchmark outputs for token savings and retrieval behavior.
-keywords:
-  - ai-context-engine
-  - benchmark
-  - tinybench
-  - parser
-  - performance
-touched_paths:
-  - packages/ai-context-engine/package.json
-  - packages/ai-context-engine/scripts/benchmark-small.mjs
-  - pnpm-lock.yaml
+id: "mem-20260421-ai-context-engine-tinybench-parser-microbench"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Tinybench Parser Microbench"
+status: "done"
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Switched the `ai-context-engine` parser microbenchmark to Tinybench while preserving the existing product-specific benchmark outputs for token savings and retrieval behavior."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "benchmark"
+  - "tinybench"
+  - "parser"
+  - "performance"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "main"
+started_at: "2026-04-21 23:41"
+touched_paths:
+  - "packages/ai-context-engine/package.json"
+  - "packages/ai-context-engine/scripts/benchmark-small.mjs"
+  - "pnpm-lock.yaml"
 ---
-
-# AI Context Engine Tinybench Parser Microbench
 
 ## Summary
 

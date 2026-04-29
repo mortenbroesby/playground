@@ -1,20 +1,33 @@
 ---
-type: repo-architecture
-repo: playground
-status: active
-summary: Import/adapt/reject matrix for bringing addyosmani agent-skills concepts into the repo-native .agents architecture.
-keywords:
-  - agent skills
-  - workflow
-  - skills
-  - references
-  - adapters
+id: "mem-20260429-agent-skills-import-matrix"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Agent Skills Import Matrix"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Import/adapt/reject matrix for bringing addyosmani agent-skills concepts into the repo-native .agents architecture."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "agent skills"
+  - "workflow"
+  - "skills"
+  - "references"
+  - "adapters"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Agent Skills Import Matrix
 
 ## Intent
 

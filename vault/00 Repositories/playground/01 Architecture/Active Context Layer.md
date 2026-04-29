@@ -1,4 +1,26 @@
-# Active Context Layer
+---
+id: "mem-20260429-active-context-layer"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Active Context Layer"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Date: 2026-04-14"
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+---
 
 Date: 2026-04-14
 

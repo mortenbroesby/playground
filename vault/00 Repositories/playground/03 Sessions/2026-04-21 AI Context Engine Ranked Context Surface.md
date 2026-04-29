@@ -1,31 +1,44 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 22:13
-branch: main
-summary: Added a first-class `get_ranked_context` retrieval surface to `@playground/ai-context-engine` so agents can inspect ranked candidates and the bounded bundle selected under budget.
-keywords:
-  - ai-context-engine
-  - ranked-context
-  - retrieval
-  - mvp
-  - mcp
-touched_paths:
-  - packages/ai-context-engine/src/types.ts
-  - packages/ai-context-engine/src/storage.ts
-  - packages/ai-context-engine/src/index.ts
-  - packages/ai-context-engine/src/cli.ts
-  - packages/ai-context-engine/src/mcp.ts
-  - packages/ai-context-engine/tests/engine-behavior.test.ts
-  - packages/ai-context-engine/tests/interface.test.ts
-  - packages/ai-context-engine/README.md
+id: "mem-20260421-ai-context-engine-ranked-context-surface"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Ranked Context Surface"
+status: "done"
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Added a first-class `get_ranked_context` retrieval surface to `@playground/ai-context-engine` so agents can inspect ranked candidates and the bounded bundle selected under budget."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "ranked-context"
+  - "retrieval"
+  - "mvp"
+  - "mcp"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "main"
+started_at: "2026-04-21 22:13"
+touched_paths:
+  - "packages/ai-context-engine/src/types.ts"
+  - "packages/ai-context-engine/src/storage.ts"
+  - "packages/ai-context-engine/src/index.ts"
+  - "packages/ai-context-engine/src/cli.ts"
+  - "packages/ai-context-engine/src/mcp.ts"
+  - "packages/ai-context-engine/tests/engine-behavior.test.ts"
+  - "packages/ai-context-engine/tests/interface.test.ts"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Ranked Context Surface
 
 ## Summary
 

@@ -1,14 +1,29 @@
 ---
-type: repo-task
-repo: playground
-id: rebuild-jcodemunch-style-code-intelligence-layer
-priority: P1
-status: In Progress
+id: "rebuild-jcodemunch-style-code-intelligence-layer"
+type: "todo"
+repo_slug: "playground"
+title: "Rebuild jCodeMunch-style code intelligence layer"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Existing solutions are either paid, immature, or fragmented; rebuilding a minimal, open, AST-based retrieval system provides control, extensibility, and long-term leverage."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-29"
+  expires_after: null
+  keep: false
 ai_appetite: 80
+priority: "P1"
 source: "synthesized from jCodeMunch, LSP systems, and Tree-sitter-based OSS patterns."
 ---
-
-# Rebuild jCodeMunch-style code intelligence layer
 
 ## Why
 

@@ -1,18 +1,31 @@
 ---
-type: repo-architecture
-repo: playground
-status: archived
-summary: Archived done items from KANBAN.md that are no longer needed in the active board.
-keywords:
-  - kanban
-  - archive
-  - done
+id: "mem-20260429-kanban-archive"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Kanban Archive"
+status: "archived"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "Archived done items from KANBAN.md that are no longer needed in the active board."
 tags:
-  - type/architecture
-  - repo/playground
+  - "type/architecture"
+  - "repo/playground"
+keywords:
+  - "kanban"
+  - "archive"
+  - "done"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
 ---
-
-# Kanban Archive
 
 Use this note for completed work that would otherwise make the active kanban
 too long to scan.

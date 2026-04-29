@@ -1,33 +1,46 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-21
-started_at: 2026-04-21 22:22
-branch: main
-summary: Fixed the Codex PreToolUse hook contract and pushed `@playground/ai-context-engine` forward with batched symbol source retrieval, richer search filters, and worktree-root-aware storage/indexing.
-keywords:
-  - ai-context-engine
-  - worktree
-  - retrieval
-  - search
-  - hooks
-  - mvp
-touched_paths:
-  - .agents/hooks/lib/core.mjs
-  - packages/ai-context-engine/src/types.ts
-  - packages/ai-context-engine/src/storage.ts
-  - packages/ai-context-engine/src/index.ts
-  - packages/ai-context-engine/src/cli.ts
-  - packages/ai-context-engine/src/mcp.ts
-  - packages/ai-context-engine/tests/engine-behavior.test.ts
-  - packages/ai-context-engine/tests/interface.test.ts
-  - packages/ai-context-engine/README.md
+id: "mem-20260421-ai-context-engine-retrieval-filters-and-worktree-rooting"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Retrieval Filters And Worktree Rooting"
+status: "done"
+created: "2026-04-21"
+updated: "2026-04-21"
+owner: "agent"
+summary: "Fixed the Codex PreToolUse hook contract and pushed `@playground/ai-context-engine` forward with batched symbol source retrieval, richer search filters, and worktree-root-aware storage/indexing."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "ai-context-engine"
+  - "worktree"
+  - "retrieval"
+  - "search"
+  - "hooks"
+  - "mvp"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-05"
+  expires_after: "2026-10-18"
+  keep: false
+branch: "main"
+started_at: "2026-04-21 22:22"
+touched_paths:
+  - ".agents/hooks/lib/core.mjs"
+  - "packages/ai-context-engine/src/types.ts"
+  - "packages/ai-context-engine/src/storage.ts"
+  - "packages/ai-context-engine/src/index.ts"
+  - "packages/ai-context-engine/src/cli.ts"
+  - "packages/ai-context-engine/src/mcp.ts"
+  - "packages/ai-context-engine/tests/engine-behavior.test.ts"
+  - "packages/ai-context-engine/tests/interface.test.ts"
+  - "packages/ai-context-engine/README.md"
 ---
-
-# AI Context Engine Retrieval Filters And Worktree Rooting
 
 ## Summary
 

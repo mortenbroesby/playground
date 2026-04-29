@@ -1,4 +1,26 @@
-# Uplink: Hacker Typer Mechanic
+---
+id: "mem-20260429-uplink-hacker-typer-mechanic"
+type: "architecture-record"
+repo_slug: "playground"
+title: "Uplink: Hacker Typer Mechanic"
+status: "accepted"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "morten"
+summary: "**Added:** 2026-04-13 **File:** `packages/remotes/uplink-game/src/game/scenes/HackScene.ts`"
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-10-26"
+  expires_after: null
+  keep: true
+---
 
 **Added:** 2026-04-13
 **File:** `packages/remotes/uplink-game/src/game/scenes/HackScene.ts`

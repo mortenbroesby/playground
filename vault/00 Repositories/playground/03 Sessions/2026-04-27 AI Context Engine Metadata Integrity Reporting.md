@@ -1,7 +1,26 @@
 ---
-title: AI Context Engine Metadata Integrity Reporting
-date: 2026-04-27
-project: playground
+id: "mem-20260427-ai-context-engine-metadata-integrity-reporting"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Engine Metadata Integrity Reporting"
+status: "done"
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "Later-phase reliability follow-up for Astrograph metadata sidecars."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+project: "playground"
 ---
 
 Later-phase reliability follow-up for Astrograph metadata sidecars.

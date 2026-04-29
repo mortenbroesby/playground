@@ -1,4 +1,26 @@
-# AI Context Benchmark Runner MVP
+---
+id: "mem-20260415-ai-context-benchmark-runner-mvp"
+type: "session"
+repo_slug: "playground"
+title: "AI Context Benchmark Runner MVP"
+status: "done"
+created: "2026-04-15"
+updated: "2026-04-15"
+owner: "agent"
+summary: "Turn `@playground/ai-context-engine-bench` from a scaffold into a runnable benchmark MVP with a CLI, a runner, fixed workflow adapters, and artifact generation."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-29"
+  expires_after: "2026-10-12"
+  keep: false
+---
 
 ## Summary
 

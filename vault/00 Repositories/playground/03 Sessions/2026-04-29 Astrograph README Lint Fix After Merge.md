@@ -1,11 +1,29 @@
 ---
-date: 2026-04-29
-project: playground
-branch: astrograph-ai-engine-refactor
-area: tools/ai-context-engine
+id: "mem-20260429-astrograph-readme-lint-fix-after-merge"
+type: "session"
+repo_slug: "playground"
+title: "Astrograph README Lint Fix After Merge"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "Repair the follow-up Markdown lint failure that blocked pushing the branch after the `main` merge landed."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
+area: "tools/ai-context-engine"
+branch: "astrograph-ai-engine-refactor"
+project: "playground"
 ---
-
-# Astrograph README Lint Fix After Merge
 
 ## Goal
 

@@ -1,4 +1,26 @@
-# 2026-04-27 AI Context Engine Profiling Tooling
+---
+id: "mem-20260427-2026-04-27-ai-context-engine-profiling-tooling"
+type: "session"
+repo_slug: "playground"
+title: "2026-04-27 AI Context Engine Profiling Tooling"
+status: "done"
+created: "2026-04-27"
+updated: "2026-04-27"
+owner: "agent"
+summary: "ad-hoc terminal commands"
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-11"
+  expires_after: "2026-10-24"
+  keep: false
+---
 
 - Scope: Phase 10 from `.specs/performance-deps.md`
 - Goal: make repeatable profiling available from package scripts instead of
