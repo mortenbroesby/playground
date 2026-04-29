@@ -1452,7 +1452,7 @@ export function buildCleanupReport({ noteRegistry, chunkIndex, diagnostics, now 
     }));
 
   const sessionsToSummarize = noteRegistry
-    .filter((note) => note.type === "session")
+    .filter((note) => note.type === "session" && note.status === "active")
     .map((note) => ({
       note,
       updatedAt: tryParseDate(note.updated) ?? tryParseDate(note.created),
@@ -1465,13 +1465,20 @@ export function buildCleanupReport({ noteRegistry, chunkIndex, diagnostics, now 
     }));
 
   const orphanNotes = noteRegistry
-    .filter(
-      (note) =>
-        (note.outbound_links?.length ?? 0) === 0 &&
-        (inboundLinks.get(note.id)?.size ?? 0) === 0 &&
-        note.type !== "repo-home",
-    )
     .map((note) => ({
+      note,
+      updatedAt: tryParseDate(note.updated) ?? tryParseDate(note.created),
+    }))
+    .filter(
+      ({ note, updatedAt }) =>
+        note.type !== "repo-home" &&
+        note.status === "active" &&
+        updatedAt &&
+        daysBetween(updatedAt, now) > 7 &&
+        (note.outbound_links?.length ?? 0) === 0 &&
+        (inboundLinks.get(note.id)?.size ?? 0) === 0,
+    )
+    .map(({ note }) => ({
       note_id: note.id,
       path: note.path,
       type: note.type,
