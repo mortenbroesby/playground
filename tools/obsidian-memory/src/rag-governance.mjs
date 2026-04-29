@@ -1113,11 +1113,22 @@ export async function fixFrontmatter({
   vaultRoot,
   repoSlug = "playground",
   apply = false,
+  pathPrefix = "",
+  limit = null,
+  includeContentPreview = true,
 }) {
   const repoRootPath = path.join(vaultRoot, "00 Repositories", repoSlug);
   const markdownFiles = await walkMarkdownFiles(repoRootPath);
+  const normalizedPrefix = pathPrefix.replace(/^\/+|\/+$/g, "");
+  const filteredFiles = normalizedPrefix.length === 0
+    ? markdownFiles
+    : markdownFiles.filter((absolutePath) => {
+      const relativeRepoPath = path.relative(repoRootPath, absolutePath).replace(/\\/g, "/");
+      return relativeRepoPath === normalizedPrefix ||
+        relativeRepoPath.startsWith(`${normalizedPrefix}/`);
+    });
   const plans = await Promise.all(
-    markdownFiles.map(async (absolutePath) => {
+    filteredFiles.map(async (absolutePath) => {
       const rawContent = await readFile(absolutePath, "utf8");
       const relativeRepoPath = path.relative(repoRootPath, absolutePath).replace(/\\/g, "/");
       const fileStat = await stat(absolutePath);
@@ -1154,7 +1165,16 @@ export async function fixFrontmatter({
     }
   }
 
-  const changedPlans = plans.filter((plan) => plan.changed);
+  const allChangedPlans = plans.filter((plan) => plan.changed);
+  const changedPlans = allChangedPlans.slice(0, limit === null ? undefined : limit);
+
+  const changeCounts = changedPlans.reduce((acc, plan) => {
+    for (const change of plan.changes) {
+      acc[change] = (acc[change] ?? 0) + 1;
+    }
+
+    return acc;
+  }, {});
 
   if (apply) {
     await Promise.all(
@@ -1165,9 +1185,15 @@ export async function fixFrontmatter({
   return {
     dry_run: !apply,
     repo_slug: repoSlug,
-    scanned: plans.length,
+    path_prefix: normalizedPrefix || null,
+    scanned: filteredFiles.length,
     changed: changedPlans.length,
-    unchanged: plans.length - changedPlans.length,
+    unchanged: filteredFiles.length - allChangedPlans.length,
+    total_candidates: allChangedPlans.length,
+    limited: limit !== null && changedPlans.length < allChangedPlans.length,
+    change_counts: Object.fromEntries(
+      Object.entries(changeCounts).sort((left, right) => left[0].localeCompare(right[0])),
+    ),
     notes: changedPlans.map((plan) => ({
       path: path.relative(vaultRoot, plan.absolutePath).replace(/\\/g, "/"),
       note_id: plan.noteId,
@@ -1177,7 +1203,7 @@ export async function fixFrontmatter({
       updated: plan.updated,
       title: plan.title,
       changes: plan.changes,
-      content_preview: apply ? undefined : plan.content,
+      content_preview: !apply && includeContentPreview ? plan.content : undefined,
     })),
   };
 }

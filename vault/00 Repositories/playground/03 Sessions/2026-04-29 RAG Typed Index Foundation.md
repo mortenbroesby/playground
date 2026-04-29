@@ -101,6 +101,12 @@ rebuild index generation first while keeping the current query path working.
   non-schema metadata like `started_at` and `touched_paths`
 - kept the remediation scope narrow to notes under
   `vault/00 Repositories/playground/` so the migration remains reviewable
+- added batching controls to `rag:fix-frontmatter` with `--path-prefix`,
+  `--limit`, and opt-in content previews so the migration can be applied in
+  small reviewed subsets instead of one giant rewrite
+- applied the first remediation batch to 10 legacy session notes under
+  `03 Sessions/` and reindexed the vault, reducing `rag:doctor` synthetic-ID
+  warnings from 114 notes to 104 notes without changing note bodies
 
 ## Verification
 
@@ -113,6 +119,8 @@ rebuild index generation first while keeping the current query path working.
 - `pnpm --filter @playground/obsidian-memory rag:verify`
 - `pnpm --filter @playground/obsidian-memory rag:write --type spec --title 'Rebuild RAG memory' --summary 'Spec for rebuilding repo memory.' --dry-run`
 - `pnpm --filter @playground/obsidian-memory rag:fix-frontmatter`
+- `pnpm --filter @playground/obsidian-memory rag:fix-frontmatter --path-prefix '03 Sessions' --limit 10`
+- `pnpm --filter @playground/obsidian-memory rag:fix-frontmatter --path-prefix '03 Sessions' --limit 10 --apply`
 
 ## Next Step
 

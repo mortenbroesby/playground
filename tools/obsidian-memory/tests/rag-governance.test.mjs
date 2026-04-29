@@ -316,3 +316,65 @@ test("fixFrontmatter dry-run reports changed notes and apply rewrites metadata i
   assert.ok(!rewritten.includes("type: session-note"));
   assert.ok(!rewritten.includes("repo: playground"));
 });
+
+test("fixFrontmatter supports pathPrefix, limit, and preview suppression for batched migration", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-fix-frontmatter-batch-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const repoVaultRoot = path.join(vaultRoot, "00 Repositories", "playground");
+  const sessionNotePath = path.join(repoVaultRoot, "03 Sessions", "2026-04-25 Auto Query Mode.md");
+  const architectureNotePath = path.join(repoVaultRoot, "01 Architecture", "Agent Hooks.md");
+
+  await Promise.all([
+    mkdir(path.dirname(sessionNotePath), { recursive: true }),
+    mkdir(path.dirname(architectureNotePath), { recursive: true }),
+  ]);
+
+  await Promise.all([
+    writeFile(
+      sessionNotePath,
+      [
+        "---",
+        "type: session-note",
+        "repo: playground",
+        "date: 2026-04-25",
+        "summary: Added auto intent resolution.",
+        "---",
+        "",
+        "# Auto Query Mode",
+      ].join("\n"),
+      "utf8",
+    ),
+    writeFile(
+      architectureNotePath,
+      [
+        "---",
+        "type: repo-architecture",
+        "repo: playground",
+        "status: active",
+        "summary: Shared hook policy.",
+        "---",
+        "",
+        "# Agent Hooks",
+      ].join("\n"),
+      "utf8",
+    ),
+  ]);
+
+  const result = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: false,
+    pathPrefix: "03 Sessions",
+    limit: 1,
+    includeContentPreview: false,
+  });
+
+  assert.equal(result.scanned, 1);
+  assert.equal(result.total_candidates, 1);
+  assert.equal(result.changed, 1);
+  assert.equal(result.limited, false);
+  assert.equal(result.notes.length, 1);
+  assert.equal(result.notes[0].path, "00 Repositories/playground/03 Sessions/2026-04-25 Auto Query Mode.md");
+  assert.equal(result.notes[0].content_preview, undefined);
+  assert.equal(result.change_counts.normalize_type, 1);
+});

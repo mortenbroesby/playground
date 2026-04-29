@@ -1,3 +1,27 @@
+---
+id: "mem-20260413-uplink-game-keyboard-layout-pointer-mode-apr-13"
+type: "session"
+repo_slug: "playground"
+title: "Uplink Game — Keyboard Layout & Pointer Mode (Apr 13)"
+status: "active"
+created: "2026-04-13"
+updated: "2026-04-13"
+owner: "agent"
+summary: ""
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-27"
+  expires_after: "2026-10-10"
+  keep: false
+---
+
 # Uplink Game — Keyboard Layout & Pointer Mode (Apr 13)
 
 ## Changes
@@ -25,3 +49,4 @@
 - Tween auto-progress and tap bonuses stack — pointer taps can complete a tool early
 - Physical keyboard also works in mouse mode (events registered unconditionally)
 - Tool label stays `[EXECUTING...]` in mouse mode; keyboard shows highlighted target key
+

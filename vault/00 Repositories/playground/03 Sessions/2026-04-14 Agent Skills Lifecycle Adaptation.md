@@ -1,24 +1,39 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-14
-started_at: 2026-04-14 21:10
-summary: Adapted compatible lifecycle concepts from addyosmani/agent-skills into repo-native shared skills and command wiring.
-keywords:
-  - agent skills
-  - shared skills
-  - workflow
-  - commands
-  - context engineering
-touched_paths:
-  - .agents/skills
-  - .agents/commands
-  - .agents/rules/README.md
-  - AGENTS.md
-  - README.md
+id: "mem-20260414-agent-skills-lifecycle-adaptation"
+type: "session"
+repo_slug: "playground"
+title: "Agent Skills Lifecycle Adaptation"
+status: "active"
+created: "2026-04-14"
+updated: "2026-04-14"
+owner: "agent"
+summary: "Adapted compatible lifecycle concepts from addyosmani/agent-skills into repo-native shared skills and command wiring."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "agent skills"
+  - "shared skills"
+  - "workflow"
+  - "commands"
+  - "context engineering"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-28"
+  expires_after: "2026-10-11"
+  keep: false
+started_at: "2026-04-14 21:10"
+touched_paths:
+  - ".agents/skills"
+  - ".agents/commands"
+  - ".agents/rules/README.md"
+  - "AGENTS.md"
+  - "README.md"
 ---
 
 # Agent Skills Lifecycle Adaptation
@@ -57,3 +72,4 @@ The repo keeps its existing thin-adapter architecture:
 
 - `pnpm agents:check`
 - `pnpm lint:md`
+

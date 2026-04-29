@@ -1,3 +1,27 @@
+---
+id: "mem-20260413-2026-04-13-uplink-game-input-modes"
+type: "session"
+repo_slug: "playground"
+title: "2026-04-13 — Uplink Game Input Modes"
+status: "active"
+created: "2026-04-13"
+updated: "2026-04-13"
+owner: "agent"
+summary: "Implemented a persistent input mode setting (`mouse` vs `keyboard`) for the Uplink mini-game and split the hack loop to support both play styles."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-04-27"
+  expires_after: "2026-10-10"
+  keep: false
+---
+
 # 2026-04-13 — Uplink Game Input Modes
 
 ## Summary
@@ -24,3 +48,4 @@ Implemented a persistent input mode setting (`mouse` vs `keyboard`) for the Upli
 
 - `packages/remotes/uplink-game/src/game/scenes/NetworkMapScene.ts`
 - `packages/remotes/uplink-game/src/game/scenes/HackScene.ts`
+

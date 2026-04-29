@@ -13,6 +13,9 @@ const vaultRoot = path.join(repoRoot, "vault");
 function parseArgs(argv) {
   const options = {
     apply: false,
+    includeContentPreview: false,
+    limit: null,
+    pathPrefix: "",
     repoSlug: "playground",
   };
 
@@ -21,6 +24,30 @@ function parseArgs(argv) {
 
     if (arg === "--apply") {
       options.apply = true;
+      continue;
+    }
+
+    if (arg === "--path-prefix") {
+      options.pathPrefix = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--limit") {
+      const rawLimit = argv[index + 1] ?? "";
+      const parsedLimit = Number.parseInt(rawLimit, 10);
+
+      if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+        throw new Error("--limit must be a positive integer");
+      }
+
+      options.limit = parsedLimit;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--include-content") {
+      options.includeContentPreview = true;
       continue;
     }
 
@@ -44,10 +71,13 @@ function printUsage() {
     [
       "Usage:",
       "  pnpm rag:fix-frontmatter",
+      "  pnpm rag:fix-frontmatter --path-prefix '03 Sessions' --limit 10",
       "  pnpm rag:fix-frontmatter --apply",
       "",
       "Normalize existing repo memory frontmatter into the typed schema.",
       "Dry-run is the default; pass --apply to rewrite note metadata in place.",
+      "Use --path-prefix and --limit to batch the migration.",
+      "Use --include-content when you want the rewritten frontmatter preview.",
     ].join("\n"),
   );
 }
@@ -58,6 +88,9 @@ async function run() {
     vaultRoot,
     repoSlug: options.repoSlug,
     apply: options.apply,
+    pathPrefix: options.pathPrefix,
+    limit: options.limit,
+    includeContentPreview: options.includeContentPreview,
   });
 
   console.log(JSON.stringify(result, null, 2));
