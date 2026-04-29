@@ -1,7 +1,7 @@
 {
   "summaryStrategy": "doc-comments-first",
   "observability": {
-    "enabled": true,
+    "enabled": false,
     "host": "127.0.0.1",
     "port": 34323,
     "recentLimit": 100,
