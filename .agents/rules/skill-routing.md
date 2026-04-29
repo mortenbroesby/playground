@@ -59,6 +59,8 @@ multiple skills just because they exist.
   evidence matters more than static code inspection.
 - Load `mcp-builder` when building or extending MCP servers and tool surfaces.
 - Load `skill-creator` when creating or refining a skill.
+- Load `gh-stack` when the user wants stacked branches, dependent PRs, or
+  explicit `gh stack` workflows.
 - Load `using-git-worktrees` only when task isolation from the current workspace
   is worth the extra setup.
 
@@ -75,6 +77,8 @@ multiple skills just because they exist.
 - For bug fixes: `debugging-and-error-recovery` plus
   `test-driven-development`.
 - For architectural docs: `doc-coauthoring` plus `documentation-and-adrs`.
+- For stacked PR work: `gh-stack` first, then a workflow skill only if the task
+  also needs planning or implementation structure.
 
 ## Avoid
 
@@ -84,5 +88,7 @@ multiple skills just because they exist.
   time unless the open questions are still blocking a useful plan.
 - Do not load both `browser-testing-with-devtools` and `webapp-testing` unless
   both toolsets are actually needed.
+- Do not load both `gh-stack` and `using-git-worktrees` unless the user
+  explicitly wants both stacked branches and separate worktree isolation.
 - Do not chain many workflow skills together when one primary workflow skill and
   one specialist skill would do.
