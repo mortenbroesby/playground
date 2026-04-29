@@ -243,6 +243,9 @@ function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex }) {
   });
 }
 
+/**
+ * Normalize a legacy or typed memory corpus into the ranked retrieval shape.
+ */
 export function indexMemoryCorpus(corpus) {
   if (Array.isArray(corpus)) {
     return corpus;
@@ -267,6 +270,9 @@ function resolveIndexRoot(indexPath) {
   return indexPath.endsWith(".json") ? path.dirname(indexPath) : indexPath;
 }
 
+/**
+ * Load the typed memory indexes from disk and normalize them for retrieval.
+ */
 export async function loadMemoryCorpus(indexPath) {
   const indexRoot = resolveIndexRoot(indexPath);
   const [noteRegistry, chunkIndex, graphIndex] = await Promise.all([
@@ -403,6 +409,9 @@ function filterMemoryCorpus(corpus, filters) {
     );
 }
 
+/**
+ * Rank memory chunks against a query using lexical, status, and graph signals.
+ */
 export function rerankMemoryCandidates(input) {
   const query = input.query.trim();
   const limit = input.limit ?? 5;
@@ -614,10 +623,16 @@ export function rerankMemoryCandidates(input) {
     .slice(0, limit);
 }
 
+/**
+ * Compatibility wrapper for callers that only need ranked candidates.
+ */
 export function retrieveMemoryCandidates(input) {
   return rerankMemoryCandidates(input);
 }
 
+/**
+ * Resolve one chunk by exact source path or by file plus heading.
+ */
 export function findMemoryChunk(input) {
   return input.corpus.find((candidate) =>
     input.sourcePath
@@ -627,6 +642,9 @@ export function findMemoryChunk(input) {
   );
 }
 
+/**
+ * Return the canonical repo-home context headings for one repository slug.
+ */
 export function getMemoryContext(input) {
   const repoSlug = input.repoSlug ?? "playground";
   const headings = input.headings ?? [
@@ -654,6 +672,9 @@ export function getMemoryContext(input) {
     .filter(Boolean);
 }
 
+/**
+ * Assemble a bounded context bundle from ranked retrieval candidates.
+ */
 export function assembleMemoryContext(input) {
   const tokenBudget = input.tokenBudget ?? 600;
   const maxItems = input.maxItems ?? input.candidates.length;
@@ -715,6 +736,9 @@ export function assembleMemoryContext(input) {
   };
 }
 
+/**
+ * Summarize corpus composition for debugging and fixture verification.
+ */
 export function getMemoryDiagnostics(input) {
   return {
     chunkCount: input.corpus.length,
@@ -731,6 +755,9 @@ export function getMemoryDiagnostics(input) {
   };
 }
 
+/**
+ * Infer retrieval intent, preferred note types, and excluded statuses.
+ */
 export function planMemoryQuery(query) {
   return createQueryPlan(query);
 }

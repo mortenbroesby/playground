@@ -6,6 +6,7 @@ import path from "node:path";
 
 import {
   buildCleanupReport,
+  buildDoctorReport,
   buildWriteTargetPath,
   classifyMemoryInput,
   fixFrontmatter,
@@ -164,6 +165,88 @@ test("verifyTypedMemory fails when typed index has unresolved links and syntheti
   assert.ok(result.warnings.some((warning) => warning.includes("Synthetic note ids")));
 });
 
+test("buildDoctorReport treats mechanical frontmatter backlog as advisory", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-doctor-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const indexRoot = path.join(tempRoot, ".rag");
+
+  await Promise.all([
+    mkdir(path.join(vaultRoot, "00 Repositories"), { recursive: true }),
+    mkdir(path.join(vaultRoot, "90 Templates"), { recursive: true }),
+    mkdir(path.join(vaultRoot, "91 Scripts"), { recursive: true }),
+    mkdir(indexRoot, { recursive: true }),
+  ]);
+
+  await Promise.all([
+    writeFile(path.join(tempRoot, ".gitignore"), ".rag/\n", "utf8"),
+    writeFile(
+      path.join(indexRoot, "manifest.json"),
+      JSON.stringify({
+        schema_version: 2,
+        source_root: "vault",
+      }),
+      "utf8",
+    ),
+    writeFile(
+      path.join(indexRoot, "note-registry.json"),
+      JSON.stringify([
+        {
+          id: "mem-1",
+          type: "session",
+          path: "vault/03 Sessions/2026-04-29 Typed RAG.md",
+          status: "active",
+          title: "Typed RAG",
+          summary: "",
+          outbound_links: [],
+          inbound_links: [],
+          created: "2026-04-29",
+          updated: "2026-04-29",
+        },
+      ]),
+      "utf8",
+    ),
+    writeFile(
+      path.join(indexRoot, "chunk-index.json"),
+      JSON.stringify([
+        {
+          note_id: "mem-1",
+          text: "Session body",
+        },
+      ]),
+      "utf8",
+    ),
+    writeFile(path.join(indexRoot, "lexical-index.json"), "{}", "utf8"),
+    writeFile(path.join(indexRoot, "vector-index.json"), "{}", "utf8"),
+    writeFile(path.join(indexRoot, "graph-index.json"), JSON.stringify({ nodes: [], edges: [] }), "utf8"),
+    writeFile(
+      path.join(indexRoot, "diagnostics.json"),
+      JSON.stringify({
+        synthetic_ids: ["vault/03 Sessions/2026-04-29 Typed RAG.md"],
+        unresolved_links: [],
+        validation_warnings: [
+          "vault/03 Sessions/2026-04-29 Typed RAG.md: missing frontmatter id; generated mem-1",
+          "vault/03 Sessions/2026-04-29 Typed RAG.md: missing summary",
+        ],
+      }),
+      "utf8",
+    ),
+    writeFile(path.join(indexRoot, "cleanup-report.json"), "{}", "utf8"),
+  ]);
+
+  const result = await buildDoctorReport({
+    vaultRoot,
+    indexRoot,
+    repoRoot: tempRoot,
+    now: new Date("2026-04-29T00:00:00.000Z"),
+  });
+
+  assert.equal(result.passed, true);
+  assert.equal(result.checks.cleanup_frontmatter_check.blocking.length, 0);
+  assert.equal(result.checks.cleanup_frontmatter_check.advisory.length, 3);
+  assert.equal(result.verification_summary.frontmatter_advisories, 3);
+  assert.equal(result.verification_summary.frontmatter_blockers, 0);
+});
+
 test("buildWriteTargetPath routes typed notes into the new spec folders", () => {
   const target = buildWriteTargetPath({
     vaultRoot: "/tmp/vault",
@@ -260,6 +343,46 @@ test("planFrontmatterFix normalizes legacy session metadata without changing the
   assert.ok(plan.content.includes('owner: "agent"'));
   assert.ok(!plan.content.includes("# Architecture Memory Backfill"));
   assert.ok(plan.content.endsWith("Backfill the architecture notes.\n"));
+});
+
+test("planFrontmatterFix preserves session metadata fields used by the 2026-04-29 RAG note", () => {
+  const legacyContent = [
+    "---",
+    "type: repo-session",
+    "repo: playground",
+    "date: 2026-04-29",
+    "started_at: 2026-04-29 21:05",
+    "branch: feat/rag-refactor",
+    "summary: Started the typed index migration.",
+    "keywords:",
+    "  - rag",
+    "touched_paths:",
+    "  - tools/obsidian-memory/src/rag-index.ts",
+    "---",
+    "",
+    "# RAG Typed Index Foundation",
+    "",
+    "## Summary",
+    "",
+    "Started the lowest-risk migration slice.",
+  ].join("\n");
+
+  const plan = planFrontmatterFix({
+    absolutePath: "/tmp/2026-04-29 RAG Typed Index Foundation.md",
+    repoSlug: "playground",
+    relativeRepoPath: "03 Sessions/2026-04-29 RAG Typed Index Foundation.md",
+    content: legacyContent,
+    fallbackDate: "2026-04-29",
+  });
+
+  assert.equal(plan.noteType, "session");
+  assert.ok(plan.content.includes('branch: "feat/rag-refactor"'));
+  assert.ok(plan.content.includes('started_at: "2026-04-29 21:05"'));
+  assert.ok(
+    plan.content.includes('  - "tools/obsidian-memory/src/rag-index.ts"'),
+  );
+  assert.ok(plan.changes.includes("drop_repo"));
+  assert.ok(plan.changes.includes("drop_date"));
 });
 
 test("fixFrontmatter dry-run reports changed notes and apply rewrites metadata in place", async () => {

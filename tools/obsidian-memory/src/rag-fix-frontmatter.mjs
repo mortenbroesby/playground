@@ -10,6 +10,9 @@ import { fixFrontmatter } from "./rag-governance.mjs";
 const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
 const vaultRoot = path.join(repoRoot, "vault");
 
+/**
+ * Parse command-line flags for the frontmatter remediation CLI.
+ */
 function parseArgs(argv) {
   const options = {
     apply: false,
@@ -66,6 +69,9 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Print usage for `pnpm rag:fix-frontmatter`.
+ */
 function printUsage() {
   console.log(
     [
@@ -82,6 +88,9 @@ function printUsage() {
   );
 }
 
+/**
+ * Run the frontmatter remediation CLI and print the migration report as JSON.
+ */
 async function run() {
   const options = parseArgs(process.argv.slice(2));
   const result = await fixFrontmatter({

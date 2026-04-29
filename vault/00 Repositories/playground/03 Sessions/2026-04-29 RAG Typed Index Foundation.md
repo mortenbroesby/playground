@@ -1,39 +1,52 @@
 ---
-type: repo-session
-repo: playground
-date: 2026-04-29
-started_at: 2026-04-29 21:05
-branch: feat/rag-refactor
-summary: Started the RAG refactor by rebuilding `rag:index` around a typed multi-index output, added legacy taxonomy normalization and compatibility corpus generation, and covered the new index contract with focused tests.
-keywords:
-  - rag
-  - obsidian-memory
-  - typed-index
-  - memory
-  - graph-index
-touched_paths:
-  - tools/obsidian-memory/src/rag-index.ts
-  - tools/obsidian-memory/src/obsidian-rag.mjs
-  - tools/obsidian-memory/src/rag-governance.mjs
-  - tools/obsidian-memory/src/rag-classify.mjs
-  - tools/obsidian-memory/src/rag-clean.mjs
-  - tools/obsidian-memory/src/rag-doctor.mjs
-  - tools/obsidian-memory/src/rag-write.mjs
-  - tools/obsidian-memory/src/rag-query.mjs
-  - tools/obsidian-memory/src/rag-mcp-server.mjs
-  - tools/obsidian-memory/src/verify-obsidian-rag.mjs
-  - tools/obsidian-memory/tests/obsidian-rag.test.mjs
-  - tools/obsidian-memory/tests/rag-governance.test.mjs
-  - tools/obsidian-memory/tests/rag-index.test.mjs
-  - tools/obsidian-memory/package.json
-  - package.json
-  - vault/00 Repositories/playground/03 Sessions/2026-04-29 RAG Typed Index Foundation.md
+id: "mem-20260429-rag-typed-index-foundation"
+type: "session"
+repo_slug: "playground"
+title: "RAG Typed Index Foundation"
+status: "active"
+created: "2026-04-29"
+updated: "2026-04-29"
+owner: "agent"
+summary: "Started the RAG refactor by rebuilding `rag:index` around a typed multi-index output, then hardened retrieval and governance by separating doctor blockers from migration advisories, adding regression tests, and documenting the exported RAG surfaces."
 tags:
-  - type/session
-  - repo/playground
+  - "type/session"
+  - "repo/playground"
+keywords:
+  - "rag"
+  - "obsidian-memory"
+  - "typed-index"
+  - "memory"
+  - "graph-index"
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: "2026-05-13"
+  expires_after: "2026-10-26"
+  keep: false
+branch: "feat/rag-refactor"
+started_at: "2026-04-29 21:05"
+touched_paths:
+  - "tools/obsidian-memory/src/rag-index.ts"
+  - "tools/obsidian-memory/src/obsidian-rag.mjs"
+  - "tools/obsidian-memory/src/rag-governance.mjs"
+  - "tools/obsidian-memory/src/rag-classify.mjs"
+  - "tools/obsidian-memory/src/rag-clean.mjs"
+  - "tools/obsidian-memory/src/rag-doctor.mjs"
+  - "tools/obsidian-memory/src/rag-write.mjs"
+  - "tools/obsidian-memory/src/rag-query.mjs"
+  - "tools/obsidian-memory/src/rag-mcp-server.mjs"
+  - "tools/obsidian-memory/src/verify-obsidian-rag.mjs"
+  - "tools/obsidian-memory/tests/obsidian-rag.test.mjs"
+  - "tools/obsidian-memory/tests/rag-governance.test.mjs"
+  - "tools/obsidian-memory/tests/rag-index.test.mjs"
+  - "tools/obsidian-memory/package.json"
+  - "package.json"
+  - "vault/00 Repositories/playground/03 Sessions/2026-04-29 RAG Typed Index Foundation.md"
 ---
-
-# RAG Typed Index Foundation
 
 ## Summary
 
@@ -110,6 +123,19 @@ rebuild index generation first while keeping the current query path working.
 - applied the second remediation batch to the next 10 `03 Sessions/` notes and
   reindexed again, reducing `rag:doctor` synthetic-ID warnings further from 104
   notes to 95 notes
+- hardened the typed RAG surfaces with JSDoc on exported retrieval, query, and
+  governance helpers so the current contract is easier to review and change
+- refactored `rag:doctor` to call a shared `buildDoctorReport` helper instead
+  of re-implementing policy in the CLI layer
+- changed doctor reporting so mechanical migration debt like missing
+  frontmatter IDs and missing summaries is treated as advisory backlog, while
+  schema, link, and index integrity problems remain blocking failures
+- added regression coverage to prove legacy migrated note metadata still
+  normalizes to typed `session` and `active` retrieval signals before ranking
+- added governance tests to prove session-specific metadata such as `branch`,
+  `started_at`, and `touched_paths` survives frontmatter remediation intact
+- rewrote this session note itself into the strict typed frontmatter shape,
+  removing the remaining synthetic ID for the note while preserving its body
 
 ## Verification
 
@@ -124,9 +150,11 @@ rebuild index generation first while keeping the current query path working.
 - `pnpm --filter @playground/obsidian-memory rag:fix-frontmatter`
 - `pnpm --filter @playground/obsidian-memory rag:fix-frontmatter --path-prefix '03 Sessions' --limit 10`
 - `pnpm --filter @playground/obsidian-memory rag:fix-frontmatter --path-prefix '03 Sessions' --limit 10 --apply`
+- `pnpm markdown:check`
 
 ## Next Step
 
-Start shrinking the migration backlog that `rag:doctor` surfaces by adding
-frontmatter remediation and link-backfill flows for the existing vault, now
-that new notes can be created in the strict typed format.
+Keep shrinking the advisory migration backlog with reviewed
+`rag:fix-frontmatter --apply` batches and then add targeted link-backfill flows
+for orphan-heavy architecture and session notes so retrieval quality improves
+without loosening the typed contract.

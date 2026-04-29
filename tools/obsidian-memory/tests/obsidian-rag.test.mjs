@@ -272,6 +272,61 @@ test("retrieveMemoryCandidates applies graph boosts to linked architecture notes
   );
 });
 
+test("typed retrieval normalizes migrated legacy note metadata before ranking", () => {
+  const migratedCorpus = indexMemoryCorpus({
+    noteRegistry: [
+      {
+        id: "note-session-legacy",
+        type: "repo-session",
+        path: "vault/00 Repositories/playground/03 Sessions/2026-04-29 Typed RAG.md",
+        title: "Typed RAG",
+        status: "In Progress",
+        created: "2026-04-29",
+        updated: "2026-04-29",
+        summary: "Session log for the typed RAG hardening pass.",
+        tags: ["repo/playground"],
+        keywords: ["typed rag", "hardening"],
+        outbound_links: [],
+        inbound_links: [],
+        content_hash: "legacy-session-hash",
+        mtime_ms: 1,
+        owner: "agent",
+        repo_slug: "playground",
+      },
+    ],
+    chunkIndex: [
+      {
+        chunk_id: "legacy-session-summary",
+        note_id: "note-session-legacy",
+        source_path:
+          "vault/00 Repositories/playground/03 Sessions/2026-04-29 Typed RAG.md § Summary",
+        heading: "Summary",
+        heading_level: 2,
+        text: "Recent typed RAG hardening work covered doctor output and frontmatter remediation.",
+        summary: "",
+        tokens_estimated: 13,
+        content_hash: "legacy-session-chunk",
+      },
+    ],
+    graphIndex: {
+      nodes: [],
+      edges: [],
+    },
+  });
+
+  const candidates = retrieveMemoryCandidates({
+    corpus: migratedCorpus,
+    query: "recent typed rag hardening handoff",
+    limit: 3,
+    queryPlan: planMemoryQuery("recent typed rag hardening handoff"),
+  });
+
+  assert.equal(candidates[0]?.chunkId, "legacy-session-summary");
+  assert.equal(candidates[0]?.noteType, "session");
+  assert.equal(candidates[0]?.status, "active");
+  assert.ok(candidates[0].matchReasons.includes("plan-type:session"));
+});
+
 test("assembleMemoryContext reports omitted items when token budget truncates", () => {
   const candidates = retrieveMemoryCandidates({
     corpus: typedCorpus,

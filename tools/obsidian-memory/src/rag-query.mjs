@@ -16,6 +16,9 @@ import {
 const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
 const defaultIndexRoot = path.join(repoRoot, ".rag");
 
+/**
+ * Parse command-line flags for the typed memory query CLI.
+ */
 function parseArgs(argv) {
   const options = {
     query: "",
@@ -74,6 +77,9 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Print usage for `pnpm rag:query`.
+ */
 function printUsage() {
   console.log(
     [
@@ -85,6 +91,9 @@ function printUsage() {
   );
 }
 
+/**
+ * Ensure the typed memory index exists before attempting retrieval.
+ */
 async function ensureIndex(indexPath) {
   try {
     const indexRoot = indexPath.endsWith(".json") ? path.dirname(indexPath) : indexPath;
@@ -97,6 +106,9 @@ async function ensureIndex(indexPath) {
   }
 }
 
+/**
+ * Run the typed memory query CLI and print ranked candidates plus context.
+ */
 async function run() {
   const options = parseArgs(process.argv.slice(2));
 

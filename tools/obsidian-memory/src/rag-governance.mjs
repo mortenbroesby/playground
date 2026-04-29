@@ -854,6 +854,49 @@ function estimateTokens(value) {
   return Math.max(1, Math.ceil(value.length / 4));
 }
 
+function classifyFrontmatterIssue(issue) {
+  const normalizedReason = normalizeWhitespace(issue.reason ?? "");
+
+  if (
+    issue.reason === "missing_frontmatter_id" ||
+    normalizedReason.includes("missing frontmatter id")
+  ) {
+    return {
+      ...issue,
+      category: "missing_frontmatter_id",
+      blocking: false,
+    };
+  }
+
+  if (normalizedReason.includes("missing summary")) {
+    return {
+      ...issue,
+      category: "missing_summary",
+      blocking: false,
+    };
+  }
+
+  return {
+    ...issue,
+    category: "unknown",
+    blocking: true,
+  };
+}
+
+function summarizeCleanupIssues(cleanup) {
+  const frontmatterIssues = cleanup.invalid_frontmatter.map(classifyFrontmatterIssue);
+
+  return {
+    frontmatter: {
+      blocking: frontmatterIssues.filter((issue) => issue.blocking),
+      advisory: frontmatterIssues.filter((issue) => !issue.blocking),
+    },
+  };
+}
+
+/**
+ * Load the generated typed-memory artifacts for governance and doctor checks.
+ */
 export async function loadTypedMemoryArtifacts(indexRoot) {
   const normalizedRoot = indexRoot.endsWith(".json")
     ? path.dirname(indexRoot)
@@ -886,6 +929,9 @@ export async function loadTypedMemoryArtifacts(indexRoot) {
   };
 }
 
+/**
+ * Return the write-time defaults for a typed memory note category.
+ */
 export function getWriteTypeConfig(noteType) {
   const config = WRITE_TYPE_CONFIG[noteType];
 
@@ -896,6 +942,9 @@ export function getWriteTypeConfig(noteType) {
   return config;
 }
 
+/**
+ * Build the canonical target path and stable note id for a new typed note.
+ */
 export function buildWriteTargetPath({ vaultRoot, repoSlug, noteType, title, createdAt = new Date() }) {
   const config = getWriteTypeConfig(noteType);
   const datePrefix = formatDate(createdAt);
@@ -921,6 +970,9 @@ export function buildWriteTargetPath({ vaultRoot, repoSlug, noteType, title, cre
   };
 }
 
+/**
+ * Find still-active notes that would conflict with a pending typed write.
+ */
 export function findWriteDuplicates({ noteRegistry, noteType, title, summary }) {
   const normalizedTitle = normalize(title);
   const normalizedSummary = normalize(summary ?? "");
@@ -939,6 +991,9 @@ export function findWriteDuplicates({ noteRegistry, noteType, title, summary }) 
   });
 }
 
+/**
+ * Render the strict typed-note template used by the write flow.
+ */
 export function renderTypedNoteTemplate({
   noteType,
   repoSlug,
@@ -987,10 +1042,13 @@ export function renderTypedNoteTemplate({
       "---",
       "",
       ...config.sections.flatMap((section) => [section, ""]),
-    ].join("\n"),
+      ].join("\n"),
   };
 }
 
+/**
+ * Validate the minimum CLI inputs required to create a typed note.
+ */
 export function validateWriteInput({ noteType, title, summary }) {
   if (!noteType) {
     throw new Error("--type is required");
@@ -1007,6 +1065,9 @@ export function validateWriteInput({ noteType, title, summary }) {
   }
 }
 
+/**
+ * Compute the metadata-only rewrite plan that normalizes one legacy note.
+ */
 export function planFrontmatterFix({
   absolutePath,
   repoSlug = "playground",
@@ -1149,6 +1210,9 @@ export function planFrontmatterFix({
     };
 }
 
+/**
+ * Dry-run or apply frontmatter normalization for notes within one repo vault.
+ */
 export async function fixFrontmatter({
   vaultRoot,
   repoSlug = "playground",
@@ -1248,6 +1312,9 @@ export async function fixFrontmatter({
   };
 }
 
+/**
+ * Infer the most likely memory workflow and retrieval filters from free text.
+ */
 export function classifyMemoryInput(input) {
   const trimmed = input.trim();
   const normalized = normalize(trimmed);
@@ -1341,6 +1408,9 @@ export function classifyMemoryInput(input) {
   );
 }
 
+/**
+ * Build the cleanup and governance backlog that `rag:doctor` should surface.
+ */
 export function buildCleanupReport({ noteRegistry, chunkIndex, diagnostics, now = new Date(), staleGeneratedFiles = [] }) {
   const inboundLinks = new Map(
     noteRegistry.map((note) => [note.id, new Set(note.inbound_links ?? [])]),
@@ -1466,6 +1536,9 @@ export function buildCleanupReport({ noteRegistry, chunkIndex, diagnostics, now 
   };
 }
 
+/**
+ * List generated files that should not be present in the typed index root.
+ */
 export async function findStaleGeneratedFiles(indexRoot) {
   const entries = await readdir(indexRoot, { withFileTypes: true });
 
@@ -1476,6 +1549,9 @@ export async function findStaleGeneratedFiles(indexRoot) {
     .sort((left, right) => left.localeCompare(right));
 }
 
+/**
+ * Verify that the typed memory indexes and registry satisfy hard invariants.
+ */
 export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
   const errors = [];
   const warnings = [];
@@ -1563,6 +1639,75 @@ export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
       chunks: artifacts.chunkIndex.length,
       unresolved_links: artifacts.diagnostics.unresolved_links.length,
       synthetic_ids: artifacts.diagnostics.synthetic_ids.length,
+    },
+  };
+}
+
+/**
+ * Assemble the full `rag:doctor` result and separate migration backlog from
+ * hard failures so the CLI does not need to duplicate governance policy.
+ */
+export async function buildDoctorReport({
+  vaultRoot,
+  indexRoot,
+  repoRoot,
+  now = new Date(),
+}) {
+  const verification = await verifyTypedMemory({
+    vaultRoot,
+    indexRoot,
+    repoRoot,
+  });
+  const artifacts = await loadTypedMemoryArtifacts(indexRoot);
+  const staleGeneratedFiles = await findStaleGeneratedFiles(indexRoot);
+  const cleanup = buildCleanupReport({
+    noteRegistry: artifacts.noteRegistry,
+    chunkIndex: artifacts.chunkIndex,
+    diagnostics: artifacts.diagnostics,
+    staleGeneratedFiles,
+    now,
+  });
+  const cleanupIssues = summarizeCleanupIssues(cleanup);
+
+  return {
+    passed:
+      verification.passed &&
+      cleanupIssues.frontmatter.blocking.length === 0 &&
+      cleanup.generated_files_to_delete.length === 0,
+    checks: {
+      init_check: verification.errors.filter((error) =>
+        error.startsWith("Missing required source path"),
+      ),
+      schema_check: verification.errors.filter(
+        (error) =>
+          error.startsWith("Duplicate note id") ||
+          error.startsWith("Invalid status/type combination") ||
+          error.startsWith("Generated registry entry points outside"),
+      ),
+      link_check: verification.errors.filter((error) =>
+        error.startsWith("Unresolved links present"),
+      ),
+      index_check: verification.errors.filter((error) =>
+        error.startsWith("Missing required index file"),
+      ),
+      retrieval_fixture_check: {
+        note_count: verification.summary.notes,
+        chunk_count: verification.summary.chunks,
+      },
+      cleanup_dry_run: cleanup,
+      cleanup_frontmatter_check: {
+        advisory: cleanupIssues.frontmatter.advisory,
+        blocking: cleanupIssues.frontmatter.blocking,
+      },
+      git_ignore_check: verification.errors.filter((error) =>
+        error.includes(".gitignore"),
+      ),
+    },
+    warnings: verification.warnings,
+    verification_summary: {
+      ...verification.summary,
+      frontmatter_advisories: cleanupIssues.frontmatter.advisory.length,
+      frontmatter_blockers: cleanupIssues.frontmatter.blocking.length,
     },
   };
 }
