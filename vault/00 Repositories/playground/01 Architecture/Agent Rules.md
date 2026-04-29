@@ -5,9 +5,9 @@ repo_slug: "playground"
 title: "Agent Rules"
 status: "accepted"
 created: "2026-04-29"
-updated: "2026-04-29"
+updated: "2026-04-30"
 owner: "morten"
-summary: "Shared cross-agent rules now keep AGENTS.md thin while Codex execpolicy controls host command escalation."
+summary: "Shared cross-agent rules keep AGENTS.md thin, use one default indexed navigation path, and leave host command escalation to Codex execpolicy."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -63,6 +63,15 @@ runtime-specific adapter files when needed.
 - `frontend.md`: path-scoped frontend and UI policy.
 - `agent-infrastructure.md`: path-scoped policy for hooks, skills, rules, and
   runtime adapters.
+
+## Retrieval Default
+
+- Keep one default code-navigation path hot in always-applied guidance:
+  `jcodemunch` first.
+- Treat `ai-context-engine` (`@astrograph`) as an explicit fallback for
+  diagnostics, freshness checks, or coverage gaps instead of as a parallel
+  default.
+- Keep durable repo history and architecture lookup in `obsidian-memory`.
 
 ## Workflow Skill
 

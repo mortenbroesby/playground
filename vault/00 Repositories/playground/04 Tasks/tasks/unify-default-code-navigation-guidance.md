@@ -3,11 +3,11 @@ id: "unify-default-code-navigation-guidance"
 type: "todo"
 repo_slug: "playground"
 title: "Unify default code navigation guidance"
-status: "active"
+status: "done"
 created: "2026-04-30"
 updated: "2026-04-30"
 owner: "morten"
-summary: "Startup surfaces currently mix `jcodemunch`-first and `ai-context-engine`-first guidance; collapse that into one unambiguous default path."
+summary: "Always-applied guidance now keeps `jcodemunch` as the single default code-navigation path and limits `ai-context-engine` to explicit fallback use."
 tags: []
 keywords:
   - "navigation"
