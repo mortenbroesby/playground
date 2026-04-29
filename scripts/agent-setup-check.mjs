@@ -24,6 +24,8 @@ const requiredPaths = [
 ];
 
 const forbiddenPaths = [
+  ".agents/context",
+  ".agents/skills",
   ".claude-plugin",
   "plugins",
   ".claude/skills",
@@ -45,6 +47,22 @@ const failures = [];
 
 function fail(message) {
   failures.push(message);
+}
+
+function requireContent(filePath, snippet, description) {
+  const absolutePath = path.join(repoRoot, filePath);
+  const content = fs.readFileSync(absolutePath, "utf8");
+  if (!content.includes(snippet)) {
+    fail(`${filePath} missing ${description}`);
+  }
+}
+
+function forbidContent(filePath, snippet, description) {
+  const absolutePath = path.join(repoRoot, filePath);
+  const content = fs.readFileSync(absolutePath, "utf8");
+  if (content.includes(snippet)) {
+    fail(`${filePath} still contains ${description}`);
+  }
 }
 
 for (const relativePath of requiredPaths) {
@@ -87,6 +105,12 @@ try {
 } catch (error) {
   fail(`.claude/settings.json is invalid JSON: ${error.message}`);
 }
+
+requireContent("AGENTS.md", "`pnpm skills:list`", "on-demand skills list command");
+requireContent("AGENTS.md", "`pnpm skills:search <query>`", "on-demand skills search command");
+requireContent("AGENTS.md", "`pnpm skills:read <skill-name>`", "on-demand skills read command");
+forbidContent("AGENTS.md", "<skills_system>", "generated skills catalog block");
+forbidContent("AGENTS.md", ".agents/context/active-context.md", "removed active context reference");
 
 const hooksDir = path.join(repoRoot, ".agents/hooks");
 for (const entry of fs.readdirSync(hooksDir)) {
