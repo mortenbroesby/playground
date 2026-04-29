@@ -272,11 +272,70 @@ export interface SearchTextOptions {
   repoRoot: string;
   query: string;
   filePattern?: string;
+  limit?: number;
 }
 
 export interface FileContentResult {
   filePath: string;
   content: string;
+}
+
+export type SupportTier = "discovery" | "structured" | "graph";
+export type FileSummarySource =
+  | "structured"
+  | "markdown-headings"
+  | "json-top-level-keys"
+  | "yaml-top-level-keys"
+  | "sql-schema-objects"
+  | "shell-functions"
+  | "text-lines";
+
+export interface FileSupportProfile {
+  activeTier: SupportTier;
+  availableTiers: SupportTier[];
+  reason: "supported-language" | "fallback-extension" | "generic-discovery";
+}
+
+export interface FindFilesOptions {
+  repoRoot: string;
+  query?: string;
+  filePattern?: string;
+  limit?: number;
+}
+
+export interface FindFilesMatch {
+  filePath: string;
+  fileName: string;
+  language: SupportedLanguage | null;
+  supportTier: SupportTier;
+  indexed: boolean;
+  matchReason: "path" | "name" | "pattern";
+}
+
+export interface FileSummaryOptions {
+  repoRoot: string;
+  filePath: string;
+}
+
+export interface FileSummarySymbol {
+  name: string;
+  kind: SymbolKind;
+  line: number;
+}
+
+export interface FileSummaryResult {
+  filePath: string;
+  fileName: string;
+  language: SupportedLanguage | null;
+  supportTier: SupportTier;
+  support: FileSupportProfile;
+  indexed: boolean;
+  summarySource: FileSummarySource;
+  summary: string;
+  confidence: "high" | "medium";
+  symbolCount: number;
+  topSymbols: FileSummarySymbol[];
+  hints: string[];
 }
 
 export interface SymbolSourceItem {
@@ -460,6 +519,52 @@ export interface DiagnosticsResult {
   watch: WatchDiagnostics;
 }
 
+export interface ProjectStatusOptions {
+  repoRoot: string;
+  scanFreshness?: boolean;
+}
+
+export interface ProjectStatusResult {
+  repoRoot: string;
+  summary: string;
+  readiness: {
+    discoveryReady: boolean;
+    deepRetrievalReady: boolean;
+  };
+  freshness: {
+    staleStatus: StaleStatus;
+    staleReasons: string[];
+    indexedFiles: number;
+    indexedSymbols: number;
+    changedFiles: number;
+    missingFiles: number;
+    extraFiles: number;
+  };
+  supportTiers: {
+    discovery: {
+      languages: SupportedLanguage[];
+      fallbackExtensions: string[];
+      summarySources: FileSummarySource[];
+    };
+    structured: {
+      languages: SupportedLanguage[];
+    };
+    graph: {
+      languages: SupportedLanguage[];
+    };
+    byLanguage: Array<{
+      language: SupportedLanguage;
+      tiers: SupportTier[];
+    }>;
+    byFallbackExtension: Array<{
+      extension: string;
+      tiers: SupportTier[];
+      summarySource: Exclude<FileSummarySource, "structured">;
+    }>;
+  };
+  watch: WatchDiagnostics;
+}
+
 export interface ParserHealthDiagnostics {
   primaryBackend: "oxc";
   fallbackBackend: "tree-sitter";
@@ -540,6 +645,10 @@ export type EngineToolName =
   | "init"
   | "index_folder"
   | "index_file"
+  | "find_files"
+  | "search_text"
+  | "get_file_summary"
+  | "get_project_status"
   | "get_repo_outline"
   | "get_file_tree"
   | "get_file_outline"

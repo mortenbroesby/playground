@@ -6,6 +6,8 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, it as baseIt } from "vitest";
 
 import {
+  ASTROGRAPH_PACKAGE_VERSION,
+  ASTROGRAPH_VERSION_PARTS,
   diagnostics,
   doctor,
   getContextBundle,
@@ -228,13 +230,8 @@ describe("ai-context-engine behavior", () => {
 
     const health = await diagnostics({ repoRoot });
     expect(health).toMatchObject({
-      engineVersion: "0.1.0-alpha.46",
-      engineVersionParts: {
-        major: 0,
-        minor: 1,
-        patch: 0,
-        increment: 46,
-      },
+      engineVersion: ASTROGRAPH_PACKAGE_VERSION,
+      engineVersionParts: ASTROGRAPH_VERSION_PARTS,
       schemaVersion: 4,
       summaryStrategy: "doc-comments-first",
       summarySources: {

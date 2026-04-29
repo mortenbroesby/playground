@@ -62,7 +62,11 @@ import {
 } from "./version.ts";
 import {
   validateContextBundleOptions,
+  validateFindFilesOptions,
+  validateFileSummaryOptions,
+  validateProjectStatusOptions,
   validateRankedContextOptions,
+  validateSearchTextOptions,
   validateSearchSymbolsOptions,
   validateSymbolSourceOptions,
 } from "./validation.ts";
@@ -74,10 +78,18 @@ import type {
   ContextBundleItem,
   ContextBundleItemRole,
   ContextBundleOptions,
+  FindFilesMatch,
+  FindFilesOptions,
   FileContentResult,
   FileOutline,
+  FileSummaryOptions,
+  FileSummaryResult,
+  FileSummarySource,
+  FileSummarySymbol,
   FileTreeEntry,
   IndexSummary,
+  ProjectStatusOptions,
+  ProjectStatusResult,
   QueryCodeAssembleResult,
   QueryCodeDiscoverResult,
   QueryCodeIntent,
@@ -95,6 +107,7 @@ import type {
   SearchSymbolsOptions,
   SearchTextOptions,
   SearchTextMatch,
+  SupportTier,
   SymbolSourceResult,
   SymbolSourceItem,
   SymbolSummary,
@@ -143,6 +156,42 @@ interface TrackedFileRow {
   size_bytes: number | null;
   mtime_ms: number | null;
 }
+
+const DISCOVERY_SKIP_SEGMENTS = new Set([
+  ".git",
+  ".next",
+  ".turbo",
+  ".vercel",
+  ".astrograph",
+  ".codeintel",
+  "coverage",
+  "dist",
+  "node_modules",
+]);
+
+const DISCOVERY_FALLBACK_EXTENSIONS = [
+  ".md",
+  ".mdx",
+  ".json",
+  ".yaml",
+  ".yml",
+  ".sql",
+  ".sh",
+  ".txt",
+] as const;
+
+const DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION = {
+  ".md": "markdown-headings",
+  ".mdx": "markdown-headings",
+  ".json": "json-top-level-keys",
+  ".yaml": "yaml-top-level-keys",
+  ".yml": "yaml-top-level-keys",
+  ".sql": "sql-schema-objects",
+  ".sh": "shell-functions",
+  ".txt": "text-lines",
+} as const satisfies Record<string, Exclude<FileSummarySource, "structured">>;
+
+const GRAPH_LANGUAGES: SupportedLanguage[] = ["ts", "tsx", "js", "jsx"];
 
 type AnalyzedFileIndexResult =
   | {
@@ -1711,6 +1760,215 @@ function matchesFilePattern(filePath: string, pattern?: string): boolean {
   return createPathMatcher({ include: pattern ? [pattern] : undefined }).matches(
     filePath,
   );
+}
+
+function supportTierForLanguage(language: SupportedLanguage | null): SupportTier {
+  return language ? "graph" : "discovery";
+}
+
+function availableSupportTiersForFile(language: SupportedLanguage | null): SupportTier[] {
+  return language
+    ? ["discovery", "structured", "graph"]
+    : ["discovery"];
+}
+
+function supportReasonForFile(relativePath: string, language: SupportedLanguage | null) {
+  if (language) {
+    return "supported-language" as const;
+  }
+  const extension = path.extname(relativePath).toLowerCase();
+  return extension in DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION
+    ? "fallback-extension" as const
+    : "generic-discovery" as const;
+}
+
+function summarizeReadiness(discoveryReady: boolean, deepRetrievalReady: boolean): string {
+  if (deepRetrievalReady) {
+    return "discovery-ready and deep-retrieval-ready";
+  }
+  if (discoveryReady) {
+    return "discovery-ready but still deepening structured retrieval";
+  }
+  return "not discovery-ready yet";
+}
+
+async function collectRepoFiles(
+  repoRoot: string,
+  currentDir: string,
+  results: string[],
+  maxFiles: number,
+): Promise<void> {
+  if (results.length >= maxFiles) {
+    return;
+  }
+
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+
+  for (const entry of entries) {
+    if (results.length >= maxFiles) {
+      return;
+    }
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
+    if (entry.isDirectory()) {
+      if (DISCOVERY_SKIP_SEGMENTS.has(entry.name)) {
+        continue;
+      }
+      await collectRepoFiles(repoRoot, path.join(currentDir, entry.name), results, maxFiles);
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const absolutePath = path.join(currentDir, entry.name);
+    const relativePath = path.relative(repoRoot, absolutePath);
+    if (relativePath.startsWith(`..${path.sep}`) || relativePath === "..") {
+      continue;
+    }
+    if (isGitIgnored(repoRoot, relativePath)) {
+      continue;
+    }
+    results.push(relativePath);
+  }
+}
+
+function scoreFindFileMatch(filePath: string, query: string | undefined): {
+  matched: boolean;
+  reason: FindFilesMatch["matchReason"];
+  score: number;
+} {
+  if (!query) {
+    return {
+      matched: true,
+      reason: "pattern",
+      score: 1,
+    };
+  }
+
+  const normalizedQuery = query.toLowerCase();
+  const fileName = path.basename(filePath).toLowerCase();
+  const normalizedPath = filePath.toLowerCase();
+
+  if (fileName === normalizedQuery) {
+    return { matched: true, reason: "name", score: 500 };
+  }
+  if (normalizedPath === normalizedQuery) {
+    return { matched: true, reason: "path", score: 450 };
+  }
+  if (fileName.includes(normalizedQuery)) {
+    return { matched: true, reason: "name", score: 300 };
+  }
+  if (normalizedPath.includes(normalizedQuery)) {
+    return { matched: true, reason: "path", score: 200 };
+  }
+
+  return { matched: false, reason: "path", score: 0 };
+}
+
+function summarizeStructuredFile(relativePath: string, symbols: SymbolSummary[]): {
+  summarySource: "structured";
+  summary: string;
+  topSymbols: FileSummarySymbol[];
+  hints: string[];
+} {
+  const topSymbols = symbols.slice(0, 3).map((symbol) => ({
+    name: symbol.name,
+    kind: symbol.kind,
+    line: symbol.startLine,
+  }));
+  const symbolKinds = new Set(symbols.map((symbol) => symbol.kind));
+  return {
+    summarySource: "structured",
+    summary: `${path.extname(relativePath).slice(1).toUpperCase() || "Source"} file with ${symbols.length} indexed symbols`,
+    topSymbols,
+    hints: [
+      `symbol kinds: ${[...symbolKinds].join(", ")}`,
+      ...topSymbols.map((symbol) => `${symbol.kind} ${symbol.name} at line ${symbol.line}`),
+    ],
+  };
+}
+
+function summarizeDiscoveryContent(relativePath: string, content: string): {
+  summarySource: Exclude<FileSummarySource, "structured">;
+  summary: string;
+  hints: string[];
+} {
+  const extension = path.extname(relativePath).toLowerCase();
+  const lines = content.split(/\r?\n/);
+  const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
+
+  if (extension === ".md" || extension === ".mdx") {
+    const headings = nonEmptyLines
+      .filter((line) => /^#{1,6}\s+/.test(line))
+      .slice(0, 3)
+      .map((line) => line.replace(/^#{1,6}\s+/, ""));
+    return {
+      summarySource: "markdown-headings",
+      summary: `Markdown file with ${headings.length} heading${headings.length === 1 ? "" : "s"}`,
+      hints: headings.length > 0 ? headings : nonEmptyLines.slice(0, 3),
+    };
+  }
+
+  if (extension === ".json") {
+    try {
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      const topLevelKeys = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? Object.keys(parsed).slice(0, 5)
+        : [];
+      return {
+        summarySource: "json-top-level-keys",
+        summary: `JSON file with ${topLevelKeys.length} top-level key${topLevelKeys.length === 1 ? "" : "s"}`,
+        hints: topLevelKeys,
+      };
+    } catch {
+      // Fall through to generic text summary.
+    }
+  }
+
+  if (extension === ".yaml" || extension === ".yml") {
+    const topLevelKeys = lines
+      .map((line) => line.match(/^([A-Za-z0-9_-]+):\s*/)?.[1] ?? null)
+      .filter((value): value is string => value !== null)
+      .slice(0, 5);
+    return {
+      summarySource: "yaml-top-level-keys",
+      summary: `YAML file with ${topLevelKeys.length} top-level key${topLevelKeys.length === 1 ? "" : "s"}`,
+      hints: topLevelKeys,
+    };
+  }
+
+  if (extension === ".sql") {
+    const objects = [...content.matchAll(/\b(?:create|alter)\s+(?:table|view|function|index)\s+([A-Za-z0-9_."]+)/gi)]
+      .map((match) => match[1]?.replaceAll("\"", ""))
+      .filter((value): value is string => Boolean(value))
+      .slice(0, 5);
+    return {
+      summarySource: "sql-schema-objects",
+      summary: `SQL file with ${objects.length} schema object reference${objects.length === 1 ? "" : "s"}`,
+      hints: objects,
+    };
+  }
+
+  if (extension === ".sh") {
+    const functions = lines
+      .map((line) => line.match(/^\s*([A-Za-z0-9_]+)\s*\(\)\s*\{/)?.[1] ?? null)
+      .filter((value): value is string => value !== null)
+      .slice(0, 5);
+    return {
+      summarySource: "shell-functions",
+      summary: `Shell script with ${functions.length} function${functions.length === 1 ? "" : "s"}`,
+      hints: functions,
+    };
+  }
+
+  return {
+    summarySource: "text-lines",
+    summary: `Discovery-only file with ${nonEmptyLines.length} non-empty line${nonEmptyLines.length === 1 ? "" : "s"}`,
+    hints: nonEmptyLines.slice(0, 3).map((line) => line.slice(0, 120)),
+  };
 }
 
 function estimateTokens(value: string): number {
@@ -3534,9 +3792,14 @@ function searchTextInContext(
   context: EngineContext,
   input: SearchTextOptions,
 ): SearchTextMatch[] {
+  validateSearchTextOptions(input);
   const whereClauses: string[] = [];
   const params: IndexBackendValue[] = [];
   const ftsQuery = buildFtsMatchQuery(input.query);
+  const resultLimit = Math.min(
+    input.limit ?? context.config.maxTextResults,
+    context.config.maxTextResults,
+  );
 
   if (ftsQuery) {
     const ftsRows = typedAll<{ file_id: number }>(
@@ -3571,7 +3834,6 @@ function searchTextInContext(
   );
   const lowerQuery = input.query.toLowerCase();
   const matches: SearchTextMatch[] = [];
-  const maxTextResults = context.config.maxTextResults;
 
   for (const row of rows) {
     if (!matchesFilePattern(row.file_path, input.filePattern)) {
@@ -3579,7 +3841,7 @@ function searchTextInContext(
     }
     const lines = row.content.split("\n");
     lines.forEach((line, index) => {
-      if (matches.length >= maxTextResults) {
+      if (matches.length >= resultLimit) {
         return;
       }
       if (line.toLowerCase().includes(lowerQuery)) {
@@ -3590,7 +3852,7 @@ function searchTextInContext(
         });
       }
     });
-    if (matches.length >= maxTextResults) {
+    if (matches.length >= resultLimit) {
       break;
     }
   }
@@ -3601,13 +3863,18 @@ function searchTextInContext(
 export async function searchText(
   input: SearchTextOptions,
 ): Promise<SearchTextMatch[]> {
+  validateSearchTextOptions(input);
   if (await shouldUseLiveTextSearchFallback({ repoRoot: input.repoRoot })) {
     const config = await ensureStorage(input.repoRoot);
     return searchLiveText({
       repoRoot: config.repoRoot,
       query: input.query,
       filePattern: input.filePattern,
-      maxMatches: Math.min(config.maxLiveSearchMatches, config.maxTextResults),
+      maxMatches: Math.min(
+        input.limit ?? config.maxLiveSearchMatches,
+        config.maxLiveSearchMatches,
+        config.maxTextResults,
+      ),
       maxOutputBytes: config.maxChildProcessOutputBytes,
     });
   }
@@ -3619,6 +3886,197 @@ export async function searchText(
   } finally {
     closeEngineContext(context);
   }
+}
+
+export async function findFiles(
+  input: FindFilesOptions,
+): Promise<FindFilesMatch[]> {
+  const normalizedInput = validateFindFilesOptions(input);
+  const config = await ensureStorage(input.repoRoot);
+  const context = await createEngineContext({ repoRoot: config.repoRoot });
+
+  try {
+    const indexedPaths = new Set(
+      typedAll<{ path: string }>(
+        context.db.prepare("SELECT path FROM files ORDER BY path ASC"),
+      ).map((row) => row.path),
+    );
+    const discoveredPaths: string[] = [];
+    await collectRepoFiles(
+      config.repoRoot,
+      config.repoRoot,
+      discoveredPaths,
+      Math.max(config.maxFilesDiscovered, input.limit ?? 0),
+    );
+    const resultLimit = Math.min(
+      input.limit ?? config.maxSymbolResults,
+      config.maxFilesDiscovered,
+    );
+
+    return discoveredPaths
+      .filter((filePath) => matchesFilePattern(filePath, normalizedInput.filePattern))
+      .map((filePath) => {
+        const match = scoreFindFileMatch(filePath, normalizedInput.query);
+        return {
+          filePath,
+          fileName: path.basename(filePath),
+          language: supportedLanguageForFile(filePath),
+          indexed: indexedPaths.has(filePath),
+          match,
+        };
+      })
+      .filter((entry) => entry.match.matched)
+      .sort(
+        (left, right) =>
+          right.match.score - left.match.score ||
+          Number(right.indexed) - Number(left.indexed) ||
+          left.filePath.localeCompare(right.filePath),
+      )
+      .slice(0, resultLimit)
+      .map((entry) => ({
+        filePath: entry.filePath,
+        fileName: entry.fileName,
+        language: entry.language,
+        supportTier: supportTierForLanguage(entry.language),
+        indexed: entry.indexed,
+        matchReason: entry.match.reason,
+      }));
+  } finally {
+    closeEngineContext(context);
+  }
+}
+
+export async function getFileSummary(
+  input: FileSummaryOptions,
+): Promise<FileSummaryResult> {
+  validateFileSummaryOptions(input);
+  const config = await ensureStorage(input.repoRoot);
+  const context = await createEngineContext({ repoRoot: config.repoRoot });
+  const { absolutePath, relativePath } = normalizeRepoRelativePath(config.repoRoot, input.filePath);
+  const language = supportedLanguageForFile(relativePath);
+
+  try {
+    const indexed = Boolean(
+      context.db.prepare("SELECT 1 AS present FROM files WHERE path = ?").get(relativePath),
+    );
+    const outline = indexed
+      ? {
+          filePath: relativePath,
+          symbols: typedAll<DbSymbolRow>(
+            context.db.prepare(
+              `
+                SELECT
+                  id, name, qualified_name, kind, file_path, signature, summary,
+                  summary_source,
+                  start_line, end_line, start_byte, end_byte, exported
+                FROM symbols
+                WHERE file_path = ?
+                ORDER BY start_line ASC
+              `,
+            ),
+            relativePath,
+          ).map(mapSymbolRow),
+        }
+      : null;
+    if (outline && outline.symbols.length > 0) {
+      const structured = summarizeStructuredFile(relativePath, outline.symbols);
+      return {
+        filePath: relativePath,
+        fileName: path.basename(relativePath),
+        language,
+        supportTier: "structured",
+        support: {
+          activeTier: "structured",
+          availableTiers: availableSupportTiersForFile(language),
+          reason: supportReasonForFile(relativePath, language),
+        },
+        indexed,
+        summarySource: structured.summarySource,
+        summary: structured.summary,
+        confidence: "high",
+        symbolCount: outline.symbols.length,
+        topSymbols: structured.topSymbols,
+        hints: structured.hints,
+      };
+    }
+
+    const content = await readFile(absolutePath, "utf8");
+    const discovery = summarizeDiscoveryContent(relativePath, content);
+    return {
+      filePath: relativePath,
+      fileName: path.basename(relativePath),
+      language,
+      supportTier: "discovery",
+      support: {
+        activeTier: "discovery",
+        availableTiers: availableSupportTiersForFile(language),
+        reason: supportReasonForFile(relativePath, language),
+      },
+      indexed,
+      summarySource: discovery.summarySource,
+      summary: discovery.summary,
+      confidence: language ? "high" : "medium",
+      symbolCount: outline?.symbols.length ?? 0,
+      topSymbols: [],
+      hints: discovery.hints,
+    };
+  } finally {
+    closeEngineContext(context);
+  }
+}
+
+export async function getProjectStatus(
+  input: ProjectStatusOptions,
+): Promise<ProjectStatusResult> {
+  validateProjectStatusOptions(input);
+  const diagnosticsResult = await diagnostics(input);
+  const discoveryReady = diagnosticsResult.indexedFiles > 0;
+  const deepRetrievalReady = diagnosticsResult.indexedSymbols > 0;
+
+  return {
+    repoRoot: diagnosticsResult.storageDir.endsWith(".astrograph")
+      ? path.dirname(diagnosticsResult.storageDir)
+      : input.repoRoot,
+    summary: `Astrograph is ${summarizeReadiness(discoveryReady, deepRetrievalReady)} with freshness ${diagnosticsResult.staleStatus}`,
+    readiness: {
+      discoveryReady,
+      deepRetrievalReady,
+    },
+    freshness: {
+      staleStatus: diagnosticsResult.staleStatus,
+      staleReasons: diagnosticsResult.staleReasons,
+      indexedFiles: diagnosticsResult.indexedFiles,
+      indexedSymbols: diagnosticsResult.indexedSymbols,
+      changedFiles: diagnosticsResult.changedFiles,
+      missingFiles: diagnosticsResult.missingFiles,
+      extraFiles: diagnosticsResult.extraFiles,
+    },
+    supportTiers: {
+      discovery: {
+        languages: GRAPH_LANGUAGES,
+        fallbackExtensions: [...DISCOVERY_FALLBACK_EXTENSIONS],
+        summarySources: [...new Set(Object.values(DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION))],
+      },
+      structured: {
+        languages: GRAPH_LANGUAGES,
+      },
+      graph: {
+        languages: GRAPH_LANGUAGES,
+      },
+      byLanguage: GRAPH_LANGUAGES.map((language) => ({
+        language,
+        tiers: availableSupportTiersForFile(language),
+      })),
+      byFallbackExtension: Object.entries(DISCOVERY_SUMMARY_SOURCE_BY_EXTENSION).map(
+        ([extension, summarySource]) => ({
+          extension,
+          tiers: ["discovery"] as SupportTier[],
+          summarySource,
+        }),
+      ),
+    },
+    watch: diagnosticsResult.watch,
+  };
 }
 
 export async function queryCode(

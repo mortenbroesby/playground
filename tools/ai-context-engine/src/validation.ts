@@ -2,12 +2,16 @@ import { z } from "zod";
 
 import type {
   ContextBundleOptions,
+  FindFilesOptions,
+  ProjectStatusOptions,
   QueryCodeIntent,
   QueryCodeOptions,
+  SearchTextOptions,
   SearchSymbolsOptions,
   SummaryStrategy,
   SupportedLanguage,
   SymbolKind,
+  FileSummaryOptions,
 } from "./types.ts";
 
 const supportedLanguageSchema = z.enum(["ts", "tsx", "js", "jsx"]);
@@ -211,6 +215,54 @@ export function validateSearchSymbolsOptions(
   if (input.limit !== undefined) {
     requirePositiveNumber(input.limit, "limit");
   }
+}
+
+function trimRequiredString(value: string | undefined, message: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new Error(message);
+  }
+  return trimmed;
+}
+
+export function validateFindFilesOptions(
+  input: Pick<FindFilesOptions, "query" | "filePattern" | "limit">,
+): Pick<FindFilesOptions, "query" | "filePattern"> {
+  if (input.limit !== undefined) {
+    requirePositiveNumber(input.limit, "limit");
+  }
+
+  const query = trimToOptional(input.query);
+  const filePattern = trimToOptional(input.filePattern);
+  if (!query && !filePattern) {
+    throw new Error("find_files requires a non-empty query or filePattern");
+  }
+
+  return {
+    query,
+    filePattern,
+  };
+}
+
+export function validateSearchTextOptions(
+  input: Pick<SearchTextOptions, "query" | "limit">,
+): void {
+  trimRequiredString(input.query, "search_text requires a non-empty query");
+  if (input.limit !== undefined) {
+    requirePositiveNumber(input.limit, "limit");
+  }
+}
+
+export function validateFileSummaryOptions(
+  input: Pick<FileSummaryOptions, "filePath">,
+): void {
+  trimRequiredString(input.filePath, "get_file_summary requires a non-empty filePath");
+}
+
+export function validateProjectStatusOptions(
+  _input: Pick<ProjectStatusOptions, "scanFreshness">,
+): void {
+  // Reserved for future expansion of project status filters.
 }
 
 export function normalizeContextBundleSeeds(

@@ -57,6 +57,9 @@ The package is currently a local-first npm alpha:
 - Watch-mode refresh with `@parcel/watcher`, `fs.watch`, and polling fallback paths
 - Live-disk text fallback via ripgrep when discovery text search is requested on
   a missing or stale index
+- Explicit support-tier reporting for status and file-summary flows, including
+  deterministic discovery summary strategies for Markdown, JSON, YAML, SQL,
+  shell, and plain-text fallbacks
 - Serialization benchmark gate for evaluating stable machine-result envelopes
 - Stdio MCP server backed by the official MCP TypeScript SDK
 - CLI and library entry points for local debugging, benchmarks, and packaging checks

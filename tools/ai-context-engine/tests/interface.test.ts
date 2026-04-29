@@ -499,6 +499,7 @@ export function circumference(radius: number): string {
 
   it("exposes spec-aligned MCP tools", async () => {
     const repoRoot = await createFixtureRepo();
+    await writeFile(path.join(repoRoot, "README.md"), "# Fixture Repo\n\n## Start Here\n");
     await withMcpClient(async ({ client, stderr }) => {
       const toolsResult = await client.listTools();
       const indexResult = await client.callTool({
@@ -538,6 +539,34 @@ export function circumference(radius: number): string {
           query: "greet",
           kind: "method",
           limit: 1,
+        },
+      });
+      const findFilesResult = await client.callTool({
+        name: "find_files",
+        arguments: {
+          repoRoot,
+          query: "README",
+        },
+      });
+      const searchTextResult = await client.callTool({
+        name: "search_text",
+        arguments: {
+          repoRoot,
+          query: "Hello",
+          limit: 1,
+        },
+      });
+      const fileSummaryResult = await client.callTool({
+        name: "get_file_summary",
+        arguments: {
+          repoRoot,
+          filePath: "README.md",
+        },
+      });
+      const projectStatusResult = await client.callTool({
+        name: "get_project_status",
+        arguments: {
+          repoRoot,
         },
       });
       const bundleResult = await client.callTool({
@@ -595,6 +624,75 @@ export function circumference(radius: number): string {
         content: Array<{ type: string; text: string }>;
         }).content[0];
       const greetToolId = JSON.parse(greetContent.text).symbolMatches[0].id as string;
+
+      const findFilesContent = (
+        findFilesResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(findFilesContent.text)[0]).toMatchObject({
+        filePath: "README.md",
+        supportTier: "discovery",
+      });
+
+      const searchTextContent = (
+        searchTextResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(searchTextContent.text)).toHaveLength(1);
+      expect(JSON.parse(searchTextContent.text)[0]).toMatchObject({
+        filePath: "src/strings.ts",
+      });
+
+      const fileSummaryContent = (
+        fileSummaryResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(fileSummaryContent.text)).toMatchObject({
+        filePath: "README.md",
+        summarySource: "markdown-headings",
+        supportTier: "discovery",
+        support: {
+          activeTier: "discovery",
+          availableTiers: ["discovery"],
+          reason: "fallback-extension",
+        },
+      });
+
+      const projectStatusContent = (
+        projectStatusResult as {
+          content: Array<{ type: string; text: string }>;
+        }
+      ).content[0];
+      expect(JSON.parse(projectStatusContent.text)).toMatchObject({
+        readiness: {
+          discoveryReady: true,
+          deepRetrievalReady: true,
+        },
+        freshness: {
+          staleStatus: "fresh",
+        },
+        supportTiers: {
+          discovery: {
+            summarySources: expect.arrayContaining(["markdown-headings", "json-top-level-keys"]),
+          },
+          byLanguage: expect.arrayContaining([
+            {
+              language: "ts",
+              tiers: ["discovery", "structured", "graph"],
+            },
+          ]),
+          byFallbackExtension: expect.arrayContaining([
+            {
+              extension: ".md",
+              tiers: ["discovery"],
+              summarySource: "markdown-headings",
+            },
+          ]),
+        },
+      });
 
       const bundleContent = (
         bundleResult as {
@@ -1187,7 +1285,7 @@ export class Greeter {
       "src/math.ts",
       "src/strings.ts",
     ]);
-  });
+  }, 15_000);
 
   it("rejects malformed MCP arguments instead of treating them as empty filters", async () => {
     const repoRoot = await createFixtureRepo();

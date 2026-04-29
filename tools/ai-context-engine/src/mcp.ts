@@ -29,9 +29,13 @@ const toolObservationCounts = new Map<string, number>();
 
 const HEURISTIC_SAVED_PCT_BY_TOOL: Record<string, number> = {
   diagnostics: 40,
+  find_files: 85,
   get_file_outline: 65,
+  get_file_summary: 75,
+  get_project_status: 55,
   get_file_tree: 85,
   get_repo_outline: 90,
+  search_text: 70,
   query_code_discover: 55,
   suggest_initial_queries: 92,
 };
@@ -293,6 +297,73 @@ function summarizeToolCompletion(
         toolKey: name,
         returnedValue: result,
         heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.get_file_outline,
+      }),
+    };
+  }
+
+  if (name === "find_files" && Array.isArray(result)) {
+    return {
+      summary: `Found ${result.length} matching files`,
+      detail: [`returned ~${returnedTokens} tokens`],
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.find_files,
+      }),
+    };
+  }
+
+  if (name === "search_text" && Array.isArray(result)) {
+    return {
+      summary: `Found ${result.length} text matches`,
+      detail: [`returned ~${returnedTokens} tokens`],
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.search_text,
+      }),
+    };
+  }
+
+  if (name === "get_file_summary" && result && typeof result === "object") {
+    const summary = result as {
+      filePath?: string;
+      supportTier?: string;
+      support?: { activeTier?: string; availableTiers?: string[] };
+      summarySource?: string;
+    };
+    return {
+      summary: `Summarized ${summary.filePath ?? "file"}`,
+      detail: [
+        `support tier: ${summary.support?.activeTier ?? summary.supportTier ?? "unknown"}`,
+        `available tiers: ${(summary.support?.availableTiers ?? []).join(", ") || "unknown"}`,
+        `summary source: ${summary.summarySource ?? "unknown"}`,
+      ],
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.get_file_summary,
+      }),
+    };
+  }
+
+  if (name === "get_project_status" && result && typeof result === "object") {
+    const status = result as {
+      readiness?: { discoveryReady?: boolean; deepRetrievalReady?: boolean };
+      freshness?: { staleStatus?: string };
+      supportTiers?: { byLanguage?: Array<{ language?: string; tiers?: string[] }> };
+    };
+    return {
+      summary: `Project status: ${status.freshness?.staleStatus ?? "unknown"} freshness`,
+      detail: [
+        `discovery ready: ${status.readiness?.discoveryReady === true ? "yes" : "no"}`,
+        `deep retrieval ready: ${status.readiness?.deepRetrievalReady === true ? "yes" : "no"}`,
+        `language tiers: ${status.supportTiers?.byLanguage?.map((entry) => `${entry.language}:${(entry.tiers ?? []).join("/")}`).join(", ") || "unknown"}`,
+      ],
+      tokenEstimate: buildTokenEstimate({
+        toolKey: name,
+        returnedValue: result,
+        heuristicSavedPercent: HEURISTIC_SAVED_PCT_BY_TOOL.get_project_status,
       }),
     };
   }
