@@ -63,6 +63,8 @@ Thin bootstrap for coding agents in this repo.
 - Discover skills on demand with `pnpm skills:list` and
   `pnpm skills:search <query>`.
 - Load a skill only when needed with `pnpm skills:read <skill-name>`.
+- Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) to
+  decide which skills to load for which kinds of tasks.
 
 ## Ship Default
 
