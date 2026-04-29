@@ -1,11 +1,13 @@
 {
   "name": "playground",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": "24.x"
+    "node": "24.x",
+    "pnpm": "9.15.9"
   },
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "build": "turbo build",
     "dev": "turbo dev",
     "dev:web": "node scripts/dev-web.mjs",
@@ -15,6 +17,7 @@
     "docs:check": "pnpm knowledge:check",
     "knowledge:check": "node scripts/check-knowledge-reminder.mjs",
     "lint": "turbo lint && pnpm lint:md",
+    "lint:prepush": "node scripts/prepush-checks.mjs",
     "lint:md": "pnpm markdown:check",
     "markdown:fix": "markdownlint-cli2 \"README.md\" \"AGENTS.md\" \".github/copilot-instructions.md\" \"docs/*.md\" \"docs/ideas/**/*.md\" \"docs/obsidian/**/*.md\" \"vault/**/*.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\" \"tools/*/README.md\" --fix",
     "markdown:check": "markdownlint-cli2 \"README.md\" \"AGENTS.md\" \".github/copilot-instructions.md\" \"docs/*.md\" \"docs/ideas/**/*.md\" \"docs/obsidian/**/*.md\" \"vault/**/*.md\" \"apps/*/README.md\" \"packages/*/README.md\" \"packages/*/*/README.md\" \"tools/*/README.md\"",
@@ -38,9 +41,12 @@
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
     "agents:check": "node scripts/agent-setup-check.mjs",
+    "skills:list": "node scripts/skills.mjs list",
+    "skills:search": "node scripts/skills.mjs search",
+    "skills:read": "node scripts/skills.mjs read",
     "ralph:init": "node scripts/ralph/init.mjs",
     "ralph:loop": "node scripts/ralph/loop.mjs",
-    "prepare": "husky"
+    "prepare": "husky install"
   },
   "devDependencies": {
     "@astrograph/astrograph": "workspace:*",

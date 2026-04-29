@@ -6,6 +6,7 @@ import {
   getTouchedPaths,
   isDirectEntrypoint,
   isPathInsideProject,
+  loadAgentSettings,
   normalizeToolPath,
   preToolDeny,
   runHook,
@@ -31,16 +32,44 @@ const PROTECTED_PATH_PATTERNS = [
   { pattern: /(^|\/)\.ssh(\/|$)/i, reason: 'Editing files inside .ssh/ is blocked.' },
   { pattern: /(^|\/)secrets(\/|$)/i, reason: 'Editing files inside secrets/ is blocked.' },
   { pattern: /(^|\/)(?:dist|build|\.next|\.turbo|coverage)(\/|$)/i, reason: 'Editing generated output directories is blocked.' },
-  { pattern: /(^|\/)\.agents\/hooks(\/|$)/i, reason: 'Editing agent hook scripts through hooked tools is blocked. Review hook changes manually.' },
-  { pattern: /(^|\/)\.claude\/settings(?:\.local)?\.json$/i, reason: 'Editing Claude hook settings through hooked tools is blocked. Review hook changes manually.' },
+  {
+    pattern: /(^|\/)\.agents\/hooks(\/|$)/i,
+    reason: 'Editing agent hook scripts requires an explicit allowlist entry in .agents/settings.cjs under infrastructureEditAllowlist.',
+    allowlistEligible: true,
+  },
+  {
+    pattern: /(^|\/)\.claude\/settings(?:\.local)?\.json$/i,
+    reason: 'Editing Claude hook settings requires an explicit allowlist entry in .agents/settings.cjs under infrastructureEditAllowlist.',
+    allowlistEligible: true,
+  },
 ];
 
-export function getProtectedPathReason(filePath) {
+function isInfrastructureEditAllowed(projectRoot, filePath) {
+  const normalizedPath = normalizeToolPath(filePath);
+  const settings = loadAgentSettings(projectRoot);
+  const allowlist = Array.isArray(settings.infrastructureEditAllowlist)
+    ? settings.infrastructureEditAllowlist.map((entry) => normalizeToolPath(entry))
+    : [];
+
+  return allowlist.some((entry) => {
+    if (entry.endsWith('/**')) {
+      const prefix = entry.slice(0, -3);
+      return normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`);
+    }
+
+    return normalizedPath === entry;
+  });
+}
+
+export function getProtectedPathReason(projectRoot, filePath) {
   const normalizedPath = normalizeToolPath(filePath);
   const basename = path.basename(normalizedPath);
 
   for (const rule of PROTECTED_PATH_PATTERNS) {
     if (rule.pattern.test(normalizedPath)) {
+      if (rule.allowlistEligible && isInfrastructureEditAllowed(projectRoot, normalizedPath)) {
+        return '';
+      }
       return rule.reason;
     }
   }
@@ -61,7 +90,7 @@ export async function handleProtectFiles(payload) {
       return preToolDeny('Editing files outside the project root is blocked.');
     }
 
-    const reason = getProtectedPathReason(filePath);
+    const reason = getProtectedPathReason(projectRoot, filePath);
     if (reason) {
       return preToolDeny(reason);
     }

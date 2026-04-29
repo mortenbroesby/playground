@@ -1,7 +1,10 @@
 import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+
+const require = createRequire(import.meta.url);
 
 export const DESKTOP_NOTIFY_TITLE = 'Playground';
 export const DEFAULT_LOG_PATH = path.join(os.homedir(), '.cache', 'playground-agent-hooks', 'hooks.log');
@@ -83,6 +86,17 @@ export function getProjectRoot(payload) {
       process.cwd(),
     ),
   );
+}
+
+export function loadAgentSettings(projectRoot) {
+  const settingsPath = path.join(projectRoot, '.agents', 'settings.cjs');
+  try {
+    delete require.cache[settingsPath];
+    const settings = require(settingsPath);
+    return settings && typeof settings === 'object' ? settings : {};
+  } catch {
+    return {};
+  }
 }
 
 export function getTouchedPaths(payload) {

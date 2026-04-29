@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 
-import { getTouchedPaths, isDirectEntrypoint, makeJsonOutput, runHook } from './lib/core.mjs';
+import {
+  getProjectRoot,
+  getTouchedPaths,
+  isDirectEntrypoint,
+  makeJsonOutput,
+  runHook,
+} from './lib/core.mjs';
 import { getProtectedPathReason } from './protect-files.mjs';
 
 export async function handleAuditEditedFiles(payload) {
-  const protectedPaths = getTouchedPaths(payload).filter((filePath) => getProtectedPathReason(filePath));
+  const projectRoot = getProjectRoot(payload);
+  const protectedPaths = getTouchedPaths(payload).filter((filePath) => getProtectedPathReason(projectRoot, filePath));
 
   if (!protectedPaths.length) {
     return {};

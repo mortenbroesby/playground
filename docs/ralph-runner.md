@@ -1,7 +1,7 @@
 # Ralph Runner
 
 This repo keeps the existing planning-oriented Ralph surface in
-`.agents/commands/ralph-plan.md` and `.agents/skills/ralph-plan/`.
+`.agents/commands/ralph-plan.md` and `.skills/ralph-plan/`.
 
 It also now includes a separate opt-in autonomous runner inspired by
 [`snarktank/ralph`](https://github.com/snarktank/ralph), adapted to fit the

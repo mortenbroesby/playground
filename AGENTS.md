@@ -30,8 +30,6 @@ Thin bootstrap for coding agents in this repo.
   `diagnostics` when you specifically want to validate or compare the newer
   retrieval path.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
-- Use [`.agents/context/active-context.md`](.agents/context/active-context.md)
-  only as compact current-state or handoff context when present.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
 
@@ -54,8 +52,19 @@ Thin bootstrap for coding agents in this repo.
 - Shared agent docs live under [`.agents/`](.agents/).
 - Codex execution-policy rules live in [`.codex/rules/`](.codex/rules/), with
   [codex/rules](codex/rules) as a docs-path compatibility symlink.
-- Claude loads the same shared commands, skills, hooks, and rules through
-  `.claude/*` symlinks.
+- Claude loads the same shared commands, hooks, and rules through `.claude/*`
+  symlinks.
+
+## Skills
+
+- Repo-owned skills live in [`.skills/`](.skills/).
+- Discover skills on demand with `pnpm skills:list` and
+  `pnpm skills:search <query>`.
+- Load a skill only when needed with `pnpm skills:read <skill-name>`.
+- Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) to
+  decide which skills to load for which kinds of tasks.
+- For Superpowers-derived skills on Codex, use the tool mapping at
+  [codex-tools.md](.skills/using-superpowers/references/codex-tools.md).
 
 ## Ship Default
 
