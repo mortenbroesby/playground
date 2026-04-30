@@ -733,9 +733,22 @@ test("fixFrontmatter does not auto-apply ambiguous status suggestions", async ()
   assert.equal(dryRun.changed, 1);
   assert.equal(dryRun.blocked, 1);
   assert.equal(dryRun.applied, 0);
+  assert.equal(dryRun.status_review_only, false);
   assert.equal(dryRun.notes[0].suggested_status, "active");
   assert.deepEqual(dryRun.notes[0].blocking_issues, ["status_review_required"]);
   assert.ok(dryRun.notes[0].changes.includes("suggest_status"));
+
+  const targetedDryRun = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: false,
+    statusReviewOnly: true,
+  });
+
+  assert.equal(targetedDryRun.status_review_only, true);
+  assert.equal(targetedDryRun.changed, 1);
+  assert.equal(targetedDryRun.notes.length, 1);
+  assert.equal(targetedDryRun.notes[0].path, "00 Repositories/playground/specs/2026-04-29 Rebuild RAG Memory.md");
 
   const applied = await fixFrontmatter({
     vaultRoot,
@@ -751,4 +764,47 @@ test("fixFrontmatter does not auto-apply ambiguous status suggestions", async ()
   assert.ok(unchanged.includes("type: spec"));
   assert.ok(unchanged.includes("repo: playground"));
   assert.ok(!unchanged.includes('repo_slug: "playground"'));
+});
+
+test("fixFrontmatter can explicitly accept suggested statuses for blocked notes", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-fix-frontmatter-accept-status-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const repoVaultRoot = path.join(vaultRoot, "00 Repositories", "playground");
+  const specNotePath = path.join(repoVaultRoot, "specs", "2026-04-29 Rebuild RAG Memory.md");
+
+  await mkdir(path.dirname(specNotePath), { recursive: true });
+  await writeFile(
+    specNotePath,
+    [
+      "---",
+      "type: spec",
+      "repo: playground",
+      "date: 2026-04-29",
+      "summary: Rebuild the RAG memory system.",
+      "---",
+      "",
+      "# Rebuild RAG Memory",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const applied = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: true,
+    statusReviewOnly: true,
+    acceptSuggestedStatus: true,
+  });
+
+  assert.equal(applied.status_review_only, true);
+  assert.equal(applied.accept_suggested_status, true);
+  assert.equal(applied.changed, 1);
+  assert.equal(applied.blocked, 1);
+  assert.equal(applied.applied, 1);
+
+  const rewritten = await readFile(specNotePath, "utf8");
+  assert.ok(rewritten.includes('repo_slug: "playground"'));
+  assert.ok(rewritten.includes('status: "active"'));
+  assert.ok(rewritten.includes('id: "mem-20260429-rebuild-rag-memory"'));
+  assert.ok(!rewritten.includes("repo: playground"));
 });

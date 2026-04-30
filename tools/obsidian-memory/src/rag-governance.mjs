@@ -1313,6 +1313,8 @@ export async function fixFrontmatter({
   pathPrefix = "",
   limit = null,
   includeContentPreview = true,
+  statusReviewOnly = false,
+  acceptSuggestedStatus = false,
 }) {
   const repoRootPath = path.join(vaultRoot, "00 Repositories", repoSlug);
   try {
@@ -1384,8 +1386,25 @@ export async function fixFrontmatter({
   }
 
   const allChangedPlans = plans.filter((plan) => plan.changed);
-  const changedPlans = allChangedPlans.slice(0, limit === null ? undefined : limit);
-  const applicablePlans = changedPlans.filter((plan) => (plan.blockingIssues?.length ?? 0) === 0);
+  const selectedPlans = statusReviewOnly
+    ? allChangedPlans.filter((plan) => (plan.blockingIssues ?? []).includes("status_review_required"))
+    : allChangedPlans;
+  const changedPlans = selectedPlans.slice(0, limit === null ? undefined : limit);
+  const applicablePlans = changedPlans.filter((plan) => {
+    const blockingIssues = plan.blockingIssues ?? [];
+    if (blockingIssues.length === 0) {
+      return true;
+    }
+
+    if (
+      acceptSuggestedStatus &&
+      blockingIssues.every((issue) => issue === "status_review_required")
+    ) {
+      return true;
+    }
+
+    return false;
+  });
 
   const changeCounts = changedPlans.reduce((acc, plan) => {
     for (const change of plan.changes) {
@@ -1405,6 +1424,8 @@ export async function fixFrontmatter({
     dry_run: !apply,
     repo_slug: repoSlug,
     path_prefix: normalizedPrefix || null,
+    status_review_only: statusReviewOnly,
+    accept_suggested_status: acceptSuggestedStatus,
     scanned: filteredFiles.length,
     changed: changedPlans.length,
     applied: apply ? applicablePlans.length : 0,
