@@ -90,6 +90,10 @@ retention:
 ## Plan
 
 Move to a typed multi-index layout.
+
+See [Rebuild Memory](../04 Tasks/tasks/rebuild-memory.md) for the task path.
+
+[[Playground Home]]
 `,
   );
 
@@ -102,6 +106,7 @@ Move to a typed multi-index layout.
       vaultRoot,
       "--output-dir",
       outputRoot,
+      "--allow-unresolved-links",
       "--json",
     ],
     {
@@ -132,6 +137,9 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
   const graphIndex = JSON.parse(
     await readFile(path.join(fixture.outputRoot, "graph-index.json"), "utf8"),
   );
+  const vectorIndex = JSON.parse(
+    await readFile(path.join(fixture.outputRoot, "vector-index.json"), "utf8"),
+  );
   const diagnostics = JSON.parse(
     await readFile(path.join(fixture.outputRoot, "diagnostics.json"), "utf8"),
   );
@@ -156,21 +164,82 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
   );
 
   assert.equal(repoHome.type, "repo-home");
+  assert.equal(repoHome.repo_slug, "playground");
+  assert.equal(repoHome.validation_status, "warning");
+  assert.ok(repoHome.validation_issues.includes("missing_frontmatter_id"));
   assert.equal(todo.type, "todo");
+  assert.equal(todo.repo_slug, "playground");
   assert.equal(todo.status, "active");
+  assert.equal(todo.validation_status, "warning");
+  assert.ok(todo.validation_issues.includes("legacy_type_normalized"));
+  assert.ok(todo.validation_issues.includes("legacy_status_normalized"));
   assert.equal(spec.type, "spec");
+  assert.equal(spec.repo_slug, "playground");
+  assert.equal(spec.validation_status, "warning");
+  assert.ok(spec.validation_issues.includes("unresolved_links"));
   assert.deepEqual(
     [...spec.outbound_links].sort(),
     ["legacy-rag-spec", "rebuild-memory"],
   );
+  assert.deepEqual(
+    spec.chunk_ids,
+    chunkIndex
+      .filter((chunk) => chunk.note_id === "mem-20260429-rag-rebuild")
+      .map((chunk) => chunk.chunk_id),
+  );
+  assert.ok(
+    spec.chunk_ids.every((chunkId) =>
+      /^chunk:mem-20260429-rag-rebuild:\d{4}:[0-9a-f]{8}$/.test(chunkId),
+    ),
+  );
+  assert.deepEqual(
+    repoHome.chunk_ids,
+    chunkIndex
+      .filter((chunk) => chunk.note_id === repoHome.id)
+      .map((chunk) => chunk.chunk_id),
+  );
+  assert.ok(
+    repoHome.chunk_ids.every((chunkId) =>
+      new RegExp(`^chunk:${repoHome.id}:\\d{4}:[0-9a-f]{8}$`).test(chunkId),
+    ),
+  );
 
   assert.equal(graphIndex.schema_version, 2);
+  assert.equal(vectorIndex.schema_version, 2);
+  assert.equal(vectorIndex.status, "ready");
+  assert.equal(vectorIndex.engine.name, "deterministic-hash-v1");
+  assert.equal(vectorIndex.engine.metric, "cosine");
+  assert.equal(vectorIndex.embeddings.length, chunkIndex.length);
+  assert.ok(
+    vectorIndex.embeddings.every(
+      (entry) =>
+        typeof entry.chunk_id === "string" &&
+        typeof entry.note_id === "string" &&
+        entry.values.length === vectorIndex.engine.dimensions,
+    ),
+  );
   assert.ok(
     graphIndex.edges.some(
       (edge) =>
         edge.from === "mem-20260429-rag-rebuild" &&
         edge.to === "rebuild-memory" &&
         edge.type === "relates_to",
+    ),
+  );
+  assert.ok(
+    graphIndex.edges.some(
+      (edge) =>
+        edge.from === "mem-20260429-rag-rebuild" &&
+        edge.to === "rebuild-memory" &&
+        edge.type === "references",
+    ),
+  );
+  assert.ok(
+    graphIndex.edges.some(
+      (edge) =>
+        edge.from === "mem-20260429-rag-rebuild" &&
+        edge.to === repoHome.id &&
+        edge.type === "references",
     ),
   );
 
@@ -301,4 +370,243 @@ Beta.
   assert.match(secondChunk.text, /Second intro\./);
   assert.doesNotMatch(secondChunk.text, /## A/);
   assert.doesNotMatch(secondChunk.text, /Alpha\./);
+});
+
+test("rag:index fails when strict frontmatter is invalid", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-invalid-frontmatter-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "invalid-spec.md"),
+    `---
+id: "mem-20260430-invalid-spec"
+type: "spec"
+repo_slug: "playground"
+title: "Invalid spec"
+status: "accepted"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "Invalid status for a spec note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Invalid spec
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr || result.stdout, /frontmatter\.invalid_status_for_type/);
+});
+
+test("rag:index fails when duplicate note ids are present", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-duplicate-id-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  const duplicateFrontmatter = `---
+id: "mem-20260430-duplicate"
+type: "spec"
+repo_slug: "playground"
+title: "Duplicate note"
+status: "active"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "A duplicate id note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Duplicate note
+`;
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "duplicate-a.md"),
+    duplicateFrontmatter,
+  );
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "duplicate-b.md"),
+    duplicateFrontmatter,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr || result.stdout, /registry\.duplicate_id/);
+});
+
+test("rag:index fails when unresolved links are present by default", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-unresolved-links-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "unresolved-link.md"),
+    `---
+id: "mem-20260430-unresolved-link"
+type: "spec"
+repo_slug: "playground"
+title: "Spec with unresolved link"
+status: "active"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "Spec that points to a missing note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related:
+    - "mem-20260430-missing"
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Unresolved link
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr || result.stdout, /links\.target_missing/);
+});
+
+test("rag:index allows unresolved links when explicitly requested", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-allow-unresolved-links-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "unresolved-link.md"),
+    `---
+id: "mem-20260430-unresolved-link"
+type: "spec"
+repo_slug: "playground"
+title: "Spec with unresolved link"
+status: "active"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "Spec that points to a missing note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related:
+    - "mem-20260430-missing"
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Unresolved link
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--allow-unresolved-links",
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  const diagnostics = JSON.parse(
+    await readFile(path.join(outputRoot, "diagnostics.json"), "utf8"),
+  );
+
+  assert.equal(diagnostics.unresolved_links.length, 1);
+  assert.equal(diagnostics.unresolved_links[0].from, "mem-20260430-unresolved-link");
 });

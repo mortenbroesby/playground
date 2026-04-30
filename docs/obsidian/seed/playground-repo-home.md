@@ -19,7 +19,7 @@ stack:
   - Vite
   - React
   - TypeScript
-owner: mortenbroesby
+owner: morten
 links:
   parents: []
   children: []

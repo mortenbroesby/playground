@@ -1,5 +1,6 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { parseMemoryMarkdown } from "./memory-schema.mjs";
 
 const REQUIRED_SOURCE_PATHS = [
   "00 Repositories",
@@ -228,192 +229,23 @@ function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function getRegistryValidationIssues(note) {
+  return Array.isArray(note.validation_issues)
+    ? note.validation_issues.filter((issue) => typeof issue === "string" && issue.length > 0)
+    : [];
+}
+
+function countRegistryIssueNotes(noteRegistry, issueCode) {
+  return noteRegistry.filter((note) =>
+    getRegistryValidationIssues(note).includes(issueCode),
+  ).length;
+}
+
 function slugify(value) {
   return normalize(value)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
-}
-
-function parseFrontmatter(content) {
-  if (!content.startsWith("---\n")) {
-    return { frontmatter: {}, body: content };
-  }
-
-  const closeIndex = content.indexOf("\n---", 4);
-
-  if (closeIndex === -1) {
-    return { frontmatter: {}, body: content };
-  }
-
-  const rawFrontmatter = content.slice(4, closeIndex).trimEnd();
-  const body = content.slice(closeIndex + 5).replace(/^\r?\n/, "");
-
-  return {
-    frontmatter: parseYamlSubset(rawFrontmatter),
-    body,
-  };
-}
-
-function parseYamlSubset(rawYaml) {
-  const lines = rawYaml.split(/\r?\n/).map((line) => line.replace(/\t/g, "  "));
-  return parseYamlMap(lines, 0, 0).value;
-}
-
-function parseYamlMap(lines, startIndex, indentLevel) {
-  const result = {};
-  let index = startIndex;
-
-  while (index < lines.length) {
-    const line = lines[index];
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith("#")) {
-      index += 1;
-      continue;
-    }
-
-    const currentIndent = getIndentLevel(line);
-
-    if (currentIndent < indentLevel) {
-      break;
-    }
-
-    if (currentIndent > indentLevel) {
-      index += 1;
-      continue;
-    }
-
-    const match = trimmed.match(/^([A-Za-z0-9_-]+):(?:\s*(.*))?$/);
-
-    if (!match) {
-      index += 1;
-      continue;
-    }
-
-    const [, key, rawValue = ""] = match;
-
-    if (rawValue !== "") {
-      result[key] = parseScalar(rawValue);
-      index += 1;
-      continue;
-    }
-
-    const nextIndex = findNextContentIndex(lines, index + 1);
-
-    if (nextIndex === -1 || getIndentLevel(lines[nextIndex]) <= currentIndent) {
-      result[key] = null;
-      index += 1;
-      continue;
-    }
-
-    const nestedIndent = getIndentLevel(lines[nextIndex]);
-    const nestedTrimmed = lines[nextIndex].trim();
-
-    if (nestedTrimmed.startsWith("- ")) {
-      const parsedList = parseYamlList(lines, nextIndex, nestedIndent);
-      result[key] = parsedList.value;
-      index = parsedList.nextIndex;
-      continue;
-    }
-
-    const nestedMap = parseYamlMap(lines, nextIndex, nestedIndent);
-    result[key] = nestedMap.value;
-    index = nestedMap.nextIndex;
-  }
-
-  return { value: result, nextIndex: index };
-}
-
-function parseYamlList(lines, startIndex, indentLevel) {
-  const items = [];
-  let index = startIndex;
-
-  while (index < lines.length) {
-    const line = lines[index];
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith("#")) {
-      index += 1;
-      continue;
-    }
-
-    const currentIndent = getIndentLevel(line);
-
-    if (currentIndent < indentLevel) {
-      break;
-    }
-
-    if (currentIndent !== indentLevel || !trimmed.startsWith("- ")) {
-      break;
-    }
-
-    items.push(parseScalar(trimmed.slice(2).trim()));
-    index += 1;
-  }
-
-  return { value: items, nextIndex: index };
-}
-
-function findNextContentIndex(lines, startIndex) {
-  for (let index = startIndex; index < lines.length; index += 1) {
-    const trimmed = lines[index].trim();
-
-    if (trimmed && !trimmed.startsWith("#")) {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
-function getIndentLevel(line) {
-  return line.match(/^ */)?.[0].length ?? 0;
-}
-
-function parseScalar(rawValue) {
-  const value = rawValue.trim();
-
-  if (value === "" || value === "null" || value === "~") {
-    return null;
-  }
-
-  if (value === "[]") {
-    return [];
-  }
-
-  if (value.startsWith("[") && value.endsWith("]")) {
-    return value
-      .slice(1, -1)
-      .split(",")
-      .map((item) => stripQuotes(item.trim()))
-      .filter(Boolean);
-  }
-
-  if (value === "true") {
-    return true;
-  }
-
-  if (value === "false") {
-    return false;
-  }
-
-  if (/^-?\d+(?:\.\d+)?$/.test(value)) {
-    return Number(value);
-  }
-
-  return stripQuotes(value);
-}
-
-function stripQuotes(value) {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-
-  return value;
 }
 
 function toStringValue(value) {
@@ -625,7 +457,25 @@ function defaultStatusForType(noteType) {
   }
 }
 
-function resolveNoteStatus(rawStatus, noteType) {
+function isStatusInferenceUnambiguous(noteType, relativeRepoPath) {
+  const normalizedPath = relativeRepoPath.replace(/\\/g, "/");
+
+  if (noteType === "repo-home") {
+    return true;
+  }
+
+  if (noteType === "reference" || noteType === "glossary") {
+    return true;
+  }
+
+  if (noteType === "session" && normalizedPath.startsWith("03 Sessions/")) {
+    return true;
+  }
+
+  return false;
+}
+
+function resolveNoteStatus(rawStatus, noteType, relativeRepoPath) {
   const normalizedRaw = rawStatus?.trim().toLowerCase() ?? null;
   const alias = normalizeStatusAlias(normalizedRaw, noteType);
 
@@ -633,13 +483,28 @@ function resolveNoteStatus(rawStatus, noteType) {
     return {
       value: alias,
       normalized: normalizedRaw !== alias,
+      suggested: false,
+      reviewRequired: false,
+      reason: normalizedRaw === alias ? "explicit_status" : "normalized_legacy_status",
+      alternatives: [],
     };
   }
 
   const fallback = defaultStatusForType(noteType);
+  const unambiguous = isStatusInferenceUnambiguous(noteType, relativeRepoPath);
+  const alternatives = [...ALLOWED_STATUSES_BY_TYPE[noteType]]
+    .filter((status) => status !== fallback)
+    .sort((left, right) => left.localeCompare(right));
+
   return {
     value: fallback,
-    normalized: normalizedRaw !== fallback,
+    normalized: !!normalizedRaw && normalizedRaw !== fallback,
+    suggested: !unambiguous,
+    reviewRequired: !unambiguous,
+    reason: unambiguous
+      ? "unambiguous_type_path_default"
+      : "ambiguous_type_default_requires_review",
+    alternatives,
   };
 }
 
@@ -857,6 +722,14 @@ function estimateTokens(value) {
 function classifyFrontmatterIssue(issue) {
   const normalizedReason = normalizeWhitespace(issue.reason ?? "");
 
+  if (issue.reason === "status_review_required") {
+    return {
+      ...issue,
+      category: "status_review_required",
+      blocking: true,
+    };
+  }
+
   if (
     issue.reason === "missing_frontmatter_id" ||
     normalizedReason.includes("missing frontmatter id")
@@ -888,6 +761,9 @@ function summarizeCleanupIssues(cleanup) {
 
   return {
     frontmatter: {
+      status_review_required: frontmatterIssues.filter(
+        (issue) => issue.category === "status_review_required",
+      ),
       blocking: frontmatterIssues.filter((issue) => issue.blocking),
       advisory: frontmatterIssues.filter((issue) => !issue.blocking),
     },
@@ -971,24 +847,53 @@ export function buildWriteTargetPath({ vaultRoot, repoSlug, noteType, title, cre
 }
 
 /**
- * Find still-active notes that would conflict with a pending typed write.
+ * Classify still-active notes that conflict heuristically or exactly with a
+ * pending typed write so callers can hard-fail only on objective identity
+ * collisions.
  */
 export function findWriteDuplicates({ noteRegistry, noteType, title, summary }) {
   const normalizedTitle = normalize(title);
   const normalizedSummary = normalize(summary ?? "");
 
-  return noteRegistry.filter((note) => {
-    if (note.type !== noteType) {
-      return false;
-    }
+  return noteRegistry.reduce(
+    (accumulator, note) => {
+      if (note.type !== noteType) {
+        return accumulator;
+      }
 
-    const titleMatches = normalize(note.title) === normalizedTitle;
-    const summaryMatches =
-      normalizedSummary.length > 0 && normalize(note.summary ?? "") === normalizedSummary;
-    const activeEnough = note.status !== "archived" && note.status !== "superseded";
+      const titleMatches = normalize(note.title) === normalizedTitle;
+      const summaryMatches =
+        normalizedSummary.length > 0 && normalize(note.summary ?? "") === normalizedSummary;
+      const activeEnough = note.status !== "archived" && note.status !== "superseded";
 
-    return activeEnough && (titleMatches || summaryMatches);
-  });
+      if (!activeEnough || (!titleMatches && !summaryMatches)) {
+        return accumulator;
+      }
+
+      const candidate = {
+        id: note.id,
+        path: note.path,
+        title: note.title,
+        summary: note.summary,
+        matchReasons: [
+          ...(titleMatches ? ["title"] : []),
+          ...(summaryMatches ? ["summary"] : []),
+        ],
+      };
+
+      if (titleMatches && summaryMatches) {
+        accumulator.exact.push(candidate);
+      } else {
+        accumulator.heuristic.push(candidate);
+      }
+
+      return accumulator;
+    },
+    {
+      exact: [],
+      heuristic: [],
+    },
+  );
 }
 
 /**
@@ -1075,11 +980,21 @@ export function planFrontmatterFix({
   content,
   fallbackDate = formatDate(new Date()),
 }) {
-  const { frontmatter, body } = parseFrontmatter(content);
+  const parsed = parseMemoryMarkdown({
+    path: absolutePath,
+    content,
+  });
+  const { frontmatter, body } = parsed.ok
+    ? parsed
+    : parsed.error.code === "frontmatter.missing_block"
+      ? { frontmatter: {}, body: content }
+      : (() => {
+          throw new Error(`${parsed.error.code}: ${parsed.error.message}`);
+        })();
   const rawType = toStringValue(frontmatter.type) ?? toStringValue(frontmatter.note_type);
   const rawStatus = toStringValue(frontmatter.status);
   const noteType = resolveNoteType(rawType, relativeRepoPath);
-  const noteStatus = resolveNoteStatus(rawStatus, noteType.value);
+  const noteStatus = resolveNoteStatus(rawStatus, noteType.value, relativeRepoPath);
   const title =
     toStringValue(frontmatter.title) ?? extractDocumentTitle(body, relativeRepoPath);
   const normalizedBody = normalizeBodyForStrictFrontmatter(body, title);
@@ -1134,6 +1049,7 @@ export function planFrontmatterFix({
     ...extraFrontmatter,
   })}\n\n${normalizedBody}\n`;
   const changes = [];
+  const blockingIssues = [];
 
   if (!toStringValue(frontmatter.id)) {
     changes.push("add_id");
@@ -1154,7 +1070,10 @@ export function planFrontmatterFix({
     changes.push("add_title");
   }
 
-  if (rawStatus !== noteStatus.value) {
+  if (!rawStatus && noteStatus.suggested) {
+    changes.push("suggest_status");
+    blockingIssues.push("status_review_required");
+  } else if (rawStatus !== noteStatus.value) {
     changes.push("normalize_status");
   }
 
@@ -1204,10 +1123,14 @@ export function planFrontmatterFix({
     title: canonicalFrontmatter.title,
     created: canonicalFrontmatter.created,
     updated: canonicalFrontmatter.updated,
+    suggestedStatus: noteStatus.suggested ? noteStatus.value : null,
+    suggestedStatusReason: noteStatus.suggested ? noteStatus.reason : null,
+    suggestedStatusAlternatives: noteStatus.suggested ? noteStatus.alternatives : [],
+    blockingIssues,
     changes: Array.from(new Set(changes)),
-      changed: changes.length > 0,
-      content: renderedContent,
-    };
+    changed: changes.length > 0,
+    content: renderedContent,
+  };
 }
 
 /**
@@ -1220,8 +1143,31 @@ export async function fixFrontmatter({
   pathPrefix = "",
   limit = null,
   includeContentPreview = true,
+  statusReviewOnly = false,
+  acceptSuggestedStatus = false,
 }) {
   const repoRootPath = path.join(vaultRoot, "00 Repositories", repoSlug);
+  try {
+    const repoRootStat = await stat(repoRootPath);
+    if (!repoRootStat.isDirectory()) {
+      throw new Error("not-directory");
+    }
+  } catch {
+    return {
+      dry_run: !apply,
+      repo_slug: repoSlug,
+      path_prefix: pathPrefix.replace(/^\/+|\/+$/g, "") || null,
+      scanned: 0,
+      changed: 0,
+      applied: 0,
+      blocked: 0,
+      unchanged: 0,
+      total_candidates: 0,
+      limited: false,
+      change_counts: {},
+      notes: [],
+    };
+  }
   const markdownFiles = await walkMarkdownFiles(repoRootPath);
   const normalizedPrefix = pathPrefix.replace(/^\/+|\/+$/g, "");
   const filteredFiles = normalizedPrefix.length === 0
@@ -1270,7 +1216,25 @@ export async function fixFrontmatter({
   }
 
   const allChangedPlans = plans.filter((plan) => plan.changed);
-  const changedPlans = allChangedPlans.slice(0, limit === null ? undefined : limit);
+  const selectedPlans = statusReviewOnly
+    ? allChangedPlans.filter((plan) => (plan.blockingIssues ?? []).includes("status_review_required"))
+    : allChangedPlans;
+  const changedPlans = selectedPlans.slice(0, limit === null ? undefined : limit);
+  const applicablePlans = changedPlans.filter((plan) => {
+    const blockingIssues = plan.blockingIssues ?? [];
+    if (blockingIssues.length === 0) {
+      return true;
+    }
+
+    if (
+      acceptSuggestedStatus &&
+      blockingIssues.every((issue) => issue === "status_review_required")
+    ) {
+      return true;
+    }
+
+    return false;
+  });
 
   const changeCounts = changedPlans.reduce((acc, plan) => {
     for (const change of plan.changes) {
@@ -1282,7 +1246,7 @@ export async function fixFrontmatter({
 
   if (apply) {
     await Promise.all(
-      changedPlans.map((plan) => writeFile(plan.absolutePath, plan.content, "utf8")),
+      applicablePlans.map((plan) => writeFile(plan.absolutePath, plan.content, "utf8")),
     );
   }
 
@@ -1290,8 +1254,12 @@ export async function fixFrontmatter({
     dry_run: !apply,
     repo_slug: repoSlug,
     path_prefix: normalizedPrefix || null,
+    status_review_only: statusReviewOnly,
+    accept_suggested_status: acceptSuggestedStatus,
     scanned: filteredFiles.length,
     changed: changedPlans.length,
+    applied: apply ? applicablePlans.length : 0,
+    blocked: changedPlans.filter((plan) => (plan.blockingIssues?.length ?? 0) > 0).length,
     unchanged: filteredFiles.length - allChangedPlans.length,
     total_candidates: allChangedPlans.length,
     limited: limit !== null && changedPlans.length < allChangedPlans.length,
@@ -1303,9 +1271,13 @@ export async function fixFrontmatter({
       note_id: plan.noteId,
       type: plan.noteType,
       status: plan.status,
+      suggested_status_reason: plan.suggestedStatusReason,
+      suggested_status_alternatives: plan.suggestedStatusAlternatives,
       created: plan.created,
       updated: plan.updated,
       title: plan.title,
+      suggested_status: plan.suggestedStatus,
+      blocking_issues: plan.blockingIssues,
       changes: plan.changes,
       content_preview: !apply && includeContentPreview ? plan.content : undefined,
     })),
@@ -1495,16 +1467,33 @@ export function buildCleanupReport({ noteRegistry, chunkIndex, diagnostics, now 
     })
     .filter((note) => note.estimated_tokens > 1200);
 
-  const invalidFrontmatter = [
-    ...diagnostics.synthetic_ids.map((path) => ({
-      path,
-      reason: "missing_frontmatter_id",
-    })),
-    ...diagnostics.validation_warnings.map((warning) => ({
-      path: warning.split(":")[0],
-      reason: warning,
-    })),
-  ];
+  const invalidFrontmatter = [];
+  const invalidFrontmatterKeys = new Set();
+  const addInvalidFrontmatter = (path, reason) => {
+    const key = `${path}::${reason}`;
+    if (invalidFrontmatterKeys.has(key)) {
+      return;
+    }
+    invalidFrontmatterKeys.add(key);
+    invalidFrontmatter.push({ path, reason });
+  };
+
+  for (const note of noteRegistry) {
+    for (const issue of getRegistryValidationIssues(note)) {
+      if (issue === "unresolved_links") {
+        continue;
+      }
+      addInvalidFrontmatter(note.path, issue);
+    }
+  }
+
+  for (const path of diagnostics.synthetic_ids ?? []) {
+    addInvalidFrontmatter(path, "missing_frontmatter_id");
+  }
+
+  for (const warning of diagnostics.validation_warnings ?? []) {
+    addInvalidFrontmatter(warning.split(":")[0], warning);
+  }
 
   const archivableSpecs = noteRegistry
     .filter((note) => note.type === "spec" && note.status === "done")
@@ -1590,6 +1579,12 @@ export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
 
   const artifacts = await loadTypedMemoryArtifacts(indexRoot);
   const noteIds = new Map();
+  const syntheticIdCount =
+    countRegistryIssueNotes(artifacts.noteRegistry, "missing_frontmatter_id") ||
+    artifacts.diagnostics.synthetic_ids.length;
+  const unresolvedLinkCount =
+    countRegistryIssueNotes(artifacts.noteRegistry, "unresolved_links") ||
+    artifacts.diagnostics.unresolved_links.length;
 
   for (const note of artifacts.noteRegistry) {
     if (noteIds.has(note.id)) {
@@ -1616,15 +1611,15 @@ export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
     }
   }
 
-  if (artifacts.diagnostics.synthetic_ids.length > 0) {
+  if (syntheticIdCount > 0) {
     warnings.push(
-      `Synthetic note ids present for ${artifacts.diagnostics.synthetic_ids.length} notes.`,
+      `Synthetic note ids present for ${syntheticIdCount} notes.`,
     );
   }
 
-  if (artifacts.diagnostics.unresolved_links.length > 0) {
+  if (unresolvedLinkCount > 0) {
     errors.push(
-      `Unresolved links present for ${artifacts.diagnostics.unresolved_links.length} notes.`,
+      `Unresolved links present for ${unresolvedLinkCount} notes.`,
     );
   }
 
@@ -1644,8 +1639,8 @@ export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
     summary: {
       notes: artifacts.noteRegistry.length,
       chunks: artifacts.chunkIndex.length,
-      unresolved_links: artifacts.diagnostics.unresolved_links.length,
-      synthetic_ids: artifacts.diagnostics.synthetic_ids.length,
+      unresolved_links: unresolvedLinkCount,
+      synthetic_ids: syntheticIdCount,
     },
   };
 }
@@ -1674,7 +1669,25 @@ export async function buildDoctorReport({
     staleGeneratedFiles,
     now,
   });
-  const cleanupIssues = summarizeCleanupIssues(cleanup);
+  const frontmatterFixPlan = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: false,
+    includeContentPreview: false,
+  });
+  const cleanupIssues = summarizeCleanupIssues({
+    ...cleanup,
+    invalid_frontmatter: [
+      ...cleanup.invalid_frontmatter,
+      ...frontmatterFixPlan.notes.flatMap((note) =>
+        (note.blocking_issues ?? []).map((issue) => ({
+          path: note.path,
+          reason: issue,
+          suggested_status: note.suggested_status ?? undefined,
+        })),
+      ),
+    ],
+  });
 
   return {
     passed:
@@ -1702,7 +1715,9 @@ export async function buildDoctorReport({
         chunk_count: verification.summary.chunks,
       },
       cleanup_dry_run: cleanup,
+      frontmatter_fix_dry_run: frontmatterFixPlan,
       cleanup_frontmatter_check: {
+        status_review_required: cleanupIssues.frontmatter.status_review_required,
         advisory: cleanupIssues.frontmatter.advisory,
         blocking: cleanupIssues.frontmatter.blocking,
       },
@@ -1713,6 +1728,7 @@ export async function buildDoctorReport({
     warnings: verification.warnings,
     verification_summary: {
       ...verification.summary,
+      frontmatter_status_reviews: cleanupIssues.frontmatter.status_review_required.length,
       frontmatter_advisories: cleanupIssues.frontmatter.advisory.length,
       frontmatter_blockers: cleanupIssues.frontmatter.blocking.length,
     },

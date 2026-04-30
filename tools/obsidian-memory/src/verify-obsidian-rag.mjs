@@ -17,6 +17,88 @@ import { verifyTypedMemory } from "./rag-governance.mjs";
 const execFile = promisify(execFileCallback);
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = findProjectRoot(path.dirname(scriptPath), "pnpm");
+const defaultVaultRoot = path.join(repoRoot, "vault");
+const defaultIndexRoot = path.join(repoRoot, ".rag");
+const DEFAULT_FIXTURE_CHECKS = [
+  {
+    query: "Which remote is the sole live injected remote?",
+    expectedPath:
+      "00 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
+  },
+  {
+    query: "Who owns routing and page composition?",
+    expectedPath:
+      "00 Repositories/playground/01 Architecture/Host Ownership.md",
+  },
+  {
+    query: "What context exists about rendering strategy?",
+    expectedPath:
+      "00 Repositories/playground/01 Architecture/Rendering Strategy.md",
+  },
+  {
+    query: "Where did route metadata work land?",
+    expectedPath:
+      "00 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
+  },
+  {
+    query: "active focus playground",
+    expectedPath: "00 Repositories/playground/00 Repo Home.md",
+    expectedHeading: "Active Focus",
+  },
+];
+
+/**
+ * Parse command-line flags for `pnpm rag:verify`.
+ */
+export function parseArgs(argv, overrides = {}) {
+  const resolvedRepoRoot = overrides.repoRoot ?? repoRoot;
+  const options = {
+    mode: "fast",
+    repoRoot: resolvedRepoRoot,
+    vaultRoot: path.join(resolvedRepoRoot, "vault"),
+    indexRoot: path.join(resolvedRepoRoot, ".rag"),
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === "--full") {
+      options.mode = "full";
+      continue;
+    }
+
+    if (arg === "--vault") {
+      options.vaultRoot = path.resolve(process.cwd(), argv[index + 1] ?? "");
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--index-root") {
+      options.indexRoot = path.resolve(process.cwd(), argv[index + 1] ?? "");
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--help" || arg === "-h") {
+      printUsage();
+      process.exit(0);
+    }
+  }
+
+  return options;
+}
+
+function printUsage() {
+  console.log(
+    [
+      "Usage:",
+      "  pnpm rag:verify [--full] [--vault <path>] [--index-root <path>]",
+      "",
+      "Default mode runs fast typed-memory integrity checks against an existing index.",
+      "Use --full to add the golden retrieval fixture suite.",
+    ].join("\n"),
+  );
+}
 
 async function buildIndexedCorpus(vaultPath) {
   const outputDir = path.join(vaultPath, ".rag");
@@ -253,37 +335,31 @@ async function bootstrapVault(vaultPath) {
   );
 }
 
-async function run() {
+export async function runFastVerification({
+  vaultRoot = defaultVaultRoot,
+  indexRoot = defaultIndexRoot,
+  repoRoot: targetRepoRoot = repoRoot,
+} = {}) {
+  const verification = await verifyTypedMemory({
+    vaultRoot,
+    indexRoot,
+    repoRoot: targetRepoRoot,
+  });
+
+  return {
+    mode: "fast",
+    passed: verification.passed,
+    verification,
+  };
+}
+
+export async function runFixtureVerification({
+  checks = DEFAULT_FIXTURE_CHECKS,
+  repoRoot: targetRepoRoot = repoRoot,
+} = {}) {
   const vaultPath = await mkdtemp(
     path.join(os.tmpdir(), "playground-obsidian-rag-"),
   );
-  const checks = [
-    {
-      query: "Which remote is the sole live injected remote?",
-      expectedPath:
-        "00 Repositories/playground/02 Decisions/2026-04-08 Narrow MFE Scope.md",
-    },
-    {
-      query: "Who owns routing and page composition?",
-      expectedPath:
-        "00 Repositories/playground/01 Architecture/Host Ownership.md",
-    },
-    {
-      query: "What context exists about rendering strategy?",
-      expectedPath:
-        "00 Repositories/playground/01 Architecture/Rendering Strategy.md",
-    },
-    {
-      query: "Where did route metadata work land?",
-      expectedPath:
-        "00 Repositories/playground/03 Sessions/2026-04-10 Route Metadata Pass.md",
-    },
-    {
-      query: "active focus playground",
-      expectedPath: "00 Repositories/playground/00 Repo Home.md",
-      expectedHeading: "Active Focus",
-    },
-  ];
 
   try {
     await bootstrapVault(vaultPath);
@@ -293,7 +369,7 @@ async function run() {
     const verification = await verifyTypedMemory({
       vaultRoot: vaultPath,
       indexRoot: path.join(vaultPath, ".rag"),
-      repoRoot,
+      repoRoot: targetRepoRoot,
     });
     const results = checks.map((check) => {
       const candidates = retrieveMemoryCandidates({
@@ -333,17 +409,54 @@ async function run() {
 
     const failed = results.filter((result) => !result.passed);
 
-    console.log(JSON.stringify({ vaultPath, verification, results }, null, 2));
-
-    if (failed.length > 0 || !verification.passed) {
-      process.exitCode = 1;
-    }
+    return {
+      passed: failed.length === 0 && verification.passed,
+      vaultPath,
+      verification,
+      results,
+      failedCount: failed.length,
+    };
   } finally {
     await rm(vaultPath, { recursive: true, force: true });
   }
 }
 
-run().catch((error) => {
-  console.error(error instanceof Error ? error.stack || error.message : error);
-  process.exit(1);
-});
+export async function runVerification(options = {}) {
+  const fastVerification = await runFastVerification(options);
+
+  if (options.mode !== "full") {
+    return fastVerification;
+  }
+
+  const fixtureVerification = await runFixtureVerification({
+    repoRoot: options.repoRoot,
+  });
+
+  return {
+    mode: "full",
+    passed: fastVerification.passed && fixtureVerification.passed,
+    verification: fastVerification.verification,
+    retrieval_fixtures: fixtureVerification,
+  };
+}
+
+async function run() {
+  const options = parseArgs(process.argv.slice(2));
+  const result = await runVerification(options);
+
+  console.log(JSON.stringify(result, null, 2));
+
+  if (!result.passed) {
+    process.exitCode = 1;
+  }
+}
+
+const isDirectRun =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  run().catch((error) => {
+    console.error(error instanceof Error ? error.stack || error.message : error);
+    process.exit(1);
+  });
+}

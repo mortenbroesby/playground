@@ -1,5 +1,11 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  DETERMINISTIC_VECTOR_ENGINE,
+  buildQueryEmbeddingInput,
+  cosineSimilarity,
+  embedTextDeterministically,
+} from "./deterministic-embeddings.mjs";
 
 const DEFAULT_NOTE_TYPE_BOOSTS = {
   "repo-home": 8,
@@ -57,6 +63,12 @@ const LEGACY_STATUS_ALIASES = {
   superseded: "superseded",
 };
 
+const DEFAULT_INTEGRITY_MODE = "prefer-healthy";
+const GRAPH_SEED_LIMIT = 1;
+const DEFAULT_VECTOR_MODE = "auto";
+const VECTOR_RRF_K = 60;
+const MIN_VECTOR_SIMILARITY = 0.18;
+
 function tokenize(value) {
   return value
     .toLowerCase()
@@ -67,6 +79,43 @@ function tokenize(value) {
 
 function normalize(value) {
   return value.toLowerCase();
+}
+
+function dedupeOrdered(values) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function createVectorState(overrides = {}) {
+  return {
+    enabled: true,
+    available: false,
+    status: "missing",
+    reason: "vector_index_missing",
+    engine: null,
+    dimensions: DETERMINISTIC_VECTOR_ENGINE.dimensions,
+    candidateCount: 0,
+    used: false,
+    ...overrides,
+  };
+}
+
+function annotateCollection(items, metadataKey, metadataValue) {
+  Object.defineProperty(items, metadataKey, {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: metadataValue,
+  });
+
+  return items;
+}
+
+function annotateCorpus(corpus, metadata = {}) {
+  return annotateCollection(corpus, "vectorIndex", {
+    ...createVectorState(),
+    ...(corpus.vectorIndex ?? {}),
+    ...(metadata.vectorIndex ?? {}),
+  });
 }
 
 function estimateTokens(value) {
@@ -115,7 +164,7 @@ function parseSourceFile(sourcePath) {
 }
 
 function coerceLegacyCorpus(input) {
-  return input.chunks.map((chunk) => {
+  const corpus = input.chunks.map((chunk) => {
     const noteType = normalizeNoteType(chunk.note_type);
     const status = normalizeNoteStatus(chunk.status, noteType);
 
@@ -146,7 +195,15 @@ function coerceLegacyCorpus(input) {
       titleTokens: new Set(tokenize(chunk.heading)),
       linkedNoteIds: new Set(),
       graphLookup: new Map(),
+      vectorEmbedding: null,
     };
+  });
+
+  return annotateCorpus(corpus, {
+    vectorIndex: createVectorState({
+      status: "legacy",
+      reason: "legacy_corpus_has_no_vector_index",
+    }),
   });
 }
 
@@ -199,13 +256,16 @@ function buildGraphLookup(edges) {
   return graphLookup;
 }
 
-function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex }) {
+function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex, vectorIndex }) {
   const notesById = new Map(
     noteRegistry.map((note) => [note.id, note]),
   );
   const graphLookup = buildGraphLookup(graphIndex?.edges);
+  const vectorLookup = new Map(
+    (vectorIndex?.embeddings ?? []).map((entry) => [entry.chunk_id, entry.values]),
+  );
 
-  return chunkIndex.map((chunk) => {
+  const corpus = chunkIndex.map((chunk) => {
     const note = notesById.get(chunk.note_id);
     const noteType = normalizeNoteType(chunk.type ?? note?.type);
     const status = normalizeNoteStatus(chunk.status ?? note?.status, noteType);
@@ -228,6 +288,8 @@ function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex }) {
       text: chunk.text,
       mtimeMs: note?.mtime_ms ?? 0,
       updated: note?.updated ?? null,
+      validationStatus: note?.validation_status ?? "ok",
+      validationIssues: [...(note?.validation_issues ?? [])],
       normalizedText: normalize(searchText),
       normalizedHeading: normalize(chunk.heading),
       normalizedSummary: normalize(chunk.summary || note?.summary || ""),
@@ -239,7 +301,29 @@ function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex }) {
       titleTokens: new Set(tokenize(note?.title ?? chunk.heading)),
       linkedNoteIds: new Set(note?.outbound_links ?? []),
       graphLookup: graphLookup.get(chunk.note_id) ?? new Map(),
+      vectorEmbedding: vectorLookup.get(chunk.chunk_id) ?? null,
     };
+  });
+
+  return annotateCorpus(corpus, {
+    vectorIndex:
+      vectorIndex?.status === "ready"
+        ? createVectorState({
+            available: true,
+            status: "ready",
+            reason: null,
+            engine: vectorIndex.engine ?? DETERMINISTIC_VECTOR_ENGINE,
+            dimensions:
+              vectorIndex.engine?.dimensions ?? DETERMINISTIC_VECTOR_ENGINE.dimensions,
+            embeddingCount: vectorIndex.embeddings?.length ?? 0,
+          })
+        : createVectorState({
+            status: vectorIndex?.status ?? "missing",
+            reason:
+              vectorIndex?.reason ??
+              (vectorIndex ? "vector_index_not_ready" : "vector_index_missing"),
+            engine: vectorIndex?.engine ?? null,
+          }),
   });
 }
 
@@ -248,7 +332,7 @@ function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex }) {
  */
 export function indexMemoryCorpus(corpus) {
   if (Array.isArray(corpus)) {
-    return corpus;
+    return annotateCorpus(corpus);
   }
 
   if (Array.isArray(corpus?.chunks) && !Array.isArray(corpus?.chunkIndex)) {
@@ -275,55 +359,130 @@ function resolveIndexRoot(indexPath) {
  */
 export async function loadMemoryCorpus(indexPath) {
   const indexRoot = resolveIndexRoot(indexPath);
-  const [noteRegistry, chunkIndex, graphIndex] = await Promise.all([
+  const [noteRegistry, chunkIndex, graphIndex, vectorIndex] = await Promise.all([
     readFile(path.join(indexRoot, "note-registry.json"), "utf8").then(JSON.parse),
     readFile(path.join(indexRoot, "chunk-index.json"), "utf8").then(JSON.parse),
     readFile(path.join(indexRoot, "graph-index.json"), "utf8").then(JSON.parse),
+    readFile(path.join(indexRoot, "vector-index.json"), "utf8")
+      .then(JSON.parse)
+      .catch(() => null),
   ]);
 
   return indexMemoryCorpus({
     noteRegistry,
     chunkIndex,
     graphIndex,
+    vectorIndex,
   });
 }
 
-function createQueryPlan(query) {
+export function classifyMemoryQuery(query) {
   const normalized = normalize(query);
-  const keywords = Array.from(new Set(tokenize(query)));
-  const expectedNoteTypes = [];
+  const keywords = dedupeOrdered(tokenize(query));
+  const preferredNoteTypes = [];
+  let intent = "general";
 
   if (/\b(what is|overview|repo|architecture|decision|tradeoff|why)\b/.test(normalized)) {
-    expectedNoteTypes.push("repo-home", "architecture-record");
+    preferredNoteTypes.push("repo-home", "architecture-record");
   }
 
   if (/\b(build|implement|plan|spec|rebuild)\b/.test(normalized)) {
-    expectedNoteTypes.push("spec", "todo");
+    preferredNoteTypes.push("spec", "todo");
+    intent = "implementation";
   }
 
   if (/\b(recent|happened|session|log|handoff)\b/.test(normalized)) {
-    expectedNoteTypes.push("session");
+    preferredNoteTypes.push("session");
+    intent = "session";
   }
 
   if (/\b(todo|task|remain|next)\b/.test(normalized)) {
-    expectedNoteTypes.push("todo");
+    preferredNoteTypes.push("todo");
+    if (intent === "general" || intent === "implementation") {
+      intent = "task";
+    }
   }
 
   if (/\b(reference|command|api|how)\b/.test(normalized)) {
-    expectedNoteTypes.push("reference");
+    preferredNoteTypes.push("reference");
+    if (intent === "general") {
+      intent = "reference";
+    }
   }
 
-  const negativeStatuses = [];
+  if (
+    intent === "general" &&
+    /\b(what is|overview|repo|architecture|decision|tradeoff|why|who owns|ownership)\b/.test(
+      normalized,
+    )
+  ) {
+    intent = "architecture";
+  }
+
+  const excludedStatuses = [];
   if (!/\b(archive|archived|history|historical|superseded)\b/.test(normalized)) {
-    negativeStatuses.push("archived", "superseded");
+    excludedStatuses.push("archived", "superseded");
   }
 
   return {
     original: query,
     normalized,
     keywords,
-    expectedNoteTypes: Array.from(new Set(expectedNoteTypes)),
-    negativeStatuses,
+    intent,
+    preferredNoteTypes: dedupeOrdered(preferredNoteTypes),
+    excludedStatuses: dedupeOrdered(excludedStatuses),
+  };
+}
+
+function buildExpandedQueryVariants(classification) {
+  const keywordPhrase = classification.keywords.join(" ");
+  const expanded = [];
+
+  if (keywordPhrase && keywordPhrase !== classification.normalized) {
+    expanded.push(keywordPhrase);
+  }
+
+  const suffixByNoteType = {
+    "repo-home": "repo overview",
+    "architecture-record": "architecture decision",
+    spec: "implementation spec",
+    session: "session handoff",
+    todo: "remaining tasks",
+    reference: "reference guide",
+    glossary: "glossary reference",
+    investigation: "investigation summary",
+  };
+
+  for (const noteType of classification.preferredNoteTypes) {
+    const suffix = suffixByNoteType[noteType];
+    if (suffix && keywordPhrase) {
+      expanded.push(`${keywordPhrase} ${suffix}`);
+    }
+  }
+
+  return dedupeOrdered(expanded).filter(
+    (variant) => variant !== classification.original && variant !== classification.normalized,
+  );
+}
+
+function createQueryPlan(query) {
+  const classification = classifyMemoryQuery(query);
+
+  return {
+    original: query,
+    normalized: classification.normalized,
+    keywords: [...classification.keywords],
+    classification,
+    variants: {
+      normalized: classification.normalized,
+      expanded: buildExpandedQueryVariants(classification),
+    },
+    routing: {
+      allowArchived: classification.excludedStatuses.length === 0,
+      useGraphExpansion: classification.intent !== "reference",
+    },
+    expectedNoteTypes: [...classification.preferredNoteTypes],
+    negativeStatuses: [...classification.excludedStatuses],
   };
 }
 
@@ -357,15 +516,27 @@ function applyRecencyBoost(doc) {
 }
 
 function shouldUseRecencyBoost(queryPlan, doc) {
-  if (queryPlan.expectedNoteTypes.includes("session")) {
+  const preferredNoteTypes =
+    queryPlan.classification?.preferredNoteTypes ?? queryPlan.expectedNoteTypes ?? [];
+
+  if (preferredNoteTypes.includes("session")) {
     return doc.noteType === "session";
   }
 
-  if (queryPlan.expectedNoteTypes.includes("todo")) {
+  if (preferredNoteTypes.includes("todo")) {
     return doc.noteType === "todo";
   }
 
-  return queryPlan.expectedNoteTypes.length === 0;
+  return preferredNoteTypes.length === 0;
+}
+
+function getPlannedQueryTexts(query, queryPlan) {
+  return dedupeOrdered([
+    query.trim(),
+    queryPlan.normalized,
+    queryPlan.variants?.normalized,
+    ...(queryPlan.variants?.expanded ?? []),
+  ]);
 }
 
 function exactMatchBoost(doc, normalizedQuery) {
@@ -405,22 +576,30 @@ function filterMemoryCorpus(corpus, filters) {
     .filter((doc) => !filters.noteType || doc.noteType === filters.noteType)
     .filter(
       (doc) =>
+        filters.integrityMode !== "exclude-warning" ||
+        doc.validationStatus !== "warning",
+    )
+    .filter(
+      (doc) =>
         !filters.queryPlan?.negativeStatuses?.includes(doc.status),
     );
 }
 
-/**
- * Rank memory chunks against a query using lexical, status, and graph signals.
- */
-export function rerankMemoryCandidates(input) {
+function lexicalSearch(input) {
   const query = input.query.trim();
-  const limit = input.limit ?? 5;
-  const normalizedQuery = normalize(query);
-  const queryTokens = tokenize(query);
   const queryPlan = input.queryPlan ?? createQueryPlan(query);
+  const plannedQueries = getPlannedQueryTexts(query, queryPlan);
+  const normalizedQuery = plannedQueries[0] ? normalize(plannedQueries[0]) : "";
+  const queryTokens = dedupeOrdered(
+    plannedQueries.flatMap((plannedQuery) => tokenize(plannedQuery)),
+  );
+  const expectedNoteTypes =
+    queryPlan.classification?.preferredNoteTypes ?? queryPlan.expectedNoteTypes ?? [];
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
 
-  const baseRanked = filterMemoryCorpus(input.corpus, {
+  return filterMemoryCorpus(input.corpus, {
     ...input,
+    integrityMode,
     queryPlan,
   })
     .map((doc) => {
@@ -479,6 +658,22 @@ export function rerankMemoryCandidates(input) {
         "exact-query-summary",
         6,
       );
+      score += maybePushReason(
+        reasons,
+        (queryPlan.variants?.expanded ?? []).some((variant) =>
+          doc.normalizedText.includes(normalize(variant)),
+        ),
+        "plan-variant:text",
+        4,
+      );
+      score += maybePushReason(
+        reasons,
+        (queryPlan.variants?.expanded ?? []).some((variant) =>
+          doc.normalizedHeading.includes(normalize(variant)),
+        ),
+        "plan-variant:heading",
+        3,
+      );
 
       score += maybePushReason(
         reasons,
@@ -505,33 +700,6 @@ export function rerankMemoryCandidates(input) {
       score += exact.score;
       reasons.push(...exact.reasons);
 
-      if (queryPlan.expectedNoteTypes.includes(doc.noteType)) {
-        score += maybePushReason(
-          reasons,
-          true,
-          `plan-type:${doc.noteType}`,
-          (DEFAULT_NOTE_TYPE_BOOSTS[doc.noteType] ?? 0) + 8,
-        );
-      } else if (queryPlan.expectedNoteTypes.length > 0) {
-        score -= 4;
-        reasons.push("plan-type:mismatch");
-      } else {
-        score += DEFAULT_NOTE_TYPE_BOOSTS[doc.noteType] ?? 0;
-      }
-
-      score += DEFAULT_STATUS_BOOSTS[doc.status] ?? 0;
-      if (DEFAULT_STATUS_BOOSTS[doc.status]) {
-        reasons.push(`status:${doc.status}`);
-      }
-
-      const recencyBoost = shouldUseRecencyBoost(queryPlan, doc)
-        ? applyRecencyBoost(doc)
-        : 0;
-      if (recencyBoost > 0) {
-        score += recencyBoost;
-        reasons.push(`recency:${doc.noteType}`);
-      }
-
       if (score === 0) {
         return null;
       }
@@ -539,7 +707,8 @@ export function rerankMemoryCandidates(input) {
       return {
         ...doc,
         score,
-        matchReasons: reasons,
+        matchReasons: [...reasons, "source:lexical"],
+        retrievalSources: ["lexical"],
       };
     })
     .filter(Boolean)
@@ -549,60 +718,98 @@ export function rerankMemoryCandidates(input) {
         left.sourceFile.localeCompare(right.sourceFile) ||
         left.heading.localeCompare(right.heading),
     );
+}
 
-  const seedNoteIds = new Set(baseRanked.slice(0, 5).map((candidate) => candidate.noteId));
+function graphSearch(input) {
+  const queryPlan = input.queryPlan ?? createQueryPlan(input.query);
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
 
-  const rankedWithGraph = baseRanked
-    .map((candidate) => {
-      let score = candidate.score;
-      const reasons = [...candidate.matchReasons];
+  if (queryPlan.routing?.useGraphExpansion === false) {
+    return [];
+  }
 
-      if (seedNoteIds.has(candidate.noteId)) {
-        reasons.push("graph:seed");
-      } else {
-        const distances = [...seedNoteIds]
-          .map((seedNoteId) => candidate.graphLookup.get(seedNoteId))
-          .filter((distance) => Number.isFinite(distance))
-          .sort((left, right) => left - right);
-        const graphDistance = distances[0];
+  const lexicalCandidates = input.lexicalCandidates ?? [];
+  const seedCandidates = lexicalCandidates.slice(0, GRAPH_SEED_LIMIT);
+  const seedNoteIds = new Set(seedCandidates.map((candidate) => candidate.noteId));
 
-        if (graphDistance === 1) {
-          score += 5;
-          reasons.push("graph:direct");
-        } else if (graphDistance === 2) {
-          score += 2;
-          reasons.push("graph:distance-2");
-        }
+  if (seedNoteIds.size === 0) {
+    return [];
+  }
+
+  return filterMemoryCorpus(input.corpus, {
+    ...input,
+    integrityMode,
+    queryPlan,
+  })
+    .map((doc) => {
+      const reasons = ["route:graph"];
+      let graphScore = 0;
+
+      if (seedNoteIds.has(doc.noteId)) {
+        return null;
+      }
+
+      const distances = [...seedNoteIds]
+        .map((seedNoteId) => doc.graphLookup.get(seedNoteId))
+        .filter((distance) => Number.isFinite(distance))
+        .sort((left, right) => left - right);
+      const graphDistance = distances[0];
+
+      if (graphDistance === 1) {
+        graphScore = 5;
+        reasons.push("graph:direct");
+      } else if (graphDistance === 2) {
+        graphScore = 2;
+        reasons.push("graph:distance-2");
+      }
+
+      if (graphScore === 0) {
+        return null;
       }
 
       return {
-        chunkId: candidate.chunkId,
-        noteId: candidate.noteId,
-        sourceFile: candidate.sourceFile,
-        sourcePath: candidate.sourcePath,
-        heading: candidate.heading,
-        noteType: candidate.noteType,
-        status: candidate.status,
-        repoSlug: candidate.repoSlug,
-        tags: candidate.tags,
-        keywords: candidate.keywords,
-        summary: candidate.summary,
-        title: candidate.title,
-        score,
-        matchReasons: reasons,
-        text: candidate.text,
+        chunkId: doc.chunkId,
+        noteId: doc.noteId,
+        sourceFile: doc.sourceFile,
+        sourcePath: doc.sourcePath,
+        heading: doc.heading,
+        noteType: doc.noteType,
+        status: doc.status,
+        repoSlug: doc.repoSlug,
+        tags: doc.tags,
+        keywords: doc.keywords,
+        summary: doc.summary,
+        title: doc.title,
+        validationStatus: doc.validationStatus ?? "ok",
+        validationIssues: [...(doc.validationIssues ?? [])],
+        score: graphScore,
+        matchReasons: [...reasons, "source:graph"],
+        text: doc.text,
+        retrievalSources: ["graph"],
       };
     })
+    .filter(Boolean)
     .sort(
       (left, right) =>
         right.score - left.score ||
         left.sourceFile.localeCompare(right.sourceFile) ||
         left.heading.localeCompare(right.heading),
     );
+}
 
+/**
+ * Rank memory chunks against a query using lexical, graph, vector, and rerank signals.
+ */
+export function rerankMemoryCandidates(input) {
+  const limit = input.limit ?? 5;
+  const lexicalCandidates = lexicalSearch(input);
+  const graphCandidates = graphSearch({
+    ...input,
+    lexicalCandidates,
+  });
   const seenNoteIds = new Map();
 
-  for (const candidate of rankedWithGraph) {
+  for (const candidate of lexicalCandidates) {
     const duplicateCount = seenNoteIds.get(candidate.noteId) ?? 0;
 
     if (duplicateCount > 0) {
@@ -613,21 +820,337 @@ export function rerankMemoryCandidates(input) {
     seenNoteIds.set(candidate.noteId, duplicateCount + 1);
   }
 
-  return rankedWithGraph
+  return {
+    lexicalCandidates: lexicalCandidates.slice(0, Math.max(limit * 3, limit)),
+    graphCandidates: graphCandidates.slice(0, Math.max(limit * 3, limit)),
+  };
+}
+
+function describeVectorUnavailability(vectorMode, vectorIndex) {
+  if (vectorMode === "off") {
+    return createVectorState({
+      enabled: false,
+      status: "disabled",
+      reason: "disabled_by_request",
+      engine: vectorIndex?.engine ?? null,
+      dimensions: vectorIndex?.dimensions ?? DETERMINISTIC_VECTOR_ENGINE.dimensions,
+    });
+  }
+
+  return createVectorState({
+    enabled: true,
+    available: false,
+    status: vectorIndex?.status ?? "missing",
+    reason: vectorIndex?.reason ?? "vector_index_missing",
+    engine: vectorIndex?.engine ?? null,
+    dimensions: vectorIndex?.dimensions ?? DETERMINISTIC_VECTOR_ENGINE.dimensions,
+  });
+}
+
+function reciprocalRankContribution(rank) {
+  return 1 / (VECTOR_RRF_K + rank + 1);
+}
+
+function dedupeReasons(...reasonLists) {
+  return Array.from(
+    new Set(reasonLists.flatMap((reasons) => reasons ?? [])),
+  );
+}
+
+function mergeRetrievalCandidates(input) {
+  const merged = new Map();
+  const lexicalRank = new Map();
+  const vectorRank = new Map();
+  const graphRank = new Map();
+
+  input.lexicalCandidates.forEach((candidate, index) => {
+    lexicalRank.set(candidate.chunkId, index);
+  });
+  input.vectorCandidates.forEach((candidate, index) => {
+    vectorRank.set(candidate.chunkId, index);
+  });
+  input.graphCandidates.forEach((candidate, index) => {
+    graphRank.set(candidate.chunkId, index);
+  });
+
+  for (const candidate of input.lexicalCandidates) {
+    merged.set(candidate.chunkId, {
+      ...candidate,
+      lexicalScore: candidate.score,
+    });
+  }
+
+  for (const candidate of input.vectorCandidates) {
+    const current = merged.get(candidate.chunkId);
+    if (current) {
+      current.matchReasons = dedupeReasons(current.matchReasons, candidate.matchReasons);
+      current.retrievalSources = Array.from(
+        new Set([...(current.retrievalSources ?? []), ...(candidate.retrievalSources ?? [])]),
+      );
+      current.vectorSimilarity = candidate.vectorSimilarity;
+    } else {
+      merged.set(candidate.chunkId, { ...candidate });
+    }
+  }
+
+  for (const candidate of input.graphCandidates) {
+    const current = merged.get(candidate.chunkId);
+    if (current) {
+      current.matchReasons = dedupeReasons(current.matchReasons, candidate.matchReasons);
+      current.retrievalSources = Array.from(
+        new Set([...(current.retrievalSources ?? []), ...(candidate.retrievalSources ?? [])]),
+      );
+      current.graphScore = candidate.score;
+    } else {
+      merged.set(candidate.chunkId, {
+        ...candidate,
+        graphScore: candidate.score,
+      });
+    }
+  }
+
+  const ranked = Array.from(merged.values())
+    .map((candidate) => {
+      const lexicalIndex = lexicalRank.get(candidate.chunkId);
+      const vectorIndex = vectorRank.get(candidate.chunkId);
+      const graphIndex = graphRank.get(candidate.chunkId);
+      const fusedScore =
+        (lexicalIndex === undefined ? 0 : reciprocalRankContribution(lexicalIndex)) +
+        (vectorIndex === undefined ? 0 : reciprocalRankContribution(vectorIndex)) +
+        (graphIndex === undefined ? 0 : reciprocalRankContribution(graphIndex));
+      const lexicalScore = candidate.lexicalScore ?? 0;
+      const retrievalSources = Array.from(
+        new Set(candidate.retrievalSources ?? ["lexical"]),
+      );
+      const sourceLabel =
+        retrievalSources.length > 1 ? "source:hybrid" : `source:${retrievalSources[0]}`;
+
+      return {
+        ...candidate,
+        score: Number((fusedScore * 1000 + lexicalScore).toFixed(3)),
+        matchReasons: dedupeReasons(candidate.matchReasons, [sourceLabel]),
+        retrievalSources,
+        scoreBreakdown: {
+          fused: Number(fusedScore.toFixed(6)),
+          lexicalScore,
+          lexicalRank: lexicalIndex ?? null,
+          vectorRank: vectorIndex ?? null,
+          graphRank: graphIndex ?? null,
+          graphScore: candidate.graphScore ?? null,
+          vectorSimilarity: candidate.vectorSimilarity ?? null,
+        },
+      };
+    })
     .sort(
       (left, right) =>
         right.score - left.score ||
+        (right.vectorSimilarity ?? 0) - (left.vectorSimilarity ?? 0) ||
         left.sourceFile.localeCompare(right.sourceFile) ||
         left.heading.localeCompare(right.heading),
     )
-    .slice(0, limit);
+    .slice(0, input.limit);
+
+  return annotateCollection(ranked, "retrieval", {
+    query: input.query,
+    sources: input.vectorState.available
+      ? ["lexical", "vector", "graph"]
+      : ["lexical", "graph"],
+    vector: input.vectorState,
+  });
+}
+
+function rerankFusedCandidates(input) {
+  const queryPlan = input.queryPlan ?? createQueryPlan(input.query);
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
+  const expectedNoteTypes =
+    queryPlan.classification?.preferredNoteTypes ?? queryPlan.expectedNoteTypes ?? [];
+
+  return input.candidates
+    .map((candidate) => {
+      let score = candidate.score;
+      const reasons = [...candidate.matchReasons];
+
+      if (expectedNoteTypes.includes(candidate.noteType)) {
+        score += maybePushReason(
+          reasons,
+          true,
+          `plan-type:${candidate.noteType}`,
+          (DEFAULT_NOTE_TYPE_BOOSTS[candidate.noteType] ?? 0) + 8,
+        );
+      } else if (expectedNoteTypes.length > 0) {
+        score -= 4;
+        reasons.push("plan-type:mismatch");
+      } else {
+        const noteTypeBoost = DEFAULT_NOTE_TYPE_BOOSTS[candidate.noteType] ?? 0;
+        if (noteTypeBoost !== 0) {
+          score += noteTypeBoost;
+          reasons.push(`note-type:${candidate.noteType}`);
+        }
+      }
+
+      score += DEFAULT_STATUS_BOOSTS[candidate.status] ?? 0;
+      if (DEFAULT_STATUS_BOOSTS[candidate.status]) {
+        reasons.push(`status:${candidate.status}`);
+      }
+
+      const recencyBoost = shouldUseRecencyBoost(queryPlan, candidate)
+        ? applyRecencyBoost(candidate)
+        : 0;
+      if (recencyBoost > 0) {
+        score += recencyBoost;
+        reasons.push(`recency:${candidate.noteType}`);
+      }
+
+      if (candidate.validationStatus === "warning" && integrityMode === "prefer-healthy") {
+        score -= 3;
+        reasons.push("integrity:warning");
+      }
+
+      if (candidate.validationStatus === "warning" && integrityMode === "prefer-warning") {
+        score += 3;
+        reasons.push("integrity:prefer-warning");
+      }
+
+      if (
+        queryPlan.routing?.allowArchived &&
+        (candidate.status === "archived" || candidate.status === "superseded")
+      ) {
+        reasons.push("route:archive");
+      }
+
+      return {
+        ...candidate,
+        score: Number(score.toFixed(3)),
+        matchReasons: dedupeReasons(reasons),
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        (right.scoreBreakdown?.fused ?? 0) - (left.scoreBreakdown?.fused ?? 0) ||
+        (right.vectorSimilarity ?? 0) - (left.vectorSimilarity ?? 0) ||
+        left.sourceFile.localeCompare(right.sourceFile) ||
+        left.heading.localeCompare(right.heading),
+    )
+    .slice(0, input.limit ?? 5);
+}
+
+export function vectorSearch(input) {
+  const query = input.query.trim();
+  const limit = input.limit ?? 5;
+  const queryPlan = input.queryPlan ?? createQueryPlan(query);
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
+  const vectorMode = input.vectorMode ?? DEFAULT_VECTOR_MODE;
+  const vectorIndex = input.corpus.vectorIndex ?? createVectorState();
+
+  if (!query) {
+    return annotateCollection([], "state", describeVectorUnavailability(vectorMode, vectorIndex));
+  }
+
+  if (vectorMode === "off" || !vectorIndex.available) {
+    return annotateCollection(
+      [],
+      "state",
+      describeVectorUnavailability(vectorMode, vectorIndex),
+    );
+  }
+
+  const queryVector = embedTextDeterministically(
+    buildQueryEmbeddingInput({
+      query,
+      queryPlan,
+    }),
+    {
+      dimensions: vectorIndex.dimensions ?? DETERMINISTIC_VECTOR_ENGINE.dimensions,
+    },
+  );
+
+  const candidates = filterMemoryCorpus(input.corpus, {
+    ...input,
+    integrityMode,
+    queryPlan,
+  })
+    .map((doc) => {
+      if (!Array.isArray(doc.vectorEmbedding)) {
+        return null;
+      }
+
+      const similarity = cosineSimilarity(queryVector, doc.vectorEmbedding);
+      if (similarity < MIN_VECTOR_SIMILARITY) {
+        return null;
+      }
+
+      return {
+        chunkId: doc.chunkId,
+        noteId: doc.noteId,
+        sourceFile: doc.sourceFile,
+        sourcePath: doc.sourcePath,
+        heading: doc.heading,
+        noteType: doc.noteType,
+        status: doc.status,
+        repoSlug: doc.repoSlug,
+        tags: doc.tags,
+        keywords: doc.keywords,
+        summary: doc.summary,
+        title: doc.title,
+        validationStatus: doc.validationStatus ?? "ok",
+        validationIssues: [...(doc.validationIssues ?? [])],
+        score: similarity,
+        vectorSimilarity: similarity,
+        matchReasons: [
+          "source:vector",
+          `vector-engine:${vectorIndex.engine?.name ?? DETERMINISTIC_VECTOR_ENGINE.name}`,
+          `vector-cosine:${similarity.toFixed(3)}`,
+        ],
+        text: doc.text,
+        retrievalSources: ["vector"],
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (left, right) =>
+        right.vectorSimilarity - left.vectorSimilarity ||
+        left.sourceFile.localeCompare(right.sourceFile) ||
+        left.heading.localeCompare(right.heading),
+    )
+    .slice(0, Math.max(limit * 3, limit));
+
+  return annotateCollection(candidates, "state", createVectorState({
+    enabled: true,
+    available: true,
+    status: "ready",
+    reason: null,
+    engine: vectorIndex.engine,
+    dimensions: vectorIndex.dimensions,
+    candidateCount: candidates.length,
+    used: candidates.length > 0,
+  }));
 }
 
 /**
  * Compatibility wrapper for callers that only need ranked candidates.
  */
 export function retrieveMemoryCandidates(input) {
-  return rerankMemoryCandidates(input);
+  const { lexicalCandidates, graphCandidates } = rerankMemoryCandidates(input);
+  const vectorCandidates = vectorSearch(input);
+  const fusedCandidates = mergeRetrievalCandidates({
+    query: input.query,
+    lexicalCandidates,
+    vectorCandidates,
+    graphCandidates,
+    vectorState: vectorCandidates.state,
+    limit: input.limit ?? 5,
+  });
+
+  const reranked = rerankFusedCandidates({
+    query: input.query,
+    queryPlan: input.queryPlan,
+    integrityMode: input.integrityMode,
+    candidates: fusedCandidates,
+    limit: input.limit ?? 5,
+  });
+
+  return annotateCollection(reranked, "retrieval", fusedCandidates.retrieval);
 }
 
 /**
@@ -703,6 +1226,8 @@ export function assembleMemoryContext(input) {
       heading: candidate.heading,
       noteType: candidate.noteType,
       status: candidate.status,
+      validationStatus: candidate.validationStatus ?? "ok",
+      validationIssues: [...(candidate.validationIssues ?? [])],
       score: candidate.score,
       matchReasons: [...candidate.matchReasons],
       text: candidate.text,
@@ -716,6 +1241,8 @@ export function assembleMemoryContext(input) {
       heading: candidate.heading,
       noteType: candidate.noteType,
       status: candidate.status,
+      validationStatus: candidate.validationStatus ?? "ok",
+      validationIssues: [...(candidate.validationIssues ?? [])],
       score: candidate.score,
     });
 
@@ -742,6 +1269,7 @@ export function assembleMemoryContext(input) {
 export function getMemoryDiagnostics(input) {
   return {
     chunkCount: input.corpus.length,
+    vectorStatus: input.corpus.vectorIndex?.status ?? "missing",
     noteTypes: input.corpus.reduce((acc, item) => {
       const key = item.noteType ?? "unknown";
       acc[key] = (acc[key] ?? 0) + 1;
