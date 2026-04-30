@@ -228,6 +228,8 @@ function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex }) {
       text: chunk.text,
       mtimeMs: note?.mtime_ms ?? 0,
       updated: note?.updated ?? null,
+      validationStatus: note?.validation_status ?? "ok",
+      validationIssues: [...(note?.validation_issues ?? [])],
       normalizedText: normalize(searchText),
       normalizedHeading: normalize(chunk.heading),
       normalizedSummary: normalize(chunk.summary || note?.summary || ""),
@@ -530,6 +532,11 @@ export function rerankMemoryCandidates(input) {
       if (recencyBoost > 0) {
         score += recencyBoost;
         reasons.push(`recency:${doc.noteType}`);
+      }
+
+      if (doc.validationStatus === "warning") {
+        score -= 3;
+        reasons.push("integrity:warning");
       }
 
       if (score === 0) {

@@ -327,6 +327,97 @@ test("typed retrieval normalizes migrated legacy note metadata before ranking", 
   assert.ok(candidates[0].matchReasons.includes("plan-type:session"));
 });
 
+test("typed retrieval prefers healthy notes over warning-scoped matches when relevance is similar", () => {
+  const integrityAwareCorpus = indexMemoryCorpus({
+    noteRegistry: [
+      {
+        id: "healthy-spec",
+        type: "spec",
+        path: "vault/specs/healthy.md",
+        title: "Healthy typed RAG plan",
+        status: "active",
+        created: "2026-04-29",
+        updated: "2026-04-29",
+        summary: "Healthy spec for typed RAG ranking.",
+        tags: ["rag"],
+        keywords: ["typed", "rag", "ranking"],
+        outbound_links: [],
+        inbound_links: [],
+        content_hash: "healthy-hash",
+        mtime_ms: 1,
+        owner: "agent",
+        repo_slug: "playground",
+        validation_status: "ok",
+        validation_issues: [],
+      },
+      {
+        id: "warning-spec",
+        type: "spec",
+        path: "vault/specs/warning.md",
+        title: "Warning typed RAG plan",
+        status: "active",
+        created: "2026-04-29",
+        updated: "2026-04-29",
+        summary: "Warning spec for typed RAG ranking.",
+        tags: ["rag"],
+        keywords: ["typed", "rag", "ranking"],
+        outbound_links: [],
+        inbound_links: [],
+        content_hash: "warning-hash",
+        mtime_ms: 1,
+        owner: "agent",
+        repo_slug: "playground",
+        validation_status: "warning",
+        validation_issues: ["missing_summary"],
+      },
+    ],
+    chunkIndex: [
+      {
+        chunk_id: "chunk:healthy-spec:0000:aaaaaaaa",
+        note_id: "healthy-spec",
+        source_path: "vault/specs/healthy.md § Plan",
+        heading: "Plan",
+        heading_level: 2,
+        text: "Typed RAG ranking plan for healthy retrieval behavior.",
+        summary: "Typed RAG ranking plan.",
+        tokens_estimated: 10,
+        content_hash: "healthy-chunk",
+        type: "spec",
+        status: "active",
+      },
+      {
+        chunk_id: "chunk:warning-spec:0000:bbbbbbbb",
+        note_id: "warning-spec",
+        source_path: "vault/specs/warning.md § Plan",
+        heading: "Plan",
+        heading_level: 2,
+        text: "Typed RAG ranking plan for warning retrieval behavior.",
+        summary: "Typed RAG ranking plan.",
+        tokens_estimated: 10,
+        content_hash: "warning-chunk",
+        type: "spec",
+        status: "active",
+      },
+    ],
+    graphIndex: {
+      nodes: [],
+      edges: [],
+    },
+  });
+
+  const candidates = retrieveMemoryCandidates({
+    corpus: integrityAwareCorpus,
+    query: "typed rag ranking plan",
+    limit: 2,
+    queryPlan: planMemoryQuery("typed rag ranking plan"),
+  });
+
+  assert.equal(candidates[0]?.noteId, "healthy-spec");
+  assert.ok(
+    candidates[1]?.matchReasons.includes("integrity:warning"),
+  );
+});
+
 test("assembleMemoryContext reports omitted items when token budget truncates", () => {
   const candidates = retrieveMemoryCandidates({
     corpus: typedCorpus,
