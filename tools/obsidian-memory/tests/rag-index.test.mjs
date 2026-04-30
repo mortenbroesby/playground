@@ -133,6 +133,9 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
   const graphIndex = JSON.parse(
     await readFile(path.join(fixture.outputRoot, "graph-index.json"), "utf8"),
   );
+  const vectorIndex = JSON.parse(
+    await readFile(path.join(fixture.outputRoot, "vector-index.json"), "utf8"),
+  );
   const diagnostics = JSON.parse(
     await readFile(path.join(fixture.outputRoot, "diagnostics.json"), "utf8"),
   );
@@ -198,6 +201,19 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
   );
 
   assert.equal(graphIndex.schema_version, 2);
+  assert.equal(vectorIndex.schema_version, 2);
+  assert.equal(vectorIndex.status, "ready");
+  assert.equal(vectorIndex.engine.name, "deterministic-hash-v1");
+  assert.equal(vectorIndex.engine.metric, "cosine");
+  assert.equal(vectorIndex.embeddings.length, chunkIndex.length);
+  assert.ok(
+    vectorIndex.embeddings.every(
+      (entry) =>
+        typeof entry.chunk_id === "string" &&
+        typeof entry.note_id === "string" &&
+        entry.values.length === vectorIndex.engine.dimensions,
+    ),
+  );
   assert.ok(
     graphIndex.edges.some(
       (edge) =>

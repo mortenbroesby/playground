@@ -9,6 +9,9 @@ const {
 const path = require("node:path");
 const process = require("node:process");
 const { findProjectRoot } = require("workspace-tools");
+const deterministicEmbeddingsModulePromise = import(
+  "./deterministic-embeddings.mjs"
+);
 const memorySchemaModulePromise = import("./memory-schema.mjs");
 const noteRegistryModulePromise = import("./note-registry.mjs");
 
@@ -1121,6 +1124,40 @@ function buildLexicalIndex(chunks: ChunkIndexEntry[]) {
   return terms;
 }
 
+async function buildVectorIndex(input: {
+  chunkIndex: ChunkIndexEntry[];
+  generatedAt: string;
+  noteRegistry: RegistryNote[];
+}) {
+  const {
+    DETERMINISTIC_VECTOR_ENGINE,
+    buildChunkEmbeddingInput,
+    embedTextDeterministically,
+  } = await deterministicEmbeddingsModulePromise;
+  const notesById = new Map(input.noteRegistry.map((note) => [note.id, note]));
+  const embeddings = input.chunkIndex.map((chunk) => ({
+    chunk_id: chunk.chunk_id,
+    note_id: chunk.note_id,
+    values: embedTextDeterministically(
+      buildChunkEmbeddingInput({
+        note: notesById.get(chunk.note_id),
+        chunk,
+      }),
+      {
+        dimensions: DETERMINISTIC_VECTOR_ENGINE.dimensions,
+      },
+    ),
+  }));
+
+  return {
+    schema_version: 2,
+    generated_at: input.generatedAt,
+    status: "ready",
+    engine: DETERMINISTIC_VECTOR_ENGINE,
+    embeddings,
+  };
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const vaultPath = path.resolve(options.vaultPath);
@@ -1256,13 +1293,11 @@ async function main() {
     specs_to_archive: [],
     apply_generated_safe: true,
   };
-  const vectorIndex = {
-    schema_version: 2,
-    generated_at: generatedAt,
-    status: "not_configured",
-    engine: null,
-    embeddings: [],
-  };
+  const vectorIndex = await buildVectorIndex({
+    chunkIndex,
+    generatedAt,
+    noteRegistry,
+  });
   const summary = {
     files: markdownFiles.length,
     notes: noteRegistry.length,

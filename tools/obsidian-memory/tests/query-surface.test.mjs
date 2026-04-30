@@ -256,10 +256,43 @@ test("rag:query surfaces integrity mode and candidate integrity metadata", async
   const output = JSON.parse(result.stdout);
 
   assert.equal(output.filters.integrityMode, "exclude-warning");
+  assert.equal(output.queryPlan.classification.intent, "implementation");
+  assert.equal(output.queryPlan.routing.allowArchived, false);
+  assert.ok(Array.isArray(output.queryPlan.variants.expanded));
   assert.equal(output.candidates.length, 1);
   assert.equal(output.candidates[0].noteId, "healthy-spec");
   assert.equal(output.candidates[0].validationStatus, "ok");
   assert.deepEqual(output.candidates[0].validationIssues, []);
+});
+
+test("rag:query explains when vector retrieval is disabled explicitly", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const result = spawnSync(
+    "node",
+    [
+      path.join(packageRoot, "src", "rag-query.mjs"),
+      "--query",
+      "typed rag ranking plan",
+      "--corpus",
+      fixture.indexRoot,
+      "--vector-mode",
+      "off",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+
+  assert.equal(output.filters.vectorMode, "off");
+  assert.equal(output.retrieval.vector.available, false);
+  assert.equal(output.retrieval.vector.reason, "disabled_by_request");
 });
 
 test("memory_search surfaces integrity warnings in full-detail MCP output", async (t) => {
@@ -351,6 +384,10 @@ test("tools/list exposes the expected MCP discovery contract", async (t) => {
     assert.deepEqual(
       searchTool.inputSchema.properties.integrity_mode.enum,
       ["prefer-healthy", "neutral", "prefer-warning", "exclude-warning"],
+    );
+    assert.deepEqual(
+      searchTool.inputSchema.properties.vector_mode.enum,
+      ["auto", "off"],
     );
     assert.deepEqual(
       searchTool.inputSchema.properties.detail.enum,

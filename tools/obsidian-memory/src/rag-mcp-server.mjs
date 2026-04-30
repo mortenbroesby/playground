@@ -59,6 +59,12 @@ const toolDefinitions = [
           description:
             "Optional integrity handling mode for warning-scoped notes. Defaults to prefer-healthy.",
         },
+        vector_mode: {
+          type: "string",
+          enum: ["auto", "off"],
+          description:
+            "Optional vector retrieval mode. Defaults to auto; use off to disable vector search explicitly.",
+        },
       },
       required: ["query"],
       additionalProperties: false,
@@ -165,18 +171,23 @@ async function searchMemory(args) {
   }
 
   const queryPlan = planMemoryQuery(query);
-  const hits = retrieveMemoryCandidates({
+  const candidates = retrieveMemoryCandidates({
     corpus,
     query,
     limit,
     repoSlug: args.repo_slug,
     noteType: args.note_type,
     integrityMode: args.integrity_mode,
+    vectorMode: args.vector_mode,
     queryPlan,
-  }).filter((hit) => hasSubstantiveContent(hit));
+  });
+  const hits = candidates.filter((hit) => hasSubstantiveContent(hit));
+  const retrievalSummary = formatRetrievalSummary(candidates.retrieval);
 
   if (hits.length === 0) {
-    return `No memory results found for: ${query}`;
+    return [`No memory results found for: ${query}`, retrievalSummary]
+      .filter(Boolean)
+      .join("\n");
   }
 
   const formattedHits = hits.map((chunk, index) => {
@@ -198,14 +209,19 @@ async function searchMemory(args) {
   });
 
   if (fullDetail) {
-    return formattedHits.join("\n\n---\n\n");
+    return [retrievalSummary, formattedHits.join("\n\n---\n\n")]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   return [
     "Compact memory results. Use memory_unfold with a source_path for detail.",
+    retrievalSummary,
     "",
     formattedHits.join("\n\n---\n\n"),
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 async function unfoldMemory(args) {
@@ -281,6 +297,20 @@ function formatContextChunk(chunk, fullDetail) {
   ]
     .filter((line) => line !== null)
     .join("\n");
+}
+
+function formatRetrievalSummary(retrieval) {
+  if (!retrieval) {
+    return null;
+  }
+
+  const sourceLine = `retrieval_sources: ${retrieval.sources.join(", ")}`;
+  const vector = retrieval.vector;
+  const vectorLine = vector.available
+    ? `vector_search: ready (${vector.engine?.name ?? "unknown"}, ${vector.dimensions ?? "?"}d, candidates=${vector.candidateCount ?? 0})`
+    : `vector_search: unavailable (${vector.reason ?? "unknown"})`;
+
+  return [sourceLine, vectorLine].join("\n");
 }
 
 function formatFullChunk(chunk, headingLine = null) {
