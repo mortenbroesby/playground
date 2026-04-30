@@ -385,6 +385,27 @@ test("planFrontmatterFix preserves session metadata fields used by the 2026-04-2
   assert.ok(plan.changes.includes("drop_date"));
 });
 
+test("planFrontmatterFix rejects malformed YAML frontmatter", () => {
+  assert.throws(
+    () =>
+      planFrontmatterFix({
+        absolutePath: "/tmp/rag.md",
+        repoSlug: "playground",
+        relativeRepoPath: "specs/rag.md",
+        content: [
+          "---",
+          'id: "mem-20260430-rag"',
+          "links:",
+          "  related: [oops",
+          "---",
+          "",
+          "# Broken",
+        ].join("\n"),
+      }),
+    /frontmatter\.invalid_yaml/,
+  );
+});
+
 test("fixFrontmatter dry-run reports changed notes and apply rewrites metadata in place", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-fix-frontmatter-"));
   const vaultRoot = path.join(tempRoot, "vault");

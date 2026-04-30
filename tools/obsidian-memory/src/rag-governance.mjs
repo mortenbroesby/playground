@@ -1,5 +1,6 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { parseMemoryMarkdown } from "./memory-schema.mjs";
 
 const REQUIRED_SOURCE_PATHS = [
   "00 Repositories",
@@ -1075,7 +1076,17 @@ export function planFrontmatterFix({
   content,
   fallbackDate = formatDate(new Date()),
 }) {
-  const { frontmatter, body } = parseFrontmatter(content);
+  const parsed = parseMemoryMarkdown({
+    path: absolutePath,
+    content,
+  });
+  const { frontmatter, body } = parsed.ok
+    ? parsed
+    : parsed.error.code === "frontmatter.missing_block"
+      ? { frontmatter: {}, body: content }
+      : (() => {
+          throw new Error(`${parsed.error.code}: ${parsed.error.message}`);
+        })();
   const rawType = toStringValue(frontmatter.type) ?? toStringValue(frontmatter.note_type);
   const rawStatus = toStringValue(frontmatter.status);
   const noteType = resolveNoteType(rawType, relativeRepoPath);

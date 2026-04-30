@@ -74,6 +74,7 @@ type LinkGroups = {
 type RegistryNote = {
   id: string;
   type: NoteType;
+  repo_slug: string | null;
   path: string;
   title: string;
   status: NoteStatus;
@@ -1188,6 +1189,7 @@ async function main() {
   const registryWithLinks = notes.map((note) => ({
     id: note.id,
     type: note.type,
+    repo_slug: note.repoSlug,
     path: note.path,
     title: note.title,
     status: note.status,
