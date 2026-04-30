@@ -19,8 +19,8 @@ approval_mode = "approve"
 
 # BEGIN ASTROGRAPH
 [mcp_servers.astrograph]
-command = "node"
-args = ["tools/ai-context-engine/scripts/ai-context-engine.mjs", "mcp"]
+command = "npx"
+args = ["@mortenbroesby/astrograph", "mcp"]
 cwd = "."
 startup_timeout_sec = 90
 enabled_tools = ["index_folder", "index_file", "get_file_outline", "get_file_tree", "get_repo_outline", "suggest_initial_queries", "query_code", "diagnostics"]

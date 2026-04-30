@@ -4,3 +4,4 @@ packages:
   - 'packages/remotes/*'
   - 'packages/config/*'
   - 'tools/*'
+  - '!tools/ai-context-engine'

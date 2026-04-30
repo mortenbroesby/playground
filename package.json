@@ -50,7 +50,7 @@
     "prepare": "husky install"
   },
   "devDependencies": {
-    "@mortenbroesby/astrograph": "workspace:*",
+    "@mortenbroesby/astrograph": "link:../astrograph",
     "husky": "^9.1.7",
     "markdownlint-cli2": "^0.17.0",
     "prettier": "^3.3.0",

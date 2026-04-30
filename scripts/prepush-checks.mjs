@@ -78,10 +78,6 @@ const shouldRunSkillsSmoke = files.some((filePath) =>
   matches(filePath, [".skills", "scripts/skills.mjs", "scripts/skills-smoke.mjs"]),
 );
 
-const shouldRunAstrographTypeLint = files.some((filePath) =>
-  matches(filePath, ["tools/ai-context-engine"]),
-);
-
 if (shouldRunMarkdown) {
   run("pnpm", ["lint:md"]);
 }
@@ -92,8 +88,4 @@ if (shouldRunAgentsCheck) {
 
 if (shouldRunSkillsSmoke) {
   run("node", ["scripts/skills-smoke.mjs"]);
-}
-
-if (shouldRunAstrographTypeLint) {
-  run("pnpm", ["--filter", "@astrograph/astrograph", "type-lint"]);
 }

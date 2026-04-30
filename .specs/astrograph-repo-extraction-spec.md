@@ -84,6 +84,8 @@ Required work:
 - make this file the only active spec for the migration
 - use `@mortenbroesby/astrograph` for standalone-facing package requirements
 - align existing workspace commands with `--filter @mortenbroesby/astrograph`
+  until the package is excluded from the `playground` workspace during the
+  consumer cutover
 - remove or clearly retire `.specs/astrograph-standalone-install-spec.md`
 - run markdown lint only against the spec files
 
@@ -228,6 +230,14 @@ Package phase inside `playground`:
 - `pnpm --filter @mortenbroesby/astrograph type-lint`
 - `pnpm --filter @mortenbroesby/astrograph test`
 - `pnpm --filter @mortenbroesby/astrograph test:package-bin`
+
+Playground consumer phase after local standalone linking:
+
+- `CI=1 pnpm install --frozen-lockfile`
+- `pnpm list @mortenbroesby/astrograph --depth 0`
+- `pnpm exec astrograph cli diagnostics --repo .`
+- `npx --no-install @mortenbroesby/astrograph cli diagnostics --repo .`
+- `pnpm agents:check`
 
 Standalone repo phase:
 

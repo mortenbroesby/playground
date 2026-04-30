@@ -5,40 +5,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 function resolveAiContextEngineInvocation(projectRoot) {
-  const workspaceWrapper = path.join(
-    projectRoot,
-    'tools',
-    'ai-context-engine',
-    'scripts',
-    'ai-context-engine.mjs',
-  );
   const localBin = path.join(projectRoot, 'node_modules', '.bin', 'astrograph');
-  const packageLocalBin = path.join(
-    projectRoot,
-    'tools',
-    'ai-context-engine',
-    'node_modules',
-    '.bin',
-    'astrograph',
-  );
-
-  if (existsSync(workspaceWrapper)) {
-    return {
-      command: process.execPath,
-      prefixArgs: [workspaceWrapper],
-    };
-  }
 
   if (existsSync(localBin)) {
     return {
       command: localBin,
-      prefixArgs: [],
-    };
-  }
-
-  if (existsSync(packageLocalBin)) {
-    return {
-      command: packageLocalBin,
       prefixArgs: [],
     };
   }

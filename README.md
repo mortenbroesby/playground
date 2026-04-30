@@ -236,7 +236,7 @@ The root README is the front door. Deeper repo context lives in:
 - [UI package README](./packages/ui/README.md)
 - [Types package README](./packages/types/README.md)
 - [Config package README](./packages/config/README.md)
-- [Astrograph README](./tools/ai-context-engine/README.md)
+- [Astrograph repository](https://github.com/mortenbroesby/astrograph)
 - [Obsidian memory README](./tools/obsidian-memory/README.md)
 
 ## License
