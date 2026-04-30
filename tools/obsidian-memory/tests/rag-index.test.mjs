@@ -167,6 +167,18 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
     [...spec.outbound_links].sort(),
     ["legacy-rag-spec", "rebuild-memory"],
   );
+  assert.deepEqual(
+    spec.chunk_ids,
+    chunkIndex
+      .filter((chunk) => chunk.note_id === "mem-20260429-rag-rebuild")
+      .map((chunk) => chunk.chunk_id),
+  );
+  assert.deepEqual(
+    repoHome.chunk_ids,
+    chunkIndex
+      .filter((chunk) => chunk.note_id === repoHome.id)
+      .map((chunk) => chunk.chunk_id),
+  );
 
   assert.equal(graphIndex.schema_version, 2);
   assert.ok(

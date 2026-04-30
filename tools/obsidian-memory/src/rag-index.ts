@@ -84,6 +84,7 @@ type RegistryNote = {
   summary: string;
   tags: string[];
   keywords: string[];
+  chunk_ids: string[];
   outbound_links: string[];
   inbound_links: string[];
   content_hash: string;
@@ -1307,15 +1308,25 @@ async function main() {
     }
   }
 
+  const chunkIndex = chunks.map(createChunkIndexEntry);
+  const chunkIdsByNoteId = chunkIndex.reduce<Map<string, string[]>>(
+    (accumulator, chunk) => {
+      const chunkIds = accumulator.get(chunk.note_id) ?? [];
+      chunkIds.push(chunk.chunk_id);
+      accumulator.set(chunk.note_id, chunkIds);
+      return accumulator;
+    },
+    new Map(),
+  );
   const noteRegistry = registryWithLinks
     .map<RegistryNote>((note) => ({
       ...note,
+      chunk_ids: chunkIdsByNoteId.get(note.id) ?? [],
       inbound_links: Array.from(new Set(note.inbound_links)).sort((left, right) =>
         left.localeCompare(right),
       ),
     }))
     .map(({ link_groups: _linkGroups, ...note }) => note);
-  const chunkIndex = chunks.map(createChunkIndexEntry);
   const { graph, unresolvedLinks } = buildGraphIndex(registryWithLinks as Array<
     RegistryNote & { link_groups: LinkGroups }
   >);
