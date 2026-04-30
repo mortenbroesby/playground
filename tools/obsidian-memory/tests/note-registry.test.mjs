@@ -30,6 +30,11 @@ test("buildNoteRegistryArtifacts assembles registry, graph, and note validation 
       keywords: ["memory"],
       mtimeMs: 1,
       contentHash: "hash-1",
+      body: [
+        "See [Todo](../tasks/todo.md) for follow-up work.",
+        "",
+        "Related context: [[Todo]].",
+      ].join("\n"),
       owner: "agent",
       legacyType: null,
       legacyStatus: null,
@@ -58,6 +63,7 @@ test("buildNoteRegistryArtifacts assembles registry, graph, and note validation 
       keywords: [],
       mtimeMs: 1,
       contentHash: "hash-2",
+      body: "# Todo\n\nWork item body.",
       owner: "agent",
       legacyType: "repo-task",
       legacyStatus: "In Progress",
@@ -92,7 +98,7 @@ test("buildNoteRegistryArtifacts assembles registry, graph, and note validation 
   });
 
   assert.equal(result.noteRegistry.length, 2);
-  assert.equal(result.graph.edges.length, 1);
+  assert.equal(result.graph.edges.length, 2);
   assert.deepEqual(result.unresolvedLinks, [
     {
       from: "mem-1",
@@ -109,6 +115,14 @@ test("buildNoteRegistryArtifacts assembles registry, graph, and note validation 
   assert.equal(spec.validation_status, "warning");
   assert.deepEqual(spec.validation_issues, ["unresolved_links"]);
   assert.match(spec.chunk_ids[0], /^chunk-/);
+  assert.ok(
+    result.graph.edges.some(
+      (edge) =>
+        edge.from === "mem-1" &&
+        edge.to === "mem-2" &&
+        edge.type === "references",
+    ),
+  );
 
   assert.deepEqual(todo.chunk_ids, ["chunk-2"]);
   assert.deepEqual(todo.inbound_links, ["mem-1"]);

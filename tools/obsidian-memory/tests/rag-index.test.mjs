@@ -90,6 +90,10 @@ retention:
 ## Plan
 
 Move to a typed multi-index layout.
+
+See [Rebuild Memory](../04 Tasks/tasks/rebuild-memory.md) for the task path.
+
+[[Playground Home]]
 `,
   );
 
@@ -220,6 +224,22 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
         edge.from === "mem-20260429-rag-rebuild" &&
         edge.to === "rebuild-memory" &&
         edge.type === "relates_to",
+    ),
+  );
+  assert.ok(
+    graphIndex.edges.some(
+      (edge) =>
+        edge.from === "mem-20260429-rag-rebuild" &&
+        edge.to === "rebuild-memory" &&
+        edge.type === "references",
+    ),
+  );
+  assert.ok(
+    graphIndex.edges.some(
+      (edge) =>
+        edge.from === "mem-20260429-rag-rebuild" &&
+        edge.to === repoHome.id &&
+        edge.type === "references",
     ),
   );
 

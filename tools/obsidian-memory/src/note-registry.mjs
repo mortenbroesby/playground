@@ -1,3 +1,5 @@
+import path from "node:path";
+
 function flattenLinkGroups(linkGroups) {
   return Array.from(
     new Set(
@@ -14,10 +16,185 @@ function flattenLinkGroups(linkGroups) {
   );
 }
 
+function normalizePathLike(value) {
+  return value
+    .replace(/\\/g, "/")
+    .replace(/^vault\//i, "")
+    .replace(/\.md$/i, "")
+    .replace(/^\.\/+/, "")
+    .replace(/^\/+/, "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeTitleLike(value) {
+  return value.trim().toLowerCase();
+}
+
+function parseMarkdownTargets(body) {
+  const targets = [];
+  const pattern = /\[[^\]]+\]\(([^)]+)\)/g;
+
+  for (const match of body.matchAll(pattern)) {
+    const target = match[1]?.trim();
+    if (!target) {
+      continue;
+    }
+    targets.push(target);
+  }
+
+  return targets;
+}
+
+function parseWikilinkTargets(body) {
+  const targets = [];
+  const pattern = /\[\[([^[\]]+)\]\]/g;
+
+  for (const match of body.matchAll(pattern)) {
+    const target = match[1]?.trim();
+    if (!target) {
+      continue;
+    }
+    targets.push(target);
+  }
+
+  return targets;
+}
+
+function buildResolutionMap(notes) {
+  const noteIdMap = new Map();
+  const titleMap = new Map();
+  const pathMap = new Map();
+
+  function addToMap(map, key, noteId) {
+    if (!key) {
+      return;
+    }
+    const bucket = map.get(key) ?? new Set();
+    bucket.add(noteId);
+    map.set(key, bucket);
+  }
+
+  for (const note of notes) {
+    noteIdMap.set(note.id, note.id);
+    addToMap(titleMap, normalizeTitleLike(note.title), note.id);
+
+    const normalizedPath = normalizePathLike(note.path);
+    const pathSegments = normalizedPath.split("/");
+    const basename = pathSegments[pathSegments.length - 1] ?? "";
+
+    addToMap(pathMap, normalizedPath, note.id);
+    addToMap(pathMap, basename, note.id);
+  }
+
+  return {
+    noteIdMap,
+    titleMap,
+    pathMap,
+  };
+}
+
+function resolveUniqueTarget(map, key) {
+  const bucket = map.get(key);
+  if (!bucket || bucket.size !== 1) {
+    return null;
+  }
+
+  return [...bucket][0];
+}
+
+function resolveMarkdownTarget(rawTarget, note, resolutionMap) {
+  const trimmedTarget = rawTarget
+    .replace(/^<|>$/g, "")
+    .split("#")[0]
+    .split("?")[0]
+    .trim();
+
+  if (!trimmedTarget) {
+    return null;
+  }
+
+  if (
+    /^[a-z]+:\/\//i.test(trimmedTarget) ||
+    trimmedTarget.startsWith("mailto:") ||
+    trimmedTarget.startsWith("#")
+  ) {
+    return null;
+  }
+
+  if (resolutionMap.noteIdMap.has(trimmedTarget)) {
+    return trimmedTarget;
+  }
+
+  const noteRelativePath = normalizePathLike(note.path);
+  const noteDirectory = noteRelativePath.includes("/")
+    ? noteRelativePath.slice(0, noteRelativePath.lastIndexOf("/"))
+    : "";
+  const directKey = normalizePathLike(trimmedTarget);
+  const relativeKey = normalizePathLike(
+    noteDirectory
+      ? path.posix.normalize(path.posix.join(noteDirectory, trimmedTarget))
+      : trimmedTarget,
+  );
+
+  return (
+    resolveUniqueTarget(resolutionMap.pathMap, directKey) ??
+    resolveUniqueTarget(resolutionMap.pathMap, relativeKey)
+  );
+}
+
+function resolveWikilinkTarget(rawTarget, resolutionMap) {
+  const candidate = rawTarget.split("|")[0]?.split("#")[0]?.trim();
+
+  if (!candidate) {
+    return null;
+  }
+
+  if (resolutionMap.noteIdMap.has(candidate)) {
+    return candidate;
+  }
+
+  return (
+    resolveUniqueTarget(resolutionMap.pathMap, normalizePathLike(candidate)) ??
+    resolveUniqueTarget(resolutionMap.titleMap, normalizeTitleLike(candidate))
+  );
+}
+
+function inferBodyEdges(note, resolutionMap) {
+  const inferredTargets = new Set();
+
+  for (const markdownTarget of parseMarkdownTargets(note.body ?? "")) {
+    const resolved = resolveMarkdownTarget(markdownTarget, note, resolutionMap);
+    if (resolved && resolved !== note.id) {
+      inferredTargets.add(resolved);
+    }
+  }
+
+  for (const wikilinkTarget of parseWikilinkTargets(note.body ?? "")) {
+    const resolved = resolveWikilinkTarget(wikilinkTarget, resolutionMap);
+    if (resolved && resolved !== note.id) {
+      inferredTargets.add(resolved);
+    }
+  }
+
+  return [...inferredTargets].sort((left, right) => left.localeCompare(right));
+}
+
 function buildGraphIndex(notes, edgeTypeByLinkGroup) {
   const noteIds = new Set(notes.map((note) => note.id));
   const edges = [];
+  const edgeKeys = new Set();
   const unresolvedLinks = [];
+  const resolutionMap = buildResolutionMap(notes);
+
+  function pushEdge(edge) {
+    const edgeKey = `${edge.from}::${edge.to}::${edge.type}`;
+    if (edgeKeys.has(edgeKey)) {
+      return;
+    }
+    edgeKeys.add(edgeKey);
+    edges.push(edge);
+  }
 
   for (const note of notes) {
     const groupedLinks = note.link_groups;
@@ -35,7 +212,7 @@ function buildGraphIndex(notes, edgeTypeByLinkGroup) {
           continue;
         }
 
-        edges.push({
+        pushEdge({
           from: note.id,
           to: target,
           type: edgeTypeByLinkGroup[group],
@@ -49,6 +226,14 @@ function buildGraphIndex(notes, edgeTypeByLinkGroup) {
         targets: Array.from(missingTargets).sort((left, right) =>
           left.localeCompare(right),
         ),
+      });
+    }
+
+    for (const inferredTarget of inferBodyEdges(note, resolutionMap)) {
+      pushEdge({
+        from: note.id,
+        to: inferredTarget,
+        type: "references",
       });
     }
   }
@@ -139,6 +324,7 @@ export function buildNoteRegistryArtifacts({
     content_hash: note.contentHash,
     mtime_ms: note.mtimeMs,
     owner: note.owner,
+    body: note.body,
     legacy_type: note.legacyType,
     legacy_status: note.legacyStatus,
     link_groups: note.linkGroups,
@@ -204,7 +390,7 @@ export function buildNoteRegistryArtifacts({
         ),
       };
     })
-    .map(({ link_groups: _linkGroups, ...note }) => note);
+    .map(({ link_groups: _linkGroups, body: _body, ...note }) => note);
 
   return {
     noteRegistry,
