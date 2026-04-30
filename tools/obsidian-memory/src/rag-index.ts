@@ -970,11 +970,13 @@ function createChunk({
   content,
   heading,
   headingLevel,
+  chunkIndex,
   note,
 }: {
   content: string;
   heading: string;
   headingLevel: 2 | 0;
+  chunkIndex: number;
   note: IndexedNote;
 }): CorpusChunk {
   const chunkPath = `${note.path} § ${heading}`;
@@ -988,11 +990,14 @@ function createChunk({
     note.keywords.length > 0 ? `Keywords: ${note.keywords.join(", ")}` : null,
     note.summary ? `Summary: ${note.summary}` : null,
   ].filter(Boolean);
+  const text = `${metadataLines.join("\n")}\n\n${content.trim()}`.trim();
+  const contentHashPrefix = createHashValue(text).slice(0, 8);
+  const chunkId = `chunk:${note.id}:${chunkIndex.toString().padStart(4, "0")}:${contentHashPrefix}`;
 
   return {
-    id: createShortHash(chunkPath),
+    id: chunkId,
     note_id: note.id,
-    text: `${metadataLines.join("\n")}\n\n${content.trim()}`.trim(),
+    text,
     source_file: note.path,
     source_path: chunkPath,
     heading,
@@ -1045,11 +1050,12 @@ async function parseMarkdownFile(vaultPath: string, filePath: string) {
     mtimeMs: fileStat.mtimeMs,
   });
   const sections = splitIntoHeadingChunks(body, note.title);
-  const chunks = sections.map((section) =>
+  const chunks = sections.map((section, chunkIndex) =>
     createChunk({
       content: section.content,
       heading: section.heading,
       headingLevel: section.headingLevel,
+      chunkIndex,
       note,
     }),
   );

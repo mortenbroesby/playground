@@ -105,6 +105,7 @@ test("buildNoteRegistryArtifacts assembles registry, graph, and note validation 
   assert.deepEqual(spec.outbound_links, ["mem-2", "missing-note"]);
   assert.equal(spec.validation_status, "warning");
   assert.deepEqual(spec.validation_issues, ["unresolved_links"]);
+  assert.match(spec.chunk_ids[0], /^chunk-/);
 
   assert.deepEqual(todo.chunk_ids, ["chunk-2"]);
   assert.deepEqual(todo.inbound_links, ["mem-1"]);

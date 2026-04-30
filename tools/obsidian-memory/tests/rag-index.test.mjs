@@ -180,11 +180,21 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
       .filter((chunk) => chunk.note_id === "mem-20260429-rag-rebuild")
       .map((chunk) => chunk.chunk_id),
   );
+  assert.ok(
+    spec.chunk_ids.every((chunkId) =>
+      /^chunk:mem-20260429-rag-rebuild:\d{4}:[0-9a-f]{8}$/.test(chunkId),
+    ),
+  );
   assert.deepEqual(
     repoHome.chunk_ids,
     chunkIndex
       .filter((chunk) => chunk.note_id === repoHome.id)
       .map((chunk) => chunk.chunk_id),
+  );
+  assert.ok(
+    repoHome.chunk_ids.every((chunkId) =>
+      new RegExp(`^chunk:${repoHome.id}:\\d{4}:[0-9a-f]{8}$`).test(chunkId),
+    ),
   );
 
   assert.equal(graphIndex.schema_version, 2);
