@@ -101,6 +101,53 @@ test("buildCleanupReport finds stale todos, old sessions, and orphan notes", () 
   assert.equal(report.generated_files_to_delete.length, 1);
 });
 
+test("buildCleanupReport prefers registry validation issues over diagnostics-only derivation", () => {
+  const report = buildCleanupReport({
+    noteRegistry: [
+      {
+        id: "session-1",
+        type: "session",
+        path: "vault/sessions/session-1.md",
+        title: "Session 1",
+        status: "active",
+        created: "2026-04-01",
+        updated: "2026-04-01",
+        summary: "",
+        outbound_links: [],
+        inbound_links: [],
+        validation_issues: [
+          "missing_frontmatter_id",
+          "missing_summary",
+          "unresolved_links",
+        ],
+      },
+    ],
+    chunkIndex: [
+      {
+        note_id: "session-1",
+        text: "session body",
+      },
+    ],
+    diagnostics: {
+      synthetic_ids: [],
+      validation_warnings: [],
+    },
+    now: new Date("2026-04-29T00:00:00.000Z"),
+    staleGeneratedFiles: [],
+  });
+
+  assert.deepEqual(report.invalid_frontmatter, [
+    {
+      path: "vault/sessions/session-1.md",
+      reason: "missing_frontmatter_id",
+    },
+    {
+      path: "vault/sessions/session-1.md",
+      reason: "missing_summary",
+    },
+  ]);
+});
+
 test("verifyTypedMemory fails when typed index has unresolved links and synthetic ids", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-governance-"));
   const vaultRoot = path.join(tempRoot, "vault");
@@ -161,6 +208,78 @@ test("verifyTypedMemory fails when typed index has unresolved links and syntheti
   });
 
   assert.equal(result.passed, false);
+  assert.ok(result.errors.some((error) => error.startsWith("Unresolved links present")));
+  assert.ok(result.warnings.some((warning) => warning.includes("Synthetic note ids")));
+});
+
+test("verifyTypedMemory uses registry validation issues when diagnostics are minimal", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-governance-registry-issues-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const indexRoot = path.join(tempRoot, ".rag");
+
+  await Promise.all([
+    mkdir(path.join(vaultRoot, "00 Repositories"), { recursive: true }),
+    mkdir(path.join(vaultRoot, "90 Templates"), { recursive: true }),
+    mkdir(path.join(vaultRoot, "91 Scripts"), { recursive: true }),
+    mkdir(indexRoot, { recursive: true }),
+  ]);
+
+  await Promise.all([
+    writeFile(path.join(tempRoot, ".gitignore"), ".rag/\n", "utf8"),
+    writeFile(
+      path.join(indexRoot, "manifest.json"),
+      JSON.stringify({
+        schema_version: 2,
+        source_root: "vault",
+      }),
+      "utf8",
+    ),
+    writeFile(
+      path.join(indexRoot, "note-registry.json"),
+      JSON.stringify([
+        {
+          id: "mem-1",
+          type: "spec",
+          path: "vault/specs/spec-1.md",
+          status: "active",
+          title: "Spec 1",
+          summary: "Spec",
+          outbound_links: ["missing-note"],
+          inbound_links: [],
+          validation_status: "warning",
+          validation_issues: [
+            "missing_frontmatter_id",
+            "unresolved_links",
+          ],
+        },
+      ]),
+      "utf8",
+    ),
+    writeFile(path.join(indexRoot, "chunk-index.json"), "[]", "utf8"),
+    writeFile(path.join(indexRoot, "lexical-index.json"), "{}", "utf8"),
+    writeFile(path.join(indexRoot, "vector-index.json"), "{}", "utf8"),
+    writeFile(path.join(indexRoot, "graph-index.json"), JSON.stringify({ nodes: [], edges: [] }), "utf8"),
+    writeFile(
+      path.join(indexRoot, "diagnostics.json"),
+      JSON.stringify({
+        synthetic_ids: [],
+        unresolved_links: [],
+        validation_warnings: [],
+      }),
+      "utf8",
+    ),
+    writeFile(path.join(indexRoot, "cleanup-report.json"), "{}", "utf8"),
+  ]);
+
+  const result = await verifyTypedMemory({
+    vaultRoot,
+    indexRoot,
+    repoRoot: tempRoot,
+  });
+
+  assert.equal(result.passed, false);
+  assert.equal(result.summary.synthetic_ids, 1);
+  assert.equal(result.summary.unresolved_links, 1);
   assert.ok(result.errors.some((error) => error.startsWith("Unresolved links present")));
   assert.ok(result.warnings.some((warning) => warning.includes("Synthetic note ids")));
 });

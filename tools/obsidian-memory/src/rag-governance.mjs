@@ -229,6 +229,18 @@ function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function getRegistryValidationIssues(note) {
+  return Array.isArray(note.validation_issues)
+    ? note.validation_issues.filter((issue) => typeof issue === "string" && issue.length > 0)
+    : [];
+}
+
+function countRegistryIssueNotes(noteRegistry, issueCode) {
+  return noteRegistry.filter((note) =>
+    getRegistryValidationIssues(note).includes(issueCode),
+  ).length;
+}
+
 function slugify(value) {
   return normalize(value)
     .replace(/[^a-z0-9]+/g, "-")
@@ -1506,16 +1518,33 @@ export function buildCleanupReport({ noteRegistry, chunkIndex, diagnostics, now 
     })
     .filter((note) => note.estimated_tokens > 1200);
 
-  const invalidFrontmatter = [
-    ...diagnostics.synthetic_ids.map((path) => ({
-      path,
-      reason: "missing_frontmatter_id",
-    })),
-    ...diagnostics.validation_warnings.map((warning) => ({
-      path: warning.split(":")[0],
-      reason: warning,
-    })),
-  ];
+  const invalidFrontmatter = [];
+  const invalidFrontmatterKeys = new Set();
+  const addInvalidFrontmatter = (path, reason) => {
+    const key = `${path}::${reason}`;
+    if (invalidFrontmatterKeys.has(key)) {
+      return;
+    }
+    invalidFrontmatterKeys.add(key);
+    invalidFrontmatter.push({ path, reason });
+  };
+
+  for (const note of noteRegistry) {
+    for (const issue of getRegistryValidationIssues(note)) {
+      if (issue === "unresolved_links") {
+        continue;
+      }
+      addInvalidFrontmatter(note.path, issue);
+    }
+  }
+
+  for (const path of diagnostics.synthetic_ids ?? []) {
+    addInvalidFrontmatter(path, "missing_frontmatter_id");
+  }
+
+  for (const warning of diagnostics.validation_warnings ?? []) {
+    addInvalidFrontmatter(warning.split(":")[0], warning);
+  }
 
   const archivableSpecs = noteRegistry
     .filter((note) => note.type === "spec" && note.status === "done")
@@ -1601,6 +1630,12 @@ export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
 
   const artifacts = await loadTypedMemoryArtifacts(indexRoot);
   const noteIds = new Map();
+  const syntheticIdCount =
+    countRegistryIssueNotes(artifacts.noteRegistry, "missing_frontmatter_id") ||
+    artifacts.diagnostics.synthetic_ids.length;
+  const unresolvedLinkCount =
+    countRegistryIssueNotes(artifacts.noteRegistry, "unresolved_links") ||
+    artifacts.diagnostics.unresolved_links.length;
 
   for (const note of artifacts.noteRegistry) {
     if (noteIds.has(note.id)) {
@@ -1627,15 +1662,15 @@ export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
     }
   }
 
-  if (artifacts.diagnostics.synthetic_ids.length > 0) {
+  if (syntheticIdCount > 0) {
     warnings.push(
-      `Synthetic note ids present for ${artifacts.diagnostics.synthetic_ids.length} notes.`,
+      `Synthetic note ids present for ${syntheticIdCount} notes.`,
     );
   }
 
-  if (artifacts.diagnostics.unresolved_links.length > 0) {
+  if (unresolvedLinkCount > 0) {
     errors.push(
-      `Unresolved links present for ${artifacts.diagnostics.unresolved_links.length} notes.`,
+      `Unresolved links present for ${unresolvedLinkCount} notes.`,
     );
   }
 
@@ -1655,8 +1690,8 @@ export async function verifyTypedMemory({ vaultRoot, indexRoot, repoRoot }) {
     summary: {
       notes: artifacts.noteRegistry.length,
       chunks: artifacts.chunkIndex.length,
-      unresolved_links: artifacts.diagnostics.unresolved_links.length,
-      synthetic_ids: artifacts.diagnostics.synthetic_ids.length,
+      unresolved_links: unresolvedLinkCount,
+      synthetic_ids: syntheticIdCount,
     },
   };
 }
