@@ -132,6 +132,22 @@ function logResults(title, results) {
   }
 }
 
+async function inferCurrentRepoSlug() {
+  try {
+    const packageJson = JSON.parse(
+      await readFile(path.join(repoRoot, "package.json"), "utf8"),
+    );
+
+    if (typeof packageJson.name === "string" && packageJson.name.trim()) {
+      return packageJson.name.trim().replace(/^@[^/]+\//, "");
+    }
+  } catch {
+    // Fall back to the repo root folder name when package metadata is unavailable.
+  }
+
+  return path.basename(repoRoot);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
@@ -142,14 +158,15 @@ async function main() {
 
   const vaultPath = path.resolve(process.cwd(), args.vaultPath);
   const vaultName = path.basename(vaultPath);
-  const repoSlug = args.repoSlug || path.basename(repoRoot);
-  const isCurrentRepo = repoSlug === path.basename(repoRoot);
+  const currentRepoSlug = await inferCurrentRepoSlug();
+  const repoSlug = args.repoSlug || currentRepoSlug;
+  const isCurrentRepo = repoSlug === currentRepoSlug;
   const repoPath = args.repoPath
     ? path.resolve(process.cwd(), args.repoPath)
     : isCurrentRepo
       ? repoRoot
       : "";
-  const owner = args.owner || (isCurrentRepo ? "mortenbroesby" : "unknown");
+  const owner = args.owner || (isCurrentRepo ? "morten" : "human");
   const today = new Date().toISOString().slice(0, 10);
   const todayCompact = today.replaceAll("-", "");
   const reviewAfter180Days = new Date();

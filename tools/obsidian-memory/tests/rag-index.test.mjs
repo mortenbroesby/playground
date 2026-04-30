@@ -305,3 +305,121 @@ Beta.
   assert.doesNotMatch(secondChunk.text, /## A/);
   assert.doesNotMatch(secondChunk.text, /Alpha\./);
 });
+
+test("rag:index fails when strict frontmatter is invalid", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-invalid-frontmatter-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "invalid-spec.md"),
+    `---
+id: "mem-20260430-invalid-spec"
+type: "spec"
+repo_slug: "playground"
+title: "Invalid spec"
+status: "accepted"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "Invalid status for a spec note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Invalid spec
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr || result.stdout, /frontmatter\.invalid_status_for_type/);
+});
+
+test("rag:index fails when duplicate note ids are present", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-duplicate-id-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  const duplicateFrontmatter = `---
+id: "mem-20260430-duplicate"
+type: "spec"
+repo_slug: "playground"
+title: "Duplicate note"
+status: "active"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "A duplicate id note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related: []
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Duplicate note
+`;
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "duplicate-a.md"),
+    duplicateFrontmatter,
+  );
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "duplicate-b.md"),
+    duplicateFrontmatter,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr || result.stdout, /registry\.duplicate_id/);
+});

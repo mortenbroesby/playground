@@ -9,6 +9,7 @@ const {
 const path = require("node:path");
 const process = require("node:process");
 const { findProjectRoot } = require("workspace-tools");
+const memorySchemaModulePromise = import("./memory-schema.mjs");
 
 type FrontmatterScalar = string | boolean | number | null;
 type FrontmatterList = FrontmatterScalar[];
@@ -860,6 +861,47 @@ function createSyntheticNoteId(relativeFile: string) {
   return `mem-${createShortHash(relativeFile)}`;
 }
 
+function hasStrictFrontmatterShape(frontmatter: Frontmatter) {
+  const requiredKeys = [
+    "id",
+    "type",
+    "repo_slug",
+    "title",
+    "status",
+    "created",
+    "updated",
+    "owner",
+    "summary",
+    "tags",
+    "keywords",
+    "links",
+    "retention",
+  ];
+
+  return requiredKeys.every((key) => Object.hasOwn(frontmatter, key));
+}
+
+function normalizeStrictFrontmatterCandidate(frontmatter: Frontmatter): Frontmatter {
+  const links = toObjectValue(frontmatter.links) ?? {};
+  const retention = toObjectValue(frontmatter.retention) ?? {};
+
+  return {
+    ...frontmatter,
+    links: {
+      parents: toStringArray(links.parents),
+      children: toStringArray(links.children),
+      related: toStringArray(links.related),
+      supersedes: toStringArray(links.supersedes),
+      superseded_by: toStringArray(links.superseded_by),
+    },
+    retention: {
+      review_after: toStringValue(retention.review_after),
+      expires_after: toStringValue(retention.expires_after),
+      keep: typeof retention.keep === "boolean" ? retention.keep : false,
+    },
+  };
+}
+
 function buildIndexedNote(input: {
   fallbackDate: string;
   frontmatter: Frontmatter;
@@ -968,7 +1010,30 @@ async function parseMarkdownFile(vaultPath: string, filePath: string) {
   const fileStat = await stat(filePath);
   const relativeFile = path.relative(vaultPath, filePath).replace(/\\/g, "/");
   const rawContent = await readFile(filePath, "utf8");
-  const { body, frontmatter } = parseFrontmatter(rawContent);
+  const { parseMemoryMarkdown, validateFrontmatter } = await memorySchemaModulePromise;
+  const parsed = parseMemoryMarkdown({
+    path: `vault/${relativeFile}`,
+    content: rawContent,
+  });
+  const { body, frontmatter } = parsed.ok
+    ? parsed
+    : parsed.error.code === "frontmatter.missing_block"
+      ? { body: rawContent, frontmatter: {} }
+      : (() => {
+          throw new Error(`${parsed.error.code}: ${parsed.error.message}`);
+        })();
+
+  if (hasStrictFrontmatterShape(frontmatter)) {
+    const validation = validateFrontmatter(
+      normalizeStrictFrontmatterCandidate(frontmatter),
+    );
+
+    if (!validation.ok) {
+      const [firstError] = validation.errors;
+      throw new Error(`${firstError.code}: ${firstError.message}`);
+    }
+  }
+
   const fallbackDate = new Date(fileStat.mtimeMs).toISOString().slice(0, 10);
   const note = buildIndexedNote({
     fallbackDate,
@@ -1207,6 +1272,24 @@ async function main() {
     legacy_status: note.legacyStatus,
     link_groups: note.linkGroups,
   }));
+
+  const duplicateNoteIds = registryWithLinks.reduce<Map<string, string[]>>(
+    (accumulator, note) => {
+      const bucket = accumulator.get(note.id) ?? [];
+      bucket.push(note.path);
+      accumulator.set(note.id, bucket);
+      return accumulator;
+    },
+    new Map(),
+  );
+
+  for (const [noteId, paths] of duplicateNoteIds.entries()) {
+    if (paths.length > 1) {
+      throw new Error(
+        `registry.duplicate_id: Duplicate memory note id '${noteId}' in ${paths.join(", ")}`,
+      );
+    }
+  }
 
   const notesById = new Map(registryWithLinks.map((note) => [note.id, note]));
 
