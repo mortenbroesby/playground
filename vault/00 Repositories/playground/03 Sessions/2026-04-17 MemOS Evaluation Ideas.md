@@ -7,7 +7,7 @@ status: archived
 created: 2026-04-17
 updated: 2026-04-17
 owner: agent
-summary: Captured the practical boundary for evaluating MemOS: useful as an auxiliary preference memory, but not as a replacement for the repo’s vault-first durable memory model.
+summary: "Captured the practical boundary for evaluating MemOS: useful as an auxiliary preference memory, but not as a replacement for the repo’s vault-first durable memory model."
 tags:
   - type/session
   - repo/playground
