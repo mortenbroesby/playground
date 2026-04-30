@@ -15,9 +15,22 @@ import {
   planMemoryQuery,
   retrieveMemoryCandidates,
 } from "./obsidian-rag.mjs";
+import {
+  buildCleanupReport,
+  buildWriteTargetPath,
+  classifyMemoryInput,
+  findStaleGeneratedFiles,
+  findWriteDuplicates,
+  loadTypedMemoryArtifacts,
+  renderTypedNoteTemplate,
+  validateWriteInput,
+} from "./rag-governance.mjs";
 
 const serverVersion = "1.0.0";
 const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
+const vaultRoot = process.env.PLAYGROUND_OBSIDIAN_MEMORY_VAULT_ROOT
+  ? path.resolve(process.env.PLAYGROUND_OBSIDIAN_MEMORY_VAULT_ROOT)
+  : path.join(repoRoot, "vault");
 const indexRoot = process.env.PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT
   ? path.resolve(process.env.PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT)
   : path.join(repoRoot, ".rag");
@@ -113,6 +126,65 @@ const toolDefinitions = [
             "Response detail level. Defaults to compact; use full only when the full repo primer is needed.",
         },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "classify",
+    description:
+      "Classify a memory-related request into the typed RAG workflow and suggest retrieval filters.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        input: {
+          type: "string",
+          description: "Free-text memory request or statement to classify.",
+        },
+      },
+      required: ["input"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "propose_write",
+    description:
+      "Preview a typed memory note write without mutating the vault. Returns the rendered note, target path, and duplicate proposals.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        note_type: {
+          type: "string",
+          description:
+            "Typed note category such as spec, architecture-record, session, todo, investigation, reference, or glossary.",
+        },
+        title: {
+          type: "string",
+          description: "Human-readable note title.",
+        },
+        summary: {
+          type: "string",
+          description: "Short summary to store in frontmatter.",
+        },
+        owner: {
+          type: "string",
+          description: "Optional owner override for the proposed note.",
+        },
+        repo_slug: {
+          type: "string",
+          description: "Optional repo slug. Defaults to playground.",
+        },
+      },
+      required: ["note_type", "title", "summary"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "clean_dry_run",
+    description:
+      "Return the current memory cleanup report without deleting or rewriting anything.",
+    inputSchema: {
+      type: "object",
+      properties: {},
       additionalProperties: false,
     },
   },
@@ -275,6 +347,79 @@ async function contextMemory(args) {
   ].join("\n");
 }
 
+function classifyInput(args) {
+  const input = args.input?.trim();
+
+  if (!input) {
+    throw new Error("input is required");
+  }
+
+  return classifyMemoryInput(input);
+}
+
+async function proposeWrite(args) {
+  validateWriteInput({
+    noteType: args.note_type,
+    title: args.title,
+    summary: args.summary,
+  });
+
+  const artifacts = await loadTypedMemoryArtifacts(indexRoot);
+  const duplicates = findWriteDuplicates({
+    noteRegistry: artifacts.noteRegistry,
+    noteType: args.note_type,
+    title: args.title,
+    summary: args.summary,
+  });
+
+  if (duplicates.exact.length > 0) {
+    throw new Error(
+      `Exact duplicate note candidate exists:\n${duplicates.exact.map((note) => `- ${note.path}`).join("\n")}`,
+    );
+  }
+
+  const repoSlug = args.repo_slug ?? "playground";
+  const target = buildWriteTargetPath({
+    vaultRoot,
+    repoSlug,
+    noteType: args.note_type,
+    title: args.title,
+  });
+  const rendered = renderTypedNoteTemplate({
+    noteType: args.note_type,
+    repoSlug,
+    title: args.title,
+    summary: args.summary,
+    owner: args.owner,
+  });
+
+  return {
+    note_id: rendered.noteId,
+    type: args.note_type,
+    path: path.relative(repoRoot, target.absolutePath),
+    repo_slug: repoSlug,
+    dry_run: true,
+    duplicate_proposals: duplicates.heuristic,
+    content_preview: rendered.content,
+    next_step: "Review the proposal, then use pnpm rag:write --apply to create the note.",
+  };
+}
+
+async function cleanDryRun() {
+  const artifacts = await loadTypedMemoryArtifacts(indexRoot);
+  const staleGeneratedFiles = await findStaleGeneratedFiles(indexRoot);
+
+  return {
+    dry_run: true,
+    ...buildCleanupReport({
+      noteRegistry: artifacts.noteRegistry,
+      chunkIndex: artifacts.chunkIndex,
+      diagnostics: artifacts.diagnostics,
+      staleGeneratedFiles,
+    }),
+  };
+}
+
 function formatContextChunk(chunk, fullDetail) {
   const integrityLine =
     chunk.validationStatus === "warning"
@@ -405,6 +550,18 @@ function resultText(text) {
   };
 }
 
+function resultJson(value) {
+  return {
+    structuredContent: value,
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(value, null, 2),
+      },
+    ],
+  };
+}
+
 async function handleToolCall(params) {
   const args = params.arguments ?? {};
 
@@ -418,6 +575,18 @@ async function handleToolCall(params) {
 
   if (params.name === "memory_context") {
     return resultText(await contextMemory(args));
+  }
+
+  if (params.name === "classify") {
+    return resultJson(classifyInput(args));
+  }
+
+  if (params.name === "propose_write") {
+    return resultJson(await proposeWrite(args));
+  }
+
+  if (params.name === "clean_dry_run") {
+    return resultJson(await cleanDryRun(args));
   }
 
   throw new Error(`Unknown tool: ${params.name}`);

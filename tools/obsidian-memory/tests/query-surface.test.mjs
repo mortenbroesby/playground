@@ -10,6 +10,7 @@ const repoRoot = path.resolve(packageRoot, "..", "..");
 
 async function buildTypedIndexFixture(options = {}) {
   const includeRepoHome = options.includeRepoHome ?? true;
+  const staleGeneratedFiles = options.staleGeneratedFiles ?? [];
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-query-surface-"));
   const indexRoot = path.join(tempRoot, ".rag");
   await mkdir(indexRoot, { recursive: true });
@@ -184,6 +185,27 @@ async function buildTypedIndexFixture(options = {}) {
       path.join(indexRoot, "graph-index.json"),
       `${JSON.stringify(graphIndex, null, 2)}\n`,
       "utf8",
+    ),
+    writeFile(
+      path.join(indexRoot, "diagnostics.json"),
+      `${JSON.stringify(
+        {
+          synthetic_ids: [],
+          unresolved_links: [],
+          validation_warnings: [],
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    ),
+    writeFile(
+      path.join(indexRoot, "cleanup-report.json"),
+      `${JSON.stringify({}, null, 2)}\n`,
+      "utf8",
+    ),
+    ...staleGeneratedFiles.map((fileName) =>
+      writeFile(path.join(indexRoot, fileName), "stale\n", "utf8"),
     ),
   ]);
 
@@ -373,10 +395,17 @@ test("tools/list exposes the expected MCP discovery contract", async (t) => {
       method: "tools/list",
     });
 
-    assert.equal(result.tools.length, 3);
+    assert.equal(result.tools.length, 6);
     assert.deepEqual(
       result.tools.map((tool) => tool.name),
-      ["memory_search", "memory_unfold", "memory_context"],
+      [
+        "memory_search",
+        "memory_unfold",
+        "memory_context",
+        "classify",
+        "propose_write",
+        "clean_dry_run",
+      ],
     );
 
     const searchTool = result.tools.find((tool) => tool.name === "memory_search");
@@ -407,6 +436,173 @@ test("tools/list exposes the expected MCP discovery contract", async (t) => {
       ["compact", "full"],
     );
     assert.ok("repo_slug" in contextTool.inputSchema.properties);
+
+    const classifyTool = result.tools.find((tool) => tool.name === "classify");
+    assert.deepEqual(classifyTool.inputSchema.required, ["input"]);
+
+    const proposeWriteTool = result.tools.find((tool) => tool.name === "propose_write");
+    assert.deepEqual(
+      proposeWriteTool.inputSchema.required,
+      ["note_type", "title", "summary"],
+    );
+    assert.ok("owner" in proposeWriteTool.inputSchema.properties);
+    assert.ok("repo_slug" in proposeWriteTool.inputSchema.properties);
+
+    const cleanDryRunTool = result.tools.find((tool) => tool.name === "clean_dry_run");
+    assert.equal(cleanDryRunTool.inputSchema.additionalProperties, false);
+    assert.deepEqual(cleanDryRunTool.inputSchema.properties, {});
+  } finally {
+    child.kill();
+  }
+});
+
+test("classify returns structured MCP output for memory workflow routing", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 40,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    const result = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 41,
+      method: "tools/call",
+      params: {
+        name: "classify",
+        arguments: {
+          input: "We decided to use hybrid retrieval for memory search",
+        },
+      },
+    });
+
+    assert.equal(result.structuredContent.request_intent, "make_decision");
+    assert.equal(result.structuredContent.expected_note_type, "architecture-record");
+    assert.ok(
+      result.structuredContent.retrieval_filters.type.includes("architecture-record"),
+    );
+    assert.equal(
+      JSON.parse(result.content[0].text).expected_note_type,
+      "architecture-record",
+    );
+  } finally {
+    child.kill();
+  }
+});
+
+test("propose_write previews a typed note without mutating the vault", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+      PLAYGROUND_OBSIDIAN_MEMORY_VAULT_ROOT: path.join(fixture.tempRoot, "vault"),
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 50,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    const result = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 51,
+      method: "tools/call",
+      params: {
+        name: "propose_write",
+        arguments: {
+          note_type: "spec",
+          title: "Rebuild RAG memory",
+          summary: "Spec for rebuilding repo memory.",
+          owner: "agent",
+        },
+      },
+    });
+
+    assert.equal(result.structuredContent.dry_run, true);
+    assert.equal(result.structuredContent.type, "spec");
+    assert.match(result.structuredContent.path, /vault\/00 Repositories\/playground\/specs\//);
+    assert.match(
+      result.structuredContent.content_preview,
+      /summary: "Spec for rebuilding repo memory\."/,
+    );
+    assert.deepEqual(result.structuredContent.duplicate_proposals, []);
+  } finally {
+    child.kill();
+  }
+});
+
+test("clean_dry_run reports stale generated files without deleting them", async (t) => {
+  const fixture = await buildTypedIndexFixture({
+    staleGeneratedFiles: ["old-generated.json"],
+  });
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 60,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    const result = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 61,
+      method: "tools/call",
+      params: {
+        name: "clean_dry_run",
+        arguments: {},
+      },
+    });
+
+    assert.equal(result.structuredContent.dry_run, true);
+    assert.deepEqual(result.structuredContent.generated_files_to_delete, [
+      { path: "old-generated.json" },
+    ]);
+    assert.deepEqual(
+      JSON.parse(result.content[0].text).generated_files_to_delete,
+      [{ path: "old-generated.json" }],
+    );
   } finally {
     child.kill();
   }
