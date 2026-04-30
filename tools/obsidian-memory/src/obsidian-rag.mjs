@@ -57,6 +57,8 @@ const LEGACY_STATUS_ALIASES = {
   superseded: "superseded",
 };
 
+const DEFAULT_INTEGRITY_MODE = "prefer-healthy";
+
 function tokenize(value) {
   return value
     .toLowerCase()
@@ -407,6 +409,11 @@ function filterMemoryCorpus(corpus, filters) {
     .filter((doc) => !filters.noteType || doc.noteType === filters.noteType)
     .filter(
       (doc) =>
+        filters.integrityMode !== "exclude-warning" ||
+        doc.validationStatus !== "warning",
+    )
+    .filter(
+      (doc) =>
         !filters.queryPlan?.negativeStatuses?.includes(doc.status),
     );
 }
@@ -420,9 +427,11 @@ export function rerankMemoryCandidates(input) {
   const normalizedQuery = normalize(query);
   const queryTokens = tokenize(query);
   const queryPlan = input.queryPlan ?? createQueryPlan(query);
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
 
   const baseRanked = filterMemoryCorpus(input.corpus, {
     ...input,
+    integrityMode,
     queryPlan,
   })
     .map((doc) => {
@@ -534,9 +543,14 @@ export function rerankMemoryCandidates(input) {
         reasons.push(`recency:${doc.noteType}`);
       }
 
-      if (doc.validationStatus === "warning") {
+      if (doc.validationStatus === "warning" && integrityMode === "prefer-healthy") {
         score -= 3;
         reasons.push("integrity:warning");
+      }
+
+      if (doc.validationStatus === "warning" && integrityMode === "prefer-warning") {
+        score += 3;
+        reasons.push("integrity:prefer-warning");
       }
 
       if (score === 0) {

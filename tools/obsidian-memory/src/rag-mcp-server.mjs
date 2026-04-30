@@ -51,6 +51,12 @@ const toolDefinitions = [
           description:
             "Optional note type filter, for example session, spec, architecture-record, or todo.",
         },
+        integrity_mode: {
+          type: "string",
+          enum: ["prefer-healthy", "neutral", "prefer-warning", "exclude-warning"],
+          description:
+            "Optional integrity handling mode for warning-scoped notes. Defaults to prefer-healthy.",
+        },
       },
       required: ["query"],
       additionalProperties: false,
@@ -163,6 +169,7 @@ async function searchMemory(args) {
     limit,
     repoSlug: args.repo_slug,
     noteType: args.note_type,
+    integrityMode: args.integrity_mode,
     queryPlan,
   }).filter((hit) => hasSubstantiveContent(hit));
 
