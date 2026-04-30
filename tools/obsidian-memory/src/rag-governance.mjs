@@ -666,17 +666,26 @@ function resolveNoteStatus(rawStatus, noteType, relativeRepoPath) {
       normalized: normalizedRaw !== alias,
       suggested: false,
       reviewRequired: false,
+      reason: normalizedRaw === alias ? "explicit_status" : "normalized_legacy_status",
+      alternatives: [],
     };
   }
 
   const fallback = defaultStatusForType(noteType);
   const unambiguous = isStatusInferenceUnambiguous(noteType, relativeRepoPath);
+  const alternatives = [...ALLOWED_STATUSES_BY_TYPE[noteType]]
+    .filter((status) => status !== fallback)
+    .sort((left, right) => left.localeCompare(right));
 
   return {
     value: fallback,
     normalized: !!normalizedRaw && normalizedRaw !== fallback,
     suggested: !unambiguous,
     reviewRequired: !unambiguous,
+    reason: unambiguous
+      ? "unambiguous_type_path_default"
+      : "ambiguous_type_default_requires_review",
+    alternatives,
   };
 }
 
@@ -1296,6 +1305,8 @@ export function planFrontmatterFix({
     created: canonicalFrontmatter.created,
     updated: canonicalFrontmatter.updated,
     suggestedStatus: noteStatus.suggested ? noteStatus.value : null,
+    suggestedStatusReason: noteStatus.suggested ? noteStatus.reason : null,
+    suggestedStatusAlternatives: noteStatus.suggested ? noteStatus.alternatives : [],
     blockingIssues,
     changes: Array.from(new Set(changes)),
     changed: changes.length > 0,
@@ -1441,6 +1452,8 @@ export async function fixFrontmatter({
       note_id: plan.noteId,
       type: plan.noteType,
       status: plan.status,
+      suggested_status_reason: plan.suggestedStatusReason,
+      suggested_status_alternatives: plan.suggestedStatusAlternatives,
       created: plan.created,
       updated: plan.updated,
       title: plan.title,

@@ -555,6 +555,9 @@ test("planFrontmatterFix only suggests status for ambiguous spec migration cases
   assert.equal(plan.noteType, "spec");
   assert.equal(plan.status, "active");
   assert.equal(plan.suggestedStatus, "active");
+  assert.equal(plan.suggestedStatusReason, "ambiguous_type_default_requires_review");
+  assert.ok(plan.suggestedStatusAlternatives.includes("proposed"));
+  assert.ok(plan.suggestedStatusAlternatives.includes("done"));
   assert.deepEqual(plan.blockingIssues, ["status_review_required"]);
   assert.ok(plan.changes.includes("suggest_status"));
   assert.ok(!plan.changes.includes("normalize_status"));
@@ -735,6 +738,11 @@ test("fixFrontmatter does not auto-apply ambiguous status suggestions", async ()
   assert.equal(dryRun.applied, 0);
   assert.equal(dryRun.status_review_only, false);
   assert.equal(dryRun.notes[0].suggested_status, "active");
+  assert.equal(
+    dryRun.notes[0].suggested_status_reason,
+    "ambiguous_type_default_requires_review",
+  );
+  assert.ok(dryRun.notes[0].suggested_status_alternatives.includes("proposed"));
   assert.deepEqual(dryRun.notes[0].blocking_issues, ["status_review_required"]);
   assert.ok(dryRun.notes[0].changes.includes("suggest_status"));
 
