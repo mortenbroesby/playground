@@ -125,7 +125,7 @@ vault/                    Durable repo notes, decisions, sessions, and tasks
 ### Requirements
 
 - Node `24.x` via [`.nvmrc`](./.nvmrc)
-- `pnpm` `9.15.0` via the root `packageManager` field
+- `pnpm` `9.15.9` via the root `packageManager` field
 
 ### Install
 
@@ -230,6 +230,12 @@ The root README is the front door. Deeper repo context lives in:
 - [Docs index](./docs/README.md)
 - [Obsidian repository brain](./docs/obsidian/README.md)
 - [Host README](./apps/host/README.md)
+- [Admin README](./apps/admin/README.md)
+- [Todo remote README](./packages/remotes/todo-app/README.md)
+- [Uplink game README](./packages/remotes/uplink-game/README.md)
+- [UI package README](./packages/ui/README.md)
+- [Types package README](./packages/types/README.md)
+- [Config package README](./packages/config/README.md)
 - [Astrograph README](./tools/ai-context-engine/README.md)
 - [Obsidian memory README](./tools/obsidian-memory/README.md)
 

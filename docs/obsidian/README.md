@@ -179,7 +179,7 @@ skips unchanged notes by mtime and rewrites the portable corpus artifact on each
 Register the repo-local MCP server once:
 
 ```bash
-codex mcp add obsidian-memory -- node /Users/macbook/personal/playground/tools/rag-mcp-server.mjs
+codex mcp add obsidian-memory -- node /Users/macbook/personal/playground/tools/obsidian-memory/src/rag-mcp-server.mjs
 ```
 
 Then restart Codex. The server exposes these tools:
@@ -210,7 +210,7 @@ friendly enough to support local RAG-style memory on top of plain files.
 ## Files in this repo
 
 - [`README.md`](/Users/macbook/personal/playground/README.md)
-- [`scripts/bootstrap-obsidian-vault.mjs`](/Users/macbook/personal/playground/scripts/bootstrap-obsidian-vault.mjs)
+- [`tools/obsidian-memory/src/bootstrap-obsidian-vault.mjs`](/Users/macbook/personal/playground/tools/obsidian-memory/src/bootstrap-obsidian-vault.mjs)
 - [`docs/obsidian/templates/repo-home.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-home.md)
 - [`docs/obsidian/templates/repo-session.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-session.md)
 - [`docs/obsidian/templates/repo-decision.md`](/Users/macbook/personal/playground/docs/obsidian/templates/repo-decision.md)
