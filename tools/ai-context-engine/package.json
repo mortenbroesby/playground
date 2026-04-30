@@ -1,5 +1,5 @@
 {
-  "name": "@astrograph/astrograph",
+  "name": "@mortenbroesby/astrograph",
   "version": "0.1.0-alpha.56",
   "type": "module",
   "license": "MIT",
@@ -12,14 +12,13 @@
     "local-first",
     "sqlite"
   ],
-  "homepage": "https://github.com/mortenbroesby/playground/tree/main/tools/ai-context-engine",
+  "homepage": "https://github.com/mortenbroesby/astrograph",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mortenbroesby/playground.git",
-    "directory": "tools/ai-context-engine"
+    "url": "https://github.com/mortenbroesby/astrograph.git"
   },
   "bugs": {
-    "url": "https://github.com/mortenbroesby/playground/issues"
+    "url": "https://github.com/mortenbroesby/astrograph/issues"
   },
   "engines": {
     "node": ">=24"
@@ -83,7 +82,6 @@
   },
   "devDependencies": {
     "0x": "^6.0.0",
-    "@playground/tsconfig": "workspace:*",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/better-sqlite3": "^7.6.13",

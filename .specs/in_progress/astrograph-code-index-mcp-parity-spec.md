@@ -6,7 +6,7 @@ Proposed on 2026-04-29.
 
 ## Objective
 
-Make `@astrograph/astrograph` competitive with
+Make `@mortenbroesby/astrograph` competitive with
 [`johnhuang316/code-index-mcp`](https://github.com/johnhuang316/code-index-mcp)
 for the common local-repo workflow:
 
@@ -580,9 +580,9 @@ Product-level verification for implementation should include:
 
 Implementation checks should eventually include at least:
 
-- `pnpm --filter @astrograph/astrograph type-check`
-- `pnpm --filter @astrograph/astrograph test`
-- `pnpm --filter @astrograph/astrograph test:package-bin`
+- `pnpm --filter @mortenbroesby/astrograph type-check`
+- `pnpm --filter @mortenbroesby/astrograph test`
+- `pnpm --filter @mortenbroesby/astrograph test:package-bin`
 
 ## Open Questions
 

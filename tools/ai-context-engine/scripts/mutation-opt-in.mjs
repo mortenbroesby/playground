@@ -2,8 +2,8 @@ const mode = process.argv[2] === "full" ? "full" : "smoke";
 
 const nextCommand =
   mode === "full"
-    ? "pnpm --filter @astrograph/astrograph mutation:full"
-    : "pnpm --filter @astrograph/astrograph mutation:smoke";
+    ? "pnpm --filter @mortenbroesby/astrograph mutation:full"
+    : "pnpm --filter @mortenbroesby/astrograph mutation:smoke";
 
 process.stdout.write(
   [

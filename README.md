@@ -55,7 +55,7 @@ The microfrontend boundary is still present, but it is intentionally narrower no
 
 Alongside the product surfaces, the monorepo also contains repo-owned agent tooling:
 
-- `@astrograph/astrograph` for local indexed code retrieval
+- `@mortenbroesby/astrograph` for local indexed code retrieval
 - `@playground/obsidian-memory` for repo-local architecture and decision memory
 
 ## Features

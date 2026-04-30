@@ -130,7 +130,6 @@ describe("ai-context-engine contract", () => {
       repository: {
         type: string;
         url: string;
-        directory: string;
       };
       bugs: {
         url: string;
@@ -153,14 +152,13 @@ describe("ai-context-engine contract", () => {
         "sqlite",
       ]),
     );
-    expect(packageJson.homepage).toContain("/tools/ai-context-engine");
+    expect(packageJson.homepage).toBe("https://github.com/mortenbroesby/astrograph");
     expect(packageJson.repository).toEqual({
       type: "git",
-      url: "https://github.com/mortenbroesby/playground.git",
-      directory: "tools/ai-context-engine",
+      url: "https://github.com/mortenbroesby/astrograph.git",
     });
     expect(packageJson.bugs).toEqual({
-      url: "https://github.com/mortenbroesby/playground/issues",
+      url: "https://github.com/mortenbroesby/astrograph/issues",
     });
     expect(packageJson.engines).toEqual({
       node: ">=24",
@@ -419,14 +417,14 @@ describe("ai-context-engine contract", () => {
 
     const result = await installForCodex(repoRoot, { dryRun: true });
 
-    expect(result.packageName).toBe("@astrograph/astrograph");
+    expect(result.packageName).toBe("@mortenbroesby/astrograph");
     expect(result.configPath).toContain(path.join(".codex", "config.toml"));
     expect(result.configPreview).toContain("[mcp_servers.astrograph]");
     expect(result.configPreview).toContain('command = "npx"');
-    expect(result.configPreview).toContain('args = ["@astrograph/astrograph", "mcp"]');
+    expect(result.configPreview).toContain('args = ["@mortenbroesby/astrograph", "mcp"]');
   });
 
-  it("replaces a legacy repo-local astrograph block with the workspace wrapper command", async () => {
+  it("replaces a legacy repo-local astrograph block with the portable package command", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "astrograph-install-workspace-"));
     tempDirs.push(repoRoot);
 
@@ -461,11 +459,11 @@ describe("ai-context-engine contract", () => {
 
     const result = await installForCodex(repoRoot, { dryRun: true });
 
-    expect(result.configPreview).toContain('command = "node"');
+    expect(result.configPreview).toContain('command = "npx"');
     expect(result.configPreview).toContain(
-      'args = ["tools/ai-context-engine/scripts/ai-context-engine.mjs", "mcp"]',
+      'args = ["@mortenbroesby/astrograph", "mcp"]',
     );
     expect(result.configPreview.match(/\[mcp_servers\.astrograph\]/g)).toHaveLength(1);
-    expect(result.configPreview).toContain("[features]");
+    expect(result.configPreview).toContain("# END ASTROGRAPH\n\n[features]");
   });
 });

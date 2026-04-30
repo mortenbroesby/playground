@@ -25,9 +25,8 @@ Astrograph already has the core shape of a standalone package:
 - the installer already exists in `tools/ai-context-engine/scripts/install.mjs`
 - package-local tests and package smoke coverage already exist
 
-The current in-repo workspace package may still be filtered as
-`@astrograph/astrograph` until the package rename is intentionally implemented.
-New standalone-facing requirements should use `@mortenbroesby/astrograph`.
+The current in-repo workspace package is filtered as
+`@mortenbroesby/astrograph`, matching the intended standalone package name.
 
 The main extraction blockers are:
 
@@ -84,8 +83,7 @@ Required work:
 - fold `.specs/astrograph-standalone-install-spec.md` into this file
 - make this file the only active spec for the migration
 - use `@mortenbroesby/astrograph` for standalone-facing package requirements
-- keep a note that existing workspace commands may still use
-  `--filter @astrograph/astrograph` until the package is renamed
+- align existing workspace commands with `--filter @mortenbroesby/astrograph`
 - remove or clearly retire `.specs/astrograph-standalone-install-spec.md`
 - run markdown lint only against the spec files
 
@@ -230,14 +228,6 @@ Package phase inside `playground`:
 - `pnpm --filter @mortenbroesby/astrograph type-lint`
 - `pnpm --filter @mortenbroesby/astrograph test`
 - `pnpm --filter @mortenbroesby/astrograph test:package-bin`
-
-During the transition, if the workspace package has not yet been renamed, use
-the existing filter:
-
-- `pnpm --filter @astrograph/astrograph build`
-- `pnpm --filter @astrograph/astrograph type-lint`
-- `pnpm --filter @astrograph/astrograph test`
-- `pnpm --filter @astrograph/astrograph test:package-bin`
 
 Standalone repo phase:
 

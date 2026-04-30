@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -26,13 +25,12 @@ const MCP_TOOLS = [
   "query_code",
   "diagnostics",
 ];
-const WORKSPACE_WRAPPER_RELATIVE_PATH = "tools/ai-context-engine/scripts/ai-context-engine.mjs";
 
 function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  npx @astrograph/astrograph install --ide codex [--repo /abs/repo] [--dry-run]",
+      "  npx @mortenbroesby/astrograph install --ide codex [--repo /abs/repo] [--dry-run]",
     ].join("\n") + "\n",
   );
 }
@@ -114,16 +112,7 @@ function hasLocalAstrographDependency(repoRoot) {
   }
 }
 
-function resolveManagedInvocation(repoRoot) {
-  const workspaceWrapper = path.join(repoRoot, WORKSPACE_WRAPPER_RELATIVE_PATH);
-
-  if (existsSync(workspaceWrapper)) {
-    return {
-      command: "node",
-      args: [WORKSPACE_WRAPPER_RELATIVE_PATH, "mcp"],
-    };
-  }
-
+function resolveManagedInvocation() {
   return {
     command: "npx",
     args: [PACKAGE_NAME, "mcp"],
@@ -135,7 +124,7 @@ function astrographConfigBlock(repoRoot) {
   const toolApprovals = MCP_TOOLS.map((tool) =>
     `[mcp_servers.astrograph.tools.${tool}]\napproval_mode = "approve"`,
   ).join("\n\n");
-  const invocation = resolveManagedInvocation(repoRoot);
+  const invocation = resolveManagedInvocation();
   const args = invocation.args.map((arg) => `"${arg}"`).join(", ");
 
   return `${MARKER_BEGIN}
@@ -154,7 +143,7 @@ function replaceManagedBlock(contents, block) {
   if (contents.includes(MARKER_BEGIN) && contents.includes(MARKER_END)) {
     return contents.replace(
       new RegExp(`${MARKER_BEGIN}[\\s\\S]*?${MARKER_END}`, "m"),
-      block,
+      `${block}\n`,
     );
   }
 
@@ -162,7 +151,7 @@ function replaceManagedBlock(contents, block) {
     /^\[mcp_servers\.astrograph\][\s\S]*?(?=^\[(?!mcp_servers\.astrograph\b).+\]|\Z)/m;
 
   if (legacyBlockPattern.test(contents)) {
-    return contents.replace(legacyBlockPattern, block);
+    return contents.replace(legacyBlockPattern, `${block}\n\n`);
   }
 
   const normalized = contents.trimEnd();

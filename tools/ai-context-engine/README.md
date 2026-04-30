@@ -1,8 +1,8 @@
-# @astrograph (`@astrograph/astrograph`)
+# Astrograph (`@mortenbroesby/astrograph`)
 
 Local deterministic context engine for AI-assisted code exploration.
 
-`@astrograph/astrograph` is the npm package name and `astrograph` is the primary CLI command.
+`@mortenbroesby/astrograph` is the npm package name and `astrograph` is the primary CLI command.
 `ai-context-engine` still exists as a compatibility bin alias during the transition.
 
 ## Table of Contents
@@ -126,16 +126,16 @@ dist/                     Built JavaScript and type output
 
 ```bash
 pnpm install
-pnpm --filter @astrograph/astrograph build
+pnpm --filter @mortenbroesby/astrograph build
 ```
 
 ### Common Commands
 
 ```bash
-pnpm --filter @astrograph/astrograph build
-pnpm --filter @astrograph/astrograph test
-pnpm --filter @astrograph/astrograph type-check
-pnpm --filter @astrograph/astrograph bench:small
+pnpm --filter @mortenbroesby/astrograph build
+pnpm --filter @mortenbroesby/astrograph test
+pnpm --filter @mortenbroesby/astrograph type-check
+pnpm --filter @mortenbroesby/astrograph bench:small
 pnpm exec astrograph mcp
 pnpm exec astrograph observability --repo /abs/repo
 ```
@@ -153,9 +153,9 @@ pnpm exec astrograph cli doctor --repo /abs/repo
 ### Verification Baseline
 
 ```bash
-pnpm --filter @astrograph/astrograph type-check
-pnpm --filter @astrograph/astrograph test
-pnpm --filter @astrograph/astrograph test:package-bin
+pnpm --filter @mortenbroesby/astrograph type-check
+pnpm --filter @mortenbroesby/astrograph test
+pnpm --filter @mortenbroesby/astrograph test:package-bin
 ```
 
 ## Configuration
@@ -259,7 +259,7 @@ Astrograph reads optional repo-local defaults from `astrograph.config.json`:
 Astrograph supports a standalone Codex bootstrap flow:
 
 ```bash
-npx @astrograph/astrograph install --ide codex
+npx @mortenbroesby/astrograph install --ide codex
 ```
 
 That installer resolves the repo root, writes a managed Astrograph MCP block into
@@ -306,13 +306,13 @@ Those values map to:
 
 Useful local commands:
 
-- `pnpm --filter @astrograph/astrograph test`
-- `pnpm --filter @astrograph/astrograph type-check`
-- `pnpm --filter @astrograph/astrograph bench:perf -- --repo /abs/repo --runs 10`
-- `pnpm --filter @astrograph/astrograph bench:perf:serialize -- --repo /abs/repo --runs 250`
-- `pnpm --filter @astrograph/astrograph profile:index:clinic`
-- `pnpm --filter @astrograph/astrograph profile:query:0x`
-- `pnpm --filter @astrograph/astrograph mcp`
+- `pnpm --filter @mortenbroesby/astrograph test`
+- `pnpm --filter @mortenbroesby/astrograph type-check`
+- `pnpm --filter @mortenbroesby/astrograph bench:perf -- --repo /abs/repo --runs 10`
+- `pnpm --filter @mortenbroesby/astrograph bench:perf:serialize -- --repo /abs/repo --runs 250`
+- `pnpm --filter @mortenbroesby/astrograph profile:index:clinic`
+- `pnpm --filter @mortenbroesby/astrograph profile:query:0x`
+- `pnpm --filter @mortenbroesby/astrograph mcp`
 
 ## Profiling
 
@@ -320,18 +320,18 @@ Use the profiling scripts when baseline benchmarks show a regression and you nee
 stack-level evidence instead of just timings.
 
 - `Clinic Flame`:
-  `pnpm --filter @astrograph/astrograph profile:index:clinic`
+  `pnpm --filter @mortenbroesby/astrograph profile:index:clinic`
   Use this first for cold indexing and warm refresh analysis from
   `scripts/perf-index.mjs`. It writes collected data under
   `tools/ai-context-engine/.profiles/clinic/index/`.
 - `Clinic Doctor`:
-  `pnpm --filter @astrograph/astrograph profile:query:clinic`
+  `pnpm --filter @mortenbroesby/astrograph profile:query:clinic`
   Use this when `query_code` latency regresses and you want a higher-level event
   loop and CPU diagnosis. It writes under
   `tools/ai-context-engine/.profiles/clinic/query/`.
 - `0x`:
-  `pnpm --filter @astrograph/astrograph profile:index:0x` or
-  `pnpm --filter @astrograph/astrograph profile:query:0x`
+  `pnpm --filter @mortenbroesby/astrograph profile:index:0x` or
+  `pnpm --filter @mortenbroesby/astrograph profile:query:0x`
   Use this when you specifically want a flamegraph artifact and direct stack-hot
   paths. It writes under `tools/ai-context-engine/.profiles/0x/`.
 

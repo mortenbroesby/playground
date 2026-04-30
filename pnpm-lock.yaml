@@ -12,7 +12,7 @@ importers:
         specifier: ^0.41.4
         version: 0.41.4
     devDependencies:
-      '@astrograph/astrograph':
+      '@mortenbroesby/astrograph':
         specifier: workspace:*
         version: link:tools/ai-context-engine
       husky:
@@ -403,9 +403,6 @@ importers:
       0x:
         specifier: ^6.0.0
         version: 6.0.0
-      '@playground/tsconfig':
-        specifier: workspace:*
-        version: link:../../packages/config/tsconfig
       '@stryker-mutator/core':
         specifier: ^9.6.1
         version: 9.6.1(@types/node@22.19.17)
