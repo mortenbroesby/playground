@@ -64,6 +64,7 @@ const LEGACY_STATUS_ALIASES = {
 };
 
 const DEFAULT_INTEGRITY_MODE = "prefer-healthy";
+const GRAPH_SEED_LIMIT = 1;
 const DEFAULT_VECTOR_MODE = "auto";
 const VECTOR_RRF_K = 60;
 const MIN_VECTOR_SIMILARITY = 0.18;
@@ -584,12 +585,8 @@ function filterMemoryCorpus(corpus, filters) {
     );
 }
 
-/**
- * Rank memory chunks against a query using lexical, status, and graph signals.
- */
-export function rerankMemoryCandidates(input) {
+function lexicalSearch(input) {
   const query = input.query.trim();
-  const limit = input.limit ?? 5;
   const queryPlan = input.queryPlan ?? createQueryPlan(query);
   const plannedQueries = getPlannedQueryTexts(query, queryPlan);
   const normalizedQuery = plannedQueries[0] ? normalize(plannedQueries[0]) : "";
@@ -600,7 +597,7 @@ export function rerankMemoryCandidates(input) {
     queryPlan.classification?.preferredNoteTypes ?? queryPlan.expectedNoteTypes ?? [];
   const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
 
-  const baseRanked = filterMemoryCorpus(input.corpus, {
+  return filterMemoryCorpus(input.corpus, {
     ...input,
     integrityMode,
     queryPlan,
@@ -765,55 +762,48 @@ export function rerankMemoryCandidates(input) {
         left.sourceFile.localeCompare(right.sourceFile) ||
         left.heading.localeCompare(right.heading),
     );
+}
 
-  const seedNoteIds = new Set(baseRanked.slice(0, 5).map((candidate) => candidate.noteId));
+function graphSearch(input) {
+  const queryPlan = input.queryPlan ?? createQueryPlan(input.query);
 
-  const rankedWithGraph = (queryPlan.routing?.useGraphExpansion === false ? baseRanked : baseRanked)
+  if (queryPlan.routing?.useGraphExpansion === false) {
+    return [];
+  }
+
+  const lexicalCandidates = input.lexicalCandidates ?? [];
+  const seedCandidates = lexicalCandidates.slice(0, GRAPH_SEED_LIMIT);
+  const seedNoteIds = new Set(seedCandidates.map((candidate) => candidate.noteId));
+
+  if (seedNoteIds.size === 0) {
+    return [];
+  }
+
+  return lexicalCandidates
     .map((candidate) => {
-      let score = candidate.score;
-      const reasons = [...candidate.matchReasons];
-
-      if (queryPlan.routing?.useGraphExpansion === false) {
-        return {
-          chunkId: candidate.chunkId,
-          noteId: candidate.noteId,
-          sourceFile: candidate.sourceFile,
-          sourcePath: candidate.sourcePath,
-          heading: candidate.heading,
-          noteType: candidate.noteType,
-          status: candidate.status,
-          repoSlug: candidate.repoSlug,
-          tags: candidate.tags,
-          keywords: candidate.keywords,
-          summary: candidate.summary,
-          title: candidate.title,
-          validationStatus: candidate.validationStatus ?? "ok",
-          validationIssues: [...(candidate.validationIssues ?? [])],
-          score,
-          matchReasons: reasons,
-          text: candidate.text,
-          retrievalSources: [...(candidate.retrievalSources ?? ["lexical"])],
-        };
-      }
-
-      reasons.push("route:graph");
+      const reasons = ["route:graph"];
+      let graphScore = 0;
 
       if (seedNoteIds.has(candidate.noteId)) {
-        reasons.push("graph:seed");
-      } else {
-        const distances = [...seedNoteIds]
-          .map((seedNoteId) => candidate.graphLookup.get(seedNoteId))
-          .filter((distance) => Number.isFinite(distance))
-          .sort((left, right) => left - right);
-        const graphDistance = distances[0];
+        return null;
+      }
 
-        if (graphDistance === 1) {
-          score += 5;
-          reasons.push("graph:direct");
-        } else if (graphDistance === 2) {
-          score += 2;
-          reasons.push("graph:distance-2");
-        }
+      const distances = [...seedNoteIds]
+        .map((seedNoteId) => candidate.graphLookup.get(seedNoteId))
+        .filter((distance) => Number.isFinite(distance))
+        .sort((left, right) => left - right);
+      const graphDistance = distances[0];
+
+      if (graphDistance === 1) {
+        graphScore = 5;
+        reasons.push("graph:direct");
+      } else if (graphDistance === 2) {
+        graphScore = 2;
+        reasons.push("graph:distance-2");
+      }
+
+      if (graphScore === 0) {
+        return null;
       }
 
       return {
@@ -831,22 +821,34 @@ export function rerankMemoryCandidates(input) {
         title: candidate.title,
         validationStatus: candidate.validationStatus ?? "ok",
         validationIssues: [...(candidate.validationIssues ?? [])],
-        score,
-        matchReasons: reasons,
+        score: graphScore,
+        matchReasons: [...reasons, "source:graph"],
         text: candidate.text,
-        retrievalSources: [...(candidate.retrievalSources ?? ["lexical"])],
+        retrievalSources: ["graph"],
       };
     })
+    .filter(Boolean)
     .sort(
       (left, right) =>
         right.score - left.score ||
         left.sourceFile.localeCompare(right.sourceFile) ||
         left.heading.localeCompare(right.heading),
     );
+}
 
+/**
+ * Rank memory chunks against a query using lexical, graph, vector, and rerank signals.
+ */
+export function rerankMemoryCandidates(input) {
+  const limit = input.limit ?? 5;
+  const lexicalCandidates = lexicalSearch(input);
+  const graphCandidates = graphSearch({
+    ...input,
+    lexicalCandidates,
+  });
   const seenNoteIds = new Map();
 
-  for (const candidate of rankedWithGraph) {
+  for (const candidate of lexicalCandidates) {
     const duplicateCount = seenNoteIds.get(candidate.noteId) ?? 0;
 
     if (duplicateCount > 0) {
@@ -857,14 +859,10 @@ export function rerankMemoryCandidates(input) {
     seenNoteIds.set(candidate.noteId, duplicateCount + 1);
   }
 
-  return rankedWithGraph
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        left.sourceFile.localeCompare(right.sourceFile) ||
-        left.heading.localeCompare(right.heading),
-    )
-    .slice(0, limit);
+  return {
+    lexicalCandidates: lexicalCandidates.slice(0, Math.max(limit * 3, limit)),
+    graphCandidates: graphCandidates.slice(0, Math.max(limit * 3, limit)),
+  };
 }
 
 function describeVectorUnavailability(vectorMode, vectorIndex) {
@@ -902,6 +900,7 @@ function mergeRetrievalCandidates(input) {
   const merged = new Map();
   const lexicalRank = new Map();
   const vectorRank = new Map();
+  const graphRank = new Map();
 
   input.lexicalCandidates.forEach((candidate, index) => {
     lexicalRank.set(candidate.chunkId, index);
@@ -909,9 +908,15 @@ function mergeRetrievalCandidates(input) {
   input.vectorCandidates.forEach((candidate, index) => {
     vectorRank.set(candidate.chunkId, index);
   });
+  input.graphCandidates.forEach((candidate, index) => {
+    graphRank.set(candidate.chunkId, index);
+  });
 
   for (const candidate of input.lexicalCandidates) {
-    merged.set(candidate.chunkId, { ...candidate });
+    merged.set(candidate.chunkId, {
+      ...candidate,
+      lexicalScore: candidate.score,
+    });
   }
 
   for (const candidate of input.vectorCandidates) {
@@ -927,13 +932,32 @@ function mergeRetrievalCandidates(input) {
     }
   }
 
+  for (const candidate of input.graphCandidates) {
+    const current = merged.get(candidate.chunkId);
+    if (current) {
+      current.matchReasons = dedupeReasons(current.matchReasons, candidate.matchReasons);
+      current.retrievalSources = Array.from(
+        new Set([...(current.retrievalSources ?? []), ...(candidate.retrievalSources ?? [])]),
+      );
+      current.graphScore = candidate.score;
+    } else {
+      merged.set(candidate.chunkId, {
+        ...candidate,
+        graphScore: candidate.score,
+      });
+    }
+  }
+
   const ranked = Array.from(merged.values())
     .map((candidate) => {
       const lexicalIndex = lexicalRank.get(candidate.chunkId);
       const vectorIndex = vectorRank.get(candidate.chunkId);
+      const graphIndex = graphRank.get(candidate.chunkId);
       const fusedScore =
         (lexicalIndex === undefined ? 0 : reciprocalRankContribution(lexicalIndex)) +
-        (vectorIndex === undefined ? 0 : reciprocalRankContribution(vectorIndex));
+        (vectorIndex === undefined ? 0 : reciprocalRankContribution(vectorIndex)) +
+        (graphIndex === undefined ? 0 : reciprocalRankContribution(graphIndex));
+      const lexicalScore = candidate.lexicalScore ?? 0;
       const retrievalSources = Array.from(
         new Set(candidate.retrievalSources ?? ["lexical"]),
       );
@@ -942,13 +966,16 @@ function mergeRetrievalCandidates(input) {
 
       return {
         ...candidate,
-        score: Number((fusedScore * 1000).toFixed(3)),
+        score: Number((fusedScore * 1000 + lexicalScore).toFixed(3)),
         matchReasons: dedupeReasons(candidate.matchReasons, [sourceLabel]),
         retrievalSources,
         scoreBreakdown: {
           fused: Number(fusedScore.toFixed(6)),
+          lexicalScore,
           lexicalRank: lexicalIndex ?? null,
           vectorRank: vectorIndex ?? null,
+          graphRank: graphIndex ?? null,
+          graphScore: candidate.graphScore ?? null,
           vectorSimilarity: candidate.vectorSimilarity ?? null,
         },
       };
@@ -964,7 +991,9 @@ function mergeRetrievalCandidates(input) {
 
   return annotateCollection(ranked, "retrieval", {
     query: input.query,
-    sources: input.vectorState.available ? ["lexical", "vector"] : ["lexical"],
+    sources: input.vectorState.available
+      ? ["lexical", "vector", "graph"]
+      : ["lexical", "graph"],
     vector: input.vectorState,
   });
 }
@@ -1065,13 +1094,14 @@ export function vectorSearch(input) {
  * Compatibility wrapper for callers that only need ranked candidates.
  */
 export function retrieveMemoryCandidates(input) {
-  const lexicalCandidates = rerankMemoryCandidates(input);
+  const { lexicalCandidates, graphCandidates } = rerankMemoryCandidates(input);
   const vectorCandidates = vectorSearch(input);
 
   return mergeRetrievalCandidates({
     query: input.query,
     lexicalCandidates,
     vectorCandidates,
+    graphCandidates,
     vectorState: vectorCandidates.state,
     limit: input.limit ?? 5,
   });

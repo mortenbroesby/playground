@@ -442,9 +442,9 @@ test("retrieveMemoryCandidates favors typed spec notes for implementation querie
 test("retrieveMemoryCandidates applies graph boosts to linked architecture notes", () => {
   const candidates = retrieveMemoryCandidates({
     corpus: typedCorpus,
-    query: "typed RAG memory implementation plan",
+    query: "hybrid retrieval cleanup implementation plan",
     limit: 3,
-    queryPlan: planMemoryQuery("typed RAG memory implementation plan"),
+    queryPlan: planMemoryQuery("hybrid retrieval cleanup implementation plan"),
   });
 
   const architectureCandidate = candidates.find(
