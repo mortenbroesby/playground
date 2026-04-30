@@ -227,6 +227,7 @@ const edgeTypeByLinkGroup: Record<keyof LinkGroups, GraphEdge["type"]> = {
 
 function parseArgs(argv: string[]) {
   const options = {
+    allowUnresolvedLinks: false,
     force: false,
     json: false,
     outputDir: defaultOutputDir,
@@ -243,6 +244,11 @@ function parseArgs(argv: string[]) {
 
     if (arg === "--json") {
       options.json = true;
+      continue;
+    }
+
+    if (arg === "--allow-unresolved-links") {
+      options.allowUnresolvedLinks = true;
       continue;
     }
 
@@ -1313,6 +1319,14 @@ async function main() {
   const { graph, unresolvedLinks } = buildGraphIndex(registryWithLinks as Array<
     RegistryNote & { link_groups: LinkGroups }
   >);
+
+  if (unresolvedLinks.length > 0 && !options.allowUnresolvedLinks) {
+    const [firstUnresolvedLink] = unresolvedLinks;
+    throw new Error(
+      `links.target_missing: ${firstUnresolvedLink.from} references missing note ids ${firstUnresolvedLink.targets.join(", ")}`,
+    );
+  }
+
   const lexicalIndex = buildLexicalIndex(chunkIndex);
   const repoSlug = notes.find((note) => note.repoSlug)?.repoSlug ?? null;
   const validationWarnings = notes.flatMap((note) => {

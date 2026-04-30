@@ -102,6 +102,7 @@ Move to a typed multi-index layout.
       vaultRoot,
       "--output-dir",
       outputRoot,
+      "--allow-unresolved-links",
       "--json",
     ],
     {
@@ -422,4 +423,125 @@ retention:
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr || result.stdout, /registry\.duplicate_id/);
+});
+
+test("rag:index fails when unresolved links are present by default", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-unresolved-links-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "unresolved-link.md"),
+    `---
+id: "mem-20260430-unresolved-link"
+type: "spec"
+repo_slug: "playground"
+title: "Spec with unresolved link"
+status: "active"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "Spec that points to a missing note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related:
+    - "mem-20260430-missing"
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Unresolved link
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr || result.stdout, /links\.target_missing/);
+});
+
+test("rag:index allows unresolved links when explicitly requested", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-index-allow-unresolved-links-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const outputRoot = path.join(tempRoot, "out");
+
+  await writeMarkdownFile(
+    path.join(vaultRoot, "specs", "unresolved-link.md"),
+    `---
+id: "mem-20260430-unresolved-link"
+type: "spec"
+repo_slug: "playground"
+title: "Spec with unresolved link"
+status: "active"
+created: "2026-04-30"
+updated: "2026-04-30"
+owner: "agent"
+summary: "Spec that points to a missing note."
+tags: []
+keywords: []
+links:
+  parents: []
+  children: []
+  related:
+    - "mem-20260430-missing"
+  supersedes: []
+  superseded_by: []
+retention:
+  review_after: null
+  expires_after: null
+  keep: true
+---
+
+# Unresolved link
+`,
+  );
+
+  const result = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "./src/rag-index.ts",
+      "--vault",
+      vaultRoot,
+      "--output-dir",
+      outputRoot,
+      "--allow-unresolved-links",
+      "--json",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  const diagnostics = JSON.parse(
+    await readFile(path.join(outputRoot, "diagnostics.json"), "utf8"),
+  );
+
+  assert.equal(diagnostics.unresolved_links.length, 1);
+  assert.equal(diagnostics.unresolved_links[0].from, "mem-20260430-unresolved-link");
 });
