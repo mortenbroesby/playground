@@ -528,6 +528,39 @@ test("planFrontmatterFix preserves session metadata fields used by the 2026-04-2
   assert.ok(plan.changes.includes("drop_date"));
 });
 
+test("planFrontmatterFix only suggests status for ambiguous spec migration cases", () => {
+  const legacyContent = [
+    "---",
+    "type: spec",
+    "repo: playground",
+    "date: 2026-04-29",
+    "summary: Rebuild the RAG memory system.",
+    "---",
+    "",
+    "# Rebuild RAG Memory",
+    "",
+    "## Goal",
+    "",
+    "Rebuild the memory system safely.",
+  ].join("\n");
+
+  const plan = planFrontmatterFix({
+    absolutePath: "/tmp/2026-04-29 Rebuild RAG Memory.md",
+    repoSlug: "playground",
+    relativeRepoPath: "specs/2026-04-29 Rebuild RAG Memory.md",
+    content: legacyContent,
+    fallbackDate: "2026-04-29",
+  });
+
+  assert.equal(plan.noteType, "spec");
+  assert.equal(plan.status, "active");
+  assert.equal(plan.suggestedStatus, "active");
+  assert.deepEqual(plan.blockingIssues, ["status_review_required"]);
+  assert.ok(plan.changes.includes("suggest_status"));
+  assert.ok(!plan.changes.includes("normalize_status"));
+  assert.ok(plan.content.includes('status: "active"'));
+});
+
 test("planFrontmatterFix rejects malformed YAML frontmatter", () => {
   assert.throws(
     () =>
@@ -667,4 +700,55 @@ test("fixFrontmatter supports pathPrefix, limit, and preview suppression for bat
   assert.equal(result.notes[0].path, "00 Repositories/playground/03 Sessions/2026-04-25 Auto Query Mode.md");
   assert.equal(result.notes[0].content_preview, undefined);
   assert.equal(result.change_counts.normalize_type, 1);
+});
+
+test("fixFrontmatter does not auto-apply ambiguous status suggestions", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-fix-frontmatter-status-review-"));
+  const vaultRoot = path.join(tempRoot, "vault");
+  const repoVaultRoot = path.join(vaultRoot, "00 Repositories", "playground");
+  const specNotePath = path.join(repoVaultRoot, "specs", "2026-04-29 Rebuild RAG Memory.md");
+
+  await mkdir(path.dirname(specNotePath), { recursive: true });
+  await writeFile(
+    specNotePath,
+    [
+      "---",
+      "type: spec",
+      "repo: playground",
+      "date: 2026-04-29",
+      "summary: Rebuild the RAG memory system.",
+      "---",
+      "",
+      "# Rebuild RAG Memory",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const dryRun = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: false,
+  });
+
+  assert.equal(dryRun.changed, 1);
+  assert.equal(dryRun.blocked, 1);
+  assert.equal(dryRun.applied, 0);
+  assert.equal(dryRun.notes[0].suggested_status, "active");
+  assert.deepEqual(dryRun.notes[0].blocking_issues, ["status_review_required"]);
+  assert.ok(dryRun.notes[0].changes.includes("suggest_status"));
+
+  const applied = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: true,
+  });
+
+  assert.equal(applied.changed, 1);
+  assert.equal(applied.applied, 0);
+  assert.equal(applied.blocked, 1);
+
+  const unchanged = await readFile(specNotePath, "utf8");
+  assert.ok(unchanged.includes("type: spec"));
+  assert.ok(unchanged.includes("repo: playground"));
+  assert.ok(!unchanged.includes('repo_slug: "playground"'));
 });

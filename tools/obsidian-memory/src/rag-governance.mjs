@@ -638,7 +638,25 @@ function defaultStatusForType(noteType) {
   }
 }
 
-function resolveNoteStatus(rawStatus, noteType) {
+function isStatusInferenceUnambiguous(noteType, relativeRepoPath) {
+  const normalizedPath = relativeRepoPath.replace(/\\/g, "/");
+
+  if (noteType === "repo-home") {
+    return true;
+  }
+
+  if (noteType === "reference" || noteType === "glossary") {
+    return true;
+  }
+
+  if (noteType === "session" && normalizedPath.startsWith("03 Sessions/")) {
+    return true;
+  }
+
+  return false;
+}
+
+function resolveNoteStatus(rawStatus, noteType, relativeRepoPath) {
   const normalizedRaw = rawStatus?.trim().toLowerCase() ?? null;
   const alias = normalizeStatusAlias(normalizedRaw, noteType);
 
@@ -646,13 +664,19 @@ function resolveNoteStatus(rawStatus, noteType) {
     return {
       value: alias,
       normalized: normalizedRaw !== alias,
+      suggested: false,
+      reviewRequired: false,
     };
   }
 
   const fallback = defaultStatusForType(noteType);
+  const unambiguous = isStatusInferenceUnambiguous(noteType, relativeRepoPath);
+
   return {
     value: fallback,
-    normalized: normalizedRaw !== fallback,
+    normalized: !!normalizedRaw && normalizedRaw !== fallback,
+    suggested: !unambiguous,
+    reviewRequired: !unambiguous,
   };
 }
 
@@ -1131,7 +1155,7 @@ export function planFrontmatterFix({
   const rawType = toStringValue(frontmatter.type) ?? toStringValue(frontmatter.note_type);
   const rawStatus = toStringValue(frontmatter.status);
   const noteType = resolveNoteType(rawType, relativeRepoPath);
-  const noteStatus = resolveNoteStatus(rawStatus, noteType.value);
+  const noteStatus = resolveNoteStatus(rawStatus, noteType.value, relativeRepoPath);
   const title =
     toStringValue(frontmatter.title) ?? extractDocumentTitle(body, relativeRepoPath);
   const normalizedBody = normalizeBodyForStrictFrontmatter(body, title);
@@ -1186,6 +1210,7 @@ export function planFrontmatterFix({
     ...extraFrontmatter,
   })}\n\n${normalizedBody}\n`;
   const changes = [];
+  const blockingIssues = [];
 
   if (!toStringValue(frontmatter.id)) {
     changes.push("add_id");
@@ -1206,7 +1231,10 @@ export function planFrontmatterFix({
     changes.push("add_title");
   }
 
-  if (rawStatus !== noteStatus.value) {
+  if (!rawStatus && noteStatus.suggested) {
+    changes.push("suggest_status");
+    blockingIssues.push("status_review_required");
+  } else if (rawStatus !== noteStatus.value) {
     changes.push("normalize_status");
   }
 
@@ -1256,10 +1284,12 @@ export function planFrontmatterFix({
     title: canonicalFrontmatter.title,
     created: canonicalFrontmatter.created,
     updated: canonicalFrontmatter.updated,
+    suggestedStatus: noteStatus.suggested ? noteStatus.value : null,
+    blockingIssues,
     changes: Array.from(new Set(changes)),
-      changed: changes.length > 0,
-      content: renderedContent,
-    };
+    changed: changes.length > 0,
+    content: renderedContent,
+  };
 }
 
 /**
@@ -1323,6 +1353,7 @@ export async function fixFrontmatter({
 
   const allChangedPlans = plans.filter((plan) => plan.changed);
   const changedPlans = allChangedPlans.slice(0, limit === null ? undefined : limit);
+  const applicablePlans = changedPlans.filter((plan) => (plan.blockingIssues?.length ?? 0) === 0);
 
   const changeCounts = changedPlans.reduce((acc, plan) => {
     for (const change of plan.changes) {
@@ -1334,7 +1365,7 @@ export async function fixFrontmatter({
 
   if (apply) {
     await Promise.all(
-      changedPlans.map((plan) => writeFile(plan.absolutePath, plan.content, "utf8")),
+      applicablePlans.map((plan) => writeFile(plan.absolutePath, plan.content, "utf8")),
     );
   }
 
@@ -1344,6 +1375,8 @@ export async function fixFrontmatter({
     path_prefix: normalizedPrefix || null,
     scanned: filteredFiles.length,
     changed: changedPlans.length,
+    applied: apply ? applicablePlans.length : 0,
+    blocked: changedPlans.filter((plan) => (plan.blockingIssues?.length ?? 0) > 0).length,
     unchanged: filteredFiles.length - allChangedPlans.length,
     total_candidates: allChangedPlans.length,
     limited: limit !== null && changedPlans.length < allChangedPlans.length,
@@ -1358,6 +1391,8 @@ export async function fixFrontmatter({
       created: plan.created,
       updated: plan.updated,
       title: plan.title,
+      suggested_status: plan.suggestedStatus,
+      blocking_issues: plan.blockingIssues,
       changes: plan.changes,
       content_preview: !apply && includeContentPreview ? plan.content : undefined,
     })),
