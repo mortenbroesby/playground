@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -14,6 +14,32 @@ async function buildTypedIndexFixture() {
   await mkdir(indexRoot, { recursive: true });
 
   const noteRegistry = [
+    {
+      id: "repo-home",
+      type: "repo-home",
+      path: "vault/00 Repositories/playground/00 Repo Home.md",
+      title: "playground",
+      status: "active",
+      created: "2026-04-29",
+      updated: "2026-04-29",
+      summary: "Canonical repo-home note for playground context.",
+      tags: ["repo/playground"],
+      keywords: ["playground", "architecture", "active focus"],
+      chunk_ids: [
+        "chunk:repo-home:0000:11111111",
+        "chunk:repo-home:0001:22222222",
+      ],
+      validation_status: "warning",
+      validation_issues: ["missing_summary"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "repo-home-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+      legacy_type: null,
+      legacy_status: null,
+    },
     {
       id: "healthy-spec",
       type: "spec",
@@ -63,6 +89,34 @@ async function buildTypedIndexFixture() {
   ];
 
   const chunkIndex = [
+    {
+      chunk_id: "chunk:repo-home:0000:11111111",
+      note_id: "repo-home",
+      source_path:
+        "vault/00 Repositories/playground/00 Repo Home.md § Current Architecture",
+      heading: "Current Architecture",
+      heading_level: 2,
+      text: "Current architecture keeps the host app owning routing and page composition while remotes mount into host-owned surfaces.",
+      summary: "Host owns routing and page composition.",
+      tokens_estimated: 18,
+      content_hash: "repo-home-current-architecture",
+      type: "repo-home",
+      status: "active",
+    },
+    {
+      chunk_id: "chunk:repo-home:0001:22222222",
+      note_id: "repo-home",
+      source_path:
+        "vault/00 Repositories/playground/00 Repo Home.md § Active Focus",
+      heading: "Active Focus",
+      heading_level: 2,
+      text: "Active focus is rebuilding the agent-facing RAG stack with typed notes, registry integrity, and stronger MCP query surfaces.",
+      summary: "Typed RAG rebuild remains the active focus.",
+      tokens_estimated: 18,
+      content_hash: "repo-home-active-focus",
+      type: "repo-home",
+      status: "active",
+    },
     {
       chunk_id: "chunk:healthy-spec:0000:aaaaaaaa",
       note_id: "healthy-spec",
@@ -167,8 +221,11 @@ function sendRpc(child, payload) {
   });
 }
 
-test("rag:query surfaces integrity mode and candidate integrity metadata", async () => {
+test("rag:query surfaces integrity mode and candidate integrity metadata", async (t) => {
   const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
   const result = spawnSync(
     "node",
     [
@@ -196,8 +253,11 @@ test("rag:query surfaces integrity mode and candidate integrity metadata", async
   assert.deepEqual(output.candidates[0].validationIssues, []);
 });
 
-test("memory_search surfaces integrity warnings in full-detail MCP output", async () => {
+test("memory_search surfaces integrity warnings in full-detail MCP output", async (t) => {
   const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
   const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
     cwd: repoRoot,
     env: {
@@ -236,6 +296,169 @@ test("memory_search surfaces integrity warnings in full-detail MCP output", asyn
     const text = searchResult.content[0].text;
     assert.match(text, /integrity: warning \(missing_summary\)/);
     assert.match(text, /source_path: vault\/specs\/warning\.md § Plan/);
+  } finally {
+    child.kill();
+  }
+});
+
+test("memory_context returns canonical repo-home headings in compact and full modes", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 10,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    const compactResult = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 11,
+      method: "tools/call",
+      params: {
+        name: "memory_context",
+        arguments: {
+          repo_slug: "playground",
+        },
+      },
+    });
+    const compactText = compactResult.content[0].text;
+    assert.match(compactText, /source_file: vault\/00 Repositories\/playground\/00 Repo Home\.md/);
+    assert.match(compactText, /## Current Architecture/);
+    assert.match(compactText, /## Active Focus/);
+    assert.match(compactText, /integrity: warning \(missing_summary\)/);
+
+    const fullResult = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 12,
+      method: "tools/call",
+      params: {
+        name: "memory_context",
+        arguments: {
+          repo_slug: "playground",
+          detail: "full",
+        },
+      },
+    });
+    const fullText = fullResult.content[0].text;
+    assert.match(fullText, /source_path: vault\/00 Repositories\/playground\/00 Repo Home\.md § Current Architecture/);
+    assert.match(fullText, /summary: Host owns routing and page composition\./);
+    assert.match(fullText, /source_path: vault\/00 Repositories\/playground\/00 Repo Home\.md § Active Focus/);
+  } finally {
+    child.kill();
+  }
+});
+
+test("memory_unfold resolves by source_path and by source_file plus heading", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 20,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    const byPath = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 21,
+      method: "tools/call",
+      params: {
+        name: "memory_unfold",
+        arguments: {
+          source_path: "vault/specs/warning.md § Plan",
+        },
+      },
+    });
+    assert.match(byPath.content[0].text, /source_path: vault\/specs\/warning\.md § Plan/);
+    assert.match(byPath.content[0].text, /integrity: warning \(missing_summary\)/);
+
+    const byFileAndHeading = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 22,
+      method: "tools/call",
+      params: {
+        name: "memory_unfold",
+        arguments: {
+          source_file: "vault/00 Repositories/playground/00 Repo Home.md",
+          heading: "Active Focus",
+        },
+      },
+    });
+    assert.match(byFileAndHeading.content[0].text, /heading: Active Focus/);
+    assert.match(byFileAndHeading.content[0].text, /Typed RAG rebuild remains the active focus\./);
+  } finally {
+    child.kill();
+  }
+});
+
+test("memory_unfold returns a stable error for missing targets", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 30,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    await assert.rejects(
+      sendRpc(child, {
+        jsonrpc: "2.0",
+        id: 31,
+        method: "tools/call",
+        params: {
+          name: "memory_unfold",
+          arguments: {
+            source_file: "vault/specs/missing.md",
+            heading: "Nope",
+          },
+        },
+      }),
+      /No memory chunk matched the provided source path or file plus heading\./,
+    );
   } finally {
     child.kill();
   }
