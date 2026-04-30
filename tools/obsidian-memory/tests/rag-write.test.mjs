@@ -13,7 +13,7 @@ import {
 const packageRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
 
-async function createWriteFixture({ duplicate = false } = {}) {
+async function createWriteFixture({ duplicateMode = "none" } = {}) {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-write-"));
   const vaultRoot = path.join(tempRoot, "vault");
   const indexRoot = path.join(tempRoot, ".rag");
@@ -32,7 +32,7 @@ async function createWriteFixture({ duplicate = false } = {}) {
     writeFile(
       path.join(indexRoot, "note-registry.json"),
       `${JSON.stringify(
-        duplicate
+        duplicateMode === "exact"
           ? [
               {
                 id: "mem-existing",
@@ -45,6 +45,19 @@ async function createWriteFixture({ duplicate = false } = {}) {
                 inbound_links: [],
               },
             ]
+          : duplicateMode === "heuristic"
+            ? [
+                {
+                  id: "mem-existing",
+                  type: "spec",
+                  path: "vault/00 Repositories/playground/specs/2026-04-30 Rebuild RAG memory.md",
+                  title: "Rebuild RAG memory",
+                  status: "active",
+                  summary: "Earlier planning note with a different summary.",
+                  outbound_links: [],
+                  inbound_links: [],
+                },
+              ]
           : [],
       )}\n`,
       "utf8",
@@ -125,6 +138,7 @@ test("runWrite defaults to preview output without writing files", async (t) => {
   assert.equal(output.dry_run, true);
   assert.match(output.next_step, /rerun with --apply/);
   assert.match(output.content_preview, /summary: "Spec for rebuilding repo memory\."/);
+  assert.deepEqual(output.duplicate_proposals, []);
 
   const targetPath = path.join(
     fixture.vaultRoot,
@@ -165,6 +179,7 @@ test("CLI writes note only when --apply is passed", async (t) => {
   const output = JSON.parse(result.stdout);
   assert.equal(output.dry_run, false);
   assert.match(output.next_step, /Run pnpm rag:index/);
+  assert.deepEqual(output.duplicate_proposals, []);
 
   const targetPath = path.join(
     fixture.vaultRoot,
@@ -175,8 +190,40 @@ test("CLI writes note only when --apply is passed", async (t) => {
   assert.match(fileContents, /## Goal/);
 });
 
-test("CLI rejects duplicate write candidates before writing", async (t) => {
-  const fixture = await createWriteFixture({ duplicate: true });
+test("CLI returns heuristic duplicate proposals without blocking writes", async (t) => {
+  const fixture = await createWriteFixture({ duplicateMode: "heuristic" });
+  t.after(() => rm(fixture.tempRoot, { recursive: true, force: true }));
+
+  const result = spawnSync(
+    "node",
+    [
+      path.join(packageRoot, "src", "rag-write.mjs"),
+      "--vault",
+      fixture.vaultRoot,
+      "--index-root",
+      fixture.indexRoot,
+      "--type",
+      "spec",
+      "--title",
+      "Rebuild RAG memory",
+      "--summary",
+      "Spec for rebuilding repo memory.",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.dry_run, true);
+  assert.equal(output.duplicate_proposals.length, 1);
+  assert.deepEqual(output.duplicate_proposals[0].matchReasons, ["title"]);
+});
+
+test("CLI rejects exact duplicate write candidates before writing", async (t) => {
+  const fixture = await createWriteFixture({ duplicateMode: "exact" });
   t.after(() => rm(fixture.tempRoot, { recursive: true, force: true }));
 
   const result = spawnSync(
@@ -201,5 +248,5 @@ test("CLI rejects duplicate write candidates before writing", async (t) => {
   );
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Duplicate note candidate exists/);
+  assert.match(result.stderr, /Exact duplicate note candidate exists/);
 });

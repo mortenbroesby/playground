@@ -984,24 +984,53 @@ export function buildWriteTargetPath({ vaultRoot, repoSlug, noteType, title, cre
 }
 
 /**
- * Find still-active notes that would conflict with a pending typed write.
+ * Classify still-active notes that conflict heuristically or exactly with a
+ * pending typed write so callers can hard-fail only on objective identity
+ * collisions.
  */
 export function findWriteDuplicates({ noteRegistry, noteType, title, summary }) {
   const normalizedTitle = normalize(title);
   const normalizedSummary = normalize(summary ?? "");
 
-  return noteRegistry.filter((note) => {
-    if (note.type !== noteType) {
-      return false;
-    }
+  return noteRegistry.reduce(
+    (accumulator, note) => {
+      if (note.type !== noteType) {
+        return accumulator;
+      }
 
-    const titleMatches = normalize(note.title) === normalizedTitle;
-    const summaryMatches =
-      normalizedSummary.length > 0 && normalize(note.summary ?? "") === normalizedSummary;
-    const activeEnough = note.status !== "archived" && note.status !== "superseded";
+      const titleMatches = normalize(note.title) === normalizedTitle;
+      const summaryMatches =
+        normalizedSummary.length > 0 && normalize(note.summary ?? "") === normalizedSummary;
+      const activeEnough = note.status !== "archived" && note.status !== "superseded";
 
-    return activeEnough && (titleMatches || summaryMatches);
-  });
+      if (!activeEnough || (!titleMatches && !summaryMatches)) {
+        return accumulator;
+      }
+
+      const candidate = {
+        id: note.id,
+        path: note.path,
+        title: note.title,
+        summary: note.summary,
+        matchReasons: [
+          ...(titleMatches ? ["title"] : []),
+          ...(summaryMatches ? ["summary"] : []),
+        ],
+      };
+
+      if (titleMatches && summaryMatches) {
+        accumulator.exact.push(candidate);
+      } else {
+        accumulator.heuristic.push(candidate);
+      }
+
+      return accumulator;
+    },
+    {
+      exact: [],
+      heuristic: [],
+    },
+  );
 }
 
 /**

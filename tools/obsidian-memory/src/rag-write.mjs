@@ -123,9 +123,9 @@ export async function runWrite(options) {
     summary: options.summary,
   });
 
-  if (duplicates.length > 0) {
+  if (duplicates.exact.length > 0) {
     throw new Error(
-      `Duplicate note candidate exists:\n${duplicates.map((note) => `- ${note.path}`).join("\n")}`,
+      `Exact duplicate note candidate exists:\n${duplicates.exact.map((note) => `- ${note.path}`).join("\n")}`,
     );
   }
 
@@ -149,6 +149,7 @@ export async function runWrite(options) {
     path: path.relative(options.repoRoot ?? repoRoot, target.absolutePath),
     repo_slug: options.repoSlug,
     dry_run: options.dryRun,
+    duplicate_proposals: duplicates.heuristic,
     next_step: options.dryRun
       ? "Review the preview, then rerun with --apply to create the note."
       : "Run pnpm rag:index after writing the note.",

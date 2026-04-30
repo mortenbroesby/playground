@@ -396,7 +396,7 @@ test("renderTypedNoteTemplate creates strict frontmatter for new notes", () => {
   assert.ok(!rendered.content.includes("# Add cleanup dry-run"));
 });
 
-test("findWriteDuplicates catches active duplicates by title or summary", () => {
+test("findWriteDuplicates hard-fails only exact duplicate candidates and soft-flags heuristic matches", () => {
   const duplicates = findWriteDuplicates({
     noteRegistry: [
       {
@@ -413,7 +413,31 @@ test("findWriteDuplicates catches active duplicates by title or summary", () => 
     summary: "Different summary",
   });
 
-  assert.equal(duplicates.length, 1);
+  assert.equal(duplicates.exact.length, 0);
+  assert.equal(duplicates.heuristic.length, 1);
+  assert.deepEqual(duplicates.heuristic[0].matchReasons, ["title"]);
+});
+
+test("findWriteDuplicates reports exact matches when title and summary both collide", () => {
+  const duplicates = findWriteDuplicates({
+    noteRegistry: [
+      {
+        id: "mem-1",
+        type: "spec",
+        title: "Rebuild RAG memory",
+        summary: "Spec for rebuilding repo memory.",
+        status: "active",
+        path: "vault/specs/rebuild-rag-memory.md",
+      },
+    ],
+    noteType: "spec",
+    title: "Rebuild RAG memory",
+    summary: "Spec for rebuilding repo memory.",
+  });
+
+  assert.equal(duplicates.exact.length, 1);
+  assert.equal(duplicates.heuristic.length, 0);
+  assert.deepEqual(duplicates.exact[0].matchReasons, ["title", "summary"]);
 });
 
 test("planFrontmatterFix normalizes legacy session metadata without changing the body", () => {
