@@ -18,7 +18,9 @@ import {
 
 const serverVersion = "1.0.0";
 const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
-const indexRoot = path.join(repoRoot, ".rag");
+const indexRoot = process.env.PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT
+  ? path.resolve(process.env.PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT)
+  : path.join(repoRoot, ".rag");
 
 const toolDefinitions = [
   {
