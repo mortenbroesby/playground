@@ -894,6 +894,14 @@ function estimateTokens(value) {
 function classifyFrontmatterIssue(issue) {
   const normalizedReason = normalizeWhitespace(issue.reason ?? "");
 
+  if (issue.reason === "status_review_required") {
+    return {
+      ...issue,
+      category: "status_review_required",
+      blocking: true,
+    };
+  }
+
   if (
     issue.reason === "missing_frontmatter_id" ||
     normalizedReason.includes("missing frontmatter id")
@@ -925,6 +933,9 @@ function summarizeCleanupIssues(cleanup) {
 
   return {
     frontmatter: {
+      status_review_required: frontmatterIssues.filter(
+        (issue) => issue.category === "status_review_required",
+      ),
       blocking: frontmatterIssues.filter((issue) => issue.blocking),
       advisory: frontmatterIssues.filter((issue) => !issue.blocking),
     },
@@ -1304,6 +1315,27 @@ export async function fixFrontmatter({
   includeContentPreview = true,
 }) {
   const repoRootPath = path.join(vaultRoot, "00 Repositories", repoSlug);
+  try {
+    const repoRootStat = await stat(repoRootPath);
+    if (!repoRootStat.isDirectory()) {
+      throw new Error("not-directory");
+    }
+  } catch {
+    return {
+      dry_run: !apply,
+      repo_slug: repoSlug,
+      path_prefix: pathPrefix.replace(/^\/+|\/+$/g, "") || null,
+      scanned: 0,
+      changed: 0,
+      applied: 0,
+      blocked: 0,
+      unchanged: 0,
+      total_candidates: 0,
+      limited: false,
+      change_counts: {},
+      notes: [],
+    };
+  }
   const markdownFiles = await walkMarkdownFiles(repoRootPath);
   const normalizedPrefix = pathPrefix.replace(/^\/+|\/+$/g, "");
   const filteredFiles = normalizedPrefix.length === 0
@@ -1784,7 +1816,25 @@ export async function buildDoctorReport({
     staleGeneratedFiles,
     now,
   });
-  const cleanupIssues = summarizeCleanupIssues(cleanup);
+  const frontmatterFixPlan = await fixFrontmatter({
+    vaultRoot,
+    repoSlug: "playground",
+    apply: false,
+    includeContentPreview: false,
+  });
+  const cleanupIssues = summarizeCleanupIssues({
+    ...cleanup,
+    invalid_frontmatter: [
+      ...cleanup.invalid_frontmatter,
+      ...frontmatterFixPlan.notes.flatMap((note) =>
+        (note.blocking_issues ?? []).map((issue) => ({
+          path: note.path,
+          reason: issue,
+          suggested_status: note.suggested_status ?? undefined,
+        })),
+      ),
+    ],
+  });
 
   return {
     passed:
@@ -1812,7 +1862,9 @@ export async function buildDoctorReport({
         chunk_count: verification.summary.chunks,
       },
       cleanup_dry_run: cleanup,
+      frontmatter_fix_dry_run: frontmatterFixPlan,
       cleanup_frontmatter_check: {
+        status_review_required: cleanupIssues.frontmatter.status_review_required,
         advisory: cleanupIssues.frontmatter.advisory,
         blocking: cleanupIssues.frontmatter.blocking,
       },
@@ -1823,6 +1875,7 @@ export async function buildDoctorReport({
     warnings: verification.warnings,
     verification_summary: {
       ...verification.summary,
+      frontmatter_status_reviews: cleanupIssues.frontmatter.status_review_required.length,
       frontmatter_advisories: cleanupIssues.frontmatter.advisory.length,
       frontmatter_blockers: cleanupIssues.frontmatter.blocking.length,
     },

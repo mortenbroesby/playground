@@ -13,23 +13,32 @@ import {
 const packageRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
 
-async function createDoctorFixture({ advisoryOnly = false } = {}) {
+async function createDoctorFixture({ advisoryOnly = false, statusReview = false } = {}) {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-doctor-cli-"));
   const vaultRoot = path.join(tempRoot, "vault");
   const indexRoot = path.join(tempRoot, ".rag");
+  const repoVaultRoot = path.join(vaultRoot, "00 Repositories", "playground");
 
   await Promise.all([
-    mkdir(path.join(vaultRoot, "00 Repositories"), { recursive: true }),
+    mkdir(repoVaultRoot, { recursive: true }),
     mkdir(path.join(vaultRoot, "90 Templates"), { recursive: true }),
     mkdir(path.join(vaultRoot, "91 Scripts"), { recursive: true }),
     mkdir(indexRoot, { recursive: true }),
   ]);
 
-  const notePath = advisoryOnly
+  const notePath = statusReview
+    ? "vault/00 Repositories/playground/specs/2026-04-29 Rebuild RAG Memory.md"
+    : advisoryOnly
     ? "vault/03 Sessions/2026-04-29 Typed RAG.md"
     : "vault/specs/spec-1.md";
   const noteType = advisoryOnly ? "session" : "spec";
-  const diagnostics = advisoryOnly
+  const diagnostics = statusReview
+    ? {
+        synthetic_ids: [],
+        unresolved_links: [],
+        validation_warnings: [],
+      }
+    : advisoryOnly
     ? {
         synthetic_ids: [notePath],
         unresolved_links: [],
@@ -45,7 +54,9 @@ async function createDoctorFixture({ advisoryOnly = false } = {}) {
           `${notePath}: missing frontmatter id; generated mem-1`,
         ],
       };
-  const noteRegistry = advisoryOnly
+  const noteRegistry = statusReview
+    ? []
+    : advisoryOnly
     ? [
         {
           id: "mem-1",
@@ -77,6 +88,29 @@ async function createDoctorFixture({ advisoryOnly = false } = {}) {
           ],
         },
       ];
+
+  if (statusReview) {
+    const sourceNotePath = path.join(
+      repoVaultRoot,
+      "specs",
+      "2026-04-29 Rebuild RAG Memory.md",
+    );
+    await mkdir(path.dirname(sourceNotePath), { recursive: true });
+    await writeFile(
+      sourceNotePath,
+      [
+        "---",
+        "type: spec",
+        "repo: playground",
+        "date: 2026-04-29",
+        "summary: Rebuild the RAG memory system.",
+        "---",
+        "",
+        "# Rebuild RAG Memory",
+      ].join("\n"),
+      "utf8",
+    );
+  }
 
   await Promise.all([
     writeFile(path.join(tempRoot, ".gitignore"), ".rag/\n", "utf8"),
@@ -204,4 +238,22 @@ test("CLI keeps advisory-only frontmatter backlog non-blocking", async (t) => {
   assert.equal(output.passed, true);
   assert.equal(output.checks.cleanup_frontmatter_check.blocking.length, 0);
   assert.ok(output.checks.cleanup_frontmatter_check.advisory.length >= 1);
+});
+
+test("doctor surfaces blocked status-review backlog explicitly", async (t) => {
+  const fixture = await createDoctorFixture({ statusReview: true });
+  t.after(() => rm(fixture.tempRoot, { recursive: true, force: true }));
+
+  const result = await runDoctor({
+    vaultRoot: fixture.vaultRoot,
+    indexRoot: fixture.indexRoot,
+    repoRoot: fixture.tempRoot,
+  });
+
+  assert.equal(result.passed, false);
+  assert.equal(result.checks.cleanup_frontmatter_check.status_review_required.length, 1);
+  assert.equal(result.checks.cleanup_frontmatter_check.blocking.length, 1);
+  assert.equal(result.checks.frontmatter_fix_dry_run.blocked, 1);
+  assert.equal(result.checks.frontmatter_fix_dry_run.applied, 0);
+  assert.equal(result.verification_summary.frontmatter_status_reviews, 1);
 });
