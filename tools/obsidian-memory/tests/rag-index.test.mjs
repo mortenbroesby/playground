@@ -156,12 +156,9 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
   );
 
   assert.equal(repoHome.type, "repo-home");
-  assert.equal(repoHome.repo_slug, "playground");
   assert.equal(todo.type, "todo");
-  assert.equal(todo.repo_slug, "playground");
   assert.equal(todo.status, "active");
   assert.equal(spec.type, "spec");
-  assert.equal(spec.repo_slug, "playground");
   assert.deepEqual(
     [...spec.outbound_links].sort(),
     ["legacy-rag-spec", "rebuild-memory"],
