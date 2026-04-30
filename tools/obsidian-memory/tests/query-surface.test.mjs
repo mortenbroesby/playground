@@ -8,38 +8,43 @@ import { spawn, spawnSync } from "node:child_process";
 const packageRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
 
-async function buildTypedIndexFixture() {
+async function buildTypedIndexFixture(options = {}) {
+  const includeRepoHome = options.includeRepoHome ?? true;
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "rag-query-surface-"));
   const indexRoot = path.join(tempRoot, ".rag");
   await mkdir(indexRoot, { recursive: true });
 
   const noteRegistry = [
-    {
-      id: "repo-home",
-      type: "repo-home",
-      path: "vault/00 Repositories/playground/00 Repo Home.md",
-      title: "playground",
-      status: "active",
-      created: "2026-04-29",
-      updated: "2026-04-29",
-      summary: "Canonical repo-home note for playground context.",
-      tags: ["repo/playground"],
-      keywords: ["playground", "architecture", "active focus"],
-      chunk_ids: [
-        "chunk:repo-home:0000:11111111",
-        "chunk:repo-home:0001:22222222",
-      ],
-      validation_status: "warning",
-      validation_issues: ["missing_summary"],
-      outbound_links: [],
-      inbound_links: [],
-      content_hash: "repo-home-hash",
-      mtime_ms: 1,
-      owner: "agent",
-      repo_slug: "playground",
-      legacy_type: null,
-      legacy_status: null,
-    },
+    ...(includeRepoHome
+      ? [
+          {
+            id: "repo-home",
+            type: "repo-home",
+            path: "vault/00 Repositories/playground/00 Repo Home.md",
+            title: "playground",
+            status: "active",
+            created: "2026-04-29",
+            updated: "2026-04-29",
+            summary: "Canonical repo-home note for playground context.",
+            tags: ["repo/playground"],
+            keywords: ["playground", "architecture", "active focus"],
+            chunk_ids: [
+              "chunk:repo-home:0000:11111111",
+              "chunk:repo-home:0001:22222222",
+            ],
+            validation_status: "warning",
+            validation_issues: ["missing_summary"],
+            outbound_links: [],
+            inbound_links: [],
+            content_hash: "repo-home-hash",
+            mtime_ms: 1,
+            owner: "agent",
+            repo_slug: "playground",
+            legacy_type: null,
+            legacy_status: null,
+          },
+        ]
+      : []),
     {
       id: "healthy-spec",
       type: "spec",
@@ -89,34 +94,38 @@ async function buildTypedIndexFixture() {
   ];
 
   const chunkIndex = [
-    {
-      chunk_id: "chunk:repo-home:0000:11111111",
-      note_id: "repo-home",
-      source_path:
-        "vault/00 Repositories/playground/00 Repo Home.md § Current Architecture",
-      heading: "Current Architecture",
-      heading_level: 2,
-      text: "Current architecture keeps the host app owning routing and page composition while remotes mount into host-owned surfaces.",
-      summary: "Host owns routing and page composition.",
-      tokens_estimated: 18,
-      content_hash: "repo-home-current-architecture",
-      type: "repo-home",
-      status: "active",
-    },
-    {
-      chunk_id: "chunk:repo-home:0001:22222222",
-      note_id: "repo-home",
-      source_path:
-        "vault/00 Repositories/playground/00 Repo Home.md § Active Focus",
-      heading: "Active Focus",
-      heading_level: 2,
-      text: "Active focus is rebuilding the agent-facing RAG stack with typed notes, registry integrity, and stronger MCP query surfaces.",
-      summary: "Typed RAG rebuild remains the active focus.",
-      tokens_estimated: 18,
-      content_hash: "repo-home-active-focus",
-      type: "repo-home",
-      status: "active",
-    },
+    ...(includeRepoHome
+      ? [
+          {
+            chunk_id: "chunk:repo-home:0000:11111111",
+            note_id: "repo-home",
+            source_path:
+              "vault/00 Repositories/playground/00 Repo Home.md § Current Architecture",
+            heading: "Current Architecture",
+            heading_level: 2,
+            text: "Current architecture keeps the host app owning routing and page composition while remotes mount into host-owned surfaces.",
+            summary: "Host owns routing and page composition.",
+            tokens_estimated: 18,
+            content_hash: "repo-home-current-architecture",
+            type: "repo-home",
+            status: "active",
+          },
+          {
+            chunk_id: "chunk:repo-home:0001:22222222",
+            note_id: "repo-home",
+            source_path:
+              "vault/00 Repositories/playground/00 Repo Home.md § Active Focus",
+            heading: "Active Focus",
+            heading_level: 2,
+            text: "Active focus is rebuilding the agent-facing RAG stack with typed notes, registry integrity, and stronger MCP query surfaces.",
+            summary: "Typed RAG rebuild remains the active focus.",
+            tokens_estimated: 18,
+            content_hash: "repo-home-active-focus",
+            type: "repo-home",
+            status: "active",
+          },
+        ]
+      : []),
     {
       chunk_id: "chunk:healthy-spec:0000:aaaaaaaa",
       note_id: "healthy-spec",
@@ -358,6 +367,51 @@ test("memory_context returns canonical repo-home headings in compact and full mo
     assert.match(fullText, /source_path: vault\/00 Repositories\/playground\/00 Repo Home\.md § Current Architecture/);
     assert.match(fullText, /summary: Host owns routing and page composition\./);
     assert.match(fullText, /source_path: vault\/00 Repositories\/playground\/00 Repo Home\.md § Active Focus/);
+  } finally {
+    child.kill();
+  }
+});
+
+test("memory_context falls back to search-style output when canonical repo-home headings are missing", async (t) => {
+  const fixture = await buildTypedIndexFixture({ includeRepoHome: false });
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 15,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    const result = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 16,
+      method: "tools/call",
+      params: {
+        name: "memory_context",
+        arguments: {
+          repo_slug: "playground",
+        },
+      },
+    });
+    const text = result.content[0].text;
+    assert.match(text, /Compact memory results\. Use memory_unfold with a source_path for detail\./);
+    assert.match(text, /source_path: vault\/specs\/healthy\.md § Plan/);
+    assert.doesNotMatch(text, /Compact repo context\./);
+    assert.doesNotMatch(text, /source_file: vault\/00 Repositories\/playground\/00 Repo Home\.md/);
   } finally {
     child.kill();
   }
