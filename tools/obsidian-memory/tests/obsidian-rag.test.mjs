@@ -413,6 +413,10 @@ test("typed retrieval prefers healthy notes over warning-scoped matches when rel
   });
 
   assert.equal(candidates[0]?.noteId, "healthy-spec");
+  assert.equal(candidates[0]?.validationStatus, "ok");
+  assert.deepEqual(candidates[0]?.validationIssues, []);
+  assert.equal(candidates[1]?.validationStatus, "warning");
+  assert.deepEqual(candidates[1]?.validationIssues, ["missing_summary"]);
   assert.ok(
     candidates[1]?.matchReasons.includes("integrity:warning"),
   );
@@ -462,4 +466,32 @@ test("assembleMemoryContext does not exceed token budget when first candidate is
   assert.equal(context.omitted.length, 1);
   assert.equal(context.omitted[0].reason, "token_budget");
   assert.equal(context.truncated, true);
+});
+
+test("assembleMemoryContext carries integrity metadata into items and references", () => {
+  const context = assembleMemoryContext({
+    query: "typed rag ranking plan",
+    tokenBudget: 200,
+    candidates: [
+      {
+        noteId: "warning-spec",
+        chunkId: "chunk:warning-spec:0000:bbbbbbbb",
+        sourceFile: "vault/specs/warning.md",
+        sourcePath: "vault/specs/warning.md § Plan",
+        heading: "Plan",
+        noteType: "spec",
+        status: "active",
+        validationStatus: "warning",
+        validationIssues: ["missing_summary"],
+        score: 8,
+        matchReasons: ["plan-type:spec", "integrity:warning"],
+        text: "Typed RAG ranking plan for warning retrieval behavior.",
+      },
+    ],
+  });
+
+  assert.equal(context.items[0].validationStatus, "warning");
+  assert.deepEqual(context.items[0].validationIssues, ["missing_summary"]);
+  assert.equal(context.references[0].validationStatus, "warning");
+  assert.deepEqual(context.references[0].validationIssues, ["missing_summary"]);
 });

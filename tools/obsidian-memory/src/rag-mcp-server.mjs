@@ -251,16 +251,22 @@ async function contextMemory(args) {
 }
 
 function formatContextChunk(chunk, fullDetail) {
+  const integrityLine =
+    chunk.validationStatus === "warning"
+      ? `integrity: warning (${(chunk.validationIssues ?? []).join(", ") || "unspecified"})`
+      : null;
+
   if (!fullDetail) {
-    return [`## ${chunk.heading}`, trimText(contentOnly(chunk), 450)].join(
-      "\n",
-    );
+    return [`## ${chunk.heading}`, integrityLine, trimText(contentOnly(chunk), 450)]
+      .filter((line) => line !== null)
+      .join("\n");
   }
 
   return [
     `## ${chunk.heading}`,
     `source_path: ${chunk.sourcePath}`,
     chunk.summary ? `summary: ${chunk.summary}` : null,
+    integrityLine,
     "",
     contentOnly(chunk),
   ]
@@ -269,12 +275,18 @@ function formatContextChunk(chunk, fullDetail) {
 }
 
 function formatFullChunk(chunk, headingLine = null) {
+  const integrityLine =
+    chunk.validationStatus === "warning"
+      ? `integrity: warning (${(chunk.validationIssues ?? []).join(", ") || "unspecified"})`
+      : null;
+
   return [
     headingLine,
     `source_path: ${chunk.sourcePath}`,
     `type: ${chunk.noteType ?? "unknown"} status: ${chunk.status ?? "unknown"} repo: ${chunk.repoSlug ?? "unknown"}`,
     `heading: ${chunk.heading}`,
     chunk.summary ? `summary: ${chunk.summary}` : null,
+    integrityLine,
     "",
     contentOnly(chunk),
   ]

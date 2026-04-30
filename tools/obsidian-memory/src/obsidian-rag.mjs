@@ -595,6 +595,8 @@ export function rerankMemoryCandidates(input) {
         keywords: candidate.keywords,
         summary: candidate.summary,
         title: candidate.title,
+        validationStatus: candidate.validationStatus ?? "ok",
+        validationIssues: [...(candidate.validationIssues ?? [])],
         score,
         matchReasons: reasons,
         text: candidate.text,
@@ -710,6 +712,8 @@ export function assembleMemoryContext(input) {
       heading: candidate.heading,
       noteType: candidate.noteType,
       status: candidate.status,
+      validationStatus: candidate.validationStatus ?? "ok",
+      validationIssues: [...(candidate.validationIssues ?? [])],
       score: candidate.score,
       matchReasons: [...candidate.matchReasons],
       text: candidate.text,
@@ -723,6 +727,8 @@ export function assembleMemoryContext(input) {
       heading: candidate.heading,
       noteType: candidate.noteType,
       status: candidate.status,
+      validationStatus: candidate.validationStatus ?? "ok",
+      validationIssues: [...(candidate.validationIssues ?? [])],
       score: candidate.score,
     });
 
