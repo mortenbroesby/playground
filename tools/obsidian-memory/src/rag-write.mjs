@@ -15,17 +15,21 @@ import {
 } from "./rag-governance.mjs";
 
 const repoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
-const vaultRoot = path.join(repoRoot, "vault");
-const indexRoot = path.join(repoRoot, ".rag");
+const defaultVaultRoot = path.join(repoRoot, "vault");
+const defaultIndexRoot = path.join(repoRoot, ".rag");
 
-function parseArgs(argv) {
+export function parseArgs(argv, overrides = {}) {
+  const resolvedRepoRoot = overrides.repoRoot ?? repoRoot;
   const options = {
     noteType: "",
     title: "",
     summary: "",
     owner: "",
     repoSlug: "playground",
-    dryRun: false,
+    dryRun: true,
+    repoRoot: resolvedRepoRoot,
+    vaultRoot: path.join(resolvedRepoRoot, "vault"),
+    indexRoot: path.join(resolvedRepoRoot, ".rag"),
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -61,8 +65,25 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--apply") {
+      options.dryRun = false;
+      continue;
+    }
+
     if (arg === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+
+    if (arg === "--vault") {
+      options.vaultRoot = path.resolve(process.cwd(), argv[index + 1] ?? "");
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--index-root") {
+      options.indexRoot = path.resolve(process.cwd(), argv[index + 1] ?? "");
+      index += 1;
       continue;
     }
 
@@ -80,21 +101,21 @@ function printUsage() {
     [
       "Usage:",
       '  pnpm rag:write --type spec --title "Rebuild RAG memory" --summary "Spec for rebuilding repo memory."',
+      '  pnpm rag:write --apply --type spec --title "Rebuild RAG memory" --summary "Spec for rebuilding repo memory."',
       "",
-      "Create a new typed memory note in the spec-defined folder layout.",
+      "Dry-run is the default; pass --apply to create a typed memory note in the spec-defined folder layout.",
     ].join("\n"),
   );
 }
 
-async function run() {
-  const options = parseArgs(process.argv.slice(2));
+export async function runWrite(options) {
   validateWriteInput({
     noteType: options.noteType,
     title: options.title,
     summary: options.summary,
   });
 
-  const artifacts = await loadTypedMemoryArtifacts(indexRoot);
+  const artifacts = await loadTypedMemoryArtifacts(options.indexRoot ?? defaultIndexRoot);
   const duplicates = findWriteDuplicates({
     noteRegistry: artifacts.noteRegistry,
     noteType: options.noteType,
@@ -109,7 +130,7 @@ async function run() {
   }
 
   const target = buildWriteTargetPath({
-    vaultRoot,
+    vaultRoot: options.vaultRoot ?? defaultVaultRoot,
     repoSlug: options.repoSlug,
     noteType: options.noteType,
     title: options.title,
@@ -125,10 +146,12 @@ async function run() {
   const output = {
     note_id: rendered.noteId,
     type: options.noteType,
-    path: path.relative(repoRoot, target.absolutePath),
+    path: path.relative(options.repoRoot ?? repoRoot, target.absolutePath),
     repo_slug: options.repoSlug,
     dry_run: options.dryRun,
-    next_step: "Run pnpm rag:index after writing the note.",
+    next_step: options.dryRun
+      ? "Review the preview, then rerun with --apply to create the note."
+      : "Run pnpm rag:index after writing the note.",
   };
 
   if (options.dryRun) {
@@ -151,7 +174,17 @@ async function run() {
   console.log(JSON.stringify(output, null, 2));
 }
 
-run().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+async function run() {
+  const options = parseArgs(process.argv.slice(2));
+  await runWrite(options);
+}
+
+const isDirectRun =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  run().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}
