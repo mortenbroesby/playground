@@ -310,6 +310,71 @@ test("memory_search surfaces integrity warnings in full-detail MCP output", asyn
   }
 });
 
+test("tools/list exposes the expected MCP discovery contract", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 5,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+      },
+    });
+
+    const result = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/list",
+    });
+
+    assert.equal(result.tools.length, 3);
+    assert.deepEqual(
+      result.tools.map((tool) => tool.name),
+      ["memory_search", "memory_unfold", "memory_context"],
+    );
+
+    const searchTool = result.tools.find((tool) => tool.name === "memory_search");
+    assert.deepEqual(searchTool.inputSchema.required, ["query"]);
+    assert.deepEqual(
+      searchTool.inputSchema.properties.integrity_mode.enum,
+      ["prefer-healthy", "neutral", "prefer-warning", "exclude-warning"],
+    );
+    assert.deepEqual(
+      searchTool.inputSchema.properties.detail.enum,
+      ["compact", "full"],
+    );
+
+    const unfoldTool = result.tools.find((tool) => tool.name === "memory_unfold");
+    assert.equal(unfoldTool.inputSchema.additionalProperties, false);
+    assert.ok("source_path" in unfoldTool.inputSchema.properties);
+    assert.ok("source_file" in unfoldTool.inputSchema.properties);
+    assert.ok("heading" in unfoldTool.inputSchema.properties);
+
+    const contextTool = result.tools.find((tool) => tool.name === "memory_context");
+    assert.equal(contextTool.inputSchema.additionalProperties, false);
+    assert.deepEqual(
+      contextTool.inputSchema.properties.detail.enum,
+      ["compact", "full"],
+    );
+    assert.ok("repo_slug" in contextTool.inputSchema.properties);
+  } finally {
+    child.kill();
+  }
+});
+
 test("memory_context returns canonical repo-home headings in compact and full modes", async (t) => {
   const fixture = await buildTypedIndexFixture();
   t.after(async () => {
