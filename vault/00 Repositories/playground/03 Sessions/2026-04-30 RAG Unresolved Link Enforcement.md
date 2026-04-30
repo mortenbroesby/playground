@@ -21,7 +21,7 @@ links:
   parents: []
   children: []
   related:
-    - "mem-20260430-rag-rebuild-spec"
+    - "mem-20260430-rag-memory-schema-foundation"
     - "mem-20260430-rag-index-validation-hardening"
   supersedes: []
   superseded_by: []

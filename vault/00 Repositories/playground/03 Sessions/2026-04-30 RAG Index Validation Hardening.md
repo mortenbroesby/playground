@@ -20,7 +20,9 @@ keywords:
 links:
   parents: []
   children: []
-  related: ["mem-20260430-rag-rebuild-spec"]
+  related:
+    - "mem-20260429-rag-typed-index-foundation"
+    - "mem-20260430-rag-memory-schema-foundation"
   supersedes: []
   superseded_by: []
 retention:
