@@ -85,6 +85,8 @@ type RegistryNote = {
   tags: string[];
   keywords: string[];
   chunk_ids: string[];
+  validation_status: "ok" | "warning";
+  validation_issues: string[];
   outbound_links: string[];
   inbound_links: string[];
   content_hash: string;
@@ -176,6 +178,8 @@ type IndexedNote = {
   legacyType: string | null;
   legacyStatus: string | null;
   syntheticId: boolean;
+  typeNormalized: boolean;
+  statusNormalized: boolean;
 };
 
 const repoRoot = findProjectRoot(__dirname, "pnpm");
@@ -1183,6 +1187,35 @@ function buildGraphIndex(notes: RegistryNote[]) {
   };
 }
 
+function buildValidationIssuesForNote(
+  note: IndexedNote,
+  unresolvedLinks: DiagnosticsReport["unresolved_links"],
+) {
+  const issues: string[] = [];
+
+  if (note.syntheticId) {
+    issues.push("missing_frontmatter_id");
+  }
+
+  if (!note.summary) {
+    issues.push("missing_summary");
+  }
+
+  if (note.typeNormalized) {
+    issues.push("legacy_type_normalized");
+  }
+
+  if (note.statusNormalized) {
+    issues.push("legacy_status_normalized");
+  }
+
+  if (unresolvedLinks.some((entry) => entry.from === note.id)) {
+    issues.push("unresolved_links");
+  }
+
+  return issues;
+}
+
 function countBy(items: string[]) {
   return items.reduce<Record<string, number>>((accumulator, item) => {
     accumulator[item] = (accumulator[item] ?? 0) + 1;
@@ -1299,6 +1332,7 @@ async function main() {
   }
 
   const notesById = new Map(registryWithLinks.map((note) => [note.id, note]));
+  const indexedNotesById = new Map(notes.map((note) => [note.id, note]));
 
   for (const note of registryWithLinks) {
     for (const target of note.outbound_links) {
@@ -1306,6 +1340,17 @@ async function main() {
         notesById.get(target)?.inbound_links.push(note.id);
       }
     }
+  }
+
+  const { graph, unresolvedLinks } = buildGraphIndex(registryWithLinks as Array<
+    RegistryNote & { link_groups: LinkGroups }
+  >);
+
+  if (unresolvedLinks.length > 0 && !options.allowUnresolvedLinks) {
+    const [firstUnresolvedLink] = unresolvedLinks;
+    throw new Error(
+      `links.target_missing: ${firstUnresolvedLink.from} references missing note ids ${firstUnresolvedLink.targets.join(", ")}`,
+    );
   }
 
   const chunkIndex = chunks.map(createChunkIndexEntry);
@@ -1319,24 +1364,29 @@ async function main() {
     new Map(),
   );
   const noteRegistry = registryWithLinks
-    .map<RegistryNote>((note) => ({
-      ...note,
-      chunk_ids: chunkIdsByNoteId.get(note.id) ?? [],
-      inbound_links: Array.from(new Set(note.inbound_links)).sort((left, right) =>
-        left.localeCompare(right),
-      ),
-    }))
-    .map(({ link_groups: _linkGroups, ...note }) => note);
-  const { graph, unresolvedLinks } = buildGraphIndex(registryWithLinks as Array<
-    RegistryNote & { link_groups: LinkGroups }
-  >);
+    .map<RegistryNote>((note) => {
+      const indexedNote = indexedNotesById.get(note.id);
 
-  if (unresolvedLinks.length > 0 && !options.allowUnresolvedLinks) {
-    const [firstUnresolvedLink] = unresolvedLinks;
-    throw new Error(
-      `links.target_missing: ${firstUnresolvedLink.from} references missing note ids ${firstUnresolvedLink.targets.join(", ")}`,
-    );
-  }
+      if (!indexedNote) {
+        throw new Error(`registry.missing_note: Missing indexed note for ${note.id}`);
+      }
+
+      const validationIssues = buildValidationIssuesForNote(
+        indexedNote,
+        unresolvedLinks,
+      );
+
+      return {
+        ...note,
+        chunk_ids: chunkIdsByNoteId.get(note.id) ?? [],
+        validation_status: validationIssues.length > 0 ? "warning" : "ok",
+        validation_issues: validationIssues,
+        inbound_links: Array.from(new Set(note.inbound_links)).sort((left, right) =>
+          left.localeCompare(right),
+        ),
+      };
+    })
+    .map(({ link_groups: _linkGroups, ...note }) => note);
 
   const lexicalIndex = buildLexicalIndex(chunkIndex);
   const repoSlug = notes.find((note) => note.repoSlug)?.repoSlug ?? null;
