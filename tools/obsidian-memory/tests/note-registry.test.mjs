@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildNoteRegistryArtifacts } from "../src/note-registry.mjs";
+import {
+  buildDiagnosticsReport,
+  buildNoteRegistryArtifacts,
+} from "../src/note-registry.mjs";
 
 const edgeTypeByLinkGroup = {
   parents: "relates_to",
@@ -185,4 +188,56 @@ test("buildNoteRegistryArtifacts fails duplicate note ids", () => {
       }),
     /registry\.duplicate_id/,
   );
+});
+
+test("buildDiagnosticsReport derives note-level diagnostics from registry integrity", () => {
+  const diagnostics = buildDiagnosticsReport({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    repoSlug: "playground",
+    unresolvedLinks: [{ from: "mem-1", targets: ["missing-note"] }],
+    noteRegistry: [
+      {
+        id: "mem-1",
+        type: "spec",
+        status: "active",
+        path: "vault/specs/spec.md",
+        legacy_type: null,
+        legacy_status: null,
+        chunk_ids: ["chunk:mem-1:0000:aaaaaaaa"],
+        validation_issues: ["missing_frontmatter_id", "missing_summary"],
+      },
+      {
+        id: "mem-2",
+        type: "todo",
+        status: "active",
+        path: "vault/tasks/todo.md",
+        legacy_type: "repo-task",
+        legacy_status: "In Progress",
+        chunk_ids: ["chunk:mem-2:0000:bbbbbbbb", "chunk:mem-2:0001:cccccccc"],
+        validation_issues: ["legacy_type_normalized", "legacy_status_normalized"],
+      },
+    ],
+  });
+
+  assert.equal(diagnostics.notes, 2);
+  assert.equal(diagnostics.chunks, 3);
+  assert.deepEqual(diagnostics.synthetic_ids, ["vault/specs/spec.md"]);
+  assert.deepEqual(diagnostics.legacy_type_normalizations, [
+    {
+      path: "vault/tasks/todo.md",
+      from: "repo-task",
+      to: "todo",
+    },
+  ]);
+  assert.deepEqual(diagnostics.status_normalizations, [
+    {
+      path: "vault/tasks/todo.md",
+      from: "In Progress",
+      to: "active",
+    },
+  ]);
+  assert.deepEqual(diagnostics.validation_warnings, [
+    "vault/specs/spec.md: missing frontmatter id; generated mem-1",
+    "vault/specs/spec.md: missing summary",
+  ]);
 });

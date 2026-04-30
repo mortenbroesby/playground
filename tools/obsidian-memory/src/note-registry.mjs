@@ -99,6 +99,24 @@ function buildValidationIssuesForNote(note, unresolvedLinks) {
   return issues;
 }
 
+function buildValidationWarnings(noteRegistry) {
+  const warnings = [];
+
+  for (const note of noteRegistry) {
+    const issues = Array.isArray(note.validation_issues) ? note.validation_issues : [];
+
+    if (issues.includes("missing_frontmatter_id")) {
+      warnings.push(`${note.path}: missing frontmatter id; generated ${note.id}`);
+    }
+
+    if (issues.includes("missing_summary")) {
+      warnings.push(`${note.path}: missing summary`);
+    }
+  }
+
+  return warnings;
+}
+
 export function buildNoteRegistryArtifacts({
   notes,
   chunkIndex,
@@ -192,5 +210,58 @@ export function buildNoteRegistryArtifacts({
     noteRegistry,
     graph,
     unresolvedLinks,
+  };
+}
+
+export function buildDiagnosticsReport({
+  generatedAt,
+  noteRegistry,
+  repoSlug,
+  unresolvedLinks,
+}) {
+  return {
+    schema_version: 2,
+    generated_at: generatedAt,
+    repo_slug: repoSlug,
+    notes: noteRegistry.length,
+    chunks: noteRegistry.reduce(
+      (total, note) => total + (Array.isArray(note.chunk_ids) ? note.chunk_ids.length : 0),
+      0,
+    ),
+    notes_by_type: noteRegistry.reduce((accumulator, note) => {
+      accumulator[note.type] = (accumulator[note.type] ?? 0) + 1;
+      return accumulator;
+    }, {}),
+    notes_by_status: noteRegistry.reduce((accumulator, note) => {
+      accumulator[note.status] = (accumulator[note.status] ?? 0) + 1;
+      return accumulator;
+    }, {}),
+    synthetic_ids: noteRegistry
+      .filter((note) => (note.validation_issues ?? []).includes("missing_frontmatter_id"))
+      .map((note) => note.path),
+    legacy_type_normalizations: noteRegistry
+      .filter(
+        (note) =>
+          !!note.legacy_type &&
+          note.legacy_type.trim().toLowerCase() !== note.type,
+      )
+      .map((note) => ({
+        path: note.path,
+        from: note.legacy_type ?? "unknown",
+        to: note.type,
+      })),
+    status_normalizations: noteRegistry
+      .filter(
+        (note) =>
+          !!note.legacy_status &&
+          (note.validation_issues ?? []).includes("legacy_status_normalized"),
+      )
+      .map((note) => ({
+        path: note.path,
+        from: note.legacy_status ?? "unknown",
+        to: note.status,
+      })),
+    unresolved_links: unresolvedLinks,
+    validation_warnings: buildValidationWarnings(noteRegistry),
   };
 }

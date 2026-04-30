@@ -1121,13 +1121,6 @@ function buildLexicalIndex(chunks: ChunkIndexEntry[]) {
   return terms;
 }
 
-function countBy(items: string[]) {
-  return items.reduce<Record<string, number>>((accumulator, item) => {
-    accumulator[item] = (accumulator[item] ?? 0) + 1;
-    return accumulator;
-  }, {});
-}
-
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const vaultPath = path.resolve(options.vaultPath);
@@ -1197,7 +1190,8 @@ async function main() {
   );
 
   const chunkIndex = chunks.map(createChunkIndexEntry);
-  const { buildNoteRegistryArtifacts } = await noteRegistryModulePromise;
+  const { buildDiagnosticsReport, buildNoteRegistryArtifacts } =
+    await noteRegistryModulePromise;
   const { noteRegistry, graph, unresolvedLinks } = buildNoteRegistryArtifacts({
     notes,
     chunkIndex,
@@ -1213,56 +1207,12 @@ async function main() {
 
   const lexicalIndex = buildLexicalIndex(chunkIndex);
   const repoSlug = notes.find((note) => note.repoSlug)?.repoSlug ?? null;
-  const validationWarnings = notes.flatMap((note) => {
-    const warnings: string[] = [];
-
-    if (note.syntheticId) {
-      warnings.push(`${note.path}: missing frontmatter id; generated ${note.id}`);
-    }
-
-    if (!note.summary) {
-      warnings.push(`${note.path}: missing summary`);
-    }
-
-    return warnings;
+  const diagnostics: DiagnosticsReport = buildDiagnosticsReport({
+    generatedAt,
+    noteRegistry,
+    repoSlug,
+    unresolvedLinks,
   });
-  const diagnostics: DiagnosticsReport = {
-    schema_version: 2,
-    generated_at: generatedAt,
-    repo_slug: repoSlug,
-    notes: noteRegistry.length,
-    chunks: chunkIndex.length,
-    notes_by_type: countBy(noteRegistry.map((note) => note.type)),
-    notes_by_status: countBy(noteRegistry.map((note) => note.status)),
-    synthetic_ids: notes
-      .filter((note) => note.syntheticId)
-      .map((note) => note.path),
-    legacy_type_normalizations: notes
-      .filter(
-        (note) =>
-          !!note.legacyType &&
-          note.legacyType.trim().toLowerCase() !== note.type,
-      )
-      .map((note) => ({
-        path: note.path,
-        from: note.legacyType ?? "unknown",
-        to: note.type,
-      })),
-    status_normalizations: notes
-      .filter(
-        (note) =>
-          !!note.legacyStatus &&
-          normalizeStatusAlias(note.legacyStatus.trim().toLowerCase(), note.type) !==
-            note.legacyStatus.trim().toLowerCase(),
-      )
-      .map((note) => ({
-        path: note.path,
-        from: note.legacyStatus ?? "unknown",
-        to: note.status,
-      })),
-    unresolved_links: unresolvedLinks,
-    validation_warnings: validationWarnings,
-  };
   const combinedContentHash = createHashValue(
     JSON.stringify({
       noteRegistry,
