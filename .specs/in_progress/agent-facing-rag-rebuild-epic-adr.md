@@ -1,14 +1,14 @@
 # Agent-Facing Specification and ADR: Rebuild Repository RAG as a Typed, Self-Cleaning Memory System
 
-**Repository:** `mortenbroesby/playground`  
-**Target package:** `tools/obsidian-memory`  
-**Primary source of truth:** `vault/`  
-**Generated retrieval output:** `.rag/`  
-**Document type:** Overarching agent implementation spec + epic + ADR  
-**Status:** Proposed  
-**Owner:** Morten + repo agents  
-**Created:** 2026-04-30  
-**Development model:** Spec-driven development + TDD  
+**Repository:** `mortenbroesby/playground`
+**Target package:** `tools/obsidian-memory`
+**Primary source of truth:** `vault/`
+**Generated retrieval output:** `.rag/`
+**Document type:** Overarching agent implementation spec + epic + ADR
+**Status:** Proposed
+**Owner:** Morten + repo agents
+**Created:** 2026-04-30
+**Development model:** Spec-driven development + TDD
 
 ---
 
