@@ -700,50 +700,6 @@ function lexicalSearch(input) {
       score += exact.score;
       reasons.push(...exact.reasons);
 
-      if (expectedNoteTypes.includes(doc.noteType)) {
-        score += maybePushReason(
-          reasons,
-          true,
-          `plan-type:${doc.noteType}`,
-          (DEFAULT_NOTE_TYPE_BOOSTS[doc.noteType] ?? 0) + 8,
-        );
-      } else if (expectedNoteTypes.length > 0) {
-        score -= 4;
-        reasons.push("plan-type:mismatch");
-      } else {
-        score += DEFAULT_NOTE_TYPE_BOOSTS[doc.noteType] ?? 0;
-      }
-
-      score += DEFAULT_STATUS_BOOSTS[doc.status] ?? 0;
-      if (DEFAULT_STATUS_BOOSTS[doc.status]) {
-        reasons.push(`status:${doc.status}`);
-      }
-
-      const recencyBoost = shouldUseRecencyBoost(queryPlan, doc)
-        ? applyRecencyBoost(doc)
-        : 0;
-      if (recencyBoost > 0) {
-        score += recencyBoost;
-        reasons.push(`recency:${doc.noteType}`);
-      }
-
-      if (doc.validationStatus === "warning" && integrityMode === "prefer-healthy") {
-        score -= 3;
-        reasons.push("integrity:warning");
-      }
-
-      if (doc.validationStatus === "warning" && integrityMode === "prefer-warning") {
-        score += 3;
-        reasons.push("integrity:prefer-warning");
-      }
-
-      if (
-        queryPlan.routing?.allowArchived &&
-        (doc.status === "archived" || doc.status === "superseded")
-      ) {
-        reasons.push("route:archive");
-      }
-
       if (score === 0) {
         return null;
       }
@@ -766,6 +722,7 @@ function lexicalSearch(input) {
 
 function graphSearch(input) {
   const queryPlan = input.queryPlan ?? createQueryPlan(input.query);
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
 
   if (queryPlan.routing?.useGraphExpansion === false) {
     return [];
@@ -779,17 +736,21 @@ function graphSearch(input) {
     return [];
   }
 
-  return lexicalCandidates
-    .map((candidate) => {
+  return filterMemoryCorpus(input.corpus, {
+    ...input,
+    integrityMode,
+    queryPlan,
+  })
+    .map((doc) => {
       const reasons = ["route:graph"];
       let graphScore = 0;
 
-      if (seedNoteIds.has(candidate.noteId)) {
+      if (seedNoteIds.has(doc.noteId)) {
         return null;
       }
 
       const distances = [...seedNoteIds]
-        .map((seedNoteId) => candidate.graphLookup.get(seedNoteId))
+        .map((seedNoteId) => doc.graphLookup.get(seedNoteId))
         .filter((distance) => Number.isFinite(distance))
         .sort((left, right) => left - right);
       const graphDistance = distances[0];
@@ -807,23 +768,23 @@ function graphSearch(input) {
       }
 
       return {
-        chunkId: candidate.chunkId,
-        noteId: candidate.noteId,
-        sourceFile: candidate.sourceFile,
-        sourcePath: candidate.sourcePath,
-        heading: candidate.heading,
-        noteType: candidate.noteType,
-        status: candidate.status,
-        repoSlug: candidate.repoSlug,
-        tags: candidate.tags,
-        keywords: candidate.keywords,
-        summary: candidate.summary,
-        title: candidate.title,
-        validationStatus: candidate.validationStatus ?? "ok",
-        validationIssues: [...(candidate.validationIssues ?? [])],
+        chunkId: doc.chunkId,
+        noteId: doc.noteId,
+        sourceFile: doc.sourceFile,
+        sourcePath: doc.sourcePath,
+        heading: doc.heading,
+        noteType: doc.noteType,
+        status: doc.status,
+        repoSlug: doc.repoSlug,
+        tags: doc.tags,
+        keywords: doc.keywords,
+        summary: doc.summary,
+        title: doc.title,
+        validationStatus: doc.validationStatus ?? "ok",
+        validationIssues: [...(doc.validationIssues ?? [])],
         score: graphScore,
         matchReasons: [...reasons, "source:graph"],
-        text: candidate.text,
+        text: doc.text,
         retrievalSources: ["graph"],
       };
     })
@@ -998,6 +959,82 @@ function mergeRetrievalCandidates(input) {
   });
 }
 
+function rerankFusedCandidates(input) {
+  const queryPlan = input.queryPlan ?? createQueryPlan(input.query);
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
+  const expectedNoteTypes =
+    queryPlan.classification?.preferredNoteTypes ?? queryPlan.expectedNoteTypes ?? [];
+
+  return input.candidates
+    .map((candidate) => {
+      let score = candidate.score;
+      const reasons = [...candidate.matchReasons];
+
+      if (expectedNoteTypes.includes(candidate.noteType)) {
+        score += maybePushReason(
+          reasons,
+          true,
+          `plan-type:${candidate.noteType}`,
+          (DEFAULT_NOTE_TYPE_BOOSTS[candidate.noteType] ?? 0) + 8,
+        );
+      } else if (expectedNoteTypes.length > 0) {
+        score -= 4;
+        reasons.push("plan-type:mismatch");
+      } else {
+        const noteTypeBoost = DEFAULT_NOTE_TYPE_BOOSTS[candidate.noteType] ?? 0;
+        if (noteTypeBoost !== 0) {
+          score += noteTypeBoost;
+          reasons.push(`note-type:${candidate.noteType}`);
+        }
+      }
+
+      score += DEFAULT_STATUS_BOOSTS[candidate.status] ?? 0;
+      if (DEFAULT_STATUS_BOOSTS[candidate.status]) {
+        reasons.push(`status:${candidate.status}`);
+      }
+
+      const recencyBoost = shouldUseRecencyBoost(queryPlan, candidate)
+        ? applyRecencyBoost(candidate)
+        : 0;
+      if (recencyBoost > 0) {
+        score += recencyBoost;
+        reasons.push(`recency:${candidate.noteType}`);
+      }
+
+      if (candidate.validationStatus === "warning" && integrityMode === "prefer-healthy") {
+        score -= 3;
+        reasons.push("integrity:warning");
+      }
+
+      if (candidate.validationStatus === "warning" && integrityMode === "prefer-warning") {
+        score += 3;
+        reasons.push("integrity:prefer-warning");
+      }
+
+      if (
+        queryPlan.routing?.allowArchived &&
+        (candidate.status === "archived" || candidate.status === "superseded")
+      ) {
+        reasons.push("route:archive");
+      }
+
+      return {
+        ...candidate,
+        score: Number(score.toFixed(3)),
+        matchReasons: dedupeReasons(reasons),
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        (right.scoreBreakdown?.fused ?? 0) - (left.scoreBreakdown?.fused ?? 0) ||
+        (right.vectorSimilarity ?? 0) - (left.vectorSimilarity ?? 0) ||
+        left.sourceFile.localeCompare(right.sourceFile) ||
+        left.heading.localeCompare(right.heading),
+    )
+    .slice(0, input.limit ?? 5);
+}
+
 export function vectorSearch(input) {
   const query = input.query.trim();
   const limit = input.limit ?? 5;
@@ -1096,8 +1133,7 @@ export function vectorSearch(input) {
 export function retrieveMemoryCandidates(input) {
   const { lexicalCandidates, graphCandidates } = rerankMemoryCandidates(input);
   const vectorCandidates = vectorSearch(input);
-
-  return mergeRetrievalCandidates({
+  const fusedCandidates = mergeRetrievalCandidates({
     query: input.query,
     lexicalCandidates,
     vectorCandidates,
@@ -1105,6 +1141,16 @@ export function retrieveMemoryCandidates(input) {
     vectorState: vectorCandidates.state,
     limit: input.limit ?? 5,
   });
+
+  const reranked = rerankFusedCandidates({
+    query: input.query,
+    queryPlan: input.queryPlan,
+    integrityMode: input.integrityMode,
+    candidates: fusedCandidates,
+    limit: input.limit ?? 5,
+  });
+
+  return annotateCollection(reranked, "retrieval", fusedCandidates.retrieval);
 }
 
 /**

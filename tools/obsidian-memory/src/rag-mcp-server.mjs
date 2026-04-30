@@ -253,7 +253,7 @@ async function contextMemory(args) {
 
   if (chunks.length === 0) {
     return searchMemory({
-      query: `repo home active focus architecture ${repoSlug}`,
+      query: `architecture spec plan memory ${repoSlug}`,
       limit: 5,
       repo_slug: repoSlug,
     });
