@@ -20,11 +20,11 @@ npx @mortenbroesby/astrograph mcp
 The canonical implementation plan is
 `.specs/astrograph-repo-extraction-spec.md`.
 
-The standalone repository has been bootstrapped and pushed. `playground`
-consumes the sibling checkout through:
+The standalone repository has been bootstrapped, pushed, and published.
+`playground` consumes the npm package through:
 
 ```json
-"@mortenbroesby/astrograph": "link:../astrograph"
+"@mortenbroesby/astrograph": "0.1.0-alpha.59"
 ```
 
 Normal agent MCP startup should use the package invocation instead of the
@@ -58,9 +58,7 @@ resolves package dependencies during `pnpm add`.
 
 ## Next Work
 
-- Publish `@mortenbroesby/astrograph` after npm trusted publishing is
-  configured.
-- Replace the local `link:../astrograph` dependency with the published package
-  after the first release.
+- Run the first tag-driven trusted-publishing release after npm trusted
+  publishing is configured.
 - Keep new Astrograph implementation and packaging follow-ups in
   `../astrograph`, not in removed `tools/ai-context-engine` playground paths.

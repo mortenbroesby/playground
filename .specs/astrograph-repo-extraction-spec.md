@@ -17,7 +17,7 @@ Target npm package:
 
 ## Current State
 
-Astrograph now has the core shape of a standalone package:
+Astrograph now has the core shape of a published standalone package:
 
 - package metadata and build entrypoints live in the sibling checkout at
   `../astrograph`
@@ -25,14 +25,12 @@ Astrograph now has the core shape of a standalone package:
 - the installer exists in `../astrograph/scripts/install.mjs`
 - package-local tests and package smoke coverage already exist
 
-`playground` consumes the sibling checkout through
-`@mortenbroesby/astrograph: link:../astrograph`.
+`playground` consumes the published npm package
+`@mortenbroesby/astrograph`.
 
 The main extraction blockers are:
 
-- publishing still needs npm trusted publishing setup outside this repo
-- the `playground` dependency still uses a local sibling link until the package
-  is published
+- tag-driven npm trusted publishing still needs a live release-workflow test
 - historical specs, benchmark corpora, and vault notes still contain old
   `tools/ai-context-engine` paths where they describe earlier work
 
@@ -231,7 +229,7 @@ Completed package phase before consumer cutover:
 - `pnpm --dir ../astrograph test`
 - `pnpm --dir ../astrograph test:package-bin`
 
-Playground consumer phase after local standalone linking:
+Playground consumer phase after npm package cutover:
 
 - `CI=1 pnpm install --frozen-lockfile`
 - `pnpm list @mortenbroesby/astrograph --depth 0`
@@ -267,7 +265,6 @@ Playground cutover phase:
 - Node `>=24` is the intended public runtime. Bun was an implementation
   artifact of the removed local observability server and is not part of the
   package support policy.
-- During migration, should `playground` consume Astrograph via published npm
-  versions, linked checkout, or tarball installs?
+- `playground` now consumes Astrograph via the published npm package.
 - Should release automation stay with the default simple GitHub Actions and npm
   trusted publishing flow, or adopt a heavier versioning tool later?

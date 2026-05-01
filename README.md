@@ -55,8 +55,7 @@ The microfrontend boundary is still present, but it is intentionally narrower no
 
 Alongside the product surfaces, the monorepo also wires local agent tooling:
 
-- `@mortenbroesby/astrograph` from the sibling standalone repository for local
-  indexed code retrieval
+- `@mortenbroesby/astrograph` from npm for local indexed code retrieval
 - `@playground/obsidian-memory` for repo-local architecture and decision memory
 
 ## Features
