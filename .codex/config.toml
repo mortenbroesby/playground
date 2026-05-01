@@ -20,6 +20,8 @@ approval_mode = "approve"
 [features]
 codex_hooks = true
 multi_agent = true
+
+# BEGIN ASTROGRAPH
 [mcp_servers.astrograph]
 command = "npx"
 args = ["@mortenbroesby/astrograph", "mcp"]
@@ -50,3 +52,4 @@ approval_mode = "approve"
 
 [mcp_servers.astrograph.tools.diagnostics]
 approval_mode = "approve"
+# END ASTROGRAPH

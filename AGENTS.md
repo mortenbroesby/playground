@@ -17,25 +17,18 @@ Thin bootstrap for coding agents in this repo.
 - `packages/ui/`, `packages/types/`, `packages/config/`: shared UI, contracts,
   and tooling.
 
-## Navigation
+## Code Exploration Policy
 
-- Use Astrograph MCP as the current default for code navigation.
-- Start with `query_code`, then prefer `get_repo_outline`, `get_file_outline`,
-  `get_file_tree` before broad file reads.
+Prefer Astrograph MCP tools for code exploration before falling back to raw file reads or shell search.
+
+- Start with `get_project_status` for the current repository; if the index is missing or stale, run `index_folder`.
+- Before reading a file, use `get_file_outline`, `get_file_summary`, or `query_code` with source intent.
+- Before searching broadly, use `query_code`, `find_files`, or `search_text`.
+- Before exploring structure, use `get_file_tree` or `get_repo_outline`.
+- Use raw file reads or shell search only when Astrograph cannot answer the question or when debugging Astrograph itself.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
-
-## Code Exploration Policy
-
-- Use Astrograph MCP tools for code navigation instead of broad `Read`,
-  `Grep`, `Glob`, or shell exploration.
-- Exception: use `Read` when you need exact file content for an edit, because
-  the harness expects a read before write-style file changes.
-- If a search result returns strong negative evidence, do not keep re-searching
-  with random variations hoping the implementation exists. Report the gap.
-- After edits, keep the same flow clean; avoid broad shell reads and target
-  specific tool paths.
 
 ## Hooks And Rules
 
