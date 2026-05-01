@@ -24,7 +24,7 @@ The standalone repository has been bootstrapped, pushed, and published.
 `playground` consumes the npm package through:
 
 ```json
-"@mortenbroesby/astrograph": "0.1.0-alpha.59"
+"@mortenbroesby/astrograph": "latest"
 ```
 
 Normal agent MCP startup should use the package invocation instead of the

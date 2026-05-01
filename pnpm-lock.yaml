@@ -13,7 +13,7 @@ importers:
         version: 0.41.4
     devDependencies:
       '@mortenbroesby/astrograph':
-        specifier: 0.1.0-alpha.59
+        specifier: latest
         version: 0.1.0-alpha.59(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)
       husky:
         specifier: ^9.1.7
