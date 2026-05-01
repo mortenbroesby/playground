@@ -180,7 +180,6 @@ non-playing state.
 
 Useful repo-level tooling commands:
 
-- `pnpm astrograph:refresh` refreshes the Astrograph index planner for the repo
 - `pnpm rag:index` refreshes the Obsidian memory index
 - `pnpm agents:check` validates expected local agent setup
 

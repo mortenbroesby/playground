@@ -60,9 +60,8 @@ runtime supports it.
 
 ## Astrograph Bootstrap
 
-- `SessionStart` best-effort ensures one detached repo-local
-  Astrograph watcher is running through the installed
-  `@mortenbroesby/astrograph` package.
+- `SessionStart` best-effort ensures one detached repo-local Astrograph watcher
+  is running through the installed `@mortenbroesby/astrograph` package.
 - The hook only checks or launches the watcher, then returns immediately.
 - The watcher owns initial indexing and incremental refresh.
 - Default session-start context stays intentionally small.

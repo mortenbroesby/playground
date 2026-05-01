@@ -48,8 +48,7 @@ Consumer-cutover checks:
 
 - `CI=1 pnpm install --frozen-lockfile`
 - `pnpm list @mortenbroesby/astrograph --depth 0`
-- `pnpm exec astrograph cli diagnostics --repo .`
-- `npx --no-install @mortenbroesby/astrograph cli diagnostics --repo .`
+- `astrograph cli diagnostics --repo .`
 - `pnpm agents:check`
 - `pnpm exec markdownlint-cli2 README.md vault/00\ Repositories/playground/04\ Tasks/Extract\ Astrograph\ To\ Standalone\ Repo.md .specs/astrograph-repo-extraction-spec.md`
 

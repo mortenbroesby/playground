@@ -1,2 +1,2 @@
 node scripts/prepush-checks.mjs || exit 1
-pnpm exec astrograph git-refresh push >/dev/null 2>&1 || true
+command -v astrograph >/dev/null 2>&1 && astrograph git-refresh push
