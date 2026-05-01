@@ -21,8 +21,7 @@ keywords:
 links:
   parents: []
   children: []
-  related:
-    - "vault/00 Repositories/playground/04 Tasks/Extract Astrograph To Standalone Repo.md"
+  related: []
   supersedes: []
   superseded_by: []
 retention:
