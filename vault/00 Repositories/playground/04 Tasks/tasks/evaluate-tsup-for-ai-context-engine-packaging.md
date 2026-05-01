@@ -3,7 +3,7 @@ id: "evaluate-tsup-for-ai-context-engine-packaging"
 type: "todo"
 repo_slug: "playground"
 title: "Evaluate Astrograph packaging in the standalone repo"
-status: "superseded"
+status: "archived"
 created: "2026-04-29"
 updated: "2026-05-01"
 owner: "morten"
@@ -15,8 +15,7 @@ links:
   children: []
   related: []
   supersedes: []
-  superseded_by:
-    - "Extract Astrograph To Standalone Repo"
+  superseded_by: []
 retention:
   review_after: "2026-05-29"
   expires_after: null
