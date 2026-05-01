@@ -11,6 +11,8 @@ Queue:
 
 ↳ <https://dev.to/georgekobaidze/15-essential-sections-every-readme-needs-give-your-project-what-it-deserves-fie>
 
+- https://www.npmjs.com/package/@clack/prompts
+
 ↳ I prefer if we lean on how jcodemunch inits, without rewriting to python. jcodemunch-mcp init
     --yes global --hooks --index --audit
 
