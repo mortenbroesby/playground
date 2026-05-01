@@ -1,10 +1,21 @@
+<!-- markdownlint-disable MD022 MD032 -->
+
 # ai-code-context-engine-spec.md
 
 ## Status
 
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from the in-tree engine work.
+
+Historical source note: this spec describes the pre-extraction private
+workspace that became Astrograph. Current Astrograph source lives in
+`../astrograph` and is consumed as `@mortenbroesby/astrograph`; `ai-context-engine`
+is now compatibility-bin terminology only.
+
 Last checked against the repo on 2026-04-15.
 
-Implemented now:
+Implemented before extraction:
+
 - repo-local SQLite storage in WAL mode with sidecars and persisted content blobs
 - Tree-sitter parsing for `ts`, `tsx`, `js`, and `jsx`
 - repo/file discovery tools, symbol/text search, exact source retrieval, context bundles, CLI, and MCP
@@ -13,6 +24,7 @@ Implemented now:
 - configurable doc-comment-first summaries with signature-only fallback and diagnostics metadata
 
 Still future:
+
 - worktree-aware indexing
 - richer relationship and impact tools
 - fuzzy, centrality-aware, and semantic ranking

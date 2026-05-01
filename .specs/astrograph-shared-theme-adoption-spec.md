@@ -10,6 +10,9 @@ the playground workspace. Current Astrograph source lives in `../astrograph`
 and is consumed as `@mortenbroesby/astrograph`; `tools/ai-context-engine` paths
 below are retained only as historical source pointers.
 
+The Bun-backed observability viewer described below was removed from core and
+is not an active target; Node `>=24` is the current public runtime baseline.
+
 ## Objective
 
 Adopt the existing shared `@playground/ui` theme in Astrograph's observability

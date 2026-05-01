@@ -10,6 +10,10 @@ Historical source note: this spec describes the pre-extraction
 `../astrograph` and is consumed as `@mortenbroesby/astrograph`; `ai-context-engine`
 is now compatibility-bin terminology only.
 
+The websocket-backed observability server described below was superseded by the
+extraction cleanup and is not an active target; Node `>=24` is the current
+public runtime baseline.
+
 Checked against the repo on 2026-04-26.
 
 At the last pre-extraction check, the local implementation included:
