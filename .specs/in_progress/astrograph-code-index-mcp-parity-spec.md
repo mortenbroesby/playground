@@ -96,10 +96,11 @@ advantages.
 
 ## Current Astrograph Strengths To Preserve
 
-Astrograph already has important strengths documented in
-[tools/ai-context-engine/README.md](../../tools/ai-context-engine/README.md)
-and
-[tools/ai-context-engine/docs/performance.md](../../tools/ai-context-engine/docs/performance.md):
+Astrograph already has important strengths documented in the standalone
+repository:
+
+- [Astrograph README](https://github.com/mortenbroesby/astrograph)
+- [performance docs](https://github.com/mortenbroesby/astrograph/blob/main/docs/performance.md)
 
 - repo-local SQLite-backed index state
 - exact symbol and source retrieval
@@ -580,9 +581,9 @@ Product-level verification for implementation should include:
 
 Implementation checks should eventually include at least:
 
-- `pnpm --filter @mortenbroesby/astrograph type-check`
-- `pnpm --filter @mortenbroesby/astrograph test`
-- `pnpm --filter @mortenbroesby/astrograph test:package-bin`
+- `pnpm --dir ../astrograph type-check`
+- `pnpm --dir ../astrograph test`
+- `pnpm --dir ../astrograph test:package-bin`
 
 ## Open Questions
 

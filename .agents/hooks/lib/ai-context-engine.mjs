@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { closeSync, openSync } from 'node:fs';
 import { existsSync } from 'node:fs';
+import { realpathSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -8,6 +9,16 @@ function resolveAiContextEngineInvocation(projectRoot) {
   const localBin = path.join(projectRoot, 'node_modules', '.bin', 'astrograph');
 
   if (existsSync(localBin)) {
+    const packageRoot = path.resolve(path.dirname(realpathSync(localBin)), '..');
+    const distCli = path.join(packageRoot, 'dist', 'cli.js');
+
+    if (existsSync(distCli)) {
+      return {
+        command: process.execPath,
+        prefixArgs: [distCli],
+      };
+    }
+
     return {
       command: localBin,
       prefixArgs: [],

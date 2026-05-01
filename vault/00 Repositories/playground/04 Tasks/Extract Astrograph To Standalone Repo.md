@@ -2,17 +2,15 @@
 
 ## Status
 
-Phase 4 in progress.
+Phase 5 in progress.
 
 ## Context
 
-Astrograph is being extracted from `tools/ai-context-engine` into the standalone
-repository `https://github.com/mortenbroesby/astrograph` and will publish as
+Astrograph has been extracted into the standalone repository
+`https://github.com/mortenbroesby/astrograph` and will publish as
 `@mortenbroesby/astrograph`.
 
-The playground workspace package has been renamed to the target package name,
-made self-contained with a package-local `tsconfig.base.json`, and the Codex
-installer now emits the portable package invocation:
+The standalone package emits the portable MCP invocation:
 
 ```sh
 npx @mortenbroesby/astrograph mcp
@@ -21,8 +19,8 @@ npx @mortenbroesby/astrograph mcp
 The canonical implementation plan is
 `.specs/astrograph-repo-extraction-spec.md`.
 
-The standalone repository has been bootstrapped and pushed. During the consumer
-cutover, `playground` consumes the sibling checkout through:
+The standalone repository has been bootstrapped and pushed. `playground`
+consumes the sibling checkout through:
 
 ```json
 "@mortenbroesby/astrograph": "link:../astrograph"
@@ -37,12 +35,12 @@ npx @mortenbroesby/astrograph mcp
 
 ## Verification
 
-Previous package-in-workspace checks:
+Standalone package checks, after removing the in-tree copy:
 
-- `pnpm --filter @mortenbroesby/astrograph build`
-- `pnpm --filter @mortenbroesby/astrograph type-lint`
-- `pnpm --filter @mortenbroesby/astrograph test`
-- `pnpm --filter @mortenbroesby/astrograph test:package-bin`
+- `pnpm --dir ../astrograph build`
+- `pnpm --dir ../astrograph type-lint`
+- `pnpm --dir ../astrograph test`
+- `pnpm --dir ../astrograph test:package-bin`
 - `pnpm exec markdownlint-cli2 .specs/astrograph-repo-extraction-spec.md .specs/in_progress/astrograph-code-index-mcp-parity-spec.md`
 
 Consumer-cutover checks:
@@ -59,7 +57,8 @@ resolves package dependencies during `pnpm add`.
 
 ## Next Work
 
-- Verify all normal playground agent workflows use the linked standalone
-  package.
-- Remove the in-tree `tools/ai-context-engine` workspace in Phase 5 after the
-  linked consumer path is proven.
+- Verify the in-tree Astrograph workspace removal.
+- Publish `@mortenbroesby/astrograph` after npm trusted publishing is
+  configured.
+- Replace the local `link:../astrograph` dependency with the published package
+  after the first release.

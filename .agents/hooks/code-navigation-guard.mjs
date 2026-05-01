@@ -39,7 +39,7 @@ function buildGuardReason() {
   return [
     'Use jcodemunch for code exploration.',
     'Start with `plan_turn`, then prefer `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and `get_file_tree` before broad file reads.',
-    'Use ai-context-engine (@astrograph) only as a fallback when jcodemunch lacks coverage or when you need diagnostics.',
+    'Use Astrograph (@mortenbroesby/astrograph; compatibility bin ai-context-engine) only as a fallback when jcodemunch lacks coverage or when you need diagnostics.',
     'Use direct file reads only for exact edit context or non-code support files.',
   ].join(' ');
 }

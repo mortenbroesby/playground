@@ -2,8 +2,8 @@
 
 ## Objective
 
-Extract `tools/ai-context-engine` from this monorepo into the standalone
-`astrograph` repository, rename the published package target to
+Extract Astrograph from this monorepo into the standalone `astrograph`
+repository, rename the published package target to
 `@mortenbroesby/astrograph`, and reach a state where the standalone repo can
 build, test, pack, install, and publish without depending on `playground`.
 
@@ -17,27 +17,24 @@ Target npm package:
 
 ## Current State
 
-Astrograph already has the core shape of a standalone package:
+Astrograph now has the core shape of a standalone package:
 
-- package metadata and build entrypoints live in
-  `tools/ai-context-engine/package.json`
+- package metadata and build entrypoints live in the sibling checkout at
+  `../astrograph`
 - CLI and MCP entrypoints are package-local
-- the installer already exists in `tools/ai-context-engine/scripts/install.mjs`
+- the installer exists in `../astrograph/scripts/install.mjs`
 - package-local tests and package smoke coverage already exist
 
-The current in-repo workspace package is filtered as
-`@mortenbroesby/astrograph`, matching the intended standalone package name.
+`playground` consumes the sibling checkout through
+`@mortenbroesby/astrograph: link:../astrograph`.
 
 The main extraction blockers are:
 
-- workspace-only package identity and metadata
-- tsconfig inheritance from `playground`
-- workspace-only dependencies such as `@playground/tsconfig`
-- repo-local invocation assumptions under `.agents`, `.codex`, and helper
-  scripts
-- benchmark and installer paths that assume `tools/ai-context-engine`
-- standalone repo metadata, docs, CI, release, and package smoke still need to
-  be created
+- publishing still needs npm trusted publishing setup outside this repo
+- the `playground` dependency still uses a local sibling link until the package
+  is published
+- historical specs, benchmark corpora, and vault notes still contain old
+  `tools/ai-context-engine` paths where they describe earlier work
 
 ## Target State
 
@@ -57,7 +54,7 @@ At the end of this effort:
 8. The standalone repo has its own CI, release automation, and contributor
    docs.
 9. `playground` consumes Astrograph as an external package and no longer
-   depends on `tools/ai-context-engine` existing in-tree.
+   depends on an in-tree Astrograph workspace.
 
 ## Non-Goals
 
@@ -93,8 +90,8 @@ Do not change scripts or tests in this phase.
 
 ### Phase 1: Package Identity And Self-Containment
 
-Make `tools/ai-context-engine` able to stand alone while it still lives inside
-`playground`.
+Make the old in-tree Astrograph package able to stand alone while it still
+lives inside `playground`.
 
 Required work:
 
@@ -158,7 +155,8 @@ Required work:
   checkout during migration
 - update Codex and Claude config to use the package invocation path
 - keep repo-local helper scripts only as consumer glue
-- stop assuming `tools/ai-context-engine` exists for normal agent workflows
+- stop assuming an in-tree Astrograph workspace exists for normal agent
+  workflows
 - leave playground-specific benchmark corpus files in `playground`
 
 ### Phase 5: Cleanup
@@ -168,8 +166,8 @@ playground consumer path are proven.
 
 Required work:
 
-- remove stale docs that point to `tools/ai-context-engine` as the source
-  package location
+- remove stale active docs that point to an in-tree Astrograph workspace as the
+  source package location
 - remove obsolete workspace references
 - keep compatibility wording for `ai-context-engine` only where it describes
   the bin alias
@@ -224,12 +222,12 @@ Spec-only phase:
 
 - `pnpm exec markdownlint-cli2 .specs/astrograph-repo-extraction-spec.md`
 
-Package phase inside `playground`:
+Completed package phase before consumer cutover:
 
-- `pnpm --filter @mortenbroesby/astrograph build`
-- `pnpm --filter @mortenbroesby/astrograph type-lint`
-- `pnpm --filter @mortenbroesby/astrograph test`
-- `pnpm --filter @mortenbroesby/astrograph test:package-bin`
+- `pnpm --dir ../astrograph build`
+- `pnpm --dir ../astrograph type-lint`
+- `pnpm --dir ../astrograph test`
+- `pnpm --dir ../astrograph test:package-bin`
 
 Playground consumer phase after local standalone linking:
 
@@ -238,6 +236,7 @@ Playground consumer phase after local standalone linking:
 - `pnpm exec astrograph cli diagnostics --repo .`
 - `npx --no-install @mortenbroesby/astrograph cli diagnostics --repo .`
 - `pnpm agents:check`
+- `pnpm exec markdownlint-cli2 README.md AGENTS.md CLAUDE.md .agents/rules/repo-workflow.md .specs/astrograph-repo-extraction-spec.md vault/00\ Repositories/playground/04\ Tasks/Extract\ Astrograph\ To\ Standalone\ Repo.md`
 
 Standalone repo phase:
 
@@ -254,7 +253,7 @@ Playground cutover phase:
 
 - root install succeeds
 - agent startup can find Astrograph through the package path
-- Codex MCP config starts Astrograph without `tools/ai-context-engine`
+- Codex MCP config starts Astrograph without an in-tree Astrograph workspace
 - markdown and docs checks pass for updated references
 
 ## Open Decisions

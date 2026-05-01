@@ -23,9 +23,10 @@ Thin bootstrap for coding agents in this repo.
 - Start with `plan_turn`, then prefer `search_symbols`, `search_text`,
   `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and
   `get_file_tree` before broad file reads.
-- Use `ai-context-engine` (`@astrograph`) only as a fallback when `jcodemunch`
-  lacks coverage or when you specifically need repo-local diagnostics or index
-  freshness confirmation.
+- Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
+  `ai-context-engine`) only as a fallback when `jcodemunch` lacks coverage or
+  when you specifically need repo-local diagnostics or index freshness
+  confirmation.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.

@@ -24,8 +24,9 @@ alwaysApply: true
   `get_context_bundle`, and `get_file_tree`.
 - Prefer the `jcodemunch` retrieval surfaces above before broad file reads or
   shell-based code scans.
-- Use `ai-context-engine` (`@astrograph`) only as a fallback when `jcodemunch`
-  lacks coverage or when you need repo-local diagnostics or freshness checks.
+- Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
+  `ai-context-engine`) only as a fallback when `jcodemunch` lacks coverage or
+  when you need repo-local diagnostics or freshness checks.
 - Use `get_file_outline` to inspect a file cheaply before opening it.
 - Use Astrograph `diagnostics` when you need freshness or watch-health
   confirmation before trusting the local Astrograph index.

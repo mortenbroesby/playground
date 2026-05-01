@@ -88,7 +88,8 @@ At a high level, the repo is split into four layers:
 2. `packages/remotes/*` holds domain-specific product surfaces that the host can mount or consume.
 3. `packages/ui`, `packages/types`, and `packages/config` provide the shared primitives and
    contracts that keep the workspace consistent.
-4. `tools/*` provides repo-owned agent infrastructure for code retrieval and durable memory.
+4. `tools/*` provides repo-owned agent infrastructure for durable memory; Astrograph is consumed
+   from the sibling standalone repository.
 
 Current route and package shape:
 
@@ -111,7 +112,6 @@ packages/
   types/                  Shared contracts between host and feature packages
   ui/                     Shared React UI primitives
 tools/
-  ai-context-engine/      Repo-owned local code retrieval engine
   obsidian-memory/        Repo-local memory indexing and retrieval tools
 docs/
   ideas/                  Lightweight roadmap and parking-lot notes
