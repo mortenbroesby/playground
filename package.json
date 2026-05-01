@@ -11,8 +11,6 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "dev:web": "node scripts/dev-web.mjs",
-    "astrograph:observability": "pnpm exec astrograph observability --repo .",
-    "astrograph:open": "pnpm exec astrograph open-observability --repo .",
     "astrograph:refresh": "pnpm exec astrograph git-refresh manual",
     "docs:check": "pnpm knowledge:check",
     "knowledge:check": "node scripts/check-knowledge-reminder.mjs",

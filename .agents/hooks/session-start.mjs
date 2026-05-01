@@ -3,10 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import {
-  ensureAiContextEngineObservability,
-  ensureAiContextEngineWatch,
-} from './lib/ai-context-engine.mjs';
+import { ensureAiContextEngineWatch } from './lib/ai-context-engine.mjs';
 import {
   getProjectRoot,
   isDirectEntrypoint,
@@ -76,7 +73,6 @@ export async function handleSessionStart(payload) {
   const dynamicContext = buildDynamicGitContext(cwd);
   const installReadiness = getInstallReadiness(cwd);
   let watchStatus = null;
-  let observabilityStatus = null;
 
   if (installReadiness.ready) {
     try {
@@ -88,14 +84,6 @@ export async function handleSessionStart(payload) {
       };
     }
 
-    try {
-      observabilityStatus = await ensureAiContextEngineObservability(cwd);
-    } catch (error) {
-      observabilityStatus = {
-        status: 'error',
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
   }
 
   const baseContext = [
@@ -115,10 +103,6 @@ export async function handleSessionStart(payload) {
 
   if (watchStatus?.status === 'error') {
     baseContext.push(`Astrograph watch bootstrap failed: ${watchStatus.message}`);
-  }
-
-  if (observabilityStatus?.status === 'error') {
-    baseContext.push(`Astrograph observability bootstrap failed: ${observabilityStatus.message}`);
   }
 
   return sessionContext(baseContext.join('\n'));

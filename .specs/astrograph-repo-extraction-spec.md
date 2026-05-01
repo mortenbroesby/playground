@@ -66,7 +66,8 @@ At the end of this effort:
 - publishing the package before release gates are in place
 - removing every historical `ai-context-engine` reference in one pass where a
   compatibility alias is still intentional
-- making observability part of the default install path
+- shipping the historical Bun-backed observability server as part of the core
+  package
 
 ## Implementation Phases
 
@@ -122,7 +123,8 @@ Required work:
 - keep installer scope to Codex only for this migration
 - ensure tarball smoke covers package install, CLI indexing, and installer dry
   run behavior
-- keep observability optional and out of the default install path
+- keep retained engine events local and privacy-safe without requiring Bun or a
+  bundled observability server
 
 ### Phase 3: Standalone Repo Bootstrap
 
@@ -130,8 +132,8 @@ Populate `mortenbroesby/astrograph` as the future source of truth.
 
 Required work:
 
-- move the package source, package-local docs, package tests, scripts,
-  observability app, and reusable bench harness
+- move the package source, package-local docs, package tests, scripts, and
+  reusable bench harness
 - do not move `playground` agent hooks, `.codex`, `.claude`, root scripts, or
   playground-specific benchmark corpora
 - add standalone root package metadata, lockfile, README, license, and
@@ -260,10 +262,11 @@ Playground cutover phase:
 
 - Should `bench/` reusable harness code move to the standalone repo in the
   first cut, or should it wait until path abstractions are cleaned up?
-- Should observability remain in the core package, or become a separate
-  package or optional app after extraction?
-- Is Node `>=24` plus Bun part of Astrograph's intended public support policy,
-  or only an artifact of current implementation choices?
+- Should a replacement observability UI become a separate optional package or
+  app after extraction?
+- Node `>=24` is the intended public runtime. Bun was an implementation
+  artifact of the removed local observability server and is not part of the
+  package support policy.
 - During migration, should `playground` consume Astrograph via published npm
   versions, linked checkout, or tarball installs?
 - Should release automation stay with the default simple GitHub Actions and npm

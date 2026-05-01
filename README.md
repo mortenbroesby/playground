@@ -66,7 +66,7 @@ Alongside the product surfaces, the monorepo also wires local agent tooling:
 - Workspace-mounted todo microfrontend with a deliberate host-to-remote contract
 - Host-local game surface that avoids forcing every feature through the remote seam
 - Shared UI, type, and config packages for reuse across workspaces
-- Repo-local tooling for code indexing, observability, and Obsidian-backed memory retrieval
+- Repo-local tooling for code indexing and Obsidian-backed memory retrieval
 - Markdown, workflow, and agent documentation kept in-repo instead of scattered externally
 
 ## Tech Stack
@@ -181,8 +181,7 @@ non-playing state.
 
 Useful repo-level tooling commands:
 
-- `pnpm astrograph:observability` starts Astrograph observability for the repo
-- `pnpm astrograph:open` opens the Astrograph observability helper
+- `pnpm astrograph:refresh` refreshes the Astrograph index planner for the repo
 - `pnpm rag:index` refreshes the Obsidian memory index
 - `pnpm agents:check` validates expected local agent setup
 
@@ -190,7 +189,7 @@ Useful repo-level tooling commands:
 
 - Do not commit `.env.local` files or credentials.
 - Keep Spotify credentials local to `apps/host/.env.local`.
-- Treat repo-owned memory and observability output as local workspace tooling, not a place to store
+- Treat repo-owned memory and index output as local workspace tooling, not a place to store
   secrets.
 - Leave generated output untouched: `dist/`, `.next/`, `.turbo/`, and `coverage/`.
 
