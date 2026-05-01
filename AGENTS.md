@@ -19,9 +19,8 @@ Thin bootstrap for coding agents in this repo.
 
 ## Navigation
 
-- Use `jcodemunch` as the current default for code navigation.
-- Start with `plan_turn`, then prefer `search_symbols`, `search_text`,
-  `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and
+- Use Astrograph MCP as the current default for code navigation.
+- Start with `query_code`, then prefer `get_repo_outline`, `get_file_outline`,
   `get_file_tree` before broad file reads.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
@@ -29,14 +28,14 @@ Thin bootstrap for coding agents in this repo.
 
 ## Code Exploration Policy
 
-- Use `jcodemunch` MCP tools for code navigation instead of broad `Read`,
+- Use Astrograph MCP tools for code navigation instead of broad `Read`,
   `Grep`, `Glob`, or shell exploration.
 - Exception: use `Read` when you need exact file content for an edit, because
   the harness expects a read before write-style file changes.
 - If a search result returns strong negative evidence, do not keep re-searching
   with random variations hoping the implementation exists. Report the gap.
-- After edits, prefer `register_edit` for the touched paths when you need to
-  keep the `jcodemunch` index fresh.
+- After edits, keep the same flow clean; avoid broad shell reads and target
+  specific tool paths.
 
 ## Hooks And Rules
 

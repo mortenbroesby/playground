@@ -18,11 +18,10 @@ alwaysApply: true
 
 ## Code Navigation
 
-- Use `jcodemunch` as the current default code retrieval path.
-- Start with `plan_turn` when you need route selection, then prefer
-  `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`,
-  `get_context_bundle`, and `get_file_tree`.
-- Prefer the `jcodemunch` retrieval surfaces above before broad file reads or
+- Use Astrograph as the default code retrieval path.
+- Start with `query_code`, then prefer `get_file_outline`, `get_file_tree`, and
+  `get_repo_outline`.
+- Prefer Astrograph retrieval surfaces above broad file reads or
   shell-based code scans.
 - Use `get_file_outline` to inspect a file cheaply before opening it.
 - Read files directly only when you need the exact file content for an edit or

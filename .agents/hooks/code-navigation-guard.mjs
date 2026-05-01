@@ -37,9 +37,8 @@ function isCodeLikePath(filePath) {
 
 function buildGuardReason() {
   return [
-    'Use jcodemunch for code exploration.',
-    'Start with `plan_turn`, then prefer `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and `get_file_tree` before broad file reads.',
-    'Use Astrograph (@mortenbroesby/astrograph; compatibility bin ai-context-engine) only as a fallback when jcodemunch lacks coverage or when you need diagnostics.',
+    'Use Astrograph for code exploration.',
+    'Start with `query_code`, then prefer `get_repo_outline`, `get_file_outline`, and `get_file_tree` before broad file reads.',
     'Use direct file reads only for exact edit context or non-code support files.',
   ].join(' ');
 }
@@ -111,7 +110,7 @@ export async function handleCodeNavigationGuard(payload) {
     const projectRoot = getProjectRoot(payload);
     if (shouldWarnOnRead(projectRoot, toolInput)) {
       return {
-        stderr: 'Large code read detected. Prefer jcodemunch first: `plan_turn`, `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and `get_file_tree`. Fall back to Astrograph only when jcodemunch lacks coverage or you need diagnostics. Targeted `Read` with `offset`/`limit` is fine.\n',
+        stderr: 'Large code read detected. Prefer Astrograph first: `plan_turn`, `query_code`, `get_repo_outline`, `get_file_outline`, and `get_file_tree`. Targeted `Read` with `offset`/`limit` is fine.\n',
       };
     }
   }

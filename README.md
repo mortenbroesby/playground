@@ -75,7 +75,7 @@ Alongside the product surfaces, the monorepo also wires local agent tooling:
 - `React` + `Vite` for app surfaces
 - `Vitest` for workspace tests
 - `ESLint`, `Prettier`, and `markdownlint-cli2` for code and docs hygiene
-- `jcodemunch-mcp` for indexed code navigation in local workflows
+- `Astrograph` for indexed code navigation in local workflows
 - `Obsidian` vault content plus local retrieval tooling for durable repo memory
 
 ## Architecture
