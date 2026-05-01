@@ -9,6 +9,11 @@ const {
 const path = require("node:path");
 const process = require("node:process");
 const { findProjectRoot } = require("workspace-tools");
+const deterministicEmbeddingsModulePromise = import(
+  "./deterministic-embeddings.mjs"
+);
+const memorySchemaModulePromise = import("./memory-schema.mjs");
+const noteRegistryModulePromise = import("./note-registry.mjs");
 
 type FrontmatterScalar = string | boolean | number | null;
 type FrontmatterList = FrontmatterScalar[];
@@ -74,6 +79,7 @@ type LinkGroups = {
 type RegistryNote = {
   id: string;
   type: NoteType;
+  repo_slug: string | null;
   path: string;
   title: string;
   status: NoteStatus;
@@ -82,6 +88,9 @@ type RegistryNote = {
   summary: string;
   tags: string[];
   keywords: string[];
+  chunk_ids: string[];
+  validation_status: "ok" | "warning";
+  validation_issues: string[];
   outbound_links: string[];
   inbound_links: string[];
   content_hash: string;
@@ -173,6 +182,8 @@ type IndexedNote = {
   legacyType: string | null;
   legacyStatus: string | null;
   syntheticId: boolean;
+  typeNormalized: boolean;
+  statusNormalized: boolean;
 };
 
 const repoRoot = findProjectRoot(__dirname, "pnpm");
@@ -225,6 +236,7 @@ const edgeTypeByLinkGroup: Record<keyof LinkGroups, GraphEdge["type"]> = {
 
 function parseArgs(argv: string[]) {
   const options = {
+    allowUnresolvedLinks: false,
     force: false,
     json: false,
     outputDir: defaultOutputDir,
@@ -241,6 +253,11 @@ function parseArgs(argv: string[]) {
 
     if (arg === "--json") {
       options.json = true;
+      continue;
+    }
+
+    if (arg === "--allow-unresolved-links") {
+      options.allowUnresolvedLinks = true;
       continue;
     }
 
@@ -792,17 +809,6 @@ function extractLinkGroups(frontmatter: Frontmatter): LinkGroups {
   };
 }
 
-function flattenLinkGroups(linkGroups: LinkGroups) {
-  return Array.from(
-    new Set(
-      Object.values(linkGroups)
-        .flat()
-        .map((value) => value.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
 function splitIntoHeadingChunks(body: string, documentTitle: string) {
   const lines = body.split(/\r?\n/);
   const chunks: { heading: string; headingLevel: 2 | 0; content: string }[] =
@@ -857,6 +863,47 @@ function splitIntoHeadingChunks(body: string, documentTitle: string) {
 
 function createSyntheticNoteId(relativeFile: string) {
   return `mem-${createShortHash(relativeFile)}`;
+}
+
+function hasStrictFrontmatterShape(frontmatter: Frontmatter) {
+  const requiredKeys = [
+    "id",
+    "type",
+    "repo_slug",
+    "title",
+    "status",
+    "created",
+    "updated",
+    "owner",
+    "summary",
+    "tags",
+    "keywords",
+    "links",
+    "retention",
+  ];
+
+  return requiredKeys.every((key) => Object.hasOwn(frontmatter, key));
+}
+
+function normalizeStrictFrontmatterCandidate(frontmatter: Frontmatter): Frontmatter {
+  const links = toObjectValue(frontmatter.links) ?? {};
+  const retention = toObjectValue(frontmatter.retention) ?? {};
+
+  return {
+    ...frontmatter,
+    links: {
+      parents: toStringArray(links.parents),
+      children: toStringArray(links.children),
+      related: toStringArray(links.related),
+      supersedes: toStringArray(links.supersedes),
+      superseded_by: toStringArray(links.superseded_by),
+    },
+    retention: {
+      review_after: toStringValue(retention.review_after),
+      expires_after: toStringValue(retention.expires_after),
+      keep: typeof retention.keep === "boolean" ? retention.keep : false,
+    },
+  };
 }
 
 function buildIndexedNote(input: {
@@ -926,11 +973,13 @@ function createChunk({
   content,
   heading,
   headingLevel,
+  chunkIndex,
   note,
 }: {
   content: string;
   heading: string;
   headingLevel: 2 | 0;
+  chunkIndex: number;
   note: IndexedNote;
 }): CorpusChunk {
   const chunkPath = `${note.path} § ${heading}`;
@@ -944,11 +993,14 @@ function createChunk({
     note.keywords.length > 0 ? `Keywords: ${note.keywords.join(", ")}` : null,
     note.summary ? `Summary: ${note.summary}` : null,
   ].filter(Boolean);
+  const text = `${metadataLines.join("\n")}\n\n${content.trim()}`.trim();
+  const contentHashPrefix = createHashValue(text).slice(0, 8);
+  const chunkId = `chunk:${note.id}:${chunkIndex.toString().padStart(4, "0")}:${contentHashPrefix}`;
 
   return {
-    id: createShortHash(chunkPath),
+    id: chunkId,
     note_id: note.id,
-    text: `${metadataLines.join("\n")}\n\n${content.trim()}`.trim(),
+    text,
     source_file: note.path,
     source_path: chunkPath,
     heading,
@@ -967,7 +1019,30 @@ async function parseMarkdownFile(vaultPath: string, filePath: string) {
   const fileStat = await stat(filePath);
   const relativeFile = path.relative(vaultPath, filePath).replace(/\\/g, "/");
   const rawContent = await readFile(filePath, "utf8");
-  const { body, frontmatter } = parseFrontmatter(rawContent);
+  const { parseMemoryMarkdown, validateFrontmatter } = await memorySchemaModulePromise;
+  const parsed = parseMemoryMarkdown({
+    path: `vault/${relativeFile}`,
+    content: rawContent,
+  });
+  const { body, frontmatter } = parsed.ok
+    ? parsed
+    : parsed.error.code === "frontmatter.missing_block"
+      ? { body: rawContent, frontmatter: {} }
+      : (() => {
+          throw new Error(`${parsed.error.code}: ${parsed.error.message}`);
+        })();
+
+  if (hasStrictFrontmatterShape(frontmatter)) {
+    const validation = validateFrontmatter(
+      normalizeStrictFrontmatterCandidate(frontmatter),
+    );
+
+    if (!validation.ok) {
+      const [firstError] = validation.errors;
+      throw new Error(`${firstError.code}: ${firstError.message}`);
+    }
+  }
+
   const fallbackDate = new Date(fileStat.mtimeMs).toISOString().slice(0, 10);
   const note = buildIndexedNote({
     fallbackDate,
@@ -978,11 +1053,12 @@ async function parseMarkdownFile(vaultPath: string, filePath: string) {
     mtimeMs: fileStat.mtimeMs,
   });
   const sections = splitIntoHeadingChunks(body, note.title);
-  const chunks = sections.map((section) =>
+  const chunks = sections.map((section, chunkIndex) =>
     createChunk({
       content: section.content,
       heading: section.heading,
       headingLevel: section.headingLevel,
+      chunkIndex,
       note,
     }),
   );
@@ -1048,73 +1124,38 @@ function buildLexicalIndex(chunks: ChunkIndexEntry[]) {
   return terms;
 }
 
-function buildGraphIndex(notes: RegistryNote[]) {
-  const noteIds = new Set(notes.map((note) => note.id));
-  const edges: GraphEdge[] = [];
-  const unresolvedLinks: DiagnosticsReport["unresolved_links"] = [];
-
-  for (const note of notes) {
-    const groupedLinks = (note as RegistryNote & { link_groups?: LinkGroups })
-      .link_groups;
-
-    if (!groupedLinks) {
-      continue;
-    }
-
-    const missingTargets = new Set<string>();
-
-    for (const [group, targets] of Object.entries(groupedLinks) as Array<
-      [keyof LinkGroups, string[]]
-    >) {
-      for (const target of targets) {
-        if (!noteIds.has(target)) {
-          missingTargets.add(target);
-          continue;
-        }
-
-        edges.push({
-          from: note.id,
-          to: target,
-          type: edgeTypeByLinkGroup[group],
-        });
-      }
-    }
-
-    if (missingTargets.size > 0) {
-      unresolvedLinks.push({
-        from: note.id,
-        targets: Array.from(missingTargets).sort((left, right) =>
-          left.localeCompare(right),
-        ),
-      });
-    }
-  }
-
-  edges.sort(
-    (left, right) =>
-      left.from.localeCompare(right.from) ||
-      left.to.localeCompare(right.to) ||
-      left.type.localeCompare(right.type),
-  );
+async function buildVectorIndex(input: {
+  chunkIndex: ChunkIndexEntry[];
+  generatedAt: string;
+  noteRegistry: RegistryNote[];
+}) {
+  const {
+    DETERMINISTIC_VECTOR_ENGINE,
+    buildChunkEmbeddingInput,
+    embedTextDeterministically,
+  } = await deterministicEmbeddingsModulePromise;
+  const notesById = new Map(input.noteRegistry.map((note) => [note.id, note]));
+  const embeddings = input.chunkIndex.map((chunk) => ({
+    chunk_id: chunk.chunk_id,
+    note_id: chunk.note_id,
+    values: embedTextDeterministically(
+      buildChunkEmbeddingInput({
+        note: notesById.get(chunk.note_id),
+        chunk,
+      }),
+      {
+        dimensions: DETERMINISTIC_VECTOR_ENGINE.dimensions,
+      },
+    ),
+  }));
 
   return {
-    graph: {
-      nodes: notes.map<GraphNode>((note) => ({
-        id: note.id,
-        type: note.type,
-        status: note.status,
-      })),
-      edges,
-    },
-    unresolvedLinks,
+    schema_version: 2,
+    generated_at: input.generatedAt,
+    status: "ready",
+    engine: DETERMINISTIC_VECTOR_ENGINE,
+    embeddings,
   };
-}
-
-function countBy(items: string[]) {
-  return items.reduce<Record<string, number>>((accumulator, item) => {
-    accumulator[item] = (accumulator[item] ?? 0) + 1;
-    return accumulator;
-  }, {});
 }
 
 async function main() {
@@ -1185,101 +1226,30 @@ async function main() {
       Object.keys(nextFiles).length,
   );
 
-  const registryWithLinks = notes.map((note) => ({
-    id: note.id,
-    type: note.type,
-    path: note.path,
-    title: note.title,
-    status: note.status,
-    created: note.created,
-    updated: note.updated,
-    summary: note.summary,
-    tags: note.tags,
-    keywords: note.keywords,
-    outbound_links: flattenLinkGroups(note.linkGroups),
-    inbound_links: [],
-    content_hash: note.contentHash,
-    mtime_ms: note.mtimeMs,
-    owner: note.owner,
-    legacy_type: note.legacyType,
-    legacy_status: note.legacyStatus,
-    link_groups: note.linkGroups,
-  }));
+  const chunkIndex = chunks.map(createChunkIndexEntry);
+  const { buildDiagnosticsReport, buildNoteRegistryArtifacts } =
+    await noteRegistryModulePromise;
+  const { noteRegistry, graph, unresolvedLinks } = buildNoteRegistryArtifacts({
+    notes,
+    chunkIndex,
+    edgeTypeByLinkGroup,
+  });
 
-  const notesById = new Map(registryWithLinks.map((note) => [note.id, note]));
-
-  for (const note of registryWithLinks) {
-    for (const target of note.outbound_links) {
-      if (notesById.has(target)) {
-        notesById.get(target)?.inbound_links.push(note.id);
-      }
-    }
+  if (unresolvedLinks.length > 0 && !options.allowUnresolvedLinks) {
+    const [firstUnresolvedLink] = unresolvedLinks;
+    throw new Error(
+      `links.target_missing: ${firstUnresolvedLink.from} references missing note ids ${firstUnresolvedLink.targets.join(", ")}`,
+    );
   }
 
-  const noteRegistry = registryWithLinks
-    .map<RegistryNote>((note) => ({
-      ...note,
-      inbound_links: Array.from(new Set(note.inbound_links)).sort((left, right) =>
-        left.localeCompare(right),
-      ),
-    }))
-    .map(({ link_groups: _linkGroups, ...note }) => note);
-  const chunkIndex = chunks.map(createChunkIndexEntry);
-  const { graph, unresolvedLinks } = buildGraphIndex(registryWithLinks as Array<
-    RegistryNote & { link_groups: LinkGroups }
-  >);
   const lexicalIndex = buildLexicalIndex(chunkIndex);
   const repoSlug = notes.find((note) => note.repoSlug)?.repoSlug ?? null;
-  const validationWarnings = notes.flatMap((note) => {
-    const warnings: string[] = [];
-
-    if (note.syntheticId) {
-      warnings.push(`${note.path}: missing frontmatter id; generated ${note.id}`);
-    }
-
-    if (!note.summary) {
-      warnings.push(`${note.path}: missing summary`);
-    }
-
-    return warnings;
+  const diagnostics: DiagnosticsReport = buildDiagnosticsReport({
+    generatedAt,
+    noteRegistry,
+    repoSlug,
+    unresolvedLinks,
   });
-  const diagnostics: DiagnosticsReport = {
-    schema_version: 2,
-    generated_at: generatedAt,
-    repo_slug: repoSlug,
-    notes: noteRegistry.length,
-    chunks: chunkIndex.length,
-    notes_by_type: countBy(noteRegistry.map((note) => note.type)),
-    notes_by_status: countBy(noteRegistry.map((note) => note.status)),
-    synthetic_ids: notes
-      .filter((note) => note.syntheticId)
-      .map((note) => note.path),
-    legacy_type_normalizations: notes
-      .filter(
-        (note) =>
-          !!note.legacyType &&
-          note.legacyType.trim().toLowerCase() !== note.type,
-      )
-      .map((note) => ({
-        path: note.path,
-        from: note.legacyType ?? "unknown",
-        to: note.type,
-      })),
-    status_normalizations: notes
-      .filter(
-        (note) =>
-          !!note.legacyStatus &&
-          normalizeStatusAlias(note.legacyStatus.trim().toLowerCase(), note.type) !==
-            note.legacyStatus.trim().toLowerCase(),
-      )
-      .map((note) => ({
-        path: note.path,
-        from: note.legacyStatus ?? "unknown",
-        to: note.status,
-      })),
-    unresolved_links: unresolvedLinks,
-    validation_warnings: validationWarnings,
-  };
   const combinedContentHash = createHashValue(
     JSON.stringify({
       noteRegistry,
@@ -1323,13 +1293,11 @@ async function main() {
     specs_to_archive: [],
     apply_generated_safe: true,
   };
-  const vectorIndex = {
-    schema_version: 2,
-    generated_at: generatedAt,
-    status: "not_configured",
-    engine: null,
-    embeddings: [],
-  };
+  const vectorIndex = await buildVectorIndex({
+    chunkIndex,
+    generatedAt,
+    noteRegistry,
+  });
   const summary = {
     files: markdownFiles.length,
     notes: noteRegistry.length,

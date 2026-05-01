@@ -4,7 +4,8 @@
   "private": true,
   "description": "Repo-local Obsidian memory indexing and retrieval tools",
   "dependencies": {
-    "workspace-tools": "^0.41.4"
+    "workspace-tools": "^0.41.4",
+    "yaml": "^2.8.3"
   },
   "scripts": {
     "obsidian:bootstrap": "node ./src/bootstrap-obsidian-vault.mjs",
