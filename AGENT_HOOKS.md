@@ -5,28 +5,32 @@ Shared hook policy for agent runtimes in `playground`.
 ## Goals
 
 - Keep code-exploration context small.
-- Prefer `ai-context-engine` over broad shell-based file discovery.
+- Prefer jcodemunch first, then Astrograph over broad shell-based file
+  discovery when indexed code retrieval is needed.
 - Keep destructive-command, secret, and generated-output protections active.
 
 ## Current policy
 
 - `PreToolUse` blocks broad code-exploration shortcuts through `Bash`, `Grep`,
-  and `Glob` and redirects the agent toward `ai-context-engine`.
+  and `Glob` and redirects the agent toward indexed retrieval.
 - `PreToolUse` warns on large untargeted `Read` calls for code files but does
   not block them, so edit flows still work.
-- `PostToolUse` best-effort reindexes edited code files through
-  a small `ai-context-engine` hook adapter.
-- `SessionStart` now bootstraps one repo-local `ai-context-engine` watch
-  process in the background so fresh indexing begins automatically and later
-  edits or external changes continue to flow into the local index.
+- `PostToolUse` best-effort reindexes edited code files through a small
+  Astrograph hook adapter.
+- `SessionStart` can bootstrap one repo-local Astrograph watch process in the
+  background so fresh indexing begins automatically and later edits or external
+  changes continue to flow into the local index.
 - `PreToolUse` separately blocks dangerous shell commands and protected writes.
 - `PostToolUse` audits edits through the existing shared hooks.
 
-## ai-context-engine-first flow
+## Indexed-Retrieval Flow
 
-1. `query_code`
-2. `get_file_outline`, `get_file_tree`, or `get_repo_outline`
-3. `diagnostics`
+1. Use jcodemunch for default code navigation.
+2. Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
+   `ai-context-engine`) when jcodemunch lacks coverage or diagnostics are
+   needed.
+3. Use Astrograph tools such as `query_code`, `get_file_outline`,
+   `get_file_tree`, `get_repo_outline`, and `diagnostics`.
 4. Direct file reads only for exact edit context or non-code support files
 
 Tool selection details live in

@@ -25,20 +25,19 @@ Keep this file loose:
   - <https://www.npmjs.com/package/@msgpack/msgpack>
   - <https://www.npmjs.com/package/ci-npm-update>
 
-- I would like to be able to release ai-context-engine to npm in an alpha
-  state, and then use the npm module in our repository. For that, we need a
-  spec. We need to mature the library enough to be able to release. For
-  example, i want the observability server to be optional. I want a config file
-  we can read at the root of the repo, if installed in a repo.
+- Release `@mortenbroesby/astrograph` from the standalone `../astrograph`
+  repository, then replace the playground `link:../astrograph` dependency with
+  the npm package after the first release. Keep the observability server
+  optional and preserve repo-root config loading for installed consumers.
 
-- Can we bind our ai context engine observability server to a url? So people
-  can remember it. I believe there are free options we can leverage.
+- Can we bind the Astrograph observability server to a memorable local URL?
+  There may be free options we can leverage.
 
 ### "TODOs"
 
 - Pull in relevant setup from superpowers.
-  - https://github.com/obra/superpowers/blob/main/skills/using-superpowers/SKILL.md
-  - https://github.com/obra/superpowers
+  - <https://github.com/obra/superpowers/blob/main/skills/using-superpowers/SKILL.md>
+  - <https://github.com/obra/superpowers>
 - Add unit tests for our hooks.
 - Setup smth like <https://github.com/cfngc4594/agent-notify>
 - Consider how we could use <https://github.com/tree-sitter/tree-sitter>
