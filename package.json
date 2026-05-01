@@ -47,7 +47,6 @@
     "prepare": "husky install"
   },
   "devDependencies": {
-    "@mortenbroesby/astrograph": "0.1.0-alpha.60",
     "husky": "^9.1.7",
     "markdownlint-cli2": "^0.17.0",
     "prettier": "^3.3.0",

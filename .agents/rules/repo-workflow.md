@@ -24,12 +24,7 @@ alwaysApply: true
   `get_context_bundle`, and `get_file_tree`.
 - Prefer the `jcodemunch` retrieval surfaces above before broad file reads or
   shell-based code scans.
-- Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
-  `ai-context-engine`) only as a fallback when `jcodemunch` lacks coverage or
-  when you need repo-local diagnostics or freshness checks.
 - Use `get_file_outline` to inspect a file cheaply before opening it.
-- Use Astrograph `diagnostics` when you need freshness or watch-health
-  confirmation before trusting the local Astrograph index.
 - Read files directly only when you need the exact file content for an edit or
   when a non-code support file is not represented in the index.
 - Avoid broad shell-based code scans when indexed retrieval can answer the

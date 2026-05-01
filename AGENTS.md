@@ -23,10 +23,6 @@ Thin bootstrap for coding agents in this repo.
 - Start with `plan_turn`, then prefer `search_symbols`, `search_text`,
   `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and
   `get_file_tree` before broad file reads.
-- Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
-  `ai-context-engine`) only as a fallback when `jcodemunch` lacks coverage or
-  when you specifically need repo-local diagnostics or index freshness
-  confirmation.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
@@ -37,8 +33,6 @@ Thin bootstrap for coding agents in this repo.
   `Grep`, `Glob`, or shell exploration.
 - Exception: use `Read` when you need exact file content for an edit, because
   the harness expects a read before write-style file changes.
-- Fall back to Astrograph only when `jcodemunch` cannot answer the question or
-  when you need `diagnostics` to confirm the local index state.
 - If a search result returns strong negative evidence, do not keep re-searching
   with random variations hoping the implementation exists. Report the gap.
 - After edits, prefer `register_edit` for the touched paths when you need to

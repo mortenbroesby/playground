@@ -55,7 +55,6 @@ The microfrontend boundary is still present, but it is intentionally narrower no
 
 Alongside the product surfaces, the monorepo also wires local agent tooling:
 
-- `@mortenbroesby/astrograph` from npm for local indexed code retrieval
 - `@playground/obsidian-memory` for repo-local architecture and decision memory
 
 ## Features
@@ -76,7 +75,7 @@ Alongside the product surfaces, the monorepo also wires local agent tooling:
 - `React` + `Vite` for app surfaces
 - `Vitest` for workspace tests
 - `ESLint`, `Prettier`, and `markdownlint-cli2` for code and docs hygiene
-- `SQLite` inside Astrograph for local symbol and file indexing
+- `jcodemunch-mcp` for indexed code navigation in local workflows
 - `Obsidian` vault content plus local retrieval tooling for durable repo memory
 
 ## Architecture
@@ -89,7 +88,7 @@ At a high level, the repo is split into four layers:
 3. `packages/ui`, `packages/types`, and `packages/config` provide the shared primitives and
    contracts that keep the workspace consistent.
 4. `tools/*` provides repo-owned agent infrastructure for durable memory;
-   Astrograph is consumed from the sibling standalone repository.
+   Repo-local memory retrieval is handled through the local Obsidian toolchain.
 
 Current route and package shape:
 
@@ -234,7 +233,6 @@ The root README is the front door. Deeper repo context lives in:
 - [UI package README](./packages/ui/README.md)
 - [Types package README](./packages/types/README.md)
 - [Config package README](./packages/config/README.md)
-- [Astrograph repository](https://github.com/mortenbroesby/astrograph)
 - [Obsidian memory README](./tools/obsidian-memory/README.md)
 
 ## License
@@ -245,8 +243,7 @@ MIT. See [LICENSE](./LICENSE).
 
 - `pnpm`, `Turborepo`, `Vite`, `React`, and `Vitest` for the core workspace foundation
 - `Obsidian` for the repo-memory authoring model
-- `Astrograph` and the repo-owned `obsidian-memory` tooling for keeping agent
-  workflows grounded in local context
+- `Obsidian` for durable, repo-local agent memory practices
 
 ---
 

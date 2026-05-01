@@ -3,5 +3,3 @@
 changed=$(git diff --name-only HEAD~1 HEAD -- vault/)
 
 [ -z "$changed" ] || pnpm rag:index
-
-command -v astrograph >/dev/null 2>&1 && astrograph git-refresh commit
