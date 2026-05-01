@@ -51,6 +51,10 @@ Thin bootstrap for coding agents in this repo.
   [codex/rules](codex/rules) as a docs-path compatibility symlink.
 - Claude loads the same shared commands, hooks, and rules through `.claude/*`
   symlinks.
+- Large-change memory checks (`pnpm knowledge:check`) for commit are enforced by
+  Codex hooks when using tool-based `git commit` flows.
+- To bypass intentionally once, set `SKIP_AGENT_MEMORY_CHECK=1` for that tool
+  command.
 
 ## Skills
 
