@@ -2,7 +2,14 @@
 
 ## Status
 
-Proposed on 2026-04-25.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
+
+Historical source note: this spec describes the pre-extraction
+`@playground/ai-context-engine` language-expansion discussion. Current
+Astrograph source lives in `../astrograph` and is consumed as
+`@mortenbroesby/astrograph`; `tools/ai-context-engine` links below are retained
+only as historical source pointers.
 
 This spec evaluates whether `@playground/ai-context-engine` should leverage
 Tree-sitter for files beyond the current JS/TS scope, and defines the

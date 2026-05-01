@@ -2,12 +2,18 @@
 
 ## Status
 
-Proposed on 2026-04-22.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
+
+Historical source note: this spec describes the pre-extraction
+`@playground/ai-context-engine` retrieval architecture. Current Astrograph
+source lives in `../astrograph` and is consumed as `@mortenbroesby/astrograph`;
+`ai-context-engine` is now compatibility-bin terminology only.
 
 This spec captures the findings from comparing `@playground/ai-context-engine`
 against Mastra and VoltAgent's RAG patterns.
 
-Current local implementation already includes:
+At the last pre-extraction check, the local implementation included:
 
 - symbol and text discovery
 - exact symbol source retrieval
@@ -15,7 +21,7 @@ Current local implementation already includes:
 - bounded context assembly
 - token-savings benchmarking
 
-Current gap:
+At the last pre-extraction check, the local gap was:
 
 - retrieval primitives exist, but the engine still lacks an explicit retrieval
   pipeline contract of the kind Mastra and VoltAgent expose more clearly

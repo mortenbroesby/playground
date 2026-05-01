@@ -2,7 +2,13 @@
 
 ## Status
 
-Proposed on 2026-04-26.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
+
+Historical source note: this spec describes pre-extraction observability work in
+the playground workspace. Current Astrograph source lives in `../astrograph`
+and is consumed as `@mortenbroesby/astrograph`; `ai-context-engine` is now
+compatibility-bin terminology only.
 
 Checked against the repo on 2026-04-26.
 

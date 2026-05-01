@@ -5,7 +5,7 @@ repo_slug: "playground"
 title: "Add Stryker mutation testing for `ai-context-engine` boundaries"
 status: "done"
 created: "2026-04-29"
-updated: "2026-04-29"
+updated: "2026-05-01"
 owner: "morten"
 summary: "`@playground/ai-context-engine` now has a few important boundary contracts that are easy to look covered while still being weak:"
 tags: []
@@ -27,8 +27,14 @@ source: "Follow-up from `tools/ai-context-engine` runtime-boundary review and St
 
 ## Why
 
-`@playground/ai-context-engine` now has a few important boundary contracts that
-are easy to look covered while still being weak:
+Historical note: this task was completed while Astrograph lived inside
+`playground`. The current source of truth is now the standalone `../astrograph`
+checkout published as `@mortenbroesby/astrograph`; the old playground package
+and `tools/ai-context-engine` paths below are retained only as historical
+context.
+
+Astrograph had a few important boundary contracts that were easy to look
+covered while still being weak:
 
 - CLI argument parsing and validation
 - MCP request validation and transport handling

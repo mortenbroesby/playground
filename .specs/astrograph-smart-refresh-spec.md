@@ -1,5 +1,15 @@
 # Astrograph Smart Refresh Spec
 
+## Status
+
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
+
+Historical source note: this spec describes pre-extraction refresh-hook planning
+in the playground workspace. Current Astrograph source lives in `../astrograph`
+and is consumed as `@mortenbroesby/astrograph`; `ai-context-engine` is now
+compatibility-bin terminology only.
+
 ## Objective
 
 Make Astrograph refresh at meaningful git checkpoints without giving up the

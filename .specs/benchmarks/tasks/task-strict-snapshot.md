@@ -1,5 +1,6 @@
 ---
 id: task-strict-snapshot
+status: retired-pre-extraction
 slice: tools/ai-context-engine/bench
 query: How does strict benchmark mode pin a run to a clean repository snapshot?
 workflowSet: [baseline, text-first, bundle]
@@ -17,6 +18,10 @@ successCriteria:
   - strict mode still resolves the git snapshot before task execution
   - the failure path for dirty or mismatched checkouts remains visible
 ---
+
+Retired source note: this task card targets the removed pre-extraction
+`tools/ai-context-engine` benchmark workspace. It is retained only as a
+historical benchmark fixture; current Astrograph source lives in `../astrograph`.
 
 This query measures whether the corpus can surface the snapshot guardrails that
 keep golden benchmark runs pinned to a known checkout state.

@@ -2,7 +2,8 @@
 
 ## Status
 
-Phase 5 in progress.
+Phase 5 in progress: stale playground task notes are being retired or
+redirected to the standalone Astrograph repository.
 
 ## Context
 
@@ -57,8 +58,9 @@ resolves package dependencies during `pnpm add`.
 
 ## Next Work
 
-- Verify the in-tree Astrograph workspace removal.
 - Publish `@mortenbroesby/astrograph` after npm trusted publishing is
   configured.
 - Replace the local `link:../astrograph` dependency with the published package
   after the first release.
+- Keep new Astrograph implementation and packaging follow-ups in
+  `../astrograph`, not in removed `tools/ai-context-engine` playground paths.

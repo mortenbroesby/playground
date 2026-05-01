@@ -2,21 +2,34 @@
 
 ## Status
 
-Last checked against the repo on 2026-04-15.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
 
-Implemented now:
+Historical source note: this spec describes the pre-extraction
+`@playground/ai-context-engine` workspace and benchmark package. Current
+Astrograph source lives in `../astrograph` and is consumed as
+`@mortenbroesby/astrograph`; `tools/ai-context-engine` paths below are retained
+only to preserve the historical benchmark intent.
+
+Last checked against the repo on 2026-04-15, before extraction.
+
+Implemented before extraction:
+
 - local benchmark package at `tools/ai-context-engine/bench`
 - fixed workflows for `baseline`, `discovery-first`, `symbol-first`, `text-first`, and an experimental `bundle` path
 - deterministic corpus loading, strict snapshot checks, token accounting with `tiktoken`, and markdown/JSON reporting
 
 Still future:
+
 - a broader multi-slice corpus across the repo
 - richer trace output and bundle-quality metrics
 - higher-order ranking and correctness metrics such as `precision@k`
 
 ## 1. Purpose
 
-Define a local benchmark for `@playground/ai-context-engine` that measures how efficiently the engine can help an agent find the right code, structure, and context in the `playground` repo.
+Define a local benchmark for the pre-extraction `@playground/ai-context-engine`
+workspace that measured how efficiently the engine could help an agent find the
+right code, structure, and context in the `playground` repo.
 
 This benchmark is about retrieval, navigation, and bounded context assembly. It is not a full agent benchmark and it is not a code generation benchmark.
 
@@ -40,6 +53,7 @@ In scope now:
 6. strict snapshot cleanliness and pinned-SHA validation
 
 Still future:
+
 - broader freshness and incremental-refresh benchmarking beyond snapshot validation
 
 Out of scope:
@@ -53,7 +67,8 @@ Out of scope:
 ## 3. Corpus
 
 The benchmark corpus should be a frozen snapshot of the `playground` repo at a pinned git SHA.
-That mechanism is implemented today; the checked-in corpus manifest records a pinned SHA.
+That mechanism was implemented in the pre-extraction workspace; the checked-in
+corpus manifest records a pinned SHA for historical benchmark planning.
 
 Longer term, the corpus should cover representative code-navigation tasks from these slices:
 
@@ -84,8 +99,9 @@ Recommended task categories:
 5. text-only lookup for literals, flags, or comments
 6. multi-symbol context assembly
 
-The current corpus is intentionally tiny: one self-hosted task for the benchmark package.
-That checked-in task currently exercises `baseline`, `discovery-first`, `symbol-first`, and `bundle`.
+The pre-extraction corpus is intentionally tiny: one self-hosted task for the
+benchmark package. That checked-in task exercised `baseline`,
+`discovery-first`, `symbol-first`, and `bundle`.
 
 The next corpus expansion should still stay small enough to run frequently, but broad enough to catch regressions in:
 
@@ -162,6 +178,7 @@ This covers string literals, config values, comments, and other cases where symb
 Use `get_context_bundle`.
 
 Current status:
+
 - implemented as an experimental workflow in the harness
 - useful for smoke coverage, but not yet rich enough for full bundle-quality evaluation
 
@@ -235,6 +252,7 @@ Required methodology:
 8. record the repo SHA, machine profile, and run id
 
 Current limitation:
+
 - engine and benchmark versions are still hardcoded to `0.0.1`
 
 The benchmark should not depend on network access after the repo snapshot is prepared.
@@ -260,6 +278,7 @@ Current report contents:
 11. failure notes
 
 Still future:
+
 - richer ambiguity handling
 
 Recommended per-task table columns:
@@ -318,6 +337,7 @@ Use that file as the implementation-facing reference for the current harness sli
 If a capability is not implemented yet, the benchmark should mark it as `future` or `na` rather than silently substituting a different workflow.
 
 That rule still applies to:
+
 - richer bundle evaluation
 - broader freshness benchmarking
 - expanded corpus slices

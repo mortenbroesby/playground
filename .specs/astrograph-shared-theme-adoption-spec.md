@@ -1,5 +1,15 @@
 # Astrograph Shared Theme Adoption Spec
 
+## Status
+
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
+
+Historical source note: this spec describes pre-extraction theme adoption inside
+the playground workspace. Current Astrograph source lives in `../astrograph`
+and is consumed as `@mortenbroesby/astrograph`; `tools/ai-context-engine` paths
+below are retained only as historical source pointers.
+
 ## Objective
 
 Adopt the existing shared `@playground/ui` theme in Astrograph's observability

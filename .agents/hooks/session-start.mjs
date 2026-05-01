@@ -114,11 +114,11 @@ export async function handleSessionStart(payload) {
   }
 
   if (watchStatus?.status === 'error') {
-    baseContext.push(`ai-context-engine watch bootstrap failed: ${watchStatus.message}`);
+    baseContext.push(`Astrograph watch bootstrap failed: ${watchStatus.message}`);
   }
 
   if (observabilityStatus?.status === 'error') {
-    baseContext.push(`ai-context-engine observability bootstrap failed: ${observabilityStatus.message}`);
+    baseContext.push(`Astrograph observability bootstrap failed: ${observabilityStatus.message}`);
   }
 
   return sessionContext(baseContext.join('\n'));

@@ -146,7 +146,7 @@ export async function ensureAiContextEngineWatch(projectRoot, { debounceMs = 150
     child.unref();
 
     if (!child.pid) {
-      throw new Error('ai-context-engine watch process did not report a pid');
+      throw new Error('Astrograph watch process did not report a pid');
     }
 
     const actualPid = await waitForWatchPid(watchPidPath);
@@ -246,7 +246,7 @@ async function waitForObservabilityStatus(
       const failureMessage = extractObservabilityStartupFailure(logTail);
       throw new Error(
         failureMessage
-          ?? `ai-context-engine observability server exited with code ${child.exitCode}`,
+          ?? `Astrograph observability server exited with code ${child.exitCode}`,
       );
     }
 
@@ -260,7 +260,7 @@ async function waitForObservabilityStatus(
 
   throw new Error(
     failureMessage
-      ?? 'ai-context-engine observability server did not report healthy startup',
+      ?? 'Astrograph observability server did not report healthy startup',
   );
 }
 

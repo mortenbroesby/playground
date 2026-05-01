@@ -53,9 +53,10 @@ The microfrontend boundary is still present, but it is intentionally narrower no
 - `@playground/uplink-game` stays in the repo as a host-local playground surface instead of the
   primary remote example
 
-Alongside the product surfaces, the monorepo also contains repo-owned agent tooling:
+Alongside the product surfaces, the monorepo also wires local agent tooling:
 
-- `@mortenbroesby/astrograph` for local indexed code retrieval
+- `@mortenbroesby/astrograph` from the sibling standalone repository for local
+  indexed code retrieval
 - `@playground/obsidian-memory` for repo-local architecture and decision memory
 
 ## Features
@@ -88,8 +89,8 @@ At a high level, the repo is split into four layers:
 2. `packages/remotes/*` holds domain-specific product surfaces that the host can mount or consume.
 3. `packages/ui`, `packages/types`, and `packages/config` provide the shared primitives and
    contracts that keep the workspace consistent.
-4. `tools/*` provides repo-owned agent infrastructure for durable memory; Astrograph is consumed
-   from the sibling standalone repository.
+4. `tools/*` provides repo-owned agent infrastructure for durable memory;
+   Astrograph is consumed from the sibling standalone repository.
 
 Current route and package shape:
 
@@ -215,7 +216,7 @@ The repo's current direction is intentionally focused:
 - keep the host strong as a real personal site, not just a shell for demos
 - preserve the playground as a distinct lab with a narrow remote seam
 - keep growing the shared UI and contract layers incrementally
-- continue proving the repo-owned agent tooling against real daily workflow use
+- continue proving the repo-local agent workflow against real daily use
 
 For active planning and deferred ideas, start here:
 
@@ -247,8 +248,8 @@ MIT. See [LICENSE](./LICENSE).
 
 - `pnpm`, `Turborepo`, `Vite`, `React`, and `Vitest` for the core workspace foundation
 - `Obsidian` for the repo-memory authoring model
-- the repo-owned `Astrograph` and `obsidian-memory` tools for keeping agent workflows grounded in
-  local context
+- `Astrograph` and the repo-owned `obsidian-memory` tooling for keeping agent
+  workflows grounded in local context
 
 ---
 

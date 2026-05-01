@@ -4,6 +4,11 @@
 
 Proposed on 2026-04-22.
 
+Retired after the Astrograph extraction on 2026-05-01. This design was written
+against the removed in-repo `tools/ai-context-engine` workspace. Current
+Astrograph source lives in the sibling `../astrograph` checkout and is consumed
+as `@mortenbroesby/astrograph`.
+
 This design doc evaluates whether
 [`safishamsi/graphify`](https://github.com/safishamsi/graphify) should improve
 or replace parts of the repo's current retrieval stack.
@@ -19,8 +24,8 @@ Current local systems in scope:
 
 - Obsidian repo-memory RAG:
   [tools/rag-index.ts](/Users/macbook/personal/playground/tools/rag-index.ts:1)
-- Code retrieval engine:
-  [tools/ai-context-engine](/Users/macbook/personal/playground/tools/ai-context-engine/README.md:1)
+- Code retrieval engine: Astrograph, now maintained in
+  <https://github.com/mortenbroesby/astrograph>
 
 ## 1. Executive Summary
 

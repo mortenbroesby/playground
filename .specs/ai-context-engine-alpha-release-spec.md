@@ -2,13 +2,19 @@
 
 ## Status
 
-Proposed on 2026-04-26.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
+
+Historical source note: this spec describes pre-extraction release hardening for
+`@playground/ai-context-engine`. Current Astrograph source lives in
+`../astrograph` and is consumed as `@mortenbroesby/astrograph`; `ai-context-engine`
+is now compatibility-bin terminology only.
 
 Checked against the repo on 2026-04-26.
 
 ## 1. Objective
 
-Make `@playground/ai-context-engine` releasable in an npm alpha state and
+Make the pre-extraction `@playground/ai-context-engine` workspace releasable in an npm alpha state and
 usable from an installed repo without relying on workspace-only assumptions.
 
 This slice should harden two specific gaps:
