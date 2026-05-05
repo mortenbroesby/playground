@@ -53,9 +53,8 @@ The microfrontend boundary is still present, but it is intentionally narrower no
 - `@playground/uplink-game` stays in the repo as a host-local playground surface instead of the
   primary remote example
 
-Alongside the product surfaces, the monorepo also contains repo-owned agent tooling:
+Alongside the product surfaces, the monorepo also wires local agent tooling:
 
-- `@astrograph/astrograph` for local indexed code retrieval
 - `@playground/obsidian-memory` for repo-local architecture and decision memory
 
 ## Features
@@ -65,7 +64,7 @@ Alongside the product surfaces, the monorepo also contains repo-owned agent tool
 - Workspace-mounted todo microfrontend with a deliberate host-to-remote contract
 - Host-local game surface that avoids forcing every feature through the remote seam
 - Shared UI, type, and config packages for reuse across workspaces
-- Repo-local tooling for code indexing, observability, and Obsidian-backed memory retrieval
+- Repo-local tooling for code indexing and Obsidian-backed memory retrieval
 - Markdown, workflow, and agent documentation kept in-repo instead of scattered externally
 
 ## Tech Stack
@@ -76,7 +75,7 @@ Alongside the product surfaces, the monorepo also contains repo-owned agent tool
 - `React` + `Vite` for app surfaces
 - `Vitest` for workspace tests
 - `ESLint`, `Prettier`, and `markdownlint-cli2` for code and docs hygiene
-- `SQLite` inside Astrograph for local symbol and file indexing
+- `Astrograph` for indexed code navigation in local workflows
 - `Obsidian` vault content plus local retrieval tooling for durable repo memory
 
 ## Architecture
@@ -88,7 +87,8 @@ At a high level, the repo is split into four layers:
 2. `packages/remotes/*` holds domain-specific product surfaces that the host can mount or consume.
 3. `packages/ui`, `packages/types`, and `packages/config` provide the shared primitives and
    contracts that keep the workspace consistent.
-4. `tools/*` provides repo-owned agent infrastructure for code retrieval and durable memory.
+4. `tools/*` provides repo-owned agent infrastructure for durable memory;
+   Repo-local memory retrieval is handled through the local Obsidian toolchain.
 
 Current route and package shape:
 
@@ -111,7 +111,6 @@ packages/
   types/                  Shared contracts between host and feature packages
   ui/                     Shared React UI primitives
 tools/
-  ai-context-engine/      Repo-owned local code retrieval engine
   obsidian-memory/        Repo-local memory indexing and retrieval tools
 docs/
   ideas/                  Lightweight roadmap and parking-lot notes
@@ -180,8 +179,6 @@ non-playing state.
 
 Useful repo-level tooling commands:
 
-- `pnpm astrograph:observability` starts Astrograph observability for the repo
-- `pnpm astrograph:open` opens the Astrograph observability helper
 - `pnpm rag:index` refreshes the Obsidian memory index
 - `pnpm agents:check` validates expected local agent setup
 
@@ -189,7 +186,7 @@ Useful repo-level tooling commands:
 
 - Do not commit `.env.local` files or credentials.
 - Keep Spotify credentials local to `apps/host/.env.local`.
-- Treat repo-owned memory and observability output as local workspace tooling, not a place to store
+- Treat repo-owned memory and index output as local workspace tooling, not a place to store
   secrets.
 - Leave generated output untouched: `dist/`, `.next/`, `.turbo/`, and `coverage/`.
 
@@ -215,7 +212,7 @@ The repo's current direction is intentionally focused:
 - keep the host strong as a real personal site, not just a shell for demos
 - preserve the playground as a distinct lab with a narrow remote seam
 - keep growing the shared UI and contract layers incrementally
-- continue proving the repo-owned agent tooling against real daily workflow use
+- continue proving the repo-local agent workflow against real daily use
 
 For active planning and deferred ideas, start here:
 
@@ -236,7 +233,6 @@ The root README is the front door. Deeper repo context lives in:
 - [UI package README](./packages/ui/README.md)
 - [Types package README](./packages/types/README.md)
 - [Config package README](./packages/config/README.md)
-- [Astrograph README](./tools/ai-context-engine/README.md)
 - [Obsidian memory README](./tools/obsidian-memory/README.md)
 
 ## License
@@ -247,8 +243,7 @@ MIT. See [LICENSE](./LICENSE).
 
 - `pnpm`, `Turborepo`, `Vite`, `React`, and `Vitest` for the core workspace foundation
 - `Obsidian` for the repo-memory authoring model
-- the repo-owned `Astrograph` and `obsidian-memory` tools for keeping agent workflows grounded in
-  local context
+- `Obsidian` for durable, repo-local agent memory practices
 
 ---
 

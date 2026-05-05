@@ -2,11 +2,21 @@
 
 ## Status
 
-Proposed on 2026-04-26.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
+
+Historical source note: this spec describes the pre-extraction
+`@playground/ai-context-engine` workspace. Current Astrograph source lives in
+`../astrograph` and is consumed as `@mortenbroesby/astrograph`; `ai-context-engine`
+is now compatibility-bin terminology only.
+
+The websocket-backed observability server described below was superseded by the
+extraction cleanup and is not an active target; Node `>=24` is the current
+public runtime baseline.
 
 Checked against the repo on 2026-04-26.
 
-Current local implementation already includes:
+At the last pre-extraction check, the local implementation included:
 
 - stdio MCP serving through the official MCP TypeScript SDK
 - a nine-tool manifest with one shared MCP contract for registration and dispatch
@@ -15,7 +25,7 @@ Current local implementation already includes:
 - repo-local freshness and watch diagnostics persisted in `.ai-context-engine`
 - opt-in structured stderr logging via `pino`
 
-Current local gap:
+At the last pre-extraction check, the local gap was:
 
 - observability exists as logs plus compact diagnostics state, but not as a
   first-class live developer surface

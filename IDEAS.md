@@ -9,7 +9,9 @@ Example:
 
 Queue:
 
-↳ https://dev.to/georgekobaidze/15-essential-sections-every-readme-needs-give-your-project-what-it-deserves-fie
+↳ <https://dev.to/georgekobaidze/15-essential-sections-every-readme-needs-give-your-project-what-it-deserves-fie>
+
+- https://www.npmjs.com/package/@clack/prompts
 
 ↳ I prefer if we lean on how jcodemunch inits, without rewriting to python. jcodemunch-mcp init
     --yes global --hooks --index --audit
@@ -24,8 +26,9 @@ Queue:
 
 ↳ Implement "@biomejs/biome" in astrolens for now, later to entire repository.
 
-- Refresh documentation in @astrolens package (./tools/ai-context-engine).
-- Do a round of refactor in @astrolens package (./tools/ai-context-engine), clean up tech debt.
-- Do a round of refactor in @astrolens package (./tools/ai-context-engine), improve performance.
+- Refresh standalone Astrograph documentation in `../astrograph`.
+- Do a refactor pass in standalone Astrograph (`../astrograph`) to clean up
+  tech debt.
+- Do a performance pass in standalone Astrograph (`../astrograph`).
 
 ↳ Implement a ralph loop that iterates through this IDEAS.md queue, adopt our ideas to done md file. Maybe make a system leveraging javascript/typescript?

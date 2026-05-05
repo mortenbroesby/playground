@@ -2,23 +2,37 @@
 
 ## Status
 
-Last checked against the repo on 2026-04-15.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
 
-Implemented now:
+Historical source note: this spec describes the pre-extraction
+`@playground/ai-context-engine` benchmark harness. Current Astrograph source
+lives in `../astrograph` and is consumed as `@mortenbroesby/astrograph`;
+`tools/ai-context-engine` paths below are retained only to preserve the
+historical harness design.
+
+Last checked against the repo on 2026-04-15, before extraction.
+
+Implemented before extraction:
+
 - separate workspace package at `tools/ai-context-engine/bench`
 - CLI, runner, corpus loader, tokenizer, report writer, snapshot checks, and workflow adapters
 - tests for scaffold, corpus loading, reporting, tokenizer, snapshot handling, runner flow, and CLI
 
 Still future:
+
 - emitting ordered `.jsonl` trace files
 - a broader real-repo corpus and checked-in benchmark run artifacts
 - richer bundle evaluation and reporting depth
 
 ## 1. Purpose
 
-Turn the benchmark policy in [`ai-context-engine-benchmark-spec.md`](./ai-context-engine-benchmark-spec.md) into a buildable harness plan for `@playground/ai-context-engine`.
+Turn the benchmark policy in [`ai-context-engine-benchmark-spec.md`](./ai-context-engine-benchmark-spec.md) into a buildable harness plan for the pre-extraction `@playground/ai-context-engine` workspace.
 
-This spec now describes the first implemented harness slice: a deterministic local benchmark runner that can execute fixed task cards against a frozen `playground` snapshot, compare retrieval workflows, and emit stable JSON plus markdown artifacts.
+This spec describes the first pre-extraction harness slice: a deterministic
+local benchmark runner that could execute fixed task cards against a frozen
+`playground` snapshot, compare retrieval workflows, and emit stable JSON plus
+markdown artifacts.
 
 The harness is for measurement and regression detection, not model evaluation and not interactive chat.
 
@@ -43,7 +57,7 @@ This slice does not need to:
 
 ## 4. Harness Shape
 
-Implemented package shape:
+Pre-extraction package shape:
 
 - package path: `tools/ai-context-engine/bench`
 - package name: `@playground/ai-context-engine`
@@ -53,9 +67,9 @@ This keeps the engine package focused on retrieval/runtime behavior while the
 benchmark package owns evaluation, corpus loading, token accounting, and report
 generation.
 
-### 4.1 Checked-in source files
+### 4.1 Historical Checked-In Source Files
 
-These files now exist:
+These files existed before the workspace was extracted:
 
 1. `tools/ai-context-engine/bench/src/cli.ts`
 2. `tools/ai-context-engine/bench/src/runner.ts`
@@ -66,7 +80,7 @@ These files now exist:
 7. `tools/ai-context-engine/bench/src/snapshot.ts`
 8. `tools/ai-context-engine/bench/src/types.ts`
 
-### 4.2 Checked-in test files
+### 4.2 Historical Checked-In Test Files
 
 1. `tools/ai-context-engine/bench/tests/corpus.test.ts`
 2. `tools/ai-context-engine/bench/tests/report.test.ts`
@@ -93,7 +107,8 @@ server, and avoids bundling benchmark-only dependencies into the engine package.
 
 ## 5. Corpus Format
 
-The current harness uses a hybrid corpus format so the benchmark is both human-reviewable and machine-loadable.
+The pre-extraction harness used a hybrid corpus format so the benchmark was
+both human-reviewable and machine-loadable.
 
 ### 5.1 Canonical corpus files
 
@@ -196,6 +211,7 @@ The runner writes each benchmark run to the caller-provided output directory. Th
 3. `<output-dir>/corpus.lock.json`
 
 Current limitation:
+
 - ordered trace artifacts are not emitted yet
 
 ### 6.1 `results.json`
@@ -243,6 +259,7 @@ The markdown report should be generated from `results.json` and include:
 7. failure notes
 
 Still future:
+
 - ambiguity classification in the markdown report
 
 The report should not require manually maintained prose beyond a small header.
@@ -262,7 +279,8 @@ The trace format should be line-delimited JSON so diffs stay readable and append
 
 ## 7. Commands
 
-The implemented harness supports these commands:
+The pre-extraction harness supported these commands. They are retained as
+historical examples and should not be run from playground after extraction:
 
 1. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --output .benchmarks/ai-context-engine/latest`
 2. `pnpm --filter @playground/ai-context-engine benchmark -- --corpus .specs/benchmarks/ai-context-engine-benchmark-corpus.json --task task-id`
@@ -279,7 +297,8 @@ Required CLI flags:
 
 ## 8. Verification Flow
 
-This slice is implemented when the following checks pass:
+This slice was implemented in the pre-extraction workspace when the following
+checks passed:
 
 1. `pnpm --filter @playground/ai-context-engine type-check`
 2. `pnpm --filter @playground/ai-context-engine test`
@@ -289,6 +308,7 @@ This slice is implemented when the following checks pass:
 6. a manual benchmark run against the current repo snapshot writes `results.json`, `report.md`, and `corpus.lock.json` to the caller-provided output directory, with the CLI defaulting to `.benchmarks/ai-context-engine/latest`
 
 Current repo status:
+
 - the automated tests prove this flow against fixture repos
 - there is no checked-in real-repo run artifact yet
 
@@ -311,11 +331,13 @@ Acceptance criteria:
 
 Status: partially implemented.
 
-Implemented now:
+Implemented before extraction:
+
 - benchmark runner
 - workflow dispatch
 
 Still future:
+
 - trace capture
 
 Acceptance criteria:
@@ -339,11 +361,13 @@ Acceptance criteria:
 
 Status: partially implemented.
 
-Implemented now:
+Implemented before extraction:
+
 - the checked-in corpus is pinned and runnable
 - fixture-based smoke runs are covered by tests
 
 Still future:
+
 - broader real-repo corpus coverage
 - recording the first comparable checked-in benchmark set
 

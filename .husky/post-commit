@@ -3,4 +3,3 @@
 changed=$(git diff --name-only HEAD~1 HEAD -- vault/)
 
 [ -z "$changed" ] || pnpm rag:index
-node scripts/astrograph-smart-refresh.mjs commit >/dev/null 2>&1 || true

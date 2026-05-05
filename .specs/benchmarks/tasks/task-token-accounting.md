@@ -1,5 +1,6 @@
 ---
 id: task-token-accounting
+status: retired-pre-extraction
 slice: tools/ai-context-engine/bench
 query: How does the benchmark harness compare exact token counts with estimated token counts for each task?
 workflowSet: [baseline, text-first, bundle]
@@ -20,6 +21,10 @@ successCriteria:
   - exact token counting remains visible in the benchmark workflow
   - estimated token accounting stays visible beside exact counts
 ---
+
+Retired source note: this task card targets the removed pre-extraction
+`tools/ai-context-engine` benchmark workspace. It is retained only as a
+historical benchmark fixture; current Astrograph source lives in `../astrograph`.
 
 This query checks whether the retrieval path exposes both the exact tokenizer
 and the approximation path used in reports.

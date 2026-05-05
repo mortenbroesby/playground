@@ -20,6 +20,11 @@
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/.agents/hooks/block-dangerous-commands.mjs\"",
             "statusMessage": "Checking shell command policy"
+          },
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.agents/hooks/knowledge-commit-check.mjs\"",
+            "statusMessage": "Checking commit memory requirements"
           }
         ]
       }

@@ -12,6 +12,7 @@ import {
   preToolDeny,
   runHook,
 } from './lib/core.mjs';
+import { getAstrographBlockedExplorationReason } from './lib/astrograph-code-navigation.mjs';
 
 const CODE_PATH_PATTERNS = [
   /(^|\/)(apps|packages|tools|scripts|\.agents|\.codex|\.claude|\.github)(\/|$)/i,
@@ -19,7 +20,7 @@ const CODE_PATH_PATTERNS = [
 ];
 
 const SAFE_BASH_PATTERNS = [
-  /\b(?:git|pnpm|node|npm|npx|yarn|bun|cargo|go|pytest|vitest|jest|docker|kubectl|ai-context-engine)\b/i,
+  /\b(?:git|pnpm|node|npm|npx|yarn|bun|cargo|go|pytest|vitest|jest|docker|kubectl)\b/i,
   /\brg\b[^|]*(?:README|AGENTS|CLAUDE|docs\/|vault\/)/i,
 ];
 
@@ -33,15 +34,6 @@ const LARGE_READ_BYTES = 6_000;
 function isCodeLikePath(filePath) {
   const normalizedPath = normalizeToolPath(filePath);
   return CODE_PATH_PATTERNS.some((pattern) => pattern.test(normalizedPath));
-}
-
-function buildGuardReason() {
-  return [
-    'Use jcodemunch for code exploration.',
-    'Start with `plan_turn`, then prefer `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and `get_file_tree` before broad file reads.',
-    'Use ai-context-engine (@astrograph) only as a fallback when jcodemunch lacks coverage or when you need diagnostics.',
-    'Use direct file reads only for exact edit context or non-code support files.',
-  ].join(' ');
 }
 
 function shouldBlockBash(command) {
@@ -96,22 +88,28 @@ export async function handleCodeNavigationGuard(payload) {
 
   if (toolName === 'Bash') {
     const command = firstNonEmpty(toolInput?.command, '');
-    return shouldBlockBash(command) ? preToolDeny(buildGuardReason()) : {};
+    return shouldBlockBash(command)
+      ? preToolDeny(getAstrographBlockedExplorationReason('bash-search'))
+      : {};
   }
 
   if (toolName === 'Glob') {
-    return shouldBlockGlob(toolInput) ? preToolDeny(buildGuardReason()) : {};
+    return shouldBlockGlob(toolInput)
+      ? preToolDeny(getAstrographBlockedExplorationReason('glob'))
+      : {};
   }
 
   if (toolName === 'Grep') {
-    return shouldBlockGrep(toolInput) ? preToolDeny(buildGuardReason()) : {};
+    return shouldBlockGrep(toolInput)
+      ? preToolDeny(getAstrographBlockedExplorationReason('grep'))
+      : {};
   }
 
   if (toolName === 'Read') {
     const projectRoot = getProjectRoot(payload);
     if (shouldWarnOnRead(projectRoot, toolInput)) {
       return {
-        stderr: 'Large code read detected. Prefer jcodemunch first: `plan_turn`, `search_symbols`, `search_text`, `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and `get_file_tree`. Fall back to Astrograph only when jcodemunch lacks coverage or you need diagnostics. Targeted `Read` with `offset`/`limit` is fine.\n',
+        stderr: `${getAstrographBlockedExplorationReason('large-read')}\n`,
       };
     }
   }

@@ -1,2 +1,0 @@
-pnpm knowledge:check
-pnpm --filter @astrograph/astrograph check:version-bump

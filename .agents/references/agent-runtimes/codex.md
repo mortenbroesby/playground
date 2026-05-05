@@ -21,7 +21,6 @@
 - `multi_agent = true`
 - `codex_hooks = true`
 - MCP servers configured here:
-  - `jcodemunch`
   - `astrograph`
   - `obsidian-memory`
 - hook adapter currently registered for:
@@ -33,7 +32,7 @@
 
 ## Behavior Notes
 
-- prefer `jcodemunch` as the default code navigation path in this repo
+- prefer `astrograph` as the default code navigation path in this repo
 - startup context should stay thin; full skill bodies load on demand
 - for the shared cross-agent contract, treat only `SessionStart` and
   `UserPromptSubmit` as portable shared events

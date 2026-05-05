@@ -2,11 +2,17 @@
 
 ## Status
 
-Proposed on 2026-04-21.
+Retired as a current playground planning artifact on 2026-05-01 after
+Astrograph was extracted from `tools/ai-context-engine`.
 
-This spec replaces the current Tree-sitter-based JavaScript and TypeScript
-parsing path in `@playground/ai-context-engine` with a JS/TS-specific Rust
-parser stack exposed through Node bindings.
+Historical source note: this spec describes the pre-extraction
+`@playground/ai-context-engine` parser migration. Current Astrograph source
+lives in `../astrograph` and is consumed as `@mortenbroesby/astrograph`;
+`ai-context-engine` is now compatibility-bin terminology only.
+
+This spec described replacing the then-current Tree-sitter-based JavaScript and
+TypeScript parsing path in `@playground/ai-context-engine` with a JS/TS-specific
+Rust parser stack exposed through Node bindings.
 
 ## 1. Decision
 
@@ -63,9 +69,9 @@ The official Oxc parser docs describe `oxc-parser` as:
 
 Sources:
 
-- https://oxc.rs/docs/guide/usage/parser
-- https://oxc.rs/docs/guide/benchmarks
-- https://oxc.rs/docs/guide/what-is-oxc
+- <https://oxc.rs/docs/guide/usage/parser>
+- <https://oxc.rs/docs/guide/benchmarks>
+- <https://oxc.rs/docs/guide/what-is-oxc>
 
 The official Oxc resolver docs describe `oxc-resolver` as:
 
@@ -75,8 +81,8 @@ The official Oxc resolver docs describe `oxc-resolver` as:
 
 Sources:
 
-- https://oxc.rs/docs/guide/usage/resolver
-- https://oxc.rs/docs/contribute/resolver
+- <https://oxc.rs/docs/guide/usage/resolver>
+- <https://oxc.rs/docs/contribute/resolver>
 
 ### 3.2 SWC
 
@@ -85,9 +91,9 @@ SWC remains a credible fast Rust-based parser and compiler platform, and
 
 Sources:
 
-- https://swc.rs/docs/usage/core
-- https://swc.rs/
-- https://rustdoc.swc.rs/swc_ecma_parser/
+- <https://swc.rs/docs/usage/core>
+- <https://swc.rs/>
+- <https://rustdoc.swc.rs/swc_ecma_parser/>
 
 However, the current package need is parsing plus import/module resolution for
 retrieval, not compilation or transforms. On that narrower problem, Oxc is the

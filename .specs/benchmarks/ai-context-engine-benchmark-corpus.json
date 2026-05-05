@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "benchmark": "ai-context-engine",
+  "status": "retired-pre-extraction",
+  "sourceStatus": "Historical benchmark corpus for the removed playground tools/ai-context-engine workspace. Current Astrograph source lives in ../astrograph and is consumed as @mortenbroesby/astrograph.",
   "repo": "playground",
   "repoSha": "74f79fa02cb2956dfce8dcef4333dfeb0de1a1bf",
   "tokenizer": "cl100k_base",

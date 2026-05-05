@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "astrograph": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@mortenbroesby/astrograph",
+        "mcp"
+      ],
+      "cwd": "."
+    }
+  }
+}

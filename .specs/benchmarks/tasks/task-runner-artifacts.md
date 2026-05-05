@@ -1,5 +1,6 @@
 ---
 id: task-runner-artifacts
+status: retired-pre-extraction
 slice: tools/ai-context-engine/bench
 query: Where does the benchmark runner build and persist results.json, report.md, and corpus.lock.json artifacts?
 workflowSet: [baseline, text-first, bundle]
@@ -20,6 +21,10 @@ successCriteria:
   - the runner traces from execution to written benchmark artifacts
   - the report generator and JSON serializer stay part of the expected path
 ---
+
+Retired source note: this task card targets the removed pre-extraction
+`tools/ai-context-engine` benchmark workspace. It is retained only as a
+historical benchmark fixture; current Astrograph source lives in `../astrograph`.
 
 This query measures whether the harness can surface the code path that creates
 the persisted JSON and Markdown benchmark outputs.

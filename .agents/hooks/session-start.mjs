@@ -1,12 +1,6 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import {
-  ensureAiContextEngineObservability,
-  ensureAiContextEngineWatch,
-} from './lib/ai-context-engine.mjs';
 import {
   getProjectRoot,
   isDirectEntrypoint,
@@ -46,57 +40,9 @@ function buildDynamicGitContext(cwd) {
   return parts.join(' | ');
 }
 
-function getInstallReadiness(projectRoot) {
-  const rootNodeModules = path.join(projectRoot, 'node_modules');
-  const astrographBin = path.join(projectRoot, 'node_modules', '.bin', 'astrograph');
-  const obsidianNodeModules = path.join(projectRoot, 'tools', 'obsidian-memory', 'node_modules');
-
-  const missing = [];
-
-  if (!existsSync(rootNodeModules)) {
-    missing.push('node_modules/');
-  }
-
-  if (!existsSync(astrographBin)) {
-    missing.push('node_modules/.bin/astrograph');
-  }
-
-  if (!existsSync(obsidianNodeModules)) {
-    missing.push('tools/obsidian-memory/node_modules/');
-  }
-
-  return {
-    ready: missing.length === 0,
-    missing,
-  };
-}
-
 export async function handleSessionStart(payload) {
   const cwd = getProjectRoot(payload);
   const dynamicContext = buildDynamicGitContext(cwd);
-  const installReadiness = getInstallReadiness(cwd);
-  let watchStatus = null;
-  let observabilityStatus = null;
-
-  if (installReadiness.ready) {
-    try {
-      watchStatus = await ensureAiContextEngineWatch(cwd);
-    } catch (error) {
-      watchStatus = {
-        status: 'error',
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
-
-    try {
-      observabilityStatus = await ensureAiContextEngineObservability(cwd);
-    } catch (error) {
-      observabilityStatus = {
-        status: 'error',
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
 
   const baseContext = [
     'Shared hook policy is active.',
@@ -105,20 +51,6 @@ export async function handleSessionStart(payload) {
 
   if (dynamicContext) {
     baseContext.push(`Git: ${dynamicContext}`);
-  }
-
-  if (!installReadiness.ready) {
-    baseContext.push(
-      `Run \`pnpm install\` before relying on repo-local tooling. Missing: ${installReadiness.missing.join(', ')}`,
-    );
-  }
-
-  if (watchStatus?.status === 'error') {
-    baseContext.push(`ai-context-engine watch bootstrap failed: ${watchStatus.message}`);
-  }
-
-  if (observabilityStatus?.status === 'error') {
-    baseContext.push(`ai-context-engine observability bootstrap failed: ${observabilityStatus.message}`);
   }
 
   return sessionContext(baseContext.join('\n'));

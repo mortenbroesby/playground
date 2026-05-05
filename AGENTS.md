@@ -17,31 +17,18 @@ Thin bootstrap for coding agents in this repo.
 - `packages/ui/`, `packages/types/`, `packages/config/`: shared UI, contracts,
   and tooling.
 
-## Navigation
+## Code Exploration Policy
 
-- Use `jcodemunch` as the current default for code navigation.
-- Start with `plan_turn`, then prefer `search_symbols`, `search_text`,
-  `get_file_outline`, `get_symbol_source`, `get_context_bundle`, and
-  `get_file_tree` before broad file reads.
-- Use `ai-context-engine` (`@astrograph`) only as a fallback when `jcodemunch`
-  lacks coverage or when you specifically need repo-local diagnostics or index
-  freshness confirmation.
+Prefer Astrograph MCP tools for code exploration before falling back to raw file reads or shell search.
+
+- Start with `diagnostics` for the current repository; if the index is missing or stale, run `index_folder`.
+- Before reading a file, use `get_file_outline` or `query_code` with source intent.
+- Before searching broadly, use `query_code` or `suggest_initial_queries`.
+- Before exploring structure, use `get_file_tree` or `get_repo_outline`.
+- Use raw file reads or shell search only when Astrograph cannot answer the question or when debugging Astrograph itself.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 - See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
   full workflow policy.
-
-## Code Exploration Policy
-
-- Use `jcodemunch` MCP tools for code navigation instead of broad `Read`,
-  `Grep`, `Glob`, or shell exploration.
-- Exception: use `Read` when you need exact file content for an edit, because
-  the harness expects a read before write-style file changes.
-- Fall back to Astrograph only when `jcodemunch` cannot answer the question or
-  when you need `diagnostics` to confirm the local index state.
-- If a search result returns strong negative evidence, do not keep re-searching
-  with random variations hoping the implementation exists. Report the gap.
-- After edits, prefer `register_edit` for the touched paths when you need to
-  keep the `jcodemunch` index fresh.
 
 ## Hooks And Rules
 
@@ -50,6 +37,10 @@ Thin bootstrap for coding agents in this repo.
   [codex/rules](codex/rules) as a docs-path compatibility symlink.
 - Claude loads the same shared commands, hooks, and rules through `.claude/*`
   symlinks.
+- Large-change memory checks (`pnpm knowledge:check`) for commit are enforced by
+  Codex hooks when using tool-based `git commit` flows.
+- To bypass intentionally once, set `SKIP_AGENT_MEMORY_CHECK=1` for that tool
+  command.
 
 ## Skills
 
