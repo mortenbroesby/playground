@@ -5,8 +5,8 @@ Shared hook policy for agent runtimes in `playground`.
 ## Goals
 
 - Keep code-exploration context small.
-- Prefer jcodemunch first, then Astrograph over broad shell-based file
-  discovery when indexed code retrieval is needed.
+- Prefer Astrograph over broad shell-based file discovery when indexed code
+  retrieval is needed.
 - Keep destructive-command, secret, and generated-output protections active.
 
 ## Current policy
@@ -21,13 +21,11 @@ Shared hook policy for agent runtimes in `playground`.
 
 ## Indexed-Retrieval Flow
 
-1. Use jcodemunch for default code navigation.
-2. Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
-   `ai-context-engine`) when jcodemunch lacks coverage or diagnostics are
-   needed.
-3. Use Astrograph tools such as `query_code`, `get_file_outline`,
+1. Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
+   `ai-context-engine`) for default indexed code navigation.
+2. Use Astrograph tools such as `query_code`, `get_file_outline`,
    `get_file_tree`, `get_repo_outline`, and `diagnostics`.
-4. Direct file reads only for exact edit context or non-code support files
+3. Direct file reads only for exact edit context or non-code support files
 
 Tool selection details live in
 [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) under
