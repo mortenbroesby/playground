@@ -17,47 +17,26 @@ Thin bootstrap for coding agents in this repo.
 - `packages/ui/`, `packages/types/`, `packages/config/`: shared UI, contracts,
   and tooling.
 
-## Code Exploration Policy
+## Workflow Defaults
 
-Prefer Astrograph MCP tools for code exploration before falling back to raw file reads or shell search.
-
-- Start with `diagnostics` for the current repository; if the index is missing or stale, run `index_folder`.
-- Before reading a file, use `get_file_outline` or `query_code` with source intent.
-- Before searching broadly, use `query_code` or `suggest_initial_queries`.
-- Before exploring structure, use `get_file_tree` or `get_repo_outline`.
-- Use raw file reads or shell search only when Astrograph cannot answer the question or when debugging Astrograph itself.
+- Treat [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) as
+  the canonical workflow policy for code navigation, memory, verification, and
+  ship-default behavior.
+- Use Astrograph as the default code retrieval path.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
-- See [`.agents/rules/repo-workflow.md`](.agents/rules/repo-workflow.md) for the
-  full workflow policy.
 
-## Hooks And Rules
+## Shared Surfaces
 
 - Shared agent docs live under [`.agents/`](.agents/).
-- Codex execution-policy rules live in [`.codex/rules/`](.codex/rules/), with
-  [codex/rules](codex/rules) as a docs-path compatibility symlink.
+- Repo-owned skills live under [`.skills/`](.skills/).
+- Codex execution-policy rules live under [`.codex/rules/`](.codex/rules/),
+  with [codex/rules](codex/rules) kept as a docs-path compatibility symlink.
 - Claude loads the same shared commands, hooks, and rules through `.claude/*`
   symlinks.
-- Large-change memory checks (`pnpm knowledge:check`) for commit are enforced by
-  Codex hooks when using tool-based `git commit` flows.
-- To bypass intentionally once, set `SKIP_AGENT_MEMORY_CHECK=1` for that tool
-  command.
-
-## Skills
-
-- Repo-owned skills live in [`.skills/`](.skills/).
-- Discover skills on demand with `pnpm skills:list` and
-  `pnpm skills:search <query>`.
-- Route a task to the narrowest useful skill set with
-  `pnpm skills:route "<task>"`.
-- Load a skill only when needed with `pnpm skills:read <skill-name>`.
-- Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) to
-  decide which skills to load for which kinds of tasks.
-- For Superpowers-derived skills on Codex, use the tool mapping at
-  [codex-tools.md](.skills/using-superpowers/references/codex-tools.md).
-
-## Ship Default
-
-- Default to finishing work by committing and pushing.
-- If the user and agent explicitly agreed on a feature branch, push that
-  branch.
-- Otherwise commit on the current branch and push `main`.
+- Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) and
+  these commands for on-demand skill loading:
+  `pnpm skills:list`, `pnpm skills:search <query>`,
+  `pnpm skills:route "<task>"`, and `pnpm skills:read <skill-name>`.
+- Large-change memory checks (`pnpm knowledge:check`) are enforced by Codex
+  hooks during tool-based `git commit` flows. Set
+  `SKIP_AGENT_MEMORY_CHECK=1` only for an intentional one-off bypass.

@@ -28,10 +28,12 @@ adapters thin and repo-native.
 
 - Follow `AGENTS.md` and `.agents/rules/` first.
 - Use `pnpm` commands only.
-- Use Astrograph as the default repo code retrieval path, and use
+- Treat `.agents/rules/repo-workflow.md` as the canonical repo policy for code
+  retrieval, memory, verification, and ship-default behavior.
+- Use Astrograph as the default repo code retrieval path and
   `obsidian-memory` for repo history.
 - Keep durable workflow or architecture changes in
-  `vault/02 Repositories/playground/`.
+  `vault/00 Repositories/playground/`.
 - Keep commands in `.agents/commands/` so Claude slash commands and Codex
   prompts share the same source.
 
@@ -58,6 +60,8 @@ Cross-cutting support skills:
 - Do not import runtime-specific setup into `.claude/`, `.codex/`, `.github/`,
   or `.opencode/` when a shared `.agents` file can serve all runtimes.
 - Do not duplicate long process docs in multiple agent adapters.
+- Do not restate broad repo policy here when `.agents/rules/repo-workflow.md`
+  already owns it.
 
 ## Evidence
 

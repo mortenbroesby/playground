@@ -45,6 +45,6 @@ paths:
 - Do not add network or long-running work to hooks unless the hook is explicitly
   designed as optional post-action automation.
 - Keep hook architecture notes in
-  `vault/02 Repositories/playground/01 Architecture/Agent Hooks.md`.
+  `vault/00 Repositories/playground/01 Architecture/Agent Hooks.md`.
 - Run `pnpm agents:check` after changing agent adapters, hooks, rules, or
   `.skills/`.

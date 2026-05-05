@@ -5,7 +5,7 @@ repo_slug: "playground"
 title: "Rebuild Astrograph-style code intelligence layer"
 status: "active"
 created: "2026-04-29"
-updated: "2026-04-29"
+updated: "2026-05-05"
 owner: "morten"
 summary: "Existing solutions are either paid, immature, or fragmented; rebuilding a minimal, open, AST-based retrieval system provides control, extensibility, and long-term leverage."
 tags: []
@@ -68,5 +68,5 @@ Spec-driven regeneration or spec-first reconstruction.
 - Complex UI
 - Enterprise-scale indexing
 
-Brainfart: Maybe leverage ideas from
-<https://github.com/safishamsi/graphify>. Worth a Ralph loop.
+Note: Maybe leverage ideas from <https://github.com/safishamsi/graphify>.
+Worth a Ralph loop.

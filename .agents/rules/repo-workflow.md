@@ -4,6 +4,9 @@ alwaysApply: true
 
 # Repo Workflow
 
+`AGENTS.md` is the bootstrap. This file owns the always-on workflow policy for
+shared agent behavior in this repo.
+
 ## Core Policy
 
 - Use `pnpm` only.
@@ -14,7 +17,7 @@ alwaysApply: true
 - Update the relevant README, rule, hook doc, vault note, or AGENTS file when a
   change alters behavior, architecture, workflow, or setup expectations.
 - Larger staged code/config changes must include a vault note under
-  `vault/02 Repositories/`; `pnpm knowledge:check` enforces this before commit.
+  `vault/00 Repositories/`; `pnpm knowledge:check` enforces this before commit.
 
 ## Code Navigation
 

@@ -5,7 +5,7 @@ repo_slug: "playground"
 title: "Agent Rules"
 status: "accepted"
 created: "2026-04-29"
-updated: "2026-04-30"
+updated: "2026-05-05"
 owner: "morten"
 summary: "Shared cross-agent rules keep AGENTS.md thin, use one default indexed navigation path, and leave host command escalation to Codex execpolicy."
 tags:
@@ -42,8 +42,7 @@ files that multiple agent runtimes can share.
 - `.agents/commands/` contains shared lifecycle prompts. Claude sees these as
   commands through `.claude/commands`; Codex sees the same files through
   `.codex/prompts`.
-- `.agents/skills/` contains shared skills. Claude, Codex, Copilot, and
-  OpenCode adapters point at this same source.
+- `.skills/` contains repo-owned shared skills that load on demand.
 - `.claude/rules` symlinks to `.agents/rules` so Claude-style rule loading uses
   the same source files.
 - `.codex/rules/playground.rules` contains Codex execpolicy rules for host
@@ -51,18 +50,25 @@ files that multiple agent runtimes can share.
 - `codex/rules` symlinks to `.codex/rules` for docs-path compatibility.
 
 Prefer symlinks when a runtime can consume the same source files directly. Do
-not force symlinks across incompatible formats. Subagents are the main expected
-case: Claude uses Markdown agent files, while Codex uses TOML agent files, so a
-future shared layout should keep source under `.agents/agents/` but allow
-runtime-specific adapter files when needed.
+not force symlinks across incompatible formats. Keep runtime adapters thin and
+keep repo-owned skills out of runtime-specific directories.
 
 ## Current Rules
 
-- `repo-workflow.md`: always-on repo workflow, code navigation, memory, and
-  verification policy.
+- `repo-workflow.md`: always-on workflow policy for code navigation, memory,
+  verification, and ship-default behavior.
 - `frontend.md`: path-scoped frontend and UI policy.
 - `agent-infrastructure.md`: path-scoped policy for hooks, skills, rules, and
   runtime adapters.
+
+## Ownership Model
+
+- `AGENTS.md` is the thin bootstrap.
+- `.agents/rules/repo-workflow.md` owns always-on repo workflow policy.
+- `.skills/engineering-workflow/SKILL.md` owns lifecycle guidance for spec,
+  plan, build, test, review, simplify, and ship work.
+- Vault architecture and decision notes explain why the surfaces are organized
+  this way; they should not duplicate the live rule text.
 
 ## Retrieval Default
 
@@ -75,7 +81,7 @@ runtime-specific adapter files when needed.
 `engineering-workflow` is a compact, cross-agent adaptation of the useful setup
 from `addyosmani/agent-skills`: define, plan, build, test, review, simplify, and
 ship. The repo deliberately imports the lifecycle shape and command prompts, not
-the Claude plugin wrapper or runtime-specific install state.
+runtime-specific install state.
 
 `pnpm agents:check` now treats `.claude-plugin/` and root `plugins/` as forbidden
 paths so plugin-specific setup does not drift back into the shared adapter

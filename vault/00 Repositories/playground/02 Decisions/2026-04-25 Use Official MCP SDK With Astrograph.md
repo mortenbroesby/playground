@@ -5,7 +5,7 @@ repo_slug: "playground"
 title: "Use Official MCP SDK With Astrograph"
 status: "accepted"
 created: "2026-04-25"
-updated: "2026-04-29"
+updated: "2026-05-05"
 owner: "morten"
 summary: "Use the official MCP SDK for repo-local MCP servers and use Astrograph as the code-navigation path."
 tags:
@@ -15,7 +15,6 @@ keywords:
   - "mcp"
   - "sdk"
   - "astrograph"
-  - "fallback"
 links:
   parents: []
   children: []

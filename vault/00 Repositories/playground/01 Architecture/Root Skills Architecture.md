@@ -5,7 +5,7 @@ repo_slug: "playground"
 title: "Root Skills Architecture"
 status: "accepted"
 created: "2026-04-29"
-updated: "2026-04-30"
+updated: "2026-05-05"
 owner: "morten"
 summary: "Root `.skills` is the canonical repo-owned skill store, with command-first discovery, lightweight task routing, and thin startup bootstrap."
 tags:
@@ -38,8 +38,8 @@ Define the migration target for moving repo-owned skills into an on-demand root
 
 Repo-owned first-party skills should move to a root `.skills/` directory, and
 startup-facing surfaces should stop being the source of truth for skill
-content. `AGENTS.md`, `CLAUDE.md`, `.agents/skills/`, and runtime adapters
-should stay thin and route users to a command-first discovery surface:
+content. `AGENTS.md`, `CLAUDE.md`, and runtime adapters should stay thin and
+route users to a command-first discovery surface:
 
 - `pnpm skills:list`
 - `pnpm skills:search`
