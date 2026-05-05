@@ -19,9 +19,7 @@ keywords:
 links:
   parents: []
   children: []
-  related:
-    - "mem-20260425-mcp-startup-hardening-astrograph"
-    - "mem-20260411-astrograph-codex-setup"
+  related: []
   supersedes: []
   superseded_by: []
 retention:
