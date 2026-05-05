@@ -15,11 +15,7 @@ Shared hook policy for agent runtimes in `playground`.
   and `Glob` and redirects the agent toward indexed retrieval.
 - `PreToolUse` warns on large untargeted `Read` calls for code files but does
   not block them, so edit flows still work.
-- `PostToolUse` best-effort reindexes edited code files through a small
-  Astrograph hook adapter.
-- `SessionStart` can bootstrap one repo-local Astrograph watch process in the
-  background so fresh indexing begins automatically and later edits or external
-  changes continue to flow into the local index.
+- `SessionStart` adds a thin shared context banner plus live git state.
 - `PreToolUse` separately blocks dangerous shell commands and protected writes.
 - `PostToolUse` audits edits through the existing shared hooks.
 

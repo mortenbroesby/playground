@@ -7,7 +7,7 @@ status: "accepted"
 created: "2026-04-29"
 updated: "2026-05-01"
 owner: "morten"
-summary: "Shared hook policy for Codex and Claude Code, with a slim session-start context and best-effort Astrograph bootstrap kept mostly silent unless something is broken."
+summary: "Shared hook policy for Codex and Claude Code, with a slim session-start context, indexed-retrieval guidance, and no repo-local Astrograph bootstrap logic."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -58,21 +58,14 @@ runtime supports it.
   and writes outside the project root.
 - Keep hooks fast and keep personal overrides in ignored local settings.
 
-## Astrograph Bootstrap
+## Astrograph Integration
 
-- `SessionStart` best-effort ensures one detached repo-local Astrograph watcher
-  is running through the installed `@mortenbroesby/astrograph` package.
-- The hook only checks or launches the watcher, then returns immediately.
-- The watcher owns initial indexing and incremental refresh.
-- Default session-start context stays intentionally small.
-- Success-path watch and observability details should stay out of the default
-  context unless they are needed to explain a failure.
-- Git refresh behavior lives in the standalone Astrograph package as
-  `astrograph git-refresh`; playground Husky hooks call that package command
-  directly instead of carrying local refresh implementation code.
-- Observability opening lives in the standalone package as
-  `astrograph open-observability`; playground keeps only package-script aliases
-  for convenience.
+- `SessionStart` stays intentionally small and only returns shared repo context
+  plus live git state.
+- Astrograph remains a configured indexed-retrieval path for agents, but the
+  repo no longer carries local watcher bootstrap or reindex hook logic.
+- Git refresh and observability behavior live in the standalone Astrograph
+  package rather than in playground hook scripts.
 
 ## Repository Hooks
 
