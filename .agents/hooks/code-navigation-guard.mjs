@@ -12,6 +12,7 @@ import {
   preToolDeny,
   runHook,
 } from './lib/core.mjs';
+import { getAstrographBlockedExplorationReason } from './lib/astrograph-code-navigation.mjs';
 
 const CODE_PATH_PATTERNS = [
   /(^|\/)(apps|packages|tools|scripts|\.agents|\.codex|\.claude|\.github)(\/|$)/i,
@@ -19,7 +20,7 @@ const CODE_PATH_PATTERNS = [
 ];
 
 const SAFE_BASH_PATTERNS = [
-  /\b(?:git|pnpm|node|npm|npx|yarn|bun|cargo|go|pytest|vitest|jest|docker|kubectl|ai-context-engine)\b/i,
+  /\b(?:git|pnpm|node|npm|npx|yarn|bun|cargo|go|pytest|vitest|jest|docker|kubectl)\b/i,
   /\brg\b[^|]*(?:README|AGENTS|CLAUDE|docs\/|vault\/)/i,
 ];
 
@@ -33,14 +34,6 @@ const LARGE_READ_BYTES = 6_000;
 function isCodeLikePath(filePath) {
   const normalizedPath = normalizeToolPath(filePath);
   return CODE_PATH_PATTERNS.some((pattern) => pattern.test(normalizedPath));
-}
-
-function buildGuardReason() {
-  return [
-    'Use Astrograph for code exploration.',
-    'Start with `query_code`, then prefer `get_repo_outline`, `get_file_outline`, and `get_file_tree` before broad file reads.',
-    'Use direct file reads only for exact edit context or non-code support files.',
-  ].join(' ');
 }
 
 function shouldBlockBash(command) {
@@ -95,22 +88,28 @@ export async function handleCodeNavigationGuard(payload) {
 
   if (toolName === 'Bash') {
     const command = firstNonEmpty(toolInput?.command, '');
-    return shouldBlockBash(command) ? preToolDeny(buildGuardReason()) : {};
+    return shouldBlockBash(command)
+      ? preToolDeny(getAstrographBlockedExplorationReason('bash-search'))
+      : {};
   }
 
   if (toolName === 'Glob') {
-    return shouldBlockGlob(toolInput) ? preToolDeny(buildGuardReason()) : {};
+    return shouldBlockGlob(toolInput)
+      ? preToolDeny(getAstrographBlockedExplorationReason('glob'))
+      : {};
   }
 
   if (toolName === 'Grep') {
-    return shouldBlockGrep(toolInput) ? preToolDeny(buildGuardReason()) : {};
+    return shouldBlockGrep(toolInput)
+      ? preToolDeny(getAstrographBlockedExplorationReason('grep'))
+      : {};
   }
 
   if (toolName === 'Read') {
     const projectRoot = getProjectRoot(payload);
     if (shouldWarnOnRead(projectRoot, toolInput)) {
       return {
-        stderr: 'Large code read detected. Prefer Astrograph first: `plan_turn`, `query_code`, `get_repo_outline`, `get_file_outline`, and `get_file_tree`. Targeted `Read` with `offset`/`limit` is fine.\n',
+        stderr: `${getAstrographBlockedExplorationReason('large-read')}\n`,
       };
     }
   }

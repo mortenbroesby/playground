@@ -21,9 +21,9 @@ Thin bootstrap for coding agents in this repo.
 
 Prefer Astrograph MCP tools for code exploration before falling back to raw file reads or shell search.
 
-- Start with `get_project_status` for the current repository; if the index is missing or stale, run `index_folder`.
-- Before reading a file, use `get_file_outline`, `get_file_summary`, or `query_code` with source intent.
-- Before searching broadly, use `query_code`, `find_files`, or `search_text`.
+- Start with `diagnostics` for the current repository; if the index is missing or stale, run `index_folder`.
+- Before reading a file, use `get_file_outline` or `query_code` with source intent.
+- Before searching broadly, use `query_code` or `suggest_initial_queries`.
 - Before exploring structure, use `get_file_tree` or `get_repo_outline`.
 - Use raw file reads or shell search only when Astrograph cannot answer the question or when debugging Astrograph itself.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
