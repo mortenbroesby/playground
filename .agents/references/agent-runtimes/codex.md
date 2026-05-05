@@ -15,6 +15,7 @@
 - keep Codex-specific execution policy in `.codex/rules/`
 - use repo-owned skills from `.skills/` through `pnpm skills:read`
 - do not depend on runtime-local mirrored skill directories
+- keep the shared runtime contract in `shared-contract.md`
 
 ## Current Repo Setup
 
@@ -34,10 +35,10 @@
 
 - prefer `astrograph` as the default code navigation path in this repo
 - startup context should stay thin; full skill bodies load on demand
-- for the shared cross-agent contract, treat only `SessionStart` and
-  `UserPromptSubmit` as portable shared events
-- treat `PreToolUse`, `PostToolUse`, and `Stop` as Codex adapter extensions
-  even when they invoke shared `.agents/hooks/*.mjs` scripts
+- `SessionStart` and `UserPromptSubmit` are the portable shared events in this
+  repo's runtime contract
+- `PreToolUse`, `PostToolUse`, and `Stop` remain Codex adapter extensions even
+  when they invoke shared `.agents/hooks/*.mjs` scripts
 - some Git and `gh stack` operations may need permission because they write
   under `.git/`
 - the official Codex guidance explicitly supports repository `AGENTS.md` files
@@ -48,6 +49,7 @@
 - `AGENTS.md`
 - `.codex/config.toml`
 - `.codex/hooks.json`
+- `.agents/references/agent-runtimes/shared-contract.md`
 - `.skills/using-superpowers/references/codex-tools.md`
 
 ## Sources

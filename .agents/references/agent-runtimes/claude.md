@@ -12,6 +12,7 @@
 - shared rules, commands, and hooks should come from `.agents/`
 - repo-owned skills live in `.skills/`, not `.claude/skills`
 - runtime-specific settings belong in `.claude/settings.json`
+- shared runtime responsibilities are defined in `shared-contract.md`
 
 ## Current Repo Setup
 
@@ -23,10 +24,10 @@
 ## Behavior Notes
 
 - Claude can consume the shared `.claude/*` adapter surface cleanly
-- for the shared cross-agent contract, treat only `SessionStart` and
-  `UserPromptSubmit` as portable shared events
-- keep Claude-only lifecycle hooks such as `PreToolUse`, `PostToolUse`,
-  `Notification`, and `SessionEnd` as adapter extensions
+- `SessionStart` and `UserPromptSubmit` are the portable shared events in this
+  repo's runtime contract
+- `PreToolUse`, `PostToolUse`, `Notification`, and `SessionEnd` stay
+  Claude-specific adapter extensions even when they invoke shared hook scripts
 - imported upstream skill docs may still mention `~/.claude/skills`
 - treat those references as upstream background, not active repo policy
 - Claude officially supports project slash commands in `.claude/commands/`
@@ -36,6 +37,7 @@
 
 - `CLAUDE.md`
 - `.claude/settings.json`
+- `.agents/references/agent-runtimes/shared-contract.md`
 - `.agents/rules/agent-infrastructure.md`
 
 ## Sources

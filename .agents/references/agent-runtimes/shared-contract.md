@@ -6,6 +6,9 @@ This repo supports three shared agent surfaces:
 - hooks
 - skills
 
+Use this file as the canonical contract for what stays shared across runtimes
+and what remains adapter-specific.
+
 ## Rules
 
 Source of truth:
@@ -33,13 +36,13 @@ Source of truth:
 
 Contract:
 
-- hook logic should be cross-agent where possible
+- hook implementation should be cross-agent where possible
 - runtime hook registration is adapter-specific
 - keep hook scripts deterministic, fast, and side-effect aware
-- only rely on the intersection of hook events that the target runtimes can
-  support cleanly
+- portable hook behavior must target only the runtime event subset that maps
+  cleanly across adapters
 
-Supported cross-agent hook subset:
+Portable shared hook subset:
 
 - `session-start`
   - covers startup, resume, or session-open style events
@@ -49,14 +52,14 @@ Supported cross-agent hook subset:
   - covers the moment just before the runtime submits a user prompt
   - safe shared use: prompt linting, secret scanning, lightweight policy checks
 
-Out of contract for shared-by-default hook behavior:
+Adapter-extension hook areas:
 
 - pre-tool hooks
 - post-tool hooks
 - notification hooks
 - session-end or stop hooks
 
-Why these are out of contract:
+Why these stay adapter-specific:
 
 - Claude exposes a richer hook lifecycle than the other runtimes
 - Codex currently exposes narrower event names and matcher behavior
@@ -72,14 +75,14 @@ Implementation rule:
   as a runtime-specific adapter extension even when it calls a shared
   `.agents/hooks/*.mjs` script
 
-Current adapters:
+Current adapter registration:
 
 - Codex: `.codex/hooks.json` invokes shared `.agents/hooks/*.mjs`
 - Claude: `.claude/settings.json` invokes shared `.agents/hooks/*.mjs`
 - Copilot CLI: supported via `.github/hooks/*.json`, but not yet wired in this
   repo
 
-Implication:
+Implications:
 
 - shared hook implementation is realistic
 - shared hook configuration is not
