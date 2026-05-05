@@ -19,9 +19,7 @@ keywords:
 links:
   parents: []
   children: []
-  related:
-    - "mem-20260421-astrograph-oxc-parser-migration"
-    - "mem-20260421-astrograph-parser-bench-replacement-spec"
+  related: []
   supersedes: []
   superseded_by: []
 retention:
