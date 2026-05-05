@@ -7,18 +7,17 @@ status: "done"
 created: "2026-04-30"
 updated: "2026-04-30"
 owner: "morten"
-summary: "Always-applied guidance now keeps `jcodemunch` as the single default code-navigation path and limits `ai-context-engine` to explicit fallback use."
+summary: "Always-applied guidance now keeps Astrograph as the single default code-navigation path."
 tags: []
 keywords:
   - "navigation"
-  - "jcodemunch"
-  - "ai-context-engine"
+  - "astrograph"
   - "agent guidance"
 links:
   parents: []
   children: []
   related:
-    - "mem-20260425-use-official-mcp-sdk-and-keep-jcodemunch-fallback"
+    - "mem-20260425-use-official-mcp-sdk-with-astrograph"
     - "mem-20260429-task-board"
   supersedes: []
   superseded_by: []
@@ -33,10 +32,9 @@ source: "token-cost audit of startup surfaces."
 
 ## Why
 
-Conflicting default-navigation guidance causes repeated tool-selection
-explanations and makes startup context larger than it needs to be.
+Conflicting navigation guidance causes repeated tool-selection explanations and
+makes startup context larger than it needs to be.
 
 ## Outcome
 
-One clear default code-navigation path, with fallback guidance only where it is
-actually needed.
+One clear Astrograph-first code-navigation path.

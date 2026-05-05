@@ -31,8 +31,8 @@ decided_on: "2026-04-27"
 decision_id: "DEC-2026-04-27-established-npm-libraries"
 related_paths:
   - "AGENTS.md"
-  - "tools/ai-context-engine/package.json"
-  - "tools/ai-context-engine/src/path-matcher.ts"
+  - "../astrograph/package.json"
+  - "../astrograph/src/path-matcher.ts"
 ---
 
 Agents working in this repo should not be overly conservative about pulling in

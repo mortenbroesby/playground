@@ -31,7 +31,7 @@ retention:
 decided_on: "2026-05-01"
 decision_id: "DEC-2026-05-01-astrograph-no-bun-core"
 related_paths:
-  - ".agents/hooks/lib/ai-context-engine.mjs"
+  - ".agents/hooks/lib/astrograph-code-navigation.mjs"
   - ".agents/hooks/session-start.mjs"
   - ".specs/astrograph-repo-extraction-spec.md"
   - "package.json"
@@ -40,7 +40,7 @@ related_paths:
 Astrograph's public package runtime is Node 24, not Bun.
 
 The historical Bun-backed observability server should not ship as part of the
-core `@mortenbroesby/astrograph` package because that makes an optional local
+core `astrograph` package because that makes an optional local
 debugging surface feel like an end-user runtime requirement.
 
 The playground startup path should therefore not auto-start Astrograph

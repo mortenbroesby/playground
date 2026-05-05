@@ -1,8 +1,8 @@
 ---
-id: "rebuild-jcodemunch-style-code-intelligence-layer"
+id: "rebuild-astrograph-style-code-intelligence-layer"
 type: "todo"
 repo_slug: "playground"
-title: "Rebuild jCodeMunch-style code intelligence layer"
+title: "Rebuild Astrograph-style code intelligence layer"
 status: "active"
 created: "2026-04-29"
 updated: "2026-04-29"
@@ -22,7 +22,7 @@ retention:
   keep: false
 ai_appetite: 80
 priority: "P1"
-source: "synthesized from jCodeMunch, LSP systems, and Tree-sitter-based OSS patterns."
+source: "synthesized from Astrograph, LSP systems, and Tree-sitter-based OSS patterns."
 ---
 
 ## Why
@@ -35,7 +35,7 @@ long-term leverage.
 
 A working system that parses a repo, indexes symbols, and exposes a retrieval
 API usable by AI agents such as via MCP, achieving token-efficient, precise
-code access comparable to jCodeMunch.
+code access comparable to Astrograph.
 
 ## Details
 

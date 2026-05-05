@@ -20,7 +20,7 @@ task-specific context needed for the next step.
 
 1. Start with persistent repo context: `AGENTS.md`, `.agents/rules/`, and any
    closer `AGENTS.md`.
-2. For code tasks, use `ai-context-engine` first: `query_code`,
+2. For code tasks, use Astrograph first: `query_code`,
    `get_file_outline`, and `diagnostics`.
 3. Use `query_code` intents for discovery, exact retrieval, and bounded
    assembly rather than older granular retrieval tools.
@@ -49,5 +49,5 @@ task-specific context needed for the next step.
 
 - [ ] Persistent rules were loaded first
 - [ ] Task-specific context stayed narrow
-- [ ] `ai-context-engine` or `obsidian-memory` were used when appropriate
+- [ ] Astrograph or `obsidian-memory` were used when appropriate
 - [ ] Loaded examples and APIs actually exist in the repo

@@ -21,8 +21,7 @@ Shared hook policy for agent runtimes in `playground`.
 
 ## Indexed-Retrieval Flow
 
-1. Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
-   `ai-context-engine`) for default indexed code navigation.
+1. Use Astrograph (`astrograph`) for default indexed code navigation.
 2. Use Astrograph tools such as `query_code`, `get_file_outline`,
    `get_file_tree`, `get_repo_outline`, and `diagnostics`.
 3. Direct file reads only for exact edit context or non-code support files

@@ -7,12 +7,12 @@ status: "accepted"
 created: "2026-04-21"
 updated: "2026-04-29"
 owner: "morten"
-summary: "Use Oxc as the primary JS/TS parser in `ai-context-engine`; keep Tree-sitter only as a bounded fallback behind the parser facade."
+summary: "Use Oxc as the primary JS/TS parser in Astrograph; keep Tree-sitter only as a bounded fallback behind the parser facade."
 tags:
   - "type/decision"
   - "repo/playground"
 keywords:
-  - "ai-context-engine"
+  - "astrograph"
   - "oxc"
   - "tree-sitter"
   - "parser"
@@ -20,8 +20,8 @@ links:
   parents: []
   children: []
   related:
-    - "mem-20260421-ai-context-engine-oxc-parser-migration"
-    - "mem-20260421-ai-context-engine-parser-bench-replacement-spec"
+    - "mem-20260421-astrograph-oxc-parser-migration"
+    - "mem-20260421-astrograph-parser-bench-replacement-spec"
   supersedes: []
   superseded_by: []
 retention:
@@ -31,11 +31,11 @@ retention:
 decided_on: "2026-04-21"
 decision_id: "DEC-2026-04-21-oxc-primary-parser"
 related_paths:
-  - "tools/ai-context-engine/src/parser.ts"
-  - "tools/ai-context-engine/scripts/benchmark-small.mjs"
+  - "../astrograph/src/parser.ts"
+  - "../astrograph/scripts/benchmark-small.mjs"
 ---
 
-`ai-context-engine` should use Oxc as the primary JS/TS parsing backend.
+Astrograph should use Oxc as the primary JS/TS parsing backend.
 
 Tree-sitter remains only as a bounded compatibility fallback behind the parser
 facade during migration. It is not a co-equal runtime architecture and should

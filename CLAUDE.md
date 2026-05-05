@@ -6,8 +6,7 @@ Thin Claude Code adapter for this repo.
 - Load shared rules from [`.claude/rules`](.claude/rules), which points to
   [`.agents/rules`](.agents/rules).
 - Shared commands, hooks, and skills are exposed through `.claude/*` symlinks.
-- Use Astrograph (`@mortenbroesby/astrograph`; compatibility bin
-  `ai-context-engine`) first for code exploration.
+- Use Astrograph (`astrograph`) first for code exploration.
 - Use `obsidian-memory` for repo history, architecture, and decisions.
 
 ## Code Exploration Policy

@@ -13,7 +13,7 @@ Queue:
 
 - https://www.npmjs.com/package/@clack/prompts
 
-↳ I prefer if we lean on how jcodemunch inits, without rewriting to python. jcodemunch-mcp init
+↳ I prefer if we lean on how Astrograph inits, without rewriting to python.
     --yes global --hooks --index --audit
 
 ↳ Please tackle .specs/ai-engine-refactor.md. Switch to feature branch, and go into a ralph loop.

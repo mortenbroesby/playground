@@ -24,7 +24,7 @@ multi_agent = true
 # BEGIN ASTROGRAPH
 [mcp_servers.astrograph]
 command = "npx"
-args = ["@mortenbroesby/astrograph@0.1.0-alpha.60", "mcp"]
+args = ["astrograph@0.3.1-alpha.74", "mcp"]
 cwd = "."
 startup_timeout_sec = 90
 enabled_tools = ["index_folder", "index_file", "get_file_outline", "get_file_tree", "get_repo_outline", "suggest_initial_queries", "query_code", "diagnostics"]

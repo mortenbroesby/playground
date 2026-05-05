@@ -67,10 +67,7 @@ runtime-specific adapter files when needed.
 ## Retrieval Default
 
 - Keep one default code-navigation path hot in always-applied guidance:
-  `jcodemunch` first.
-- Treat `ai-context-engine` (`@astrograph`) as an explicit fallback for
-  diagnostics, freshness checks, or coverage gaps instead of as a parallel
-  default.
+  Astrograph first.
 - Keep durable repo history and architecture lookup in `obsidian-memory`.
 
 ## Workflow Skill

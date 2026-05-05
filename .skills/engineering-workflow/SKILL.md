@@ -28,8 +28,7 @@ adapters thin and repo-native.
 
 - Follow `AGENTS.md` and `.agents/rules/` first.
 - Use `pnpm` commands only.
-- Use `jcodemunch` as the default repo code retrieval path, with
-  `ai-context-engine` as fallback diagnostics or freshness tooling, and use
+- Use Astrograph as the default repo code retrieval path, and use
   `obsidian-memory` for repo history.
 - Keep durable workflow or architecture changes in
   `vault/02 Repositories/playground/`.

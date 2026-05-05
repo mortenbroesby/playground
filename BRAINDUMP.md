@@ -25,10 +25,10 @@ Keep this file loose:
   - <https://www.npmjs.com/package/@msgpack/msgpack>
   - <https://www.npmjs.com/package/ci-npm-update>
 
-- Release `@mortenbroesby/astrograph` from the standalone `../astrograph`
-  repository, then replace the playground `link:../astrograph` dependency with
-  the npm package after the first release. Keep the observability server
-  optional and preserve repo-root config loading for installed consumers.
+- Release `astrograph` from the standalone `../astrograph` repository, then
+  replace the playground `link:../astrograph` dependency with
+  `astrograph@0.3.1-alpha.74`. Keep the observability server optional and
+  preserve repo-root config loading for installed consumers.
 
 - Can we bind the Astrograph observability server to a memorable local URL?
   There may be free options we can leverage.
@@ -42,7 +42,7 @@ Keep this file loose:
 - Setup smth like <https://github.com/cfngc4594/agent-notify>
 - Consider how we could use <https://github.com/tree-sitter/tree-sitter>
 - Checkout <https://github.com/GlitterKill/sdl-mcp> and compare with
-  `ai-context-engine`
+  Astrograph
 - Look into <https://stryker-mutator.io/docs/> mutation testing.
 - <https://github.com/AgentSeal/codeburn> for checking token usage % analytics
 - workspace-tools

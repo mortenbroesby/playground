@@ -91,7 +91,7 @@ decisions before opening vault files directly.
 
 Search stays compact by default: `memory_search` returns paths, summaries,
 short excerpts, and an explicit `memory_unfold` hook per hit. Use
-`ai-context-engine` for source-code navigation and keep `obsidian-memory`
+Astrograph for source-code navigation and keep `obsidian-memory`
 focused on durable architecture, decisions, and session context.
 
 ## Forgetting Guard

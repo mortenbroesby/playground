@@ -35,7 +35,6 @@ vault/.trash/
 # Monorepo
 .turbo/
 dist/
-tools/ai-context-engine/observability-dist/
 coverage/
 *.tsbuildinfo
 playwright-report/
@@ -52,7 +51,6 @@ __screenshots__/
 .ralph/
 .codeintel/
 .astrograph/
-.ai-context-engine/
 .profiles/
 .stryker-tmp/
 coverage/stryker*.html

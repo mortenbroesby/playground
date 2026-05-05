@@ -1,27 +1,27 @@
 ---
-id: "mem-20260425-use-official-mcp-sdk-and-keep-jcodemunch-fallback"
+id: "mem-20260425-use-official-mcp-sdk-with-astrograph"
 type: "architecture-record"
 repo_slug: "playground"
-title: "Use Official MCP SDK And Keep Jcodemunch Fallback"
+title: "Use Official MCP SDK With Astrograph"
 status: "accepted"
 created: "2026-04-25"
 updated: "2026-04-29"
 owner: "morten"
-summary: "Use the official MCP SDK for repo-local MCP servers and keep `jcodemunch` available as the fallback code-navigation path when the primary engine is unavailable."
+summary: "Use the official MCP SDK for repo-local MCP servers and use Astrograph as the code-navigation path."
 tags:
   - "type/decision"
   - "repo/playground"
 keywords:
   - "mcp"
   - "sdk"
-  - "jcodemunch"
+  - "astrograph"
   - "fallback"
 links:
   parents: []
   children: []
   related:
-    - "mem-20260425-mcp-startup-hardening-jcodemunch-fallback"
-    - "mem-20260411-jcodemunch-codex-setup"
+    - "mem-20260425-mcp-startup-hardening-astrograph"
+    - "mem-20260411-astrograph-codex-setup"
   supersedes: []
   superseded_by: []
 retention:
@@ -29,9 +29,9 @@ retention:
   expires_after: null
   keep: true
 decided_on: "2026-04-25"
-decision_id: "DEC-2026-04-25-official-mcp-sdk-jcodemunch-fallback"
+decision_id: "DEC-2026-04-25-official-mcp-sdk-astrograph"
 related_paths:
-  - "tools/ai-context-engine"
+  - "../astrograph"
   - "AGENTS.md"
   - ".codex/config.toml"
 ---
@@ -39,8 +39,7 @@ related_paths:
 Repo-local MCP servers should use the official MCP SDK rather than hand-rolled
 stdio protocol loops.
 
-For code navigation, the primary engine may evolve, but `jcodemunch` remains
-the checked-in fallback path when that primary path is unavailable or broken.
+For code navigation, Astrograph is the checked-in path for this repo.
 
-This keeps the protocol surface aligned with the upstream SDK and preserves a
-practical escape hatch for local navigation work.
+This keeps the protocol surface aligned with the upstream SDK and the repo's
+active indexed-retrieval workflow.

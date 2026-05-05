@@ -53,10 +53,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/ai-context-engine-reindex.mjs\""
-          },
-          {
-            "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.agents/hooks/audit-edited-files.mjs\""
           },
           {
