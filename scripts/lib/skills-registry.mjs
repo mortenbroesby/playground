@@ -16,6 +16,28 @@ export function getRegistryPath(repoRoot) {
   return path.join(getSkillsRoot(repoRoot), GENERATED_REGISTRY_FILENAME);
 }
 
+function validateRegistryShape(registry, registryPath) {
+  if (!registry || typeof registry !== "object") {
+    throw new Error(
+      `${registryPath}: registry file must contain a JSON object.`,
+    );
+  }
+
+  if (registry.version !== REGISTRY_VERSION) {
+    throw new Error(
+      `${registryPath}: unsupported registry version ${String(
+        registry.version,
+      )}. Expected ${REGISTRY_VERSION}.`,
+    );
+  }
+
+  if (!Array.isArray(registry.skills)) {
+    throw new Error(
+      `${registryPath}: registry file must contain a skills array.`,
+    );
+  }
+}
+
 export function ensureSkillsRoot(repoRoot) {
   const skillsRoot = getSkillsRoot(repoRoot);
   if (!fs.existsSync(skillsRoot)) {
@@ -39,7 +61,9 @@ function collectSkillDirectories(skillsRoot) {
     .sort((left, right) => left.localeCompare(right));
 
   for (const directoryPath of skillDirectories) {
-    const nestedEntries = fs.readdirSync(directoryPath, { withFileTypes: true });
+    const nestedEntries = fs.readdirSync(directoryPath, {
+      withFileTypes: true,
+    });
     for (const entry of nestedEntries) {
       if (!entry.isDirectory()) {
         continue;
@@ -116,6 +140,33 @@ export function serializeSkillRegistry(registry) {
   return `${JSON.stringify(registry, null, 2)}\n`;
 }
 
+export function loadGeneratedSkillRegistry(repoRoot) {
+  const registryPath = getRegistryPath(repoRoot);
+  if (!fs.existsSync(registryPath)) {
+    throw new Error(
+      `Missing generated skill registry: ${path.relative(
+        repoRoot,
+        registryPath,
+      )}. Rebuild with \`node scripts/skills.mjs registry\`.`,
+    );
+  }
+
+  let registry;
+  try {
+    registry = JSON.parse(fs.readFileSync(registryPath, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `${path.relative(repoRoot, registryPath)}: invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  const relativeRegistryPath = path.relative(repoRoot, registryPath);
+  validateRegistryShape(registry, relativeRegistryPath);
+  return registry;
+}
+
 export function writeSkillRegistry(repoRoot) {
   const registry = buildSkillRegistry(repoRoot);
   fs.writeFileSync(getRegistryPath(repoRoot), serializeSkillRegistry(registry));
@@ -132,5 +183,7 @@ export function isRegistryCurrent(repoRoot) {
   }
 
   const currentContents = fs.readFileSync(registryPath, "utf8");
-  return currentContents === serializeSkillRegistry(buildSkillRegistry(repoRoot));
+  return (
+    currentContents === serializeSkillRegistry(buildSkillRegistry(repoRoot))
+  );
 }

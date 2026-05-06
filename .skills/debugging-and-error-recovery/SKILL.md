@@ -1,6 +1,20 @@
 ---
 name: debugging-and-error-recovery
 description: Triage failures systematically. Use when tests fail, builds break, runtime behavior is unexpected, or a change needs safe recovery steps.
+tags:
+  - debugging
+  - triage
+  - recovery
+triggers:
+  - fix failing test
+  - debug build error
+  - reproduce the bug
+  - why is this broken
+anti_triggers:
+  - review this diff
+  - write a spec
+  - brainstorm approaches
+routing_weight: 3
 ---
 
 # Debugging And Error Recovery

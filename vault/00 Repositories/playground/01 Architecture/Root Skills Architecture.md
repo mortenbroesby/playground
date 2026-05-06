@@ -7,7 +7,7 @@ status: "accepted"
 created: "2026-04-29"
 updated: "2026-05-06"
 owner: "morten"
-summary: "Root `.skills` is the canonical repo-owned skill store, with a generated registry for machine-readable discovery and routing, command-first access, and thin startup bootstrap."
+summary: "Root `.skills` is the canonical repo-owned skill store, with frontmatter-authored metadata feeding a generated registry for discovery, routing, source-backed reads, and thin startup bootstrap."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -39,24 +39,20 @@ Define the migration target for moving repo-owned skills into an on-demand root
 Repo-owned first-party skills should move to a root `.skills/` directory, and
 startup-facing surfaces should stop being the source of truth for skill
 content. `AGENTS.md`, `CLAUDE.md`, and runtime adapters should stay thin and
-route users to a command-first discovery surface:
-
-- `pnpm skills:list`
-- `pnpm skills:search`
-- `pnpm skills:route "<task>"`
-- `pnpm skills:read <skill-name>`
-
-Load full `SKILL.md` bodies only on explicit read.
+point to a registry-backed discovery surface. The generated registry owns
+machine-readable discovery and routing for `list`, `search`, and `route`;
+`read` stays source-backed and loads one chosen `SKILL.md` body on demand.
 
 The machine-readable discovery layer should not be reconstructed from raw skill
 prose on every command invocation. Instead, skill frontmatter should act as the
-canonical metadata contract and feed a deterministic generated registry artifact
-that command surfaces can consume.
+canonical metadata contract and feed `.skills/registry.generated.json`, the
+deterministic generated registry artifact that command surfaces can consume.
 
 ## Why Change
 
 The current model mixes bootstrap guidance with catalog content. The target
-model is thin startup bootstrap, command-first discovery, and explicit reads.
+model is thin startup bootstrap, registry-backed discovery, and explicit
+source-backed reads.
 
 ## Target Boundaries
 
@@ -72,25 +68,19 @@ model is thin startup bootstrap, command-first discovery, and explicit reads.
 - `list`, `search`, and `route` should consume the generated registry rather
   than re-deriving metadata ad hoc from raw markdown prose; `read` still loads
   one chosen skill on demand from source.
+- Routing heuristics should live in skill frontmatter, the generated registry,
+  and `.agents/rules/skill-routing.md`, not in repeated startup-facing docs.
 - External downloaded skills stay separate from repo-owned first-party skills.
 
 ## Migration Invariants
 
 - Keep `SKILL.md` unchanged.
-- Keep the command surface `pnpm`-native.
+- Keep the `pnpm skills:*` surface thin and registry-backed.
 - Do not require large startup catalogs.
 - Preserve one obvious place to read a chosen skill.
 - Keep repo-owned and external skills distinguishable.
 - Avoid duplicated canonical content across adapters.
 - Keep the generated registry deterministic and cheap to rebuild.
-
-## Story Boundaries
-
-- `STORY-1`: define the architecture and create the root `.skills/` landing zone.
-- `STORY-2`: move repo-owned checked-in skills into `.skills/`.
-- `STORY-3`: make discovery command-first and on-demand.
-- `STORY-4`: slim startup docs and add lightweight routing rules.
-- `STORY-5`: decide where external downloaded skills live.
 
 ## Non-Goals For This Story
 

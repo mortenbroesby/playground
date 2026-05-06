@@ -1,6 +1,20 @@
 ---
 name: code-review-and-quality
 description: Review changes across correctness, readability, architecture, security, performance, and verification gaps.
+tags:
+  - review
+  - quality
+  - audit
+triggers:
+  - review this
+  - audit this diff
+  - merge readiness
+  - look for bugs
+anti_triggers:
+  - implement feature
+  - brainstorm approaches
+  - make a plan
+routing_weight: 3
 ---
 
 # Code Review And Quality

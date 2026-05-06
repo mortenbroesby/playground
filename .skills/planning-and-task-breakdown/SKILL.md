@@ -1,6 +1,21 @@
 ---
 name: planning-and-task-breakdown
 description: Break a clear request or spec into small, ordered, verifiable slices with acceptance criteria and dependency notes.
+tags:
+  - planning
+  - sequencing
+  - task-breakdown
+triggers:
+  - make a plan
+  - break this down
+  - ordered steps
+  - task breakdown
+anti_triggers:
+  - implement directly
+  - brainstorm approaches
+  - review this diff
+  - debug failing test
+routing_weight: 2
 ---
 
 # Planning And Task Breakdown

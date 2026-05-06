@@ -97,6 +97,9 @@ Source of truth:
 Contract:
 
 - skills are cross-agent content
+- `SKILL.md` frontmatter is the canonical metadata source
+- `.skills/registry.generated.json` is the canonical machine-readable discovery
+  and routing surface
 - skills load on demand
 - skills are not startup bootstrap
 - do not mirror or symlink repo-owned skills into runtime-specific directories
@@ -105,11 +108,13 @@ Current access path:
 
 - `pnpm skills:list`
 - `pnpm skills:search <query>`
+- `pnpm skills:route "<task>"`
 - `pnpm skills:read <skill-name>`
 
 Implication:
 
 - shared skill bodies are realistic
+- shared registry-backed discovery is realistic
 - runtime-native skill installation is not the source of truth
 - runtime-specific tool mapping should live in companion references, not in the
   shared skill body

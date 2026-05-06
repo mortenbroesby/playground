@@ -10,8 +10,13 @@ multiple skills just because they exist.
 ## Default
 
 - Start without loading a skill when the task is tiny, obvious, and local.
+- Treat `.skills/registry.generated.json` as the canonical machine-readable
+  routing surface. Startup docs should point back here instead of re-encoding
+  routing heuristics.
 - Use `pnpm skills:route "<task>"` when you want a cheap bootstrap classifier
   before reading any full `SKILL.md` bodies.
+- Use `pnpm skills:search <query>` for metadata-first discovery, with source
+  body fallback only when registry metadata is too weak to disambiguate.
 - Load one primary skill first when the task has a clear dominant mode.
 - Load a second skill only when it covers a distinct gap the first one does not.
 - Prefer workflow skills before specialist skills when the task is broad or

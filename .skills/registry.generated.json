@@ -18,10 +18,23 @@
       "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.",
       "source_dir": ".skills/brainstorming",
       "source_skill_md_path": ".skills/brainstorming/SKILL.md",
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1
+      "tags": [
+        "ideation",
+        "design",
+        "requirements"
+      ],
+      "triggers": [
+        "brainstorm",
+        "explore approaches",
+        "clarify requirements",
+        "design before implementation"
+      ],
+      "anti_triggers": [
+        "fix failing test",
+        "review this diff",
+        "run the test suite"
+      ],
+      "routing_weight": 2
     },
     {
       "id": "browser-testing-with-devtools",
@@ -51,10 +64,23 @@
       "description": "Review changes across correctness, readability, architecture, security, performance, and verification gaps.",
       "source_dir": ".skills/code-review-and-quality",
       "source_skill_md_path": ".skills/code-review-and-quality/SKILL.md",
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1
+      "tags": [
+        "review",
+        "quality",
+        "audit"
+      ],
+      "triggers": [
+        "review this",
+        "audit this diff",
+        "merge readiness",
+        "look for bugs"
+      ],
+      "anti_triggers": [
+        "implement feature",
+        "brainstorm approaches",
+        "make a plan"
+      ],
+      "routing_weight": 3
     },
     {
       "id": "code-simplification",
@@ -84,10 +110,23 @@
       "description": "Triage failures systematically. Use when tests fail, builds break, runtime behavior is unexpected, or a change needs safe recovery steps.",
       "source_dir": ".skills/debugging-and-error-recovery",
       "source_skill_md_path": ".skills/debugging-and-error-recovery/SKILL.md",
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1
+      "tags": [
+        "debugging",
+        "triage",
+        "recovery"
+      ],
+      "triggers": [
+        "fix failing test",
+        "debug build error",
+        "reproduce the bug",
+        "why is this broken"
+      ],
+      "anti_triggers": [
+        "review this diff",
+        "write a spec",
+        "brainstorm approaches"
+      ],
+      "routing_weight": 3
     },
     {
       "id": "dispatching-parallel-agents",
@@ -128,10 +167,24 @@
       "description": "Use for spec, plan, build, test, review, simplify, or ship workflows. Adapts the agent-skills lifecycle for this repo while keeping Codex, Claude, Copilot, and OpenCode on the shared .agents surface.",
       "source_dir": ".skills/engineering-workflow",
       "source_skill_md_path": ".skills/engineering-workflow/SKILL.md",
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1
+      "tags": [
+        "workflow",
+        "implementation",
+        "shipping"
+      ],
+      "triggers": [
+        "implement",
+        "refactor",
+        "build and test",
+        "ship this change"
+      ],
+      "anti_triggers": [
+        "review only",
+        "debug failing test",
+        "make a plan",
+        "brainstorm approaches"
+      ],
+      "routing_weight": 2
     },
     {
       "id": "executing-plans",
@@ -216,10 +269,24 @@
       "description": "Break a clear request or spec into small, ordered, verifiable slices with acceptance criteria and dependency notes.",
       "source_dir": ".skills/planning-and-task-breakdown",
       "source_skill_md_path": ".skills/planning-and-task-breakdown/SKILL.md",
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1
+      "tags": [
+        "planning",
+        "sequencing",
+        "task-breakdown"
+      ],
+      "triggers": [
+        "make a plan",
+        "break this down",
+        "ordered steps",
+        "task breakdown"
+      ],
+      "anti_triggers": [
+        "implement directly",
+        "brainstorm approaches",
+        "review this diff",
+        "debug failing test"
+      ],
+      "routing_weight": 2
     },
     {
       "id": "ralph-plan",
@@ -359,10 +426,23 @@
       "description": "Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions",
       "source_dir": ".skills/using-superpowers",
       "source_skill_md_path": ".skills/using-superpowers/SKILL.md",
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1
+      "tags": [
+        "bootstrap",
+        "skill-routing",
+        "process"
+      ],
+      "triggers": [
+        "use superpowers",
+        "choose a skill",
+        "strict workflow",
+        "start a session"
+      ],
+      "anti_triggers": [
+        "implement feature",
+        "fix failing test",
+        "review this diff"
+      ],
+      "routing_weight": 0.5
     },
     {
       "id": "verification-before-completion",

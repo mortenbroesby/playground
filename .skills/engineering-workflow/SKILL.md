@@ -1,6 +1,21 @@
 ---
 name: engineering-workflow
 description: Use for spec, plan, build, test, review, simplify, or ship workflows. Adapts the agent-skills lifecycle for this repo while keeping Codex, Claude, Copilot, and OpenCode on the shared .agents surface.
+tags:
+  - workflow
+  - implementation
+  - shipping
+triggers:
+  - implement
+  - refactor
+  - build and test
+  - ship this change
+anti_triggers:
+  - review only
+  - debug failing test
+  - make a plan
+  - brainstorm approaches
+routing_weight: 2
 ---
 
 # Engineering Workflow

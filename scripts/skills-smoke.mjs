@@ -80,29 +80,83 @@ trigger:
 
   const listResult = runNode([skillsScriptPath, "list"]);
   assertOk(listResult, "skills list should succeed");
-  assert.match(listResult.stdout, /^engineering-workflow$/m);
+  assert.match(
+    listResult.stdout,
+    /^engineering-workflow: Use for spec, plan, build, test, review, simplify, or ship workflows\./m,
+  );
 
   const searchResult = runNode([skillsScriptPath, "search", "workflow"]);
   assertOk(searchResult, "skills search should succeed");
-  assert.match(searchResult.stdout, /^engineering-workflow:/m);
+  assert.match(searchResult.stdout, /^engineering-workflow: .* \[metadata: /m);
 
-  const readResult = runNode([skillsScriptPath, "read", "engineering-workflow"]);
+  const contentFallbackSearchResult = runNode([
+    skillsScriptPath,
+    "search",
+    "Cross-cutting support skills",
+  ]);
+  assertOk(
+    contentFallbackSearchResult,
+    "skills search content fallback should succeed",
+  );
+  assert.match(
+    contentFallbackSearchResult.stdout,
+    /^engineering-workflow: .* \[content fallback\]$/m,
+  );
+
+  const readResult = runNode([
+    skillsScriptPath,
+    "read",
+    "engineering-workflow",
+  ]);
   assertOk(readResult, "skills read should succeed");
-  assert.match(readResult.stdout, /^Base directory: \.skills\/engineering-workflow$/m);
+  assert.match(
+    readResult.stdout,
+    /^Base directory: \.skills\/engineering-workflow$/m,
+  );
   assert.match(readResult.stdout, /# Engineering Workflow/i);
+
+  const routeResult = runNode([
+    skillsScriptPath,
+    "route",
+    "refactor shared agent hook logic",
+    "--json",
+  ]);
+  assertOk(routeResult, "skills route should succeed");
+  const route = JSON.parse(routeResult.stdout);
+  assert.equal(route.primarySkill, "engineering-workflow");
+  assert.match(route.mode, /^(implement|plan|spec|review|debug|docs)$/);
+  assert.ok(
+    route.secondarySkills.includes("incremental-implementation"),
+    "skills route should preserve the implementation-oriented secondary skill",
+  );
+  assert.ok(
+    route.extraRules.includes("agent-infrastructure"),
+    "skills route should surface the infrastructure rule for hook work",
+  );
 
   const registryWriteResult = runNode([skillsScriptPath, "registry"]);
   assertOk(registryWriteResult, "skills registry rebuild should succeed");
-  assert.match(registryWriteResult.stdout, /Wrote \.skills\/registry\.generated\.json/);
+  assert.match(
+    registryWriteResult.stdout,
+    /Wrote \.skills\/registry\.generated\.json/,
+  );
 
-  const registryCheckResult = runNode([skillsScriptPath, "registry", "--check"]);
+  const registryCheckResult = runNode([
+    skillsScriptPath,
+    "registry",
+    "--check",
+  ]);
   assertOk(registryCheckResult, "skills registry check should succeed");
   assert.match(
     registryCheckResult.stdout,
     /Skill registry is current: \.skills\/registry\.generated\.json/,
   );
 
-  const installResult = runNode([skillsScriptPath, "install", "anthropics/skills"]);
+  const installResult = runNode([
+    skillsScriptPath,
+    "install",
+    "anthropics/skills",
+  ]);
   assertFailed(installResult, "skills install should be unsupported");
 
   const syncResult = runNode([skillsScriptPath, "sync"]);

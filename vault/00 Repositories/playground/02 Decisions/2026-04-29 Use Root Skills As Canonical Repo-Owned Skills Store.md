@@ -5,9 +5,9 @@ repo_slug: "playground"
 title: "Use Root Skills As Canonical Repo-Owned Skills Store"
 status: "accepted"
 created: "2026-04-29"
-updated: "2026-04-29"
+updated: "2026-05-06"
 owner: "morten"
-summary: "Use root `.skills/` as the canonical checked-in store for repo-owned skills and keep startup adapters thin and on-demand."
+summary: "Use root `.skills/` as the canonical checked-in store for repo-owned skills, with a generated registry for discovery and thin startup adapters."
 tags:
   - "type/decision"
   - "repo/playground"
@@ -40,8 +40,14 @@ related_paths:
 Repo-owned skills live canonically in root `.skills/`.
 
 Startup-facing surfaces such as `AGENTS.md` and runtime-specific adapters stay
-thin and should route users toward command-first discovery like
-`pnpm skills:list`, `pnpm skills:search`, and `pnpm skills:read`.
+thin and should point to the registry-backed `pnpm skills:*` discovery surface
+instead of repeating routing heuristics or catalog summaries.
+
+`.skills/registry.generated.json` is the canonical machine-readable discovery
+and routing artifact for repo-owned skills. `pnpm skills:list`,
+`pnpm skills:search`, and `pnpm skills:route` should consume that registry;
+`pnpm skills:read` remains the source-backed step that loads one chosen skill
+body on demand.
 
 The repo should not reintroduce duplicated skill bodies or runtime-specific
 `*/skills` trees as authoring homes for checked-in skills.
