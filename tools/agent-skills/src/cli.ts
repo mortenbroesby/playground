@@ -17,7 +17,6 @@ import {
   renderMiniSearchMatch,
 } from "./lib/skills-minisearch";
 import {
-  rankSearchMatches,
   rankSkillsForList,
   renderSkillSummary,
   routeTaskFromRegistry,
@@ -38,7 +37,7 @@ function fail(message: string): never {
 function usage(): void {
   console.log(`Usage:
   pnpm skills:list [--all] [--group <workflow|support|specialist|imported>] [--daily]
-  pnpm skills:search [--engine <bm25|minisearch>] [--content] <query>
+  pnpm skills:search [--content] <query>
   pnpm skills:read <skill-name>[,<skill-name>...]
   pnpm skills:route <task description> [--json]
   pnpm skills:registry [--check]
@@ -51,8 +50,7 @@ Notes:
     registry artifact.
   - \`skills:search\` is metadata-first by default; add \`--content\` to allow
     source-body fallback when curated metadata is too weak.
-  - \`skills:search\` uses MiniSearch by default; pass \`--engine bm25\` to
-    compare against the older custom scorer.
+  - \`skills:search\` uses MiniSearch as the only supported search engine.
   - \`skills:install\` and \`skills:sync\` are intentionally unsupported in this repo architecture.`);
 }
 
@@ -109,27 +107,13 @@ function listSkills(args: string[] = []): void {
 
 function searchSkills(args: string[]): void {
   const allowContentFallback = args.includes("--content");
-  const engineFlagIndex = args.indexOf("--engine");
-  const engine =
-    engineFlagIndex >= 0 ? (args[engineFlagIndex + 1] ?? null) : "minisearch";
-
-  if (engineFlagIndex >= 0 && !engine) {
-    fail("`pnpm skills:search --engine` requires bm25 or minisearch.");
-  }
-
-  if (engine !== "bm25" && engine !== "minisearch") {
-    fail("`pnpm skills:search --engine` must be bm25 or minisearch.");
+  if (args.includes("--engine")) {
+    fail("`pnpm skills:search` no longer supports `--engine`; MiniSearch is the only supported search engine.");
   }
 
   const normalizedQuery = args
     .filter((part, index) => {
       if (part === "--content" || part === "--") {
-        return false;
-      }
-      if (part === "--engine") {
-        return false;
-      }
-      if (engineFlagIndex >= 0 && index === engineFlagIndex + 1) {
         return false;
       }
       return true;
@@ -142,18 +126,11 @@ function searchSkills(args: string[]): void {
   }
 
   const skills = getSkillRegistry().skills;
-  const metadataMatches =
-    engine === "minisearch"
-      ? rankMiniSearchMatches(skills, normalizedQuery)
-      : rankSearchMatches(skills, normalizedQuery);
+  const metadataMatches = rankMiniSearchMatches(skills, normalizedQuery);
 
   if (metadataMatches.length > 0) {
     for (const match of metadataMatches) {
-      console.log(
-        engine === "minisearch"
-          ? renderMiniSearchMatch(match)
-          : `${renderSkillSummary(match.skill)} [metadata: ${match.reasons.join(", ")}]`,
-      );
+      console.log(renderMiniSearchMatch(match));
     }
     return;
   }

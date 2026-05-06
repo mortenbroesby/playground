@@ -21,20 +21,17 @@ skill discovery, ranking, routing, and metadata checks.
 - Runtime shims and smoke checks execute compiled `dist/` artifacts (no `--experimental-*` node flags).
 - Search is metadata-first by default. Source-body fallback is explicit through
   `--content`.
-- `skills:search` now uses MiniSearch by default. Routing remains on the custom
-  BM25-backed implementation, and `--engine bm25` is still available for
-  comparison and regression checks.
+- `skills:search` now uses MiniSearch as the only supported search engine.
+  Routing and search both use the same MiniSearch-oriented retrieval surface.
 - Query normalization and repo-specific synonym expansion are shared across the
-  MiniSearch and BM25 search paths so retrieval tuning stays consistent.
+  runtime so retrieval tuning stays consistent.
 
 ## Local commands
 
 - From package:
   - `pnpm --filter @playground/agent-skills run agent-skills -- list`
   - `pnpm --filter @playground/agent-skills run agent-skills -- search workflow`
-  - `pnpm --filter @playground/agent-skills run agent-skills -- search --engine bm25 workflow`
   - `pnpm --filter @playground/agent-skills run agent-skills -- search --content ".finalMessage()"`
-  - `pnpm --filter @playground/agent-skills run agent-skills -- search --engine minisearch workflow`
   - `pnpm --filter @playground/agent-skills run agent-skills -- route "fix bug"`
   - `pnpm --filter @playground/agent-skills run skills:smoke`
   - `pnpm --filter @playground/agent-skills run skills:bench`

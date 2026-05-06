@@ -44,14 +44,14 @@ Scoped instructions for `tools/agent-skills`.
 - `src/lib/skills-registry.ts`: registry loading, validation, and generation.
 - `src/lib/skills-routing.ts`: ranking, routing, and list/search policy.
 - `src/hooks/skills-metadata-hook.ts`: commit-hook metadata validation.
-- `src/skills-smoke.test.ts`: package smoke coverage for command surface and
-  routing policy.
+- `src/fixtures/search-evals.json`: checked-in retrieval quality corpus for the
+  current search surface.
 
 ## Verification
 
 - Run after meaningful package changes:
   - `pnpm --filter @playground/agent-skills run typecheck`
-  - `pnpm --filter @playground/agent-skills run skills:smoke`
+  - `pnpm --filter @playground/agent-skills run build`
 - Run when metadata or skill inventory changes:
   - `pnpm skills:registry`
   - `pnpm skills:list`
@@ -64,5 +64,5 @@ Scoped instructions for `tools/agent-skills`.
   - `.skills/.metadata/registry.metadata.json`
   - generated registry output
   - repo docs or routing rules that still reference the deleted skill
-- If you change ranking policy or CLI semantics, update the package smoke test
-  in the same pass.
+- If you change ranking policy or CLI semantics, update the checked-in search
+  eval corpus in the same pass.

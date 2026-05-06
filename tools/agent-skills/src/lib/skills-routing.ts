@@ -1,14 +1,8 @@
 import {
-  type Bm25Model,
-  prepareSearchQuery,
-  type ScorableField,
-  getBm25Model,
   includesPhrase,
   normalizeText,
   scoreListField,
   scoreTextField,
-  scoreWithBm25,
-  tokenize,
 } from "./skills-text-search";
 
 export type SkillTier =
@@ -92,127 +86,9 @@ const ROUTE_PROFILES: Record<
   },
 };
 
-const BM25_SEARCH_FIELD_WEIGHTS: Record<ScorableField, number> = {
-  id: 2.2,
-  display_name: 2,
-  description: 1.1,
-  tags: 1.3,
-  triggers: 2.4,
-  anti_triggers: -1.8,
-};
-
-const BM25_ROUTE_FIELD_WEIGHTS: Record<ScorableField, number> = {
-  id: 1.9,
-  display_name: 1.7,
-  description: 1.0,
-  tags: 1.5,
-  triggers: 2.2,
-  anti_triggers: -2.2,
-};
-
-function getScorableFieldText(skill: RegistrySkill, field: ScorableField): string {
-  switch (field) {
-    case "id":
-      return skill.id;
-    case "display_name":
-      return skill.display_name;
-    case "description":
-      return skill.description;
-    case "tags":
-      return skill.tags.join(" ");
-    case "triggers":
-      return skill.triggers.join(" ");
-    case "anti_triggers":
-      return skill.anti_triggers.join(" ");
-    default:
-      return "";
-  }
-}
-
-export function scoreMetadataMatch(
-  skill: RegistrySkill,
-  query: string,
-  bm25Model?: Bm25Model,
-  queryTokens: string[] = tokenize(query),
-) {
-  let score = 0;
-  const reasons: string[] = [];
-  let exactPhraseMatch = false;
-  const normalizedQuery = normalizeText(query);
-  const safeQueryTokens = queryTokens.length > 0 ? queryTokens : tokenize(query);
-  const bm25Score =
-    bm25Model === undefined || safeQueryTokens.length === 0
-      ? 0
-      : scoreWithBm25(skill, query, safeQueryTokens, bm25Model, BM25_SEARCH_FIELD_WEIGHTS);
-
-  const idScore = scoreTextField(skill.id, query) * 2;
-  if (idScore > 0) {
-    score += idScore;
-    reasons.push("id");
-    exactPhraseMatch ||= includesPhrase(normalizeText(skill.id), normalizedQuery);
-  }
-
-  const nameScore = scoreTextField(skill.display_name, query) * 2;
-  if (nameScore > 0) {
-    score += nameScore;
-    reasons.push("name");
-    exactPhraseMatch ||= includesPhrase(
-      normalizeText(skill.display_name),
-      normalizedQuery,
-    );
-  }
-
-  const descriptionScore = scoreTextField(skill.description, query);
-  if (descriptionScore > 0) {
-    score += descriptionScore;
-    reasons.push("description");
-    exactPhraseMatch ||= includesPhrase(
-      normalizeText(skill.description),
-      normalizedQuery,
-    );
-  }
-
-  const tagsScore = scoreListField(skill.tags, query, 2);
-  if (tagsScore > 0) {
-    score += tagsScore;
-    reasons.push("tags");
-    exactPhraseMatch ||= skill.tags.some((value) =>
-      includesPhrase(normalizeText(value), normalizedQuery),
-    );
-  }
-
-  const triggerScore = scoreListField(skill.triggers, query, 3);
-  if (triggerScore > 0) {
-    score += triggerScore;
-    reasons.push("triggers");
-    exactPhraseMatch ||= skill.triggers.some((value) =>
-      includesPhrase(normalizeText(value), normalizedQuery),
-    );
-  }
-
-  const antiTriggerPenalty = scoreListField(skill.anti_triggers, query, 3);
-  if (antiTriggerPenalty > 0) {
-    score -= antiTriggerPenalty;
-    reasons.push("anti-triggers");
-  }
-
-  if (bm25Score > 0) {
-    score += bm25Score;
-    reasons.push("bm25");
-  }
-
-  return {
-    exactPhraseMatch,
-    score,
-    reasons,
-  };
-}
-
 function scoreRouteEvidence(
   skill: RegistrySkill,
   taskText: string,
-  bm25Model?: Bm25Model,
-  queryTokens: string[] = tokenize(taskText),
 ) {
   const reasons: string[] = [];
   let score = skill.tier === "daily" ? 0.5 : 0;
@@ -245,22 +121,6 @@ function scoreRouteEvidence(
   if (antiTriggerPenalty > 0) {
     score -= antiTriggerPenalty;
     reasons.push("anti-trigger penalty");
-  }
-
-  const safeQueryTokens = queryTokens.length > 0 ? queryTokens : tokenize(taskText);
-  const bm25Score =
-    bm25Model === undefined || safeQueryTokens.length === 0
-      ? 0
-      : scoreWithBm25(
-          skill,
-          taskText,
-          safeQueryTokens,
-          bm25Model,
-          BM25_ROUTE_FIELD_WEIGHTS,
-        );
-  if (bm25Score > 0) {
-    score += bm25Score;
-    reasons.push("bm25");
   }
 
   return {
@@ -398,27 +258,6 @@ export function rankSkillsForList(
     .sort(compareListRanked);
 }
 
-export function rankSearchMatches(
-  skills: RegistrySkill[],
-  query: string,
-): PolicyRouteMatch[] {
-  const preparedQuery = prepareSearchQuery(query);
-  const bm25Model = getBm25Model(skills, getScorableFieldText);
-
-  return skills
-    .map((skill) => {
-      const metadata = scoreMetadataMatch(
-        skill,
-        query,
-        bm25Model,
-        preparedQuery.tokens,
-      );
-      return buildPolicyEntry(skill, metadata.score, metadata.reasons, query);
-    })
-    .filter((entry) => entry.evidenceScore > 0)
-    .sort(comparePolicyRanked);
-}
-
 function skillThresholdForSecondary(primaryEvidenceScore: number): number {
   if (primaryEvidenceScore >= 20) {
     return 8;
@@ -445,11 +284,9 @@ export function routeTaskFromRegistry(
   skills: RegistrySkill[],
   text: string,
 ): RouteResult {
-  const preparedQuery = prepareSearchQuery(text);
-  const bm25Model = getBm25Model(skills, getScorableFieldText);
   const rankedSkills = skills
     .map((skill) => {
-      const evidence = scoreRouteEvidence(skill, text, bm25Model, preparedQuery.tokens);
+      const evidence = scoreRouteEvidence(skill, text);
       return buildPolicyEntry(
         skill,
         evidence.evidenceScore,

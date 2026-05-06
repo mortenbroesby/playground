@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { findProjectRoot } from "workspace-tools";
 
 import { rankMiniSearchMatches } from "./lib/skills-minisearch";
-import { rankSearchMatches, type RegistrySkill } from "./lib/skills-routing";
+import type { RegistrySkill } from "./lib/skills-routing";
 
 type SearchEvalFixture = {
   query: string;
@@ -61,13 +61,9 @@ async function main(): Promise<void> {
   const fixtures = loadSearchEvalFixtures();
   const bench = new Bench({ time: 500 });
 
-  bench
-    .add("bm25 search", () => {
-      runAllQueries(skills, fixtures, rankSearchMatches);
-    })
-    .add("minisearch search", () => {
-      runAllQueries(skills, fixtures, rankMiniSearchMatches);
-    });
+  bench.add("minisearch search", () => {
+    runAllQueries(skills, fixtures, rankMiniSearchMatches);
+  });
 
   await bench.run();
 

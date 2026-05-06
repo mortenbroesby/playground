@@ -115,5 +115,80 @@
     "forbidden": [
       "gh-stack"
     ]
+  },
+  {
+    "query": "coauthor a design doc with me",
+    "expected_top_1": "doc-coauthoring",
+    "expected_top_3": [
+      "doc-coauthoring"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "update architecture decision record",
+    "expected_top_1": "documentation-and-adrs",
+    "expected_top_3": [
+      "documentation-and-adrs"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "implement step by step with proof at each slice",
+    "expected_top_1": "incremental-implementation",
+    "expected_top_3": [
+      "incremental-implementation",
+      "engineering-workflow"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "review this diff for quality",
+    "expected_top_1": "code-review-and-quality",
+    "expected_top_3": [
+      "code-review-and-quality",
+      "receiving-code-review"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "receiving code review feedback",
+    "expected_top_1": "receiving-code-review",
+    "expected_top_3": [
+      "receiving-code-review",
+      "code-review-and-quality"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "use primary sources for framework behavior",
+    "expected_top_1": "source-driven-development",
+    "expected_top_3": [
+      "source-driven-development"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "build and test this repo change",
+    "expected_top_1": "engineering-workflow",
+    "expected_top_3": [
+      "engineering-workflow",
+      "debugging-and-error-recovery",
+      "test-driven-development"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
   }
 ]

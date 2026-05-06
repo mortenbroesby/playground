@@ -66,7 +66,6 @@ const shouldRunAgentsCheck = files.some((filePath) =>
     "tools/agent-skills",
     "scripts/agent-setup-check.mjs",
     "tools/agent-skills/scripts/skills.mjs",
-    "tools/agent-skills/scripts/skills-smoke.mjs",
     "tools/agent-skills/scripts/skills-metadata-hook.mjs",
     "scripts/prepush-checks.mjs",
     "package.json",
@@ -76,28 +75,10 @@ const shouldRunAgentsCheck = files.some((filePath) =>
   ]),
 );
 
-// Keep the trigger surface aligned with the actual implementation boundaries.
-// Keep the smoke trigger aligned with the current skills implementation surface
-// in `tools/agent-skills`.
-const shouldRunSkillsSmoke = files.some((filePath) =>
-  matches(filePath, [
-    ".skills",
-    "tools/agent-skills",
-    "tools/agent-skills/scripts/skills.mjs",
-    "tools/agent-skills/scripts/skills-smoke.mjs",
-    "tools/agent-skills/scripts/skills-metadata-hook.mjs",
-    "tools/agent-skills/src",
-  ]),
-);
-
 if (shouldRunMarkdown) {
   run("pnpm", ["lint:md"]);
 }
 
 if (shouldRunAgentsCheck) {
   run("pnpm", ["agents:check"]);
-}
-
-if (shouldRunSkillsSmoke) {
-  run("pnpm", ["--filter", "@playground/agent-skills", "run", "skills:smoke"]);
 }

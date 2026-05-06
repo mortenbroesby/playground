@@ -1,7 +1,7 @@
 # Skills Search Evaluation Design
 
 **Date:** 2026-05-06
-**Status:** Partially Implemented
+**Status:** Implemented and Evolved
 
 ## Goal
 
@@ -30,9 +30,9 @@ Current state:
 
 - the search corpus, benchmark harness, and MiniSearch implementation now
   exist
-- `skills:search` uses MiniSearch by default
-- `--engine bm25` remains available as the comparison path
-- routing still uses the custom BM25-backed implementation
+- `skills:search` uses MiniSearch as the only supported search engine
+- routing no longer uses the BM25 layer either; the runtime is now MiniSearch
+  plus repo-specific query mapping and policy logic
 
 ## Background
 
@@ -259,7 +259,7 @@ Why not adopt immediately:
 1. split text-search helpers into a dedicated module
 2. add in-process BM25 model caching
 3. make content fallback explicit behind `--content`
-4. update smoke tests to cover the new default behavior
+4. update the package verification surface to cover the new default behavior
 
 ### Phase 2: Add evaluation surface
 
@@ -286,7 +286,7 @@ Why not adopt immediately:
 Short-term cleanup:
 
 - `pnpm --filter @playground/agent-skills run typecheck`
-- `pnpm --filter @playground/agent-skills run skills:smoke`
+- `pnpm --filter @playground/agent-skills run build`
 - `pnpm skills:search workflow`
 - `pnpm skills:search ".finalMessage()"` should fail by default
 - `pnpm skills:search -- --content ".finalMessage()"` should succeed
