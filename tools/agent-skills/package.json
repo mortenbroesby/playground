@@ -1,0 +1,25 @@
+{
+  "name": "@playground/agent-skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed agent skill tooling for discovery, ranking, routing, and metadata checks",
+  "type": "module",
+  "license": "UNLICENSED",
+  "main": "dist/cli.js",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "tsc --noEmit true --allowImportingTsExtensions true",
+    "typecheck": "tsc --noEmit true --allowImportingTsExtensions true",
+    "cli": "node --experimental-strip-types --experimental-specifier-resolution=node ./src/cli.ts",
+    "smoke": "node --experimental-strip-types --experimental-specifier-resolution=node --test ./tests/skills-smoke.test.ts",
+    "metadata-hook": "node --experimental-strip-types --experimental-specifier-resolution=node ./src/hooks/skills-metadata-hook.ts"
+  },
+  "dependencies": {
+    "workspace-tools": "^0.41.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17"
+  }
+}

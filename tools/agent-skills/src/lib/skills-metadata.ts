@@ -1,4 +1,4 @@
-const SUPPORTED_SKILL_METADATA_FIELDS = Object.freeze([
+const SUPPORTED_SKILL_METADATA_FIELDS: string[] = [
   "tags",
   "triggers",
   "anti_triggers",
@@ -7,11 +7,12 @@ const SUPPORTED_SKILL_METADATA_FIELDS = Object.freeze([
   "agent_benefit",
   "catalog_group",
   "activation_mode",
-]);
-const ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS = Object.freeze([
+];
+
+const ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS: string[] = [
   "name",
   "description",
-]);
+];
 
 const DEFAULT_ROUTING_WEIGHT = 1;
 const DEFAULT_DAILY_DRIVER = false;
@@ -20,23 +21,49 @@ const DEFAULT_AGENT_BENEFIT = 3;
 const MAX_AGENT_BENEFIT = 5;
 const DEFAULT_CATALOG_GROUP = "support";
 const DEFAULT_ACTIVATION_MODE = "default";
-const ALLOWED_CATALOG_GROUPS = Object.freeze([
+
+const ALLOWED_CATALOG_GROUPS: string[] = [
   "workflow",
   "support",
   "specialist",
   "imported",
-]);
-const ALLOWED_ACTIVATION_MODES = Object.freeze([
+];
+
+const ALLOWED_ACTIVATION_MODES: string[] = [
   "default",
   "high-priority-when-relevant",
   "quiet-until-strong-match",
   "explicit-only",
-]);
+];
+
+export type CatalogMetadataEntry = {
+  [key: string]: unknown;
+};
+
+export type FrontmatterValue = string | undefined;
+
+export type FrontmatterEntries = Map<string, { inlineValue: FrontmatterValue; blockLines: string[] }>;
+
+export interface SkillFrontmatter {
+  name: string;
+  description: string;
+}
+
+export interface ParsedCatalogMetadata {
+  tags: string[];
+  triggers: string[];
+  anti_triggers: string[];
+  routing_weight: number;
+  daily_driver: boolean;
+  agent_benefit: number;
+  catalog_group: string;
+  activation_mode: string;
+}
 
 export {
+  ALLOWED_CATALOG_GROUPS,
   ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS,
   ALLOWED_ACTIVATION_MODES,
-  ALLOWED_CATALOG_GROUPS,
   DEFAULT_ACTIVATION_MODE,
   DEFAULT_AGENT_BENEFIT,
   DEFAULT_CATALOG_GROUP,
@@ -47,18 +74,18 @@ export {
   SUPPORTED_SKILL_METADATA_FIELDS,
 };
 
-// Frontmatter parsing is intentionally narrow. It is not trying to be a general
-// YAML parser; it accepts only the minimal shape we need for skill identity.
-function countIndent(line) {
+// Frontmatter parsing is intentionally narrow. It is not a general YAML parser;
+// it accepts only the minimal shape we need for skill identity.
+function countIndent(line: string): number {
   const match = line.match(/^ */);
   return match ? match[0].length : 0;
 }
 
-function stripQuotes(value) {
+function stripQuotes(value: string): string {
   return value.replace(/^["']|["']$/g, "");
 }
 
-function dedentBlock(lines) {
+function dedentBlock(lines: string[]): string[] {
   const nonEmptyLines = lines.filter((line) => line.trim() !== "");
   if (nonEmptyLines.length === 0) {
     return [];
@@ -68,9 +95,9 @@ function dedentBlock(lines) {
   return lines.map((line) => line.slice(Math.min(minIndent, line.length)));
 }
 
-function foldBlockScalar(lines) {
-  const paragraphs = [];
-  let currentParagraph = [];
+function foldBlockScalar(lines: string[]): string {
+  const paragraphs: string[] = [];
+  let currentParagraph: string[] = [];
 
   for (const line of lines) {
     if (line.trim() === "") {
@@ -91,7 +118,7 @@ function foldBlockScalar(lines) {
   return paragraphs.join("\n\n").trim();
 }
 
-function getFirstMeaningfulBlockLine(blockLines) {
+function getFirstMeaningfulBlockLine(blockLines: string[]): string | null {
   return blockLines.find((line) => line.trim() !== "") ?? null;
 }
 
@@ -101,7 +128,13 @@ function assertNoUnexpectedBlockLines({
   filePath,
   field,
   source = "frontmatter",
-}) {
+}: {
+  inlineValue: FrontmatterValue;
+  blockLines: string[];
+  filePath: string;
+  field: string;
+  source?: string;
+}): void {
   if (!inlineValue) {
     return;
   }
@@ -117,7 +150,19 @@ function assertNoUnexpectedBlockLines({
 }
 
 // Descriptions in checked-in skills use plain scalars and block scalars.
-function parseScalarValue({ inlineValue, blockLines, filePath, field, source = "frontmatter" }) {
+function parseScalarValue({
+  inlineValue,
+  blockLines,
+  filePath,
+  field,
+  source = "frontmatter",
+}: {
+  inlineValue: FrontmatterValue;
+  blockLines: string[];
+  filePath: string;
+  field: string;
+  source?: string;
+}): string {
   if (inlineValue === ">" || inlineValue === "|") {
     const lines = dedentBlock(blockLines);
     return inlineValue === ">" ? foldBlockScalar(lines) : lines.join("\n").trim();
@@ -145,7 +190,19 @@ function parseScalarValue({ inlineValue, blockLines, filePath, field, source = "
   return stripQuotes(inlineValue.trim());
 }
 
-function parseBooleanValue({ inlineValue, blockLines, filePath, field, source = "frontmatter" }) {
+function parseBooleanValue({
+  inlineValue,
+  blockLines,
+  filePath,
+  field,
+  source = "frontmatter",
+}: {
+  inlineValue: FrontmatterValue;
+  blockLines: string[];
+  filePath: string;
+  field: string;
+  source?: string;
+}): boolean {
   assertNoUnexpectedBlockLines({
     inlineValue,
     blockLines,
@@ -164,7 +221,6 @@ function parseBooleanValue({ inlineValue, blockLines, filePath, field, source = 
   if (rawValue === "true") {
     return true;
   }
-
   if (rawValue === "false") {
     return false;
   }
@@ -183,7 +239,15 @@ function parseIntegerInRange({
   min,
   max,
   source = "frontmatter",
-}) {
+}: {
+  inlineValue: FrontmatterValue;
+  blockLines: string[];
+  filePath: string;
+  field: string;
+  min: number;
+  max: number;
+  source?: string;
+}): number {
   assertNoUnexpectedBlockLines({
     inlineValue,
     blockLines,
@@ -216,7 +280,14 @@ function parseEnumValue({
   field,
   allowedValues,
   source = "frontmatter",
-}) {
+}: {
+  inlineValue: FrontmatterValue;
+  blockLines: string[];
+  filePath: string;
+  field: string;
+  allowedValues: readonly string[];
+  source?: string;
+}): string {
   assertNoUnexpectedBlockLines({
     inlineValue,
     blockLines,
@@ -248,12 +319,12 @@ function parseEnumValue({
 
 // The frontmatter collector is deliberately simple: read top-level fields and
 // preserve their attached block lines. Validation happens later.
-function collectFrontmatterEntries(rawFrontmatter) {
+function collectFrontmatterEntries(rawFrontmatter: string): FrontmatterEntries {
   const lines = rawFrontmatter.split(/\r?\n/);
-  const entries = new Map();
+  const entries = new Map<string, { inlineValue: FrontmatterValue; blockLines: string[] }>();
 
   for (let index = 0; index < lines.length; ) {
-    const line = lines[index];
+    const line = lines[index] ?? "";
     const match = line.match(/^([A-Za-z0-9_-]+):(.*)$/);
 
     if (!match) {
@@ -267,12 +338,12 @@ function collectFrontmatterEntries(rawFrontmatter) {
       continue;
     }
 
-    const [, key, rest] = match;
-    const blockLines = [];
+    const [, key = "", rest = ""] = match;
+    const blockLines: string[] = [];
     index += 1;
 
     while (index < lines.length) {
-      const nextLine = lines[index];
+      const nextLine = lines[index] ?? "";
 
       if (nextLine.trim() === "") {
         blockLines.push(nextLine);
@@ -301,7 +372,12 @@ function collectFrontmatterEntries(rawFrontmatter) {
   return entries;
 }
 
-export function extractFrontmatterBlock(content) {
+export interface FrontmatterBlock {
+  rawFrontmatter: string;
+  body: string;
+}
+
+export function extractFrontmatterBlock(content: string): FrontmatterBlock | null {
   if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) {
     return null;
   }
@@ -312,18 +388,16 @@ export function extractFrontmatterBlock(content) {
   }
 
   return {
-    rawFrontmatter: match[1],
-    body: content.slice(match[0].length),
+    rawFrontmatter: match[1] ?? "",
+    body: content.slice((match[0] ?? "").length),
   };
 }
 
-export function parseSkillMetadata({ content, filePath }) {
+export function parseSkillMetadata({ content, filePath }: { content: string; filePath: string }): SkillFrontmatter {
   const frontmatter = extractFrontmatterBlock(content);
 
   if (!frontmatter) {
-    throw new Error(
-      `${filePath}: repo-owned skills must start with a frontmatter block.`,
-    );
+    throw new Error(`${filePath}: repo-owned skills must start with a frontmatter block.`);
   }
 
   const entries = collectFrontmatterEntries(frontmatter.rawFrontmatter);
@@ -344,9 +418,7 @@ export function parseSkillMetadata({ content, filePath }) {
   }
 
   if (!descriptionEntry) {
-    throw new Error(
-      `${filePath}: missing required frontmatter field "description".`,
-    );
+    throw new Error(`${filePath}: missing required frontmatter field "description".`);
   }
 
   const name = parseScalarValue({
@@ -365,29 +437,28 @@ export function parseSkillMetadata({ content, filePath }) {
   }
 
   if (!description) {
-    throw new Error(
-      `${filePath}: frontmatter field "description" must be non-empty.`,
-    );
+    throw new Error(`${filePath}: frontmatter field "description" must be non-empty.`);
   }
 
   return { name, description };
 }
 
-function parseStringArrayValue(value, filePath, field) {
+function parseStringArrayValue(value: unknown, filePath: string, field: string): string[] {
   if (value === undefined) {
     return [];
   }
 
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
-    throw new Error(
-      `${filePath}: metadata field "${field}" must be an array of strings.`,
-    );
+  if (
+    !Array.isArray(value) ||
+    !value.every((entry) => typeof entry === "string")
+  ) {
+    throw new Error(`${filePath}: metadata field "${field}" must be an array of strings.`);
   }
 
   return [...new Set(value.filter((entry) => entry.trim() !== ""))];
 }
 
-function parseRoutingWeightValue(filePath, rawValue) {
+function parseRoutingWeightValue(filePath: string, rawValue: unknown): number {
   if (rawValue === undefined) {
     return DEFAULT_ROUTING_WEIGHT;
   }
@@ -401,7 +472,15 @@ function parseRoutingWeightValue(filePath, rawValue) {
   return rawValue;
 }
 
-export function parseCatalogMetadata({ filePath, skillId, entry }) {
+export function parseCatalogMetadata({
+  filePath,
+  skillId,
+  entry,
+}: {
+  filePath: string;
+  skillId: string;
+  entry: CatalogMetadataEntry;
+}): ParsedCatalogMetadata {
   const source = `metadata for "${skillId}"`;
   const raw = entry ?? {};
 
@@ -412,7 +491,6 @@ export function parseCatalogMetadata({ filePath, skillId, entry }) {
   const unknownFields = Object.keys(raw).filter(
     (field) => !SUPPORTED_SKILL_METADATA_FIELDS.includes(field),
   );
-
   if (unknownFields.length > 0) {
     throw new Error(
       `${filePath}: ${source} has unknown field "${unknownFields[0]}". Supported fields: ${SUPPORTED_SKILL_METADATA_FIELDS.join(
@@ -429,7 +507,8 @@ export function parseCatalogMetadata({ filePath, skillId, entry }) {
     "anti_triggers",
   );
   const routingWeight = parseRoutingWeightValue(filePath, raw.routing_weight);
-  const dailyDriver =
+
+  const daily_driver =
     raw.daily_driver === undefined
       ? DEFAULT_DAILY_DRIVER
       : parseBooleanValue({
@@ -439,6 +518,7 @@ export function parseCatalogMetadata({ filePath, skillId, entry }) {
           field: "daily_driver",
           source,
         });
+
   const agentBenefit =
     raw.agent_benefit === undefined
       ? DEFAULT_AGENT_BENEFIT
@@ -451,35 +531,37 @@ export function parseCatalogMetadata({ filePath, skillId, entry }) {
           min: MIN_AGENT_BENEFIT,
           max: MAX_AGENT_BENEFIT,
         });
+
   const catalogGroup =
     raw.catalog_group === undefined
       ? DEFAULT_CATALOG_GROUP
-      : parseEnumValue({
+      : (parseEnumValue({
           inlineValue: String(raw.catalog_group),
           blockLines: [],
           filePath,
           field: "catalog_group",
           source,
           allowedValues: ALLOWED_CATALOG_GROUPS,
-        });
+        }) as (typeof ALLOWED_CATALOG_GROUPS)[number]);
+
   const activationMode =
     raw.activation_mode === undefined
       ? DEFAULT_ACTIVATION_MODE
-      : parseEnumValue({
+      : (parseEnumValue({
           inlineValue: String(raw.activation_mode),
           blockLines: [],
           filePath,
           field: "activation_mode",
           source,
           allowedValues: ALLOWED_ACTIVATION_MODES,
-        });
+        }) as (typeof ALLOWED_ACTIVATION_MODES)[number]);
 
   return {
     tags,
     triggers,
     anti_triggers: antiTriggers,
     routing_weight: routingWeight,
-    daily_driver: dailyDriver,
+    daily_driver,
     agent_benefit: agentBenefit,
     catalog_group: catalogGroup,
     activation_mode: activationMode,

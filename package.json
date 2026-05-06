@@ -42,6 +42,9 @@
     "skills:search": "node scripts/skills.mjs search",
     "skills:route": "node scripts/skills.mjs route",
     "skills:read": "node scripts/skills.mjs read",
+    "skills:registry": "node scripts/skills.mjs registry",
+    "skills:smoke": "node scripts/skills-smoke.mjs",
+    "skills:metadata-hook": "node scripts/skills-metadata-hook.mjs",
     "ralph:init": "node scripts/ralph/init.mjs",
     "ralph:loop": "node scripts/ralph/loop.mjs",
     "prepare": "husky install"

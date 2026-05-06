@@ -8,56 +8,105 @@ import {
   MIN_AGENT_BENEFIT,
   parseCatalogMetadata,
   parseSkillMetadata,
-} from "./skills-metadata.mjs";
+} from "./skills-metadata.ts";
+import type { RegistrySkill } from "./skills-routing.ts";
 
-const GENERATED_REGISTRY_FILENAME = "registry.generated.json";
+export const GENERATED_REGISTRY_FILENAME = "registry.generated.json";
 const SKILL_METADATA_FILENAME = "registry.metadata.json";
 const REGISTRY_VERSION = 1;
 const SKILL_METADATA_VERSION = 1;
 
-export { GENERATED_REGISTRY_FILENAME, REGISTRY_VERSION };
+export type CatalogGroup = RegistrySkill["catalog_group"];
+export type ActivationMode = RegistrySkill["activation_mode"];
 
-export function getSkillsRoot(repoRoot) {
+export interface GeneratedSkillRegistryEntry {
+  id: string;
+  display_name: string;
+  description: string;
+  source_dir: string;
+  source_skill_md_path: string;
+  tags: string[];
+  triggers: string[];
+  anti_triggers: string[];
+  routing_weight: number;
+  daily_driver: boolean;
+  agent_benefit: number;
+  catalog_group: CatalogGroup;
+  activation_mode: ActivationMode;
+}
+
+export interface GeneratedSkillRegistry {
+  version: number;
+  skills: GeneratedSkillRegistryEntry[];
+}
+
+export interface SkillSource {
+  id: string;
+  displayName: string;
+  description: string;
+  tags: string[];
+  triggers: string[];
+  antiTriggers: string[];
+  routingWeight: number;
+  dailyDriver: boolean;
+  agentBenefit: number;
+  catalogGroup: CatalogGroup;
+  activationMode: ActivationMode;
+  dir: string;
+  relativeDir: string;
+  skillPath: string;
+  relativeSkillPath: string;
+  contents: string;
+}
+
+export { REGISTRY_VERSION };
+
+export function getSkillsRoot(repoRoot: string): string {
   return path.join(repoRoot, ".skills");
 }
 
-export function getRegistryPath(repoRoot) {
+export function getRegistryPath(repoRoot: string): string {
   return path.join(getSkillsRoot(repoRoot), GENERATED_REGISTRY_FILENAME);
 }
 
-export function getSkillMetadataPath(repoRoot) {
+export function getSkillMetadataPath(repoRoot: string): string {
   return path.join(getSkillsRoot(repoRoot), SKILL_METADATA_FILENAME);
 }
 
-function validateMetadataShape(metadata, metadataPath) {
+function validateMetadataShape(metadata: unknown, metadataPath: string): void {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     throw new Error(`${metadataPath}: registry metadata must be a JSON object.`);
   }
 
-  if (metadata.version !== SKILL_METADATA_VERSION) {
+  const objectMetadata = metadata as Record<string, unknown>;
+  if (objectMetadata.version !== SKILL_METADATA_VERSION) {
     throw new Error(
       `${metadataPath}: unsupported registry metadata version ${String(
-        metadata.version,
+        objectMetadata.version,
       )}. Expected ${SKILL_METADATA_VERSION}.`,
     );
   }
 
-  if (!metadata.skills || typeof metadata.skills !== "object" || Array.isArray(metadata.skills)) {
+  if (
+    !objectMetadata.skills ||
+    typeof objectMetadata.skills !== "object" ||
+    Array.isArray(objectMetadata.skills)
+  ) {
     throw new Error(
       `${metadataPath}: registry metadata must contain a "skills" object.`,
     );
   }
 }
 
-function loadRegistryMetadata(repoRoot) {
+export function loadRegistryMetadata(repoRoot: string): Record<string, unknown> {
   const metadataPath = getSkillMetadataPath(repoRoot);
   if (!fs.existsSync(metadataPath)) {
     throw new Error(
-      `${path.relative(repoRoot, metadataPath)}: missing registry metadata file. Rebuild with \`node scripts/skills.mjs registry\` after adding metadata entries.`,
+      `${path.relative(repoRoot, metadataPath)}: missing registry metadata file. Rebuild with \`pnpm skills:registry\` after adding metadata entries.`,
     );
   }
 
-  let metadata;
+  let metadata: unknown;
   try {
     metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
   } catch (error) {
@@ -71,36 +120,15 @@ function loadRegistryMetadata(repoRoot) {
 
   const relativePath = path.relative(repoRoot, metadataPath);
   validateMetadataShape(metadata, relativePath);
-  return metadata.skills;
+  return (metadata as Record<string, unknown>).skills as Record<string, unknown>;
 }
 
-function validateRegistryShape(registry, registryPath) {
-  if (!registry || typeof registry !== "object") {
-    throw new Error(
-      `${registryPath}: registry file must contain a JSON object.`,
-    );
-  }
-
-  if (registry.version !== REGISTRY_VERSION) {
-    throw new Error(
-      `${registryPath}: unsupported registry version ${String(
-        registry.version,
-      )}. Expected ${REGISTRY_VERSION}.`,
-    );
-  }
-
-  if (!Array.isArray(registry.skills)) {
-    throw new Error(
-      `${registryPath}: registry file must contain a skills array.`,
-    );
-  }
-
-  registry.skills.forEach((skill, index) => {
-    validateRegistrySkillEntry(skill, registryPath, index);
-  });
-}
-
-function validateStringArray(value, field, registryPath, skillIndex) {
+function validateStringArray(
+  value: unknown,
+  field: string,
+  registryPath: string,
+  skillIndex: number,
+): void {
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
     throw new Error(
       `${registryPath}: skill entry ${skillIndex} field "${field}" must be an array of strings.`,
@@ -111,7 +139,11 @@ function validateStringArray(value, field, registryPath, skillIndex) {
 // Validate the fields that downstream CLI code branches on so policy-aware
 // ranking can trust a loaded generated registry, even before the artifact
 // version changes again in the future.
-function validateRegistrySkillEntry(skill, registryPath, skillIndex) {
+function validateRegistrySkillEntry(
+  skill: Record<string, unknown>,
+  registryPath: string,
+  skillIndex: number,
+): void {
   if (!skill || typeof skill !== "object" || Array.isArray(skill)) {
     throw new Error(
       `${registryPath}: skill entry ${skillIndex} must be a JSON object.`,
@@ -127,9 +159,9 @@ function validateRegistrySkillEntry(skill, registryPath, skillIndex) {
     "catalog_group",
     "activation_mode",
   ];
-
   for (const field of requiredStringFields) {
-    if (typeof skill[field] !== "string" || skill[field].trim() === "") {
+    const value = skill[field];
+    if (typeof value !== "string" || value.trim() === "") {
       throw new Error(
         `${registryPath}: skill entry ${skillIndex} field "${field}" must be a non-empty string.`,
       );
@@ -138,14 +170,12 @@ function validateRegistrySkillEntry(skill, registryPath, skillIndex) {
 
   validateStringArray(skill.tags, "tags", registryPath, skillIndex);
   validateStringArray(skill.triggers, "triggers", registryPath, skillIndex);
-  validateStringArray(
-    skill.anti_triggers,
-    "anti_triggers",
-    registryPath,
-    skillIndex,
-  );
+  validateStringArray(skill.anti_triggers, "anti_triggers", registryPath, skillIndex);
 
-  if (typeof skill.routing_weight !== "number" || !Number.isFinite(skill.routing_weight)) {
+  if (
+    typeof skill.routing_weight !== "number" ||
+    !Number.isFinite(skill.routing_weight)
+  ) {
     throw new Error(
       `${registryPath}: skill entry ${skillIndex} field "routing_weight" must be a finite number.`,
     );
@@ -158,16 +188,16 @@ function validateRegistrySkillEntry(skill, registryPath, skillIndex) {
   }
 
   if (
-    !Number.isInteger(skill.agent_benefit) ||
-    skill.agent_benefit < MIN_AGENT_BENEFIT ||
-    skill.agent_benefit > MAX_AGENT_BENEFIT
+    !Number.isInteger(skill.agent_benefit as number) ||
+    (skill.agent_benefit as number) < MIN_AGENT_BENEFIT ||
+    (skill.agent_benefit as number) > MAX_AGENT_BENEFIT
   ) {
     throw new Error(
       `${registryPath}: skill entry ${skillIndex} field "agent_benefit" must be an integer from ${MIN_AGENT_BENEFIT} to ${MAX_AGENT_BENEFIT}.`,
     );
   }
 
-  if (!ALLOWED_CATALOG_GROUPS.includes(skill.catalog_group)) {
+  if (!ALLOWED_CATALOG_GROUPS.includes(skill.catalog_group as CatalogGroup)) {
     throw new Error(
       `${registryPath}: skill entry ${skillIndex} field "catalog_group" must be one of ${ALLOWED_CATALOG_GROUPS.join(
         ", ",
@@ -175,7 +205,7 @@ function validateRegistrySkillEntry(skill, registryPath, skillIndex) {
     );
   }
 
-  if (!ALLOWED_ACTIVATION_MODES.includes(skill.activation_mode)) {
+  if (!ALLOWED_ACTIVATION_MODES.includes(skill.activation_mode as ActivationMode)) {
     throw new Error(
       `${registryPath}: skill entry ${skillIndex} field "activation_mode" must be one of ${ALLOWED_ACTIVATION_MODES.join(
         ", ",
@@ -184,7 +214,7 @@ function validateRegistrySkillEntry(skill, registryPath, skillIndex) {
   }
 }
 
-export function ensureSkillsRoot(repoRoot) {
+export function ensureSkillsRoot(repoRoot: string): string {
   const skillsRoot = getSkillsRoot(repoRoot);
   if (!fs.existsSync(skillsRoot)) {
     throw new Error("Missing .skills directory.");
@@ -196,7 +226,7 @@ export function ensureSkillsRoot(repoRoot) {
 // directory: `.skills/<skill-id>/SKILL.md`. Enforcing that layout keeps ids
 // unambiguous and prevents the registry from inheriting accidental nested
 // structure.
-function collectSkillDirectories(skillsRoot) {
+function collectSkillDirectories(skillsRoot: string): string[] {
   const entries = fs.readdirSync(skillsRoot, { withFileTypes: true });
   const skillDirectories = entries
     .filter((entry) => entry.isDirectory())
@@ -230,7 +260,7 @@ function collectSkillDirectories(skillsRoot) {
   return skillDirectories;
 }
 
-export function loadSkillSources(repoRoot) {
+export function loadSkillSources(repoRoot: string): SkillSource[] {
   const skillsRoot = ensureSkillsRoot(repoRoot);
   const metadataEntries = loadRegistryMetadata(repoRoot);
 
@@ -246,6 +276,7 @@ export function loadSkillSources(repoRoot) {
     const metadataFilePath = path.relative(repoRoot, getSkillMetadataPath(repoRoot));
     const skillId = path.basename(directoryPath);
     const rawCatalogMetadata = metadataEntries[skillId];
+
     if (!rawCatalogMetadata) {
       throw new Error(
         `${metadataFilePath}: missing catalog metadata entry for skill "${skillId}". Add ".skills/${skillId}" metadata in ${path.basename(
@@ -253,10 +284,11 @@ export function loadSkillSources(repoRoot) {
         )} before loading this skill.`,
       );
     }
+
     const catalogMetadata = parseCatalogMetadata({
       filePath: metadataFilePath,
       skillId,
-      entry: rawCatalogMetadata,
+      entry: rawCatalogMetadata as Record<string, unknown>,
     });
 
     return {
@@ -270,7 +302,7 @@ export function loadSkillSources(repoRoot) {
       dailyDriver: catalogMetadata.daily_driver,
       agentBenefit: catalogMetadata.agent_benefit,
       catalogGroup: catalogMetadata.catalog_group,
-      activationMode: catalogMetadata.activation_mode,
+      activationMode: catalogMetadata.activation_mode as ActivationMode,
       dir: directoryPath,
       relativeDir,
       skillPath,
@@ -285,8 +317,8 @@ export function loadSkillSources(repoRoot) {
 // reliably. Routing metadata and catalog-policy metadata both belong here:
 // routing helps decide whether a skill is relevant, while catalog policy helps
 // later tooling decide how prominent that relevant skill should be.
-export function buildSkillRegistry(repoRoot) {
-  const skills = loadSkillSources(repoRoot).map((skill) => ({
+export function buildSkillRegistry(repoRoot: string): GeneratedSkillRegistry {
+  const skills = loadSkillSources(repoRoot).map((skill): GeneratedSkillRegistryEntry => ({
     id: skill.id,
     display_name: skill.displayName,
     description: skill.description,
@@ -308,22 +340,22 @@ export function buildSkillRegistry(repoRoot) {
   };
 }
 
-export function serializeSkillRegistry(registry) {
+export function serializeSkillRegistry(registry: GeneratedSkillRegistry): string {
   return `${JSON.stringify(registry, null, 2)}\n`;
 }
 
-export function loadGeneratedSkillRegistry(repoRoot) {
+export function loadGeneratedSkillRegistry(repoRoot: string): GeneratedSkillRegistry {
   const registryPath = getRegistryPath(repoRoot);
   if (!fs.existsSync(registryPath)) {
     throw new Error(
       `Missing generated skill registry: ${path.relative(
         repoRoot,
         registryPath,
-      )}. Rebuild with \`node scripts/skills.mjs registry\`.`,
+      )}. Rebuild with \`pnpm skills:registry\`.`,
     );
   }
 
-  let registry;
+  let registry: unknown;
   try {
     registry = JSON.parse(fs.readFileSync(registryPath, "utf8"));
   } catch (error) {
@@ -336,10 +368,37 @@ export function loadGeneratedSkillRegistry(repoRoot) {
 
   const relativeRegistryPath = path.relative(repoRoot, registryPath);
   validateRegistryShape(registry, relativeRegistryPath);
-  return registry;
+  return registry as GeneratedSkillRegistry;
 }
 
-export function writeSkillRegistry(repoRoot) {
+function validateRegistryShape(registry: unknown, registryPath: string): void {
+  if (!registry || typeof registry !== "object") {
+    throw new Error(`${registryPath}: registry file must contain a JSON object.`);
+  }
+
+  const typed = registry as Record<string, unknown>;
+  if (typed.version !== REGISTRY_VERSION) {
+    throw new Error(
+      `${registryPath}: unsupported registry version ${String(
+        typed.version,
+      )}. Expected ${REGISTRY_VERSION}.`,
+    );
+  }
+
+  if (!Array.isArray(typed.skills)) {
+    throw new Error(`${registryPath}: registry file must contain a skills array.`);
+  }
+
+  typed.skills.forEach((skill, index) => {
+    validateRegistrySkillEntry(
+      skill as Record<string, unknown>,
+      registryPath,
+      index,
+    );
+  });
+}
+
+export function writeSkillRegistry(repoRoot: string): GeneratedSkillRegistry {
   const registry = buildSkillRegistry(repoRoot);
   fs.writeFileSync(getRegistryPath(repoRoot), serializeSkillRegistry(registry));
   return registry;
@@ -348,14 +407,12 @@ export function writeSkillRegistry(repoRoot) {
 // "Current" means byte-for-byte equal to a fresh rebuild. That is stricter than
 // semantic equality on purpose because the generated file is intended to be a
 // checked-in artifact with stable formatting.
-export function isRegistryCurrent(repoRoot) {
+export function isRegistryCurrent(repoRoot: string): boolean {
   const registryPath = getRegistryPath(repoRoot);
   if (!fs.existsSync(registryPath)) {
     return false;
   }
 
   const currentContents = fs.readFileSync(registryPath, "utf8");
-  return (
-    currentContents === serializeSkillRegistry(buildSkillRegistry(repoRoot))
-  );
+  return currentContents === serializeSkillRegistry(buildSkillRegistry(repoRoot));
 }

@@ -1,34 +1,47 @@
 import fs from "node:fs";
 import path from "node:path";
 
+export interface UsageEntry {
+  count: number;
+  last_used_at: number;
+}
+
+export interface UsageCache {
+  version: number;
+  entries: Record<string, UsageEntry>;
+}
+
 const USAGE_CACHE_FILENAME = "usage-cache.local.json";
 const USAGE_CACHE_VERSION = 1;
 const MAX_USAGE_COUNT = 4;
 const RECENCY_HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1_000;
 const MAX_RECENT_USAGE_SCORE = 2.5;
 
-function createEmptyUsageCache() {
+function createEmptyUsageCache(): UsageCache {
   return {
     version: USAGE_CACHE_VERSION,
     entries: {},
   };
 }
 
-function normalizeTimestamp(value, fallback = Date.now()) {
-  return Number.isFinite(value) && value >= 0 ? value : fallback;
+function normalizeTimestamp(value: unknown, fallback = Date.now()): number {
+  return Number.isFinite(Number(value)) && Number(value) >= 0
+    ? Number(value)
+    : fallback;
 }
 
-function normalizeEntry(entry) {
+function normalizeEntry(entry: unknown): UsageEntry | null {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return null;
   }
 
-  const count = Number.isInteger(entry.count)
-    ? Math.min(Math.max(entry.count, 1), MAX_USAGE_COUNT)
+  const candidate = entry as Record<string, unknown>;
+  const count = Number.isInteger(candidate.count as number)
+    ? Math.min(Math.max(candidate.count as number, 1), MAX_USAGE_COUNT)
     : null;
   const lastUsedAt =
-    typeof entry.last_used_at === "number" && Number.isFinite(entry.last_used_at)
-      ? entry.last_used_at
+    typeof candidate.last_used_at === "number" && Number.isFinite(candidate.last_used_at)
+      ? candidate.last_used_at
       : null;
 
   if (count === null || lastUsedAt === null || lastUsedAt < 0) {
@@ -41,17 +54,18 @@ function normalizeEntry(entry) {
   };
 }
 
-function normalizeCache(cache) {
+function normalizeCache(cache: unknown): UsageCache {
   if (!cache || typeof cache !== "object" || Array.isArray(cache)) {
     return createEmptyUsageCache();
   }
 
-  const normalizedEntries = {};
+  const typed = cache as Partial<UsageCache>;
   const entries =
-    cache.entries && typeof cache.entries === "object" && !Array.isArray(cache.entries)
-      ? cache.entries
+    typed.entries && typeof typed.entries === "object" && !Array.isArray(typed.entries)
+      ? typed.entries
       : {};
 
+  const normalizedEntries: Record<string, UsageEntry> = {};
   for (const skillId of Object.keys(entries).sort((left, right) =>
     left.localeCompare(right),
   )) {
@@ -67,11 +81,11 @@ function normalizeCache(cache) {
   };
 }
 
-export function getUsageCachePath(repoRoot) {
+export function getUsageCachePath(repoRoot: string): string {
   return path.join(repoRoot, ".skills", USAGE_CACHE_FILENAME);
 }
 
-export function loadUsageCache(repoRoot) {
+export function loadUsageCache(repoRoot: string): UsageCache {
   const usageCachePath = getUsageCachePath(repoRoot);
   if (!fs.existsSync(usageCachePath)) {
     return createEmptyUsageCache();
@@ -84,7 +98,7 @@ export function loadUsageCache(repoRoot) {
   }
 }
 
-export function writeUsageCache(repoRoot, cache) {
+export function writeUsageCache(repoRoot: string, cache: UsageCache): void {
   const usageCachePath = getUsageCachePath(repoRoot);
   fs.mkdirSync(path.dirname(usageCachePath), { recursive: true });
   fs.writeFileSync(
@@ -93,7 +107,11 @@ export function writeUsageCache(repoRoot, cache) {
   );
 }
 
-export function recordSkillUsage(repoRoot, skillId, now = Date.now()) {
+export function recordSkillUsage(
+  repoRoot: string,
+  skillId: string,
+  now = Date.now(),
+): void {
   if (typeof skillId !== "string" || skillId.trim() === "") {
     return;
   }
@@ -115,7 +133,11 @@ export function recordSkillUsage(repoRoot, skillId, now = Date.now()) {
   writeUsageCache(repoRoot, cache);
 }
 
-export function getRecentUsageScore(cache, skillId, now = Date.now()) {
+export function getRecentUsageScore(
+  cache: UsageCache,
+  skillId: string,
+  now = Date.now(),
+): number {
   if (typeof skillId !== "string" || skillId.trim() === "") {
     return 0;
   }
@@ -129,10 +151,8 @@ export function getRecentUsageScore(cache, skillId, now = Date.now()) {
   const ageMs = Math.max(0, timestamp - entry.last_used_at);
   const freshness = Math.exp(-ageMs / RECENCY_HALF_LIFE_MS);
   const repetitionBoost = 1 + (entry.count - 1) * 0.25;
-  const score = Math.min(
-    MAX_RECENT_USAGE_SCORE,
-    freshness * repetitionBoost * 1.5,
-  );
+  const score = Math.min(freshness * repetitionBoost * 1.5, MAX_RECENT_USAGE_SCORE);
 
   return Number(score.toFixed(3));
 }
+

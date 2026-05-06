@@ -325,6 +325,16 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  tools/agent-skills:
+    dependencies:
+      workspace-tools:
+        specifier: ^0.41.4
+        version: 0.41.4
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.17
+        version: 22.19.17
+
   tools/obsidian-memory:
     dependencies:
       workspace-tools:
@@ -4488,7 +4498,7 @@ snapshots:
       globals: 13.24.0
       ignore: 5.3.2
       import-fresh: 3.3.1
-      js-yaml: 4.1.0
+      js-yaml: 4.1.1
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
