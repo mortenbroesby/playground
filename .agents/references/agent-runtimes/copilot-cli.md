@@ -42,7 +42,7 @@
   so this repo should treat `.skills/` as a shared repo resource exposed
   through commands, not as a Copilot-native plugin directory
 - it is still worth learning whether Copilot benefits from a dedicated shared
-  skill-routing pointer beyond `.github/copilot-instructions.md`
+  skills-routing command surface beyond `.github/copilot-instructions.md`
 - if we add Copilot hooks, keep the first adapter scoped to the shared subset
   before layering runtime-specific extensions
 
@@ -50,7 +50,6 @@
 
 - `.github/copilot-instructions.md`
 - `AGENTS.md`
-- `.agents/rules/skill-routing.md`
 
 ## Sources
 

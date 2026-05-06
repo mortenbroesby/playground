@@ -13,9 +13,6 @@ import {
   isRegistryCurrent,
 } from "./lib/skills-registry.ts";
 import {
-  recordSkillUsage,
-} from "./lib/skills-usage-cache.ts";
-import {
   rankSearchMatches,
   rankSkillsForList,
   renderSkillSummary,
@@ -36,7 +33,7 @@ function fail(message: string): never {
 
 function usage(): void {
   console.log(`Usage:
-  pnpm skills:list [--all] [--group <workflow|support|specialist|imported>] [--daily-driver] [--cold]
+  pnpm skills:list [--all] [--group <workflow|support|specialist|imported>] [--daily]
   pnpm skills:search <query>
   pnpm skills:read <skill-name>[,<skill-name>...]
   pnpm skills:route <task description> [--json]
@@ -78,8 +75,7 @@ function listSkills(args: string[] = []): void {
   const groupFlagIndex = args.indexOf("--group");
   const group = groupFlagIndex >= 0 ? args[groupFlagIndex + 1] ?? null : null;
   const includeAll = args.includes("--all");
-  const dailyDriverOnly = args.includes("--daily-driver");
-  const coldOnly = args.includes("--cold");
+  const dailyTierOnly = args.includes("--daily");
 
   if (groupFlagIndex >= 0 && !group) {
     fail("`pnpm skills:list --group` requires a group name.");
@@ -96,16 +92,10 @@ function listSkills(args: string[] = []): void {
     {
       includeAll,
       group,
-      dailyDriverOnly,
-      coldOnly,
+      dailyTierOnly,
     },
-    repoRoot,
   )) {
-    console.log(
-      renderSkillSummary(entry.skill, {
-        warm: entry.recentUsageScore > 0,
-      }),
-    );
+    console.log(renderSkillSummary(entry.skill));
   }
 }
 
@@ -118,7 +108,6 @@ function searchSkills(query: string): void {
   const metadataMatches = rankSearchMatches(
     getSkillRegistry().skills,
     query,
-    repoRoot,
   );
   const fallbackMatches = getAllSkillSources()
     .filter((skill) => skill.contents.toLowerCase().includes(needle))
@@ -127,7 +116,7 @@ function searchSkills(query: string): void {
   if (metadataMatches.length > 0) {
     for (const match of metadataMatches) {
       console.log(
-        `${renderSkillSummary(match.skill, { warm: match.recentUsageScore > 0 })} [metadata: ${match.reasons.join(", ")}]`,
+        `${renderSkillSummary(match.skill)} [metadata: ${match.reasons.join(", ")}]`,
       );
     }
     return;
@@ -144,16 +133,12 @@ function searchSkills(query: string): void {
           id: skill.id,
           display_name: skill.displayName,
           description: skill.description,
-          catalog_group: skill.catalogGroup,
-          daily_driver: skill.dailyDriver,
+          group: skill.group,
+          tier: skill.tier,
           tags: skill.tags,
           triggers: skill.triggers,
           anti_triggers: skill.antiTriggers,
-          routing_weight: skill.routingWeight,
-          agent_benefit: skill.agentBenefit,
-          activation_mode: skill.activationMode as RegistrySkill["activation_mode"],
         },
-        {},
       )} [content fallback]`,
     );
   }
@@ -203,12 +188,6 @@ function readSkills(names: string[]): void {
       fail(`Missing skill source for registry entry: ${resolvedSkillId}`);
     }
 
-    try {
-      recordSkillUsage(repoRoot, resolvedSkillId);
-    } catch {
-      // Record failures are non-blocking to keep "read" resilient.
-    }
-
     if (requestedNames.length > 1) {
       console.log(`=== ${skill.id} ===`);
     }
@@ -251,15 +230,16 @@ function rebuildRegistry(args: string[]): void {
 function routeTask(args: string[]): void {
   const jsonMode = args.includes("--json");
   const text = args
-    .filter((arg) => arg !== "--json")
+    .filter((arg) => arg !== "--json" && arg !== "--")
     .join(" ")
-    .trim();
+    .trim()
+    .replace(/\s+--$/, "");
 
   if (!text) {
     fail("`pnpm skills:route` requires a task description.");
   }
 
-  const result = routeTaskFromRegistry(getSkillRegistry().skills, text, repoRoot);
+  const result = routeTaskFromRegistry(getSkillRegistry().skills, text);
 
   if (jsonMode) {
     console.log(JSON.stringify(result, null, 2));

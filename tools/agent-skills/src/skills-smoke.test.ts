@@ -3,7 +3,6 @@ import { describe, it } from "vitest";
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -11,16 +10,10 @@ import { findProjectRoot } from "workspace-tools";
 
 import { parseSkillMetadata } from "./lib/skills-metadata.ts";
 import {
-  getRecentUsageScore,
-  getUsageCachePath,
-  loadUsageCache,
-  recordSkillUsage,
-  writeUsageCache,
-} from "./lib/skills-usage-cache.ts";
-import {
   rankSearchMatches,
   rankSkillsForList,
-  type ActivationMode,
+  type SkillGroup,
+  type SkillTier,
   type RegistrySkill,
   routeTaskFromRegistry,
 } from "./lib/skills-routing.ts";
@@ -105,10 +98,6 @@ function assertThrowsWithMessage(
   assert.throws(callback, pattern, message);
 }
 
-function ensureDir(directoryPath: string): void {
-  fs.mkdirSync(directoryPath, { recursive: true });
-}
-
 function assertAgentSkillsSmoke(): void {
   // The smoke tests intentionally pin parser edges and routing defaults likely
   // to regress during another migration.
@@ -161,83 +150,11 @@ description: Valid description
     "frontmatter parser should reject indented continuation lines",
   );
 
-  const tempRepoRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "skills-usage-cache-smoke-"),
-  );
-  ensureDir(path.join(tempRepoRoot, ".skills"));
-
-  try {
-    const emptyCache = loadUsageCache(tempRepoRoot);
-    assert.deepEqual(
-      emptyCache,
-      {
-        version: 1,
-        entries: {},
-      },
-      "missing usage cache should load as an empty advisory structure",
-    );
-
-    recordSkillUsage(tempRepoRoot, "engineering-workflow", 1_000);
-    recordSkillUsage(tempRepoRoot, "engineering-workflow", 2_000);
-    recordSkillUsage(tempRepoRoot, "engineering-workflow", 3_000);
-    recordSkillUsage(tempRepoRoot, "engineering-workflow", 4_000);
-
-    const warmedCache = loadUsageCache(tempRepoRoot);
-    const warmedWorkflowEntry = warmedCache.entries["engineering-workflow"];
-    assert.ok(warmedWorkflowEntry);
-    assert.equal(
-      warmedWorkflowEntry.count,
-      4,
-      "usage cache should retain bounded hit counts for successful loads",
-    );
-    assert.equal(
-      warmedWorkflowEntry.last_used_at,
-      4_000,
-      "usage cache should track the latest successful load timestamp",
-    );
-
-    const freshScore = getRecentUsageScore(warmedCache, "engineering-workflow", 4_000);
-    const olderScore = getRecentUsageScore(
-      warmedCache,
-      "engineering-workflow",
-      4_000 + 14 * 24 * 60 * 60 * 1_000,
-    );
-    assert.ok(
-      freshScore > 0,
-      "fresh successful loads should provide a small positive advisory score",
-    );
-    assert.ok(
-      freshScore > olderScore,
-      "usage recency should decay over time",
-    );
-
-    writeUsageCache(tempRepoRoot, {
-      version: 1,
-      entries: {
-        "engineering-workflow": {
-          count: 99,
-          last_used_at: 4_000,
-        },
-      },
-    });
-    const saturatedScore = getRecentUsageScore(
-      loadUsageCache(tempRepoRoot),
-      "engineering-workflow",
-      4_000,
-    );
-    assert.ok(
-      saturatedScore <= 3,
-      "repeated usage should saturate so recency stays advisory only",
-    );
-  } finally {
-    fs.rmSync(tempRepoRoot, { recursive: true, force: true });
-  }
-
   const listResult = runSkillCommand(["list"]);
   assertOk(listResult);
   assert.match(
     listResult.stdout,
-    /^engineering-workflow: .* \[daily-driver\] \[group: workflow\]( \[warm\])?$/m,
+    /^engineering-workflow: .* \[group: workflow\] \[tier: daily\]$/m,
   );
   assert.doesNotMatch(
     listResult.stdout,
@@ -262,14 +179,14 @@ description: Valid description
   assertOk(searchResult);
   assert.match(
     searchResult.stdout,
-    /^engineering-workflow: .* \[daily-driver\] \[group: workflow\]( \[warm\])? \[metadata: /m,
+    /^engineering-workflow: .* \[group: workflow\] \[tier: daily\] \[metadata: /m,
   );
 
   const claudeApiSearchResult = runSkillCommand(["search", "claude api"]);
   assertOk(claudeApiSearchResult);
   assert.match(
     claudeApiSearchResult.stdout,
-    /^claude-api: .* \[group: imported\]( \[warm\])? \[metadata: /m,
+    /^claude-api: .* \[group: imported\] \[tier: quiet\] \[metadata: /m,
   );
   assert.doesNotMatch(
     claudeApiSearchResult.stdout,
@@ -284,7 +201,7 @@ description: Valid description
   assertOk(contentFallbackSearchResult);
   assert.match(
     contentFallbackSearchResult.stdout,
-    /^claude-api: .* \[group: imported\] \[content fallback\]$/m,
+    /^claude-api: .* \[group: imported\] \[tier: quiet\] \[content fallback\]$/m,
   );
 
   const readResult = runSkillCommand(["read", "engineering-workflow"]);
@@ -294,40 +211,6 @@ description: Valid description
     /^Base directory: \.skills\/engineering-workflow$/m,
   );
   assert.match(readResult.stdout, /# Engineering Workflow/i);
-
-  const repoUsageCachePath = getUsageCachePath(repoRoot);
-  const existingRepoUsageCache = fs.existsSync(repoUsageCachePath)
-    ? fs.readFileSync(repoUsageCachePath, "utf8")
-    : null;
-  try {
-    fs.rmSync(repoUsageCachePath, { force: true });
-
-    const passiveSearchResult = runSkillCommand(["search", "workflow"]);
-    assertOk(passiveSearchResult);
-    assert.equal(
-      fs.existsSync(repoUsageCachePath),
-      false,
-      "search should not create the local usage cache",
-    );
-
-    const cacheCreatingReadResult = runSkillCommand(["read", "engineering-workflow"]);
-    assertOk(cacheCreatingReadResult);
-    const repoUsageCache = loadUsageCache(repoRoot);
-    assert.ok(
-      repoUsageCache.entries["engineering-workflow"],
-      "successful skill loads should record advisory usage",
-    );
-    assert.ok(
-      repoUsageCache.entries["engineering-workflow"].last_used_at > 0,
-      "successful skill loads should record a timestamp",
-    );
-  } finally {
-    if (existingRepoUsageCache === null) {
-      fs.rmSync(repoUsageCachePath, { force: true });
-    } else {
-      fs.writeFileSync(repoUsageCachePath, existingRepoUsageCache);
-    }
-  }
 
   const routeResult = runSkillCommand([
     "route",
@@ -344,7 +227,7 @@ description: Valid description
   );
   assert.match(
     route.rationale.join(" "),
-    /daily-driver|benefit|evidence/i,
+    /daily|tier|evidence/i,
     "route rationale should explain policy and evidence contributions",
   );
   assert.ok(
@@ -352,7 +235,7 @@ description: Valid description
     "route should surface the infrastructure rule for hook work",
   );
 
-const syntheticSkills = [
+const syntheticSkills: RegistrySkill[] = [
     {
       id: "engineering-workflow",
       display_name: "engineering-workflow",
@@ -360,11 +243,8 @@ const syntheticSkills = [
       tags: ["implementation", "workflow"],
       triggers: ["build", "implement"],
       anti_triggers: [],
-      routing_weight: 5,
-      daily_driver: true,
-      agent_benefit: 5,
-      catalog_group: "workflow",
-      activation_mode: "default" as ActivationMode,
+      group: "workflow" as SkillGroup,
+      tier: "daily" as SkillTier,
     },
     {
       id: "mcp-builder",
@@ -373,11 +253,8 @@ const syntheticSkills = [
       tags: ["mcp", "server", "tools"],
       triggers: ["mcp", "tool surface", "model context protocol"],
       anti_triggers: [],
-      routing_weight: 4,
-      daily_driver: false,
-      agent_benefit: 3,
-      catalog_group: "specialist",
-      activation_mode: "quiet-until-strong-match" as ActivationMode,
+      group: "specialist" as SkillGroup,
+      tier: "quiet" as SkillTier,
     },
     {
       id: "gh-stack",
@@ -386,11 +263,8 @@ const syntheticSkills = [
       tags: ["pull requests", "stacked pr"],
       triggers: ["gh stack", "stacked pr"],
       anti_triggers: [],
-      routing_weight: 3,
-      daily_driver: false,
-      agent_benefit: 3,
-      catalog_group: "imported",
-      activation_mode: "explicit-only" as ActivationMode,
+      group: "imported" as SkillGroup,
+      tier: "explicit" as SkillTier,
     },
     {
       id: "ci-tooling",
@@ -399,29 +273,24 @@ const syntheticSkills = [
       tags: ["build", "release", "pipeline"],
       triggers: ["continuous integration", "release validation"],
       anti_triggers: [],
-      routing_weight: 3,
-      daily_driver: false,
-      agent_benefit: 2,
-      catalog_group: "specialist",
-      activation_mode: "default" as ActivationMode,
+      group: "specialist" as SkillGroup,
+      tier: "normal" as SkillTier,
     },
   ];
 
   const syntheticRoute = routeTaskFromRegistry(
     syntheticSkills,
     "build an MCP server with a tool surface",
-    repoRoot,
   );
   assert.equal(
     syntheticRoute.primarySkill,
     "mcp-builder",
-    "strong specialist evidence should still outrank generic daily-driver skills",
+    "strong specialist evidence should still outrank generic daily-tier skills",
   );
 
   const explicitOnlyRoute = routeTaskFromRegistry(
     syntheticSkills,
     "improve implementation workflow",
-    repoRoot,
   );
   assert.notEqual(
     explicitOnlyRoute.primarySkill,
@@ -432,7 +301,6 @@ const syntheticSkills = [
   const explicitOnlySearch = rankSearchMatches(
     syntheticSkills,
     "gh-stack",
-    repoRoot,
   );
   assert.equal(
     explicitOnlySearch[0]?.skill.id,
@@ -443,7 +311,6 @@ const syntheticSkills = [
   const bm25Search = rankSearchMatches(
     syntheticSkills,
     "build an mcp server with a tool surface",
-    repoRoot,
   );
   assert.equal(
     bm25Search[0]?.skill.id,
@@ -458,7 +325,6 @@ const syntheticSkills = [
   const bm25SynonymSearch = rankSearchMatches(
     syntheticSkills,
     "ci",
-    repoRoot,
   );
   assert.equal(
     bm25SynonymSearch[0]?.skill.id,
@@ -470,11 +336,11 @@ const syntheticSkills = [
     "CI alias matching should still be powered by BM25 evidence",
   );
 
-  const policyList = rankSkillsForList(syntheticSkills, {}, repoRoot);
+  const policyList = rankSkillsForList(syntheticSkills, {});
   assert.deepEqual(
     policyList.map((entry) => entry.skill.id),
     ["engineering-workflow"],
-    "default list view should stay focused on daily-driver agent-facing skills",
+    "default list view should stay focused on daily-tier agent-facing skills",
   );
 
   const registryWriteResult = runSkillCommand(["registry"]);
@@ -510,31 +376,23 @@ const syntheticSkills = [
 
   assert.deepEqual(
     {
-      catalog_group: sourceDrivenDevelopment.catalog_group,
-      activation_mode: sourceDrivenDevelopment.activation_mode,
-      agent_benefit: sourceDrivenDevelopment.agent_benefit,
-      daily_driver: sourceDrivenDevelopment.daily_driver,
+      group: sourceDrivenDevelopment.group,
+      tier: sourceDrivenDevelopment.tier,
     },
     {
-      catalog_group: "support",
-      activation_mode: "high-priority-when-relevant",
-      agent_benefit: 4,
-      daily_driver: false,
+      group: "support",
+      tier: "normal",
     },
-    "source-driven-development should be classified as high-value support",
+    "source-driven-development should be classified as a normal support skill",
   );
   assert.deepEqual(
     {
-      catalog_group: claudeApi.catalog_group,
-      activation_mode: claudeApi.activation_mode,
-      agent_benefit: claudeApi.agent_benefit,
-      daily_driver: claudeApi.daily_driver,
+      group: claudeApi.group,
+      tier: claudeApi.tier,
     },
     {
-      catalog_group: "imported",
-      activation_mode: "quiet-until-strong-match",
-      agent_benefit: 3,
-      daily_driver: false,
+      group: "imported",
+      tier: "quiet",
     },
     "claude-api should stay quiet until strong evidence promotes the imported skill",
   );

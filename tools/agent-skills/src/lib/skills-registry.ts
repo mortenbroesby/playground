@@ -2,10 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  ALLOWED_ACTIVATION_MODES,
-  ALLOWED_CATALOG_GROUPS,
-  MAX_AGENT_BENEFIT,
-  MIN_AGENT_BENEFIT,
+  ALLOWED_GROUPS,
+  ALLOWED_TIERS,
   parseCatalogMetadata,
   parseSkillMetadata,
 } from "./skills-metadata.ts";
@@ -17,8 +15,8 @@ const METADATA_DIRNAME = ".metadata";
 const REGISTRY_VERSION = 1;
 const SKILL_METADATA_VERSION = 1;
 
-export type CatalogGroup = RegistrySkill["catalog_group"];
-export type ActivationMode = RegistrySkill["activation_mode"];
+export type SkillGroup = RegistrySkill["group"];
+export type SkillTier = RegistrySkill["tier"];
 
 export interface GeneratedSkillRegistryEntry {
   id: string;
@@ -29,11 +27,8 @@ export interface GeneratedSkillRegistryEntry {
   tags: string[];
   triggers: string[];
   anti_triggers: string[];
-  routing_weight: number;
-  daily_driver: boolean;
-  agent_benefit: number;
-  catalog_group: CatalogGroup;
-  activation_mode: ActivationMode;
+  group: SkillGroup;
+  tier: SkillTier;
 }
 
 export interface GeneratedSkillRegistry {
@@ -48,11 +43,8 @@ export interface SkillSource {
   tags: string[];
   triggers: string[];
   antiTriggers: string[];
-  routingWeight: number;
-  dailyDriver: boolean;
-  agentBenefit: number;
-  catalogGroup: CatalogGroup;
-  activationMode: ActivationMode;
+  group: SkillGroup;
+  tier: SkillTier;
   dir: string;
   relativeDir: string;
   skillPath: string;
@@ -161,8 +153,8 @@ function validateRegistrySkillEntry(
     "description",
     "source_dir",
     "source_skill_md_path",
-    "catalog_group",
-    "activation_mode",
+    "group",
+    "tier",
   ];
   for (const field of requiredStringFields) {
     const value = skill[field];
@@ -177,42 +169,17 @@ function validateRegistrySkillEntry(
   validateStringArray(skill.triggers, "triggers", registryPath, skillIndex);
   validateStringArray(skill.anti_triggers, "anti_triggers", registryPath, skillIndex);
 
-  if (
-    typeof skill.routing_weight !== "number" ||
-    !Number.isFinite(skill.routing_weight)
-  ) {
+  if (!ALLOWED_GROUPS.includes(skill.group as SkillGroup)) {
     throw new Error(
-      `${registryPath}: skill entry ${skillIndex} field "routing_weight" must be a finite number.`,
-    );
-  }
-
-  if (typeof skill.daily_driver !== "boolean") {
-    throw new Error(
-      `${registryPath}: skill entry ${skillIndex} field "daily_driver" must be a boolean.`,
-    );
-  }
-
-  if (
-    !Number.isInteger(skill.agent_benefit as number) ||
-    (skill.agent_benefit as number) < MIN_AGENT_BENEFIT ||
-    (skill.agent_benefit as number) > MAX_AGENT_BENEFIT
-  ) {
-    throw new Error(
-      `${registryPath}: skill entry ${skillIndex} field "agent_benefit" must be an integer from ${MIN_AGENT_BENEFIT} to ${MAX_AGENT_BENEFIT}.`,
-    );
-  }
-
-  if (!ALLOWED_CATALOG_GROUPS.includes(skill.catalog_group as CatalogGroup)) {
-    throw new Error(
-      `${registryPath}: skill entry ${skillIndex} field "catalog_group" must be one of ${ALLOWED_CATALOG_GROUPS.join(
+      `${registryPath}: skill entry ${skillIndex} field "group" must be one of ${ALLOWED_GROUPS.join(
         ", ",
       )}.`,
     );
   }
 
-  if (!ALLOWED_ACTIVATION_MODES.includes(skill.activation_mode as ActivationMode)) {
+  if (!ALLOWED_TIERS.includes(skill.tier as SkillTier)) {
     throw new Error(
-      `${registryPath}: skill entry ${skillIndex} field "activation_mode" must be one of ${ALLOWED_ACTIVATION_MODES.join(
+      `${registryPath}: skill entry ${skillIndex} field "tier" must be one of ${ALLOWED_TIERS.join(
         ", ",
       )}.`,
     );
@@ -303,11 +270,8 @@ export function loadSkillSources(repoRoot: string): SkillSource[] {
       tags: catalogMetadata.tags,
       triggers: catalogMetadata.triggers,
       antiTriggers: catalogMetadata.anti_triggers,
-      routingWeight: catalogMetadata.routing_weight,
-      dailyDriver: catalogMetadata.daily_driver,
-      agentBenefit: catalogMetadata.agent_benefit,
-      catalogGroup: catalogMetadata.catalog_group,
-      activationMode: catalogMetadata.activation_mode as ActivationMode,
+      group: catalogMetadata.group as SkillGroup,
+      tier: catalogMetadata.tier as SkillTier,
       dir: directoryPath,
       relativeDir,
       skillPath,
@@ -319,9 +283,8 @@ export function loadSkillSources(repoRoot: string): SkillSource[] {
 
 // The registry is the machine-readable discovery surface. Keep the emitted
 // shape deterministic and boring so both humans and scripts can diff it
-// reliably. Routing metadata and catalog-policy metadata both belong here:
-// routing helps decide whether a skill is relevant, while catalog policy helps
-// later tooling decide how prominent that relevant skill should be.
+// reliably. Keep the policy surface intentionally small so the catalog remains
+// understandable to both humans and scripts.
 export function buildSkillRegistry(repoRoot: string): GeneratedSkillRegistry {
   const skills = loadSkillSources(repoRoot).map((skill): GeneratedSkillRegistryEntry => ({
     id: skill.id,
@@ -332,11 +295,8 @@ export function buildSkillRegistry(repoRoot: string): GeneratedSkillRegistry {
     tags: skill.tags,
     triggers: skill.triggers,
     anti_triggers: skill.antiTriggers,
-    routing_weight: skill.routingWeight,
-    daily_driver: skill.dailyDriver,
-    agent_benefit: skill.agentBenefit,
-    catalog_group: skill.catalogGroup,
-    activation_mode: skill.activationMode,
+    group: skill.group,
+    tier: skill.tier,
   }));
 
   return {

@@ -37,8 +37,7 @@ Thin bootstrap for coding agents in this repo.
   with [codex/rules](codex/rules) kept as a docs-path compatibility symlink.
 - Claude loads the same shared commands, hooks, and rules through `.claude/*`
   symlinks.
-- Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) for
-  the routing contract. Use `pnpm skills:list`, `pnpm skills:search <query>`,
+- Use `pnpm skills:list`, `pnpm skills:search <query>`,
   `pnpm skills:route "<task>"`, and `pnpm skills:read <skill-name>` as thin
   registry-backed entry points instead of re-encoding skill heuristics or
   catalog summaries here.

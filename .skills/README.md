@@ -38,11 +38,8 @@ No other top-level keys are currently supported in frontmatter.
       "tags": ["ui", "layout"],
       "triggers": ["design review", "visual polish"],
       "anti_triggers": ["api bug"],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "specialist",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "specialist",
+      "tier": "normal"
     }
   }
 }
@@ -53,13 +50,9 @@ Supported metadata fields:
 - `tags` (string array)
 - `triggers` (string array)
 - `anti_triggers` (string array)
-- `routing_weight` (number, default `1`)
-- `daily_driver` (boolean, default `false`)
-- `agent_benefit` (integer 1..5, default `3`)
-- `catalog_group` (one of `workflow`, `support`, `specialist`, `imported`;
+- `group` (one of `workflow`, `support`, `specialist`, `imported`;
   default `support`)
-- `activation_mode` (one of `default`, `high-priority-when-relevant`,
-  `quiet-until-strong-match`, `explicit-only`; default `default`)
+- `tier` (one of `daily`, `normal`, `quiet`, `explicit`; default `normal`)
 
 Unknown keys in either `SKILL.md` frontmatter or registry metadata fail fast so
 typos cannot silently degrade routing.
@@ -72,8 +65,7 @@ metadata:
 - skill id and source location
 - display name and description
 - `tags`, `triggers`, `anti_triggers`
-- `routing_weight`, `daily_driver`, `agent_benefit`, `catalog_group`,
-  `activation_mode`
+- `group`, `tier`
 
 Rebuild or refresh the generated artifact after any identity/metadata edits:
 

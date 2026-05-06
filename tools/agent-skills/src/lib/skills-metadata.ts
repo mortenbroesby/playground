@@ -2,11 +2,8 @@ const SUPPORTED_SKILL_METADATA_FIELDS: string[] = [
   "tags",
   "triggers",
   "anti_triggers",
-  "routing_weight",
-  "daily_driver",
-  "agent_benefit",
-  "catalog_group",
-  "activation_mode",
+  "group",
+  "tier",
 ];
 
 const ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS: string[] = [
@@ -14,27 +11,25 @@ const ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS: string[] = [
   "description",
 ];
 
-const DEFAULT_ROUTING_WEIGHT = 1;
-const DEFAULT_DAILY_DRIVER = false;
-const MIN_AGENT_BENEFIT = 1;
-const DEFAULT_AGENT_BENEFIT = 3;
-const MAX_AGENT_BENEFIT = 5;
-const DEFAULT_CATALOG_GROUP = "support";
-const DEFAULT_ACTIVATION_MODE = "default";
+const DEFAULT_GROUP = "support";
+const DEFAULT_TIER = "normal";
 
-const ALLOWED_CATALOG_GROUPS: string[] = [
+const ALLOWED_GROUPS: string[] = [
   "workflow",
   "support",
   "specialist",
   "imported",
 ];
 
-const ALLOWED_ACTIVATION_MODES: string[] = [
-  "default",
-  "high-priority-when-relevant",
-  "quiet-until-strong-match",
-  "explicit-only",
+const ALLOWED_TIERS: string[] = [
+  "daily",
+  "normal",
+  "quiet",
+  "explicit",
 ];
+
+export type SkillGroup = (typeof ALLOWED_GROUPS)[number];
+export type SkillTier = (typeof ALLOWED_TIERS)[number];
 
 export type CatalogMetadataEntry = {
   [key: string]: unknown;
@@ -53,24 +48,16 @@ export interface ParsedCatalogMetadata {
   tags: string[];
   triggers: string[];
   anti_triggers: string[];
-  routing_weight: number;
-  daily_driver: boolean;
-  agent_benefit: number;
-  catalog_group: string;
-  activation_mode: string;
+  group: SkillGroup;
+  tier: SkillTier;
 }
 
 export {
-  ALLOWED_CATALOG_GROUPS,
+  ALLOWED_GROUPS,
   ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS,
-  ALLOWED_ACTIVATION_MODES,
-  DEFAULT_ACTIVATION_MODE,
-  DEFAULT_AGENT_BENEFIT,
-  DEFAULT_CATALOG_GROUP,
-  DEFAULT_DAILY_DRIVER,
-  DEFAULT_ROUTING_WEIGHT,
-  MAX_AGENT_BENEFIT,
-  MIN_AGENT_BENEFIT,
+  ALLOWED_TIERS,
+  DEFAULT_GROUP,
+  DEFAULT_TIER,
   SUPPORTED_SKILL_METADATA_FIELDS,
 };
 
@@ -228,49 +215,6 @@ function parseBooleanValue({
   throw new Error(
     `${filePath}: ${source} field "${field}" must be true or false.`,
   );
-}
-
-// Catalog benefit is intentionally narrow and bounded.
-function parseIntegerInRange({
-  inlineValue,
-  blockLines,
-  filePath,
-  field,
-  min,
-  max,
-  source = "frontmatter",
-}: {
-  inlineValue: FrontmatterValue;
-  blockLines: string[];
-  filePath: string;
-  field: string;
-  min: number;
-  max: number;
-  source?: string;
-}): number {
-  assertNoUnexpectedBlockLines({
-    inlineValue,
-    blockLines,
-    filePath,
-    field,
-    source,
-  });
-
-  const rawValue = String(inlineValue || "").trim();
-  if (!rawValue) {
-    throw new Error(
-      `${filePath}: ${source} field "${field}" must be an integer from ${min} to ${max}.`,
-    );
-  }
-
-  const parsed = Number(rawValue);
-  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-    throw new Error(
-      `${filePath}: ${source} field "${field}" must be an integer from ${min} to ${max}.`,
-    );
-  }
-
-  return parsed;
 }
 
 function parseEnumValue({
@@ -458,20 +402,6 @@ function parseStringArrayValue(value: unknown, filePath: string, field: string):
   return [...new Set(value.filter((entry) => entry.trim() !== ""))];
 }
 
-function parseRoutingWeightValue(filePath: string, rawValue: unknown): number {
-  if (rawValue === undefined) {
-    return DEFAULT_ROUTING_WEIGHT;
-  }
-
-  if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
-    throw new Error(
-      `${filePath}: metadata field "routing_weight" must be a finite number.`,
-    );
-  }
-
-  return rawValue;
-}
-
 export function parseCatalogMetadata({
   filePath,
   skillId,
@@ -506,64 +436,35 @@ export function parseCatalogMetadata({
     filePath,
     "anti_triggers",
   );
-  const routingWeight = parseRoutingWeightValue(filePath, raw.routing_weight);
-
-  const daily_driver =
-    raw.daily_driver === undefined
-      ? DEFAULT_DAILY_DRIVER
-      : parseBooleanValue({
-          inlineValue: String(raw.daily_driver),
-          blockLines: [],
-          filePath,
-          field: "daily_driver",
-          source,
-        });
-
-  const agentBenefit =
-    raw.agent_benefit === undefined
-      ? DEFAULT_AGENT_BENEFIT
-      : parseIntegerInRange({
-          inlineValue: String(raw.agent_benefit),
-          blockLines: [],
-          filePath,
-          field: "agent_benefit",
-          source,
-          min: MIN_AGENT_BENEFIT,
-          max: MAX_AGENT_BENEFIT,
-        });
-
-  const catalogGroup =
-    raw.catalog_group === undefined
-      ? DEFAULT_CATALOG_GROUP
+  const group =
+    raw.group === undefined
+      ? DEFAULT_GROUP
       : (parseEnumValue({
-          inlineValue: String(raw.catalog_group),
+          inlineValue: String(raw.group),
           blockLines: [],
           filePath,
-          field: "catalog_group",
+          field: "group",
           source,
-          allowedValues: ALLOWED_CATALOG_GROUPS,
-        }) as (typeof ALLOWED_CATALOG_GROUPS)[number]);
+          allowedValues: ALLOWED_GROUPS,
+        }) as SkillGroup);
 
-  const activationMode =
-    raw.activation_mode === undefined
-      ? DEFAULT_ACTIVATION_MODE
+  const tier =
+    raw.tier === undefined
+      ? DEFAULT_TIER
       : (parseEnumValue({
-          inlineValue: String(raw.activation_mode),
+          inlineValue: String(raw.tier),
           blockLines: [],
           filePath,
-          field: "activation_mode",
+          field: "tier",
           source,
-          allowedValues: ALLOWED_ACTIVATION_MODES,
-        }) as (typeof ALLOWED_ACTIVATION_MODES)[number]);
+          allowedValues: ALLOWED_TIERS,
+        }) as SkillTier);
 
   return {
     tags,
     triggers,
     anti_triggers: antiTriggers,
-    routing_weight: routingWeight,
-    daily_driver,
-    agent_benefit: agentBenefit,
-    catalog_group: catalogGroup,
-    activation_mode: activationMode,
+    group,
+    tier,
   };
 }

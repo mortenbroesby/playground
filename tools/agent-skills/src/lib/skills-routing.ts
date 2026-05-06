@@ -1,9 +1,3 @@
-import {
-  getRecentUsageScore,
-  type UsageCache,
-  loadUsageCache,
-} from "./skills-usage-cache.ts";
-
 const STOP_WORDS = new Set([
   "a",
   "an",
@@ -47,11 +41,17 @@ const BM25_QUERY_SYNONYMS: Record<string, readonly string[]> = {
   uxui: ["ui", "user", "experience"],
 };
 
-export type ActivationMode =
-  | "default"
-  | "high-priority-when-relevant"
-  | "quiet-until-strong-match"
-  | "explicit-only";
+export type SkillTier =
+  | "daily"
+  | "normal"
+  | "quiet"
+  | "explicit";
+
+export type SkillGroup =
+  | "workflow"
+  | "support"
+  | "specialist"
+  | "imported";
 
 export interface RegistrySkill {
   id: string;
@@ -60,11 +60,8 @@ export interface RegistrySkill {
   tags: string[];
   triggers: string[];
   anti_triggers: string[];
-  routing_weight: number;
-  daily_driver: boolean;
-  agent_benefit: number;
-  catalog_group: string;
-  activation_mode: ActivationMode;
+  group: SkillGroup;
+  tier: SkillTier;
 }
 
 export interface PolicyRouteMatch {
@@ -73,7 +70,6 @@ export interface PolicyRouteMatch {
   reasons: string[];
   explicitMatch: boolean;
   activationRank: number;
-  recentUsageScore: number;
   policyReasons: string[];
 }
 
@@ -516,7 +512,7 @@ function scoreRouteEvidence(
   queryTokens: string[] = tokenize(taskText),
 ) {
   const reasons: string[] = [];
-  let score = skill.routing_weight;
+  let score = skill.tier === "daily" ? 0.5 : 0;
 
   const triggerScore = scoreListField(skill.triggers, taskText, 4);
   if (triggerScore > 0) {
@@ -564,20 +560,11 @@ function scoreRouteEvidence(
     reasons.push("bm25");
   }
 
-  if (skill.id === "engineering-workflow") {
-    score += 0.5;
-    reasons.push("default umbrella workflow");
-  }
-
   return {
     skill,
     evidenceScore: score,
     reasons,
   };
-}
-
-function getRecentUsage(skillId: string, usageCache: UsageCache, now = Date.now()) {
-  return getRecentUsageScore(usageCache, skillId, now);
 }
 
 export function matchesSkillName(skill: RegistrySkill, query: string): boolean {
@@ -599,10 +586,10 @@ function activationRank(
   evidenceScore: number,
   explicitMatch: boolean,
 ): number {
-  switch (skill.activation_mode) {
-    case "explicit-only":
+  switch (skill.tier) {
+    case "explicit":
       return explicitMatch ? 0 : 2;
-    case "quiet-until-strong-match":
+    case "quiet":
       return evidenceScore >= 12 || explicitMatch ? 0 : 1;
     default:
       return 0;
@@ -617,27 +604,19 @@ function buildPolicyEntry(
   skill: RegistrySkill,
   evidenceScore: number,
   reasons: string[],
-  usageCache: UsageCache,
   query: string,
 ): PolicyRouteMatch {
   const explicitMatch = matchesSkillName(skill, query);
-  const recentUsageScore = getRecentUsage(skill.id, usageCache, Date.now());
   const activation = activationRank(skill, evidenceScore, explicitMatch);
   const policyReasons: string[] = [];
 
-  if (skill.daily_driver) {
-    policyReasons.push("daily-driver boost");
-  }
-  if (skill.agent_benefit > 3) {
-    policyReasons.push("benefit boost");
-  }
-  if (recentUsageScore > 0) {
-    policyReasons.push("warm-recency tie-break");
+  if (skill.tier === "daily") {
+    policyReasons.push("daily tier");
   }
   if (activation > 0) {
     policyReasons.push(
-      skill.activation_mode === "explicit-only"
-        ? "explicit-only gating"
+      skill.tier === "explicit"
+        ? "explicit tier gating"
         : "quiet activation gate",
     );
   }
@@ -648,9 +627,23 @@ function buildPolicyEntry(
     reasons,
     explicitMatch,
     activationRank: activation,
-    recentUsageScore,
     policyReasons,
   };
+}
+
+function tierRank(skill: RegistrySkill): number {
+  switch (skill.tier) {
+    case "daily":
+      return 0;
+    case "normal":
+      return 1;
+    case "quiet":
+      return 2;
+    case "explicit":
+      return 3;
+    default:
+      return 99;
+  }
 }
 
 function comparePolicyRanked(
@@ -660,18 +653,14 @@ function comparePolicyRanked(
   return (
     right.evidenceScore - left.evidenceScore ||
     left.activationRank - right.activationRank ||
-    Number(right.skill.daily_driver) - Number(left.skill.daily_driver) ||
-    right.skill.agent_benefit - left.skill.agent_benefit ||
-    right.recentUsageScore - left.recentUsageScore ||
+    tierRank(left.skill) - tierRank(right.skill) ||
     left.skill.id.localeCompare(right.skill.id)
   );
 }
 
 function compareListRanked(left: PolicyRouteMatch, right: PolicyRouteMatch): number {
   return (
-    Number(right.skill.daily_driver) - Number(left.skill.daily_driver) ||
-    right.skill.agent_benefit - left.skill.agent_benefit ||
-    right.recentUsageScore - left.recentUsageScore ||
+    tierRank(left.skill) - tierRank(right.skill) ||
     left.skill.id.localeCompare(right.skill.id)
   );
 }
@@ -681,35 +670,27 @@ export function rankSkillsForList(
   options: {
     includeAll?: boolean;
     group?: string | null;
-    dailyDriverOnly?: boolean;
-    coldOnly?: boolean;
+    dailyTierOnly?: boolean;
   } = {},
-  repoRoot = process.cwd(),
 ): PolicyRouteMatch[] {
-  const usageCache = loadUsageCache(repoRoot);
   const {
     includeAll = false,
     group = null,
-    dailyDriverOnly = false,
-    coldOnly = false,
+    dailyTierOnly = false,
   } = options;
 
   return skills
     .map((skill) =>
-      buildPolicyEntry(skill, 0, [], usageCache, skill.id),
+      buildPolicyEntry(skill, 0, [], skill.id),
   )
-    .filter((entry) => (group ? entry.skill.catalog_group === group : true))
-    .filter((entry) => (dailyDriverOnly ? entry.skill.daily_driver : true))
-    .filter((entry) => (coldOnly ? entry.recentUsageScore === 0 : true))
+    .filter((entry) => (group ? entry.skill.group === group : true))
+    .filter((entry) => (dailyTierOnly ? entry.skill.tier === "daily" : true))
     .filter((entry) => {
-      if (includeAll || group || dailyDriverOnly || coldOnly) {
+      if (includeAll || group || dailyTierOnly) {
         return true;
       }
 
-      return (
-        entry.skill.daily_driver ||
-        (entry.skill.agent_benefit >= 4 && entry.recentUsageScore > 0)
-      );
+      return entry.skill.tier === "daily";
     })
     .sort(compareListRanked);
 }
@@ -717,9 +698,7 @@ export function rankSkillsForList(
 export function rankSearchMatches(
   skills: RegistrySkill[],
   query: string,
-  repoRoot = process.cwd(),
 ): PolicyRouteMatch[] {
-  const usageCache = loadUsageCache(repoRoot);
   const queryTokens = tokenize(query);
   const bm25Model = buildBm25Model(skills);
 
@@ -731,7 +710,7 @@ export function rankSearchMatches(
         bm25Model,
         queryTokens,
       );
-      return buildPolicyEntry(skill, metadata.score, metadata.reasons, usageCache, query);
+      return buildPolicyEntry(skill, metadata.score, metadata.reasons, query);
     })
     .filter((entry) => entry.evidenceScore > 0)
     .sort(comparePolicyRanked);
@@ -749,18 +728,9 @@ function skillThresholdForSecondary(primaryEvidenceScore: number): number {
 
 export function renderSkillSummary(
   skill: RegistrySkill,
-  options: {
-    warm?: boolean;
-  } = {},
 ): string {
   const description = skill.description;
-  const hints = [`[group: ${skill.catalog_group}]`];
-  if (skill.daily_driver) {
-    hints.unshift("[daily-driver]");
-  }
-  if (options.warm) {
-    hints.push("[warm]");
-  }
+  const hints = [`[group: ${skill.group}]`, `[tier: ${skill.tier}]`];
   return `${skill.id}: ${description} ${hints.join(" ")}`.trim();
 }
 
@@ -771,9 +741,7 @@ function hasAny(text: string, patterns: RegExp[]): boolean {
 export function routeTaskFromRegistry(
   skills: RegistrySkill[],
   text: string,
-  repoRoot = process.cwd(),
 ): RouteResult {
-  const usageCache = loadUsageCache(repoRoot);
   const queryTokens = tokenize(text);
   const bm25Model = buildBm25Model(skills);
   const rankedSkills = skills
@@ -783,7 +751,6 @@ export function routeTaskFromRegistry(
         skill,
         evidence.evidenceScore,
         evidence.reasons,
-        usageCache,
         text,
       );
     })
@@ -795,7 +762,7 @@ export function routeTaskFromRegistry(
     skills
       .filter((skill) => skill.id === "engineering-workflow")
       .map((skill) =>
-        buildPolicyEntry(skill, 0.5, ["default umbrella workflow"], usageCache, text),
+        buildPolicyEntry(skill, 0, [], text),
       )[0];
 
   const primarySkill = primaryMatch?.skill.id || "engineering-workflow";
@@ -820,7 +787,7 @@ export function routeTaskFromRegistry(
     rationale.push(
       `Primary skill \`${primarySkill}\` won from ${
         unique([...primaryMatch.reasons, ...primaryMatch.policyReasons]).join(", ") ||
-        "routing weight"
+        "evidence and tier policy"
       }.`,
     );
   } else {
@@ -852,7 +819,7 @@ export function routeTaskFromRegistry(
     extraRules: [],
     notes: [],
     task: text,
-    alwaysApplyRules: ["repo-workflow", "skill-routing"],
+    alwaysApplyRules: ["repo-workflow"],
   };
 
   const normalizedText = normalizeText(text);

@@ -5,11 +5,8 @@
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "brainstorming": {
       "tags": [
@@ -28,31 +25,22 @@
         "review this diff",
         "run the test suite"
       ],
-      "routing_weight": 2,
-      "daily_driver": true,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "workflow",
+      "tier": "normal"
     },
     "browser-testing-with-devtools": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "claude-api": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "imported",
-      "activation_mode": "quiet-until-strong-match"
+      "group": "imported",
+      "tier": "quiet"
     },
     "code-review-and-quality": {
       "tags": [
@@ -71,31 +59,22 @@
         "brainstorm approaches",
         "make a plan"
       ],
-      "routing_weight": 3,
-      "daily_driver": true,
-      "agent_benefit": 5,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "workflow",
+      "tier": "normal"
     },
     "code-simplification": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "context-engineering": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "debugging-and-error-recovery": {
       "tags": [
@@ -114,41 +93,29 @@
         "write a spec",
         "brainstorm approaches"
       ],
-      "routing_weight": 3,
-      "daily_driver": true,
-      "agent_benefit": 5,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "workflow",
+      "tier": "daily"
     },
     "dispatching-parallel-agents": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "doc-coauthoring": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "documentation-and-adrs": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": true,
-      "agent_benefit": 4,
-      "catalog_group": "support",
-      "activation_mode": "default"
+      "group": "support",
+      "tier": "normal"
     },
     "engineering-workflow": {
       "tags": [
@@ -168,81 +135,57 @@
         "make a plan",
         "brainstorm approaches"
       ],
-      "routing_weight": 2,
-      "daily_driver": true,
-      "agent_benefit": 5,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "workflow",
+      "tier": "daily"
     },
     "executing-plans": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "finishing-a-development-branch": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "frontend-design": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "specialist",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "specialist",
+      "tier": "normal"
     },
     "gh-stack": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "specialist",
-      "activation_mode": "explicit-only"
+      "group": "specialist",
+      "tier": "explicit"
     },
     "grill-me": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "incremental-implementation": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": true,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "workflow",
+      "tier": "normal"
     },
     "mcp-builder": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "imported",
-      "activation_mode": "quiet-until-strong-match"
+      "group": "imported",
+      "tier": "quiet"
     },
     "planning-and-task-breakdown": {
       "tags": [
@@ -262,131 +205,85 @@
         "review this diff",
         "debug failing test"
       ],
-      "routing_weight": 2,
-      "daily_driver": true,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "workflow",
+      "tier": "daily"
     },
     "ralph-plan": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "specialist",
-      "activation_mode": "explicit-only"
+      "group": "specialist",
+      "tier": "explicit"
     },
     "readme-authoring": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "receiving-code-review": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "requesting-code-review": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": true,
-      "agent_benefit": 4,
-      "catalog_group": "support",
-      "activation_mode": "default"
+      "group": "support",
+      "tier": "normal"
     },
     "shipping-and-launch": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "skill-creator": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "imported",
-      "activation_mode": "quiet-until-strong-match"
+      "group": "imported",
+      "tier": "quiet"
     },
     "source-driven-development": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "spec-driven-development": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "subagent-driven-development": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
-    },
-    "systematic-debugging": {
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "workflow",
+      "tier": "normal"
     },
     "test-driven-development": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": true,
-      "agent_benefit": 5,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "workflow",
+      "tier": "normal"
     },
     "using-git-worktrees": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "support",
-      "activation_mode": "high-priority-when-relevant"
+      "group": "support",
+      "tier": "normal"
     },
     "using-superpowers": {
       "tags": [
@@ -405,51 +302,22 @@
         "fix failing test",
         "review this diff"
       ],
-      "routing_weight": 0.5,
-      "daily_driver": true,
-      "agent_benefit": 4,
-      "catalog_group": "support",
-      "activation_mode": "default"
+      "group": "support",
+      "tier": "normal"
     },
     "verification-before-completion": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": true,
-      "agent_benefit": 5,
-      "catalog_group": "support",
-      "activation_mode": "default"
-    },
-    "webapp-testing": {
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 4,
-      "catalog_group": "specialist",
-      "activation_mode": "high-priority-when-relevant"
-    },
-    "writing-plans": {
-      "tags": [],
-      "triggers": [],
-      "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": true,
-      "agent_benefit": 4,
-      "catalog_group": "workflow",
-      "activation_mode": "default"
+      "group": "support",
+      "tier": "daily"
     },
     "writing-skills": {
       "tags": [],
       "triggers": [],
       "anti_triggers": [],
-      "routing_weight": 1,
-      "daily_driver": false,
-      "agent_benefit": 3,
-      "catalog_group": "specialist",
-      "activation_mode": "quiet-until-strong-match"
+      "group": "specialist",
+      "tier": "quiet"
     }
   }
 }
