@@ -1,6 +1,6 @@
 [mcp_servers.obsidian-memory]
-command = "node"
-args = ["tools/obsidian-memory/src/rag-mcp-server.mjs"]
+command = "pnpm"
+args = ["--silent", "--filter", "@playground/obsidian-memory", "mcp"]
 cwd = "."
 enabled_tools = [
   "memory_context",

@@ -140,10 +140,7 @@ test("runWrite defaults to preview output without writing files", async (t) => {
   assert.match(output.content_preview, /summary: "Spec for rebuilding repo memory\."/);
   assert.deepEqual(output.duplicate_proposals, []);
 
-  const targetPath = path.join(
-    fixture.vaultRoot,
-    "00 Repositories/playground/specs/2026-04-30 Rebuild RAG memory.md",
-  );
+  const targetPath = path.join(fixture.tempRoot, output.path);
   await assert.rejects(access(targetPath));
 });
 
@@ -181,10 +178,7 @@ test("CLI writes note only when --apply is passed", async (t) => {
   assert.match(output.next_step, /Run pnpm rag:index/);
   assert.deepEqual(output.duplicate_proposals, []);
 
-  const targetPath = path.join(
-    fixture.vaultRoot,
-    "00 Repositories/playground/specs/2026-04-30 Rebuild RAG memory.md",
-  );
+  const targetPath = path.resolve(repoRoot, output.path);
   const fileContents = await readFile(targetPath, "utf8");
   assert.match(fileContents, /summary: "Spec for rebuilding repo memory\."/);
   assert.match(fileContents, /## Goal/);

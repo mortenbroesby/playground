@@ -252,6 +252,44 @@ function sendRpc(child, payload) {
   });
 }
 
+function spawnMcpServer(options = {}) {
+  return spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      ...options.env,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+}
+
+function spawnPackageScriptMcpServer(options = {}) {
+  return spawn("pnpm", ["--silent", "--filter", "@playground/obsidian-memory", "mcp"], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      ...options.env,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+}
+
+async function initializeServer(child, id = 1) {
+  return sendRpc(child, {
+    jsonrpc: "2.0",
+    id,
+    method: "initialize",
+    params: {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: {
+        name: "obsidian-memory-test",
+        version: "0.0.0",
+      },
+    },
+  });
+}
+
 test("rag:query surfaces integrity mode and candidate integrity metadata", async (t) => {
   const fixture = await buildTypedIndexFixture();
   t.after(async () => {
@@ -322,24 +360,14 @@ test("memory_search surfaces integrity warnings in full-detail MCP output", asyn
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    const initResult = await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    const initResult = await initializeServer(child, 1);
     assert.equal(initResult.serverInfo.name, "playground-obsidian-memory");
 
     const searchResult = await sendRpc(child, {
@@ -370,24 +398,14 @@ test("tools/list exposes the expected MCP discovery contract", async (t) => {
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 5,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    await initializeServer(child, 5);
 
     const result = await sendRpc(child, {
       jsonrpc: "2.0",
@@ -456,29 +474,57 @@ test("tools/list exposes the expected MCP discovery contract", async (t) => {
   }
 });
 
+test("package-script MCP entrypoint initializes from repo root", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawnPackageScriptMcpServer({
+    env: {
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+  });
+
+  try {
+    const initResult = await initializeServer(child, 70);
+
+    assert.equal(initResult.serverInfo.name, "playground-obsidian-memory");
+
+    const toolsResult = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 71,
+      method: "tools/list",
+    });
+
+    assert.deepEqual(
+      toolsResult.tools.map((tool) => tool.name),
+      [
+        "memory_search",
+        "memory_unfold",
+        "memory_context",
+        "classify",
+        "propose_write",
+        "clean_dry_run",
+      ],
+    );
+  } finally {
+    child.kill();
+  }
+});
+
 test("classify returns structured MCP output for memory workflow routing", async (t) => {
   const fixture = await buildTypedIndexFixture();
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 40,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    await initializeServer(child, 40);
 
     const result = await sendRpc(child, {
       jsonrpc: "2.0",
@@ -511,25 +557,15 @@ test("propose_write previews a typed note without mutating the vault", async (t)
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
       PLAYGROUND_OBSIDIAN_MEMORY_VAULT_ROOT: path.join(fixture.tempRoot, "vault"),
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 50,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    await initializeServer(child, 50);
 
     const result = await sendRpc(child, {
       jsonrpc: "2.0",
@@ -566,24 +602,14 @@ test("clean_dry_run reports stale generated files without deleting them", async 
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 60,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    await initializeServer(child, 60);
 
     const result = await sendRpc(child, {
       jsonrpc: "2.0",
@@ -613,24 +639,14 @@ test("memory_context returns canonical repo-home headings in compact and full mo
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 10,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    await initializeServer(child, 10);
 
     const compactResult = await sendRpc(child, {
       jsonrpc: "2.0",
@@ -675,24 +691,14 @@ test("memory_context falls back to search-style output when canonical repo-home 
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 15,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    await initializeServer(child, 15);
 
     const result = await sendRpc(child, {
       jsonrpc: "2.0",
@@ -720,24 +726,14 @@ test("memory_unfold resolves by source_path and by source_file plus heading", as
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
-      jsonrpc: "2.0",
-      id: 20,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-      },
-    });
+    await initializeServer(child, 20);
 
     const byPath = await sendRpc(child, {
       jsonrpc: "2.0",
@@ -777,38 +773,30 @@ test("memory_unfold returns a stable error for missing targets", async (t) => {
   t.after(async () => {
     await rm(fixture.tempRoot, { recursive: true, force: true });
   });
-  const child = spawn("node", [path.join(packageRoot, "src", "rag-mcp-server.mjs")], {
-    cwd: repoRoot,
+  const child = spawnMcpServer({
     env: {
-      ...process.env,
       PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
     },
-    stdio: ["pipe", "pipe", "pipe"],
   });
 
   try {
-    await sendRpc(child, {
+    await initializeServer(child, 30);
+
+    const result = await sendRpc(child, {
       jsonrpc: "2.0",
-      id: 30,
-      method: "initialize",
+      id: 31,
+      method: "tools/call",
       params: {
-        protocolVersion: "2024-11-05",
+        name: "memory_unfold",
+        arguments: {
+          source_file: "vault/specs/missing.md",
+          heading: "Nope",
+        },
       },
     });
-
-    await assert.rejects(
-      sendRpc(child, {
-        jsonrpc: "2.0",
-        id: 31,
-        method: "tools/call",
-        params: {
-          name: "memory_unfold",
-          arguments: {
-            source_file: "vault/specs/missing.md",
-            heading: "Nope",
-          },
-        },
-      }),
+    assert.equal(result.isError, true);
+    assert.match(
+      result.content[0].text,
       /No memory chunk matched the provided source path or file plus heading\./,
     );
   } finally {
