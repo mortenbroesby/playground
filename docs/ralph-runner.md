@@ -62,6 +62,12 @@ pnpm ralph:loop -- --dir .ralph/my-feature --list
 
 This prints the current story queue with status and priority.
 
+Use one call to inspect all active loops at once:
+
+```bash
+pnpm ralph:loop -- --all --list
+```
+
 ## Dry-run the next prompt
 
 ```bash
@@ -85,6 +91,12 @@ pnpm ralph:loop -- --dir .ralph/my-feature --rounds 3 --dry-run
 
 `--rounds` defaults to `1`.
 
+Run one or more rounds across all active runs in `.ralph`:
+
+```bash
+pnpm ralph:loop -- --all --rounds 3 --dry-run
+```
+
 ## Execute with Codex
 
 ```bash
@@ -97,6 +109,7 @@ Optional flags:
 - `--sandbox workspace-write`
 - `--auto-commit`
 - `--enforce-branch`
+- `--all`
 - `--story <id>`
 - `--rounds <n>`
 - `--list`
@@ -146,6 +159,7 @@ priorities also work, with lower numbers selected first.
 - `last-run.json` records which story the last iteration selected
 - stories can be targeted explicitly with `--story`
 - `--rounds` runs multiple iterations in one invocation and records round metadata
+- `--all` can execute a single merged loop across `.ralph/*` runs
 - `--list` provides a quick status view without generating a prompt
 
 ## Differences from upstream

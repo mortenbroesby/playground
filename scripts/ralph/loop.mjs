@@ -22,6 +22,7 @@ function parseArgs(argv) {
     enforceBranch: false,
     list: false,
     rounds: DEFAULT_ROUNDS,
+    all: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -88,6 +89,11 @@ function parseArgs(argv) {
       args.list = true;
       continue;
     }
+
+    if (token === "--all") {
+      args.all = true;
+      continue;
+    }
   }
 
   return args;
@@ -98,10 +104,7 @@ function parseRoundCount(rawValue, position, argvLength) {
 
   if (!Number.isFinite(parsed)) {
     fail(
-      `Invalid --rounds value "${rawValue}" at position ${
-        position + 1
-      } of ${argvLength}.`
-      + " Use --rounds <positive integer>.",
+      `Invalid --rounds value "${rawValue}" at position ${position + 1} of ${argvLength}. Use --rounds <positive integer>.`,
     );
   }
 
@@ -110,6 +113,11 @@ function parseRoundCount(rawValue, position, argvLength) {
   }
 
   return parsed;
+}
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
 }
 
 function readJson(filePath) {
@@ -148,7 +156,11 @@ function normalizeStatus(story) {
   }
 
   if (typeof story?.status === "string" && story.status.trim() !== "") {
-    return story.status.trim().toLowerCase();
+    const status = story.status.trim().toLowerCase();
+    if (status === "complete" || status === "completed") {
+      return "done";
+    }
+    return status;
   }
 
   return "pending";
@@ -207,7 +219,7 @@ function validatePrd(prd) {
 }
 
 /**
- * Select the next story for this round.
+ * Pick the next story for one run.
  *
  * Explicit --story always wins.
  * Otherwise prefer in-progress stories, then pending by priority, then blocked.
@@ -226,8 +238,8 @@ function pickNextStory(stories, storyId, skipStoryIds = new Set()) {
         ["in_progress", 0],
         ["pending", 1],
         ["blocked", 2],
-        ["done", 3],
       ]);
+
       const statusDelta =
         (statusOrder.get(normalizeStatus(left)) ?? 99) -
         (statusOrder.get(normalizeStatus(right)) ?? 99);
@@ -340,11 +352,6 @@ function writeLastRun(runDirPath, payload) {
   return lastRunPath;
 }
 
-function fail(message) {
-  console.error(message);
-  process.exit(1);
-}
-
 function exitWithAgentResult(result, agentLabel, diagnostics) {
   const status = result.status ?? 1;
 
@@ -352,9 +359,7 @@ function exitWithAgentResult(result, agentLabel, diagnostics) {
     console.error(
       [
         `${agentLabel} exited with status ${status}.`,
-        diagnostics
-          .map((line) => `- ${line}`)
-          .join("\n"),
+        ...diagnostics.map((line) => `- ${line}`),
       ].join("\n"),
     );
   }
@@ -433,152 +438,295 @@ function runAgentRound({
   return fail(`Unsupported agent: ${agent}`);
 }
 
-const args = parseArgs(process.argv.slice(2));
-const relativeRunDir = args.dir || path.join(".ralph", "feature");
-const absoluteRunDir = path.resolve(repoRoot, relativeRunDir);
-
-if (!fs.existsSync(absoluteRunDir)) {
-  fail(`Ralph run directory does not exist: ${relativeRunDir}`);
-}
-
-const prdPath = path.join(absoluteRunDir, "prd.json");
-const progressPath = path.join(absoluteRunDir, "progress.txt");
-
-if (!fs.existsSync(prdPath)) {
-  fail(`Missing PRD file: ${path.relative(repoRoot, prdPath)}`);
-}
-
-if (!fs.existsSync(progressPath)) {
-  fail(`Missing progress log: ${path.relative(repoRoot, progressPath)}`);
-}
-
-const branch = currentBranch();
-
-const prd = readJson(prdPath);
-const issues = validatePrd(prd);
-
-if (issues.length > 0) {
-  fail(
-    [
-      "Invalid `prd.json`:",
-      ...issues.map((issue) => `- ${issue}`),
-    ].join("\n"),
+function hasRunFiles(runDirPath) {
+  return (
+    fs.existsSync(path.join(runDirPath, "prd.json"))
+    && fs.existsSync(path.join(runDirPath, "progress.txt"))
   );
 }
 
-if (args.list) {
-  console.log(`Stories in ${relativeRunDir}:`);
+function resolveRunStates(baseDirPath, useAll) {
+  if (!fs.existsSync(baseDirPath)) {
+    fail(`Ralph run directory does not exist: ${path.relative(repoRoot, baseDirPath)}`);
+  }
+
+  const baseStats = fs.statSync(baseDirPath);
+
+  if (!baseStats.isDirectory()) {
+    fail(`Ralph run path must be a directory: ${baseDirPath}`);
+  }
+
+  const directPrd = path.join(baseDirPath, "prd.json");
+  const directProgress = path.join(baseDirPath, "progress.txt");
+  const directRun =
+    fs.existsSync(directPrd) && fs.existsSync(directProgress)
+      ? [baseDirPath]
+      : [];
+
+  if (directRun.length > 0) {
+    return directRun;
+  }
+
+  if (!useAll) {
+    fail(
+      "Ralph run directory does not contain `prd.json` and `progress.txt`. "
+      + "Use --all to execute across child run directories.",
+    );
+  }
+
+  const childRuns = fs
+    .readdirSync(baseDirPath, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(baseDirPath, entry.name))
+    .filter(hasRunFiles)
+    .sort();
+
+  if (childRuns.length === 0) {
+    fail(`No Ralph runs found under ${path.relative(repoRoot, baseDirPath)}.`);
+  }
+
+  return childRuns;
+}
+
+function loadRunState(runDirPath) {
+  const relativeRunDir = path.relative(repoRoot, runDirPath);
+  return {
+    runDirPath,
+    relativeRunDir,
+    prdPath: path.join(runDirPath, "prd.json"),
+    progressPath: path.join(runDirPath, "progress.txt"),
+    lastMessagePath: path.join(runDirPath, "last-message.txt"),
+    selectedStoryIds: new Set(),
+  };
+}
+
+function listRunState(state) {
+  const prd = readJson(state.prdPath);
+  const issues = validatePrd(prd);
+
+  if (issues.length > 0) {
+    fail(
+      [
+        `Invalid PRD in ${state.relativeRunDir}:`,
+        ...issues.map((issue) => `- ${issue}`),
+      ].join("\n"),
+    );
+  }
+
+  console.log(`${state.relativeRunDir}:`);
   console.log(formatStories(prd.stories));
+}
+
+function statusOrderForStory(story) {
+  const map = new Map([
+    ["in_progress", 0],
+    ["pending", 1],
+    ["blocked", 2],
+    ["done", 3],
+  ]);
+  return map.get(normalizeStatus(story)) ?? 99;
+}
+
+function pickGlobalCandidate(runStates, args, branch, enforceBranch) {
+  const candidates = [];
+  const requestedStory = args.storyId;
+
+  for (let runIndex = 0; runIndex < runStates.length; runIndex += 1) {
+    const state = runStates[runIndex];
+    const prd = readJson(state.prdPath);
+    const issues = validatePrd(prd);
+
+    if (issues.length > 0) {
+      fail(
+        [
+          `Invalid \`prd.json\` in ${state.relativeRunDir}:`,
+          ...issues.map((issue) => `- ${issue}`),
+        ].join("\n"),
+      );
+    }
+
+    if (
+      enforceBranch &&
+      typeof prd.branchName === "string" &&
+      prd.branchName.trim() !== "" &&
+      prd.branchName !== branch
+    ) {
+      fail(
+        [
+          `Current branch ${branch} does not match PRD branch ${prd.branchName} for ${state.relativeRunDir}.`,
+          "Re-run on the intended branch or omit --enforce-branch.",
+        ].join("\n"),
+      );
+    }
+
+    const story = pickNextStory(
+      prd.stories,
+      requestedStory,
+      requestedStory ? new Set() : state.selectedStoryIds,
+    );
+
+    if (!story) {
+      continue;
+    }
+
+    candidates.push({
+      state,
+      prd,
+      story,
+      runIndex,
+      storySummary: formatStories(prd.stories),
+      recentProgress: "",
+      priority: normalizePriority(story.priority),
+      statusOrder: statusOrderForStory(story),
+      status: normalizeStatus(story),
+    });
+  }
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  if (requestedStory && candidates.length > 1) {
+    fail(
+      `Story ${requestedStory} exists in multiple runs: `
+      + `${candidates.map((c) => c.state.relativeRunDir).join(", ")}`,
+    );
+  }
+
+  const selected = candidates.sort((left, right) => {
+    if (left.statusOrder !== right.statusOrder) {
+      return left.statusOrder - right.statusOrder;
+    }
+
+    if (left.priority !== right.priority) {
+      return left.priority - right.priority;
+    }
+
+    if (left.runIndex !== right.runIndex) {
+      return left.runIndex - right.runIndex;
+    }
+
+    return 0;
+  })[0];
+
+  selected.recentProgress = readRecentProgress(selected.state.progressPath);
+
+  return selected;
+}
+
+const args = parseArgs(process.argv.slice(2));
+const requestedBranch = currentBranch();
+const baseRunDir = path.resolve(
+  repoRoot,
+  args.dir || (args.all ? ".ralph" : path.join(".ralph", "feature")),
+);
+const runDirectoryPaths = resolveRunStates(
+  baseRunDir,
+  args.all,
+);
+const runStates = runDirectoryPaths.map(loadRunState);
+
+runStates.forEach((state) => {
+  if (!fs.existsSync(state.prdPath)) {
+    fail(`Missing PRD file: ${path.relative(repoRoot, state.prdPath)}`);
+  }
+
+  if (!fs.existsSync(state.progressPath)) {
+    fail(
+      `Missing progress log: ${path.relative(repoRoot, state.progressPath)}`,
+    );
+  }
+});
+
+if (args.list) {
+  console.log(
+    `Ralph loops in ${path.relative(repoRoot, baseRunDir)}`
+    + `${args.all ? " (merged)" : ""}:`,
+  );
+  runStates.forEach((state) => {
+    listRunState(state);
+  });
   process.exit(0);
 }
 
-let selectedStoryIds = new Set();
-const shouldAutoTargetStory = args.storyId === "";
-const recentProgress = readRecentProgress(progressPath);
-const lastMessagePath = path.join(absoluteRunDir, "last-message.txt");
-const template = fs.readFileSync(promptTemplatePath, "utf8");
+if (args.rounds <= 0) {
+  fail("--rounds must be a positive integer.");
+}
+
 const requestedRounds = Number.parseInt(String(args.rounds), 10);
 const effectiveRounds = Number.isFinite(requestedRounds)
   ? requestedRounds
   : DEFAULT_ROUNDS;
+const template = fs.readFileSync(promptTemplatePath, "utf8");
 let executedRounds = 0;
-let promptPath;
-let lastRunPath;
 
 for (let roundIndex = 1; roundIndex <= effectiveRounds; roundIndex += 1) {
-  const roundPrd = readJson(prdPath);
-  const roundIssues = validatePrd(roundPrd);
-
-  if (roundIssues.length > 0) {
-    fail(
-      [
-        "Invalid `prd.json` (while selecting stories):",
-        ...roundIssues.map((issue) => `- ${issue}`),
-      ].join("\n"),
-    );
-  }
-
-  if (
-    args.enforceBranch &&
-    typeof roundPrd.branchName === "string" &&
-    roundPrd.branchName.trim() !== "" &&
-    roundPrd.branchName !== branch
-  ) {
-    fail(
-      [
-        `Current branch ${branch} does not match PRD branch ${roundPrd.branchName}.`,
-        "Re-run on the intended branch or omit --enforce-branch.",
-      ].join("\n"),
-    );
-  }
-
-  const story = pickNextStory(
-    roundPrd.stories,
-    args.storyId,
-    shouldAutoTargetStory ? selectedStoryIds : new Set(),
+  const candidate = pickGlobalCandidate(
+    runStates,
+    args,
+    requestedBranch,
+    args.enforceBranch,
   );
 
-  if (!story) {
-    if (executedRounds === 0 && args.storyId) {
-      fail(`Story not found: ${args.storyId}`);
-    }
-
+  if (!candidate) {
     if (executedRounds === 0) {
-      console.log(`No pending stories remain in ${relativeRunDir}`);
-    } else {
-      console.log(`No additional pending stories for round ${roundIndex}.`);
+      if (args.storyId) {
+        fail(`Story not found: ${args.storyId}`);
+      }
+
+      console.log(
+        `No pending stories remain in ${path.relative(repoRoot, baseRunDir)}`
+        + `${args.all ? " (merged)" : ""}`,
+      );
+      process.exit(0);
     }
 
+    console.log(`No additional pending stories for round ${roundIndex}.`);
     break;
-  }
-
-  if (normalizeStatus(story) === "done") {
-    fail(
-      `Story ${story.id} is already marked done.`
-      + (args.storyId ? "" : " It was selected for one of the rounds."),
-    );
   }
 
   const prompt = buildPrompt({
     template,
-    runDir: relativeRunDir,
-    prd: roundPrd,
-    story,
-    branch,
+    runDir: candidate.state.relativeRunDir,
+    prd: candidate.prd,
+    story: candidate.story,
+    branch: requestedBranch,
     autoCommit: args.autoCommit,
-    recentProgress,
-    storySummary: formatStories(roundPrd.stories),
+    recentProgress: candidate.recentProgress,
+    storySummary: candidate.storySummary,
     roundIndex,
     roundTotal: effectiveRounds,
   });
 
-  promptPath = writePrompt(absoluteRunDir, prompt);
-  lastRunPath = writeLastRun(absoluteRunDir, {
+  const promptPath = writePrompt(candidate.state.runDirPath, prompt);
+  const lastRunPath = writeLastRun(candidate.state.runDirPath, {
     generatedAt: new Date().toISOString(),
-    branch,
+    branch: requestedBranch,
     rounds: {
       index: roundIndex,
       total: effectiveRounds,
     },
-    storyId: story.id,
-    storyTitle: story.title,
-    storyStatus: normalizeStatus(story),
+    storyId: candidate.story.id,
+    storyTitle: candidate.story.title,
+    storyStatus: normalizeStatus(candidate.story),
+    runDir: candidate.state.relativeRunDir,
     promptPath: path.relative(repoRoot, promptPath),
   });
 
   executedRounds += 1;
   if (!args.storyId) {
-    selectedStoryIds.add(story.id);
+    candidate.state.selectedStoryIds.add(candidate.story.id);
   }
 
   console.log(
-    `Round ${roundIndex}/${effectiveRounds} selected: ${story.id} - ${story.title}`
-    + ` [status=${normalizeStatus(story)}]`,
+    `Round ${roundIndex}/${effectiveRounds}: selected ${candidate.state.relativeRunDir}`
+    + ` / ${candidate.story.id} - ${candidate.story.title} [status=${candidate.status}]`,
   );
-  console.log(`Run directory: ${relativeRunDir}`);
   console.log(`Prompt file: ${path.relative(repoRoot, promptPath)}`);
   console.log(`Last run file: ${path.relative(repoRoot, lastRunPath)}`);
-  console.log(`Last message file: ${path.relative(repoRoot, lastMessagePath)}`);
+  console.log(
+    `Last message file: ${path.relative(repoRoot, candidate.state.lastMessagePath)}`,
+  );
 
   if (args.dryRun || (!args.agent && !args.agentCommand)) {
     continue;
@@ -591,17 +739,17 @@ for (let roundIndex = 1; roundIndex <= effectiveRounds; roundIndex += 1) {
     sandbox: args.sandbox,
     prompt,
     repoRootPath: repoRoot,
-    lastMessagePath,
+    lastMessagePath: candidate.state.lastMessagePath,
     diagnostics: [
       `Inspect ${path.relative(repoRoot, promptPath)} for the generated prompt.`,
       `Inspect ${path.relative(repoRoot, lastRunPath)} for run metadata.`,
-      `Inspect ${path.relative(repoRoot, lastMessagePath)} if the agent wrote a final message.`,
+      `Inspect ${path.relative(repoRoot, candidate.state.lastMessagePath)} if the agent wrote a final message.`,
     ],
   });
 }
 
 if (args.dryRun || (!args.agent && !args.agentCommand)) {
-  if (effectiveRounds > 1 && executedRounds > 0) {
+  if (executedRounds > 1) {
     console.log(`Dry run complete for ${executedRounds} round(s).`);
   } else {
     console.log("Dry run only. Inspect the generated prompt file and re-run with an agent.");
