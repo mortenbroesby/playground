@@ -116,6 +116,46 @@ const ROUTE_PROFILES: Record<
   },
 };
 
+type ScorableField =
+  | "id"
+  | "display_name"
+  | "description"
+  | "tags"
+  | "triggers"
+  | "anti_triggers";
+
+type Bm25Model = {
+  corpusSize: number;
+  avgFieldLength: Record<ScorableField, number>;
+  termDocumentFrequency: Record<ScorableField, Map<string, number>>;
+  skillFieldTokens: Map<
+    string,
+    Record<ScorableField, { counts: Map<string, number>; length: number }>
+  >;
+};
+
+const BM25_K1 = 1.2;
+const BM25_B = 0.75;
+const BM25_EPSILON = 1e-8;
+
+const BM25_SEARCH_FIELD_WEIGHTS: Record<ScorableField, number> = {
+  id: 2.2,
+  display_name: 2,
+  description: 1.1,
+  tags: 1.3,
+  triggers: 2.4,
+  anti_triggers: -1.8,
+};
+
+const BM25_ROUTE_FIELD_WEIGHTS: Record<ScorableField, number> = {
+  id: 1.9,
+  display_name: 1.7,
+  description: 1.0,
+  tags: 1.5,
+  triggers: 2.2,
+  anti_triggers: -2.2,
+};
+
 export function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -123,6 +163,14 @@ export function normalizeText(value: string): string {
 function tokenize(value: string): string[] {
   return [...new Set(normalizeText(value).match(/[a-z0-9]+/g) || [])]
     .filter((token) => token.length > 2 && !STOP_WORDS.has(token));
+}
+
+function tokenizeForFrequency(value: string): string[] {
+  return (
+    normalizeText(value)
+      .match(/[a-z0-9]+/g)
+      ?.filter((token) => token.length > 2 && !STOP_WORDS.has(token)) || []
+  );
 }
 
 function includesPhrase(haystack: string, needle: string): boolean {
@@ -148,6 +196,166 @@ function scoreTextField(text: string, query: string): number {
   return score;
 }
 
+function getScorableFieldText(skill: RegistrySkill, field: ScorableField): string {
+  switch (field) {
+    case "id":
+      return skill.id;
+    case "display_name":
+      return skill.display_name;
+    case "description":
+      return skill.description;
+    case "tags":
+      return skill.tags.join(" ");
+    case "triggers":
+      return skill.triggers.join(" ");
+    case "anti_triggers":
+      return skill.anti_triggers.join(" ");
+    default:
+      return "";
+  }
+}
+
+function buildBm25Model(skills: RegistrySkill[]): Bm25Model {
+  const avgFieldLength: Record<ScorableField, number> = {
+    id: 0,
+    display_name: 0,
+    description: 0,
+    tags: 0,
+    triggers: 0,
+    anti_triggers: 0,
+  };
+  const termDocumentFrequency: Record<ScorableField, Map<string, number>> = {
+    id: new Map(),
+    display_name: new Map(),
+    description: new Map(),
+    tags: new Map(),
+    triggers: new Map(),
+    anti_triggers: new Map(),
+  };
+  const skillFieldTokens = new Map<
+    string,
+    Record<ScorableField, { counts: Map<string, number>; length: number }>
+  >();
+  const fields = Object.keys(avgFieldLength) as ScorableField[];
+
+  for (const skill of skills) {
+    const byField: Record<ScorableField, { counts: Map<string, number>; length: number }> = {
+      id: { counts: new Map(), length: 0 },
+      display_name: { counts: new Map(), length: 0 },
+      description: { counts: new Map(), length: 0 },
+      tags: { counts: new Map(), length: 0 },
+      triggers: { counts: new Map(), length: 0 },
+      anti_triggers: { counts: new Map(), length: 0 },
+    };
+
+    for (const field of fields) {
+      const text = getScorableFieldText(skill, field);
+      const tokens = tokenizeForFrequency(text);
+      const tokenSet = new Set<string>();
+      for (const token of tokens) {
+        const next = (byField[field].counts.get(token) ?? 0) + 1;
+        byField[field].counts.set(token, next);
+        byField[field].length++;
+        tokenSet.add(token);
+      }
+
+      for (const token of tokenSet) {
+        termDocumentFrequency[field].set(
+          token,
+          (termDocumentFrequency[field].get(token) ?? 0) + 1,
+        );
+      }
+    }
+
+    skillFieldTokens.set(skill.id, byField);
+  }
+
+  for (const field of fields) {
+    const totalLength = [...skillFieldTokens.values()].reduce(
+      (sum, value) => sum + value[field].length,
+      0,
+    );
+    avgFieldLength[field] =
+      skills.length > 0 ? totalLength / skills.length : 1;
+  }
+
+  return {
+    corpusSize: skills.length,
+    avgFieldLength,
+    termDocumentFrequency,
+    skillFieldTokens,
+  };
+}
+
+function scoreBm25ForField(
+  skill: RegistrySkill,
+  queryTokens: string[],
+  model: Bm25Model,
+  field: ScorableField,
+  fieldWeight: number,
+): number {
+  if (queryTokens.length === 0 || model.corpusSize === 0) {
+    return 0;
+  }
+
+  const fieldData = model.skillFieldTokens.get(skill.id)?.[field];
+  if (!fieldData) {
+    return 0;
+  }
+
+  const avgFieldLength = model.avgFieldLength[field] || 1;
+  let score = 0;
+  for (const token of queryTokens) {
+    const termFrequency = fieldData.counts.get(token) ?? 0;
+    if (termFrequency === 0) {
+      continue;
+    }
+
+    const docsWithToken = model.termDocumentFrequency[field].get(token) ?? 0;
+    if (docsWithToken === 0) {
+      continue;
+    }
+
+    const idf =
+      Math.log(1 + (model.corpusSize - docsWithToken + 0.5) / (docsWithToken + 0.5));
+    const denominator =
+      termFrequency +
+      BM25_K1 *
+        (1 - BM25_B + BM25_B * (fieldData.length / avgFieldLength));
+    score +=
+      idf * (termFrequency * (BM25_K1 + 1)) / (denominator + BM25_EPSILON);
+  }
+
+  return score * fieldWeight;
+}
+
+function scoreWithBm25(
+  skill: RegistrySkill,
+  query: string,
+  queryTokens: string[],
+  model: Bm25Model,
+  fieldWeights: Record<ScorableField, number>,
+): number {
+  const normalisedQuery = normalizeText(query);
+  if (!normalisedQuery) {
+    return 0;
+  }
+
+  const fields = Object.keys(fieldWeights) as ScorableField[];
+  let score = 0;
+  for (const field of fields) {
+    score += scoreBm25ForField(
+      skill,
+      queryTokens,
+      model,
+      field,
+      fieldWeights[field],
+    );
+  }
+
+  return score;
+}
+
 function scoreListField(values: string[], query: string, multiplier: number): number {
   return values.reduce(
     (total, value) => total + scoreTextField(value, query) * multiplier,
@@ -155,11 +363,21 @@ function scoreListField(values: string[], query: string, multiplier: number): nu
   );
 }
 
-export function scoreMetadataMatch(skill: RegistrySkill, query: string) {
+export function scoreMetadataMatch(
+  skill: RegistrySkill,
+  query: string,
+  bm25Model?: Bm25Model,
+  queryTokens: string[] = tokenize(query),
+) {
   let score = 0;
   const reasons: string[] = [];
   let exactPhraseMatch = false;
   const normalizedQuery = normalizeText(query);
+  const safeQueryTokens = queryTokens.length > 0 ? queryTokens : tokenize(query);
+  const bm25Score =
+    bm25Model === undefined || safeQueryTokens.length === 0
+      ? 0
+      : scoreWithBm25(skill, query, safeQueryTokens, bm25Model, BM25_SEARCH_FIELD_WEIGHTS);
 
   const idScore = scoreTextField(skill.id, query) * 2;
   if (idScore > 0) {
@@ -212,6 +430,11 @@ export function scoreMetadataMatch(skill: RegistrySkill, query: string) {
     reasons.push("anti-triggers");
   }
 
+  if (bm25Score > 0) {
+    score += bm25Score;
+    reasons.push("bm25");
+  }
+
   return {
     exactPhraseMatch,
     score,
@@ -219,7 +442,12 @@ export function scoreMetadataMatch(skill: RegistrySkill, query: string) {
   };
 }
 
-function scoreRouteEvidence(skill: RegistrySkill, taskText: string) {
+function scoreRouteEvidence(
+  skill: RegistrySkill,
+  taskText: string,
+  bm25Model?: Bm25Model,
+  queryTokens: string[] = tokenize(taskText),
+) {
   const reasons: string[] = [];
   let score = skill.routing_weight;
 
@@ -251,6 +479,22 @@ function scoreRouteEvidence(skill: RegistrySkill, taskText: string) {
   if (antiTriggerPenalty > 0) {
     score -= antiTriggerPenalty;
     reasons.push("anti-trigger penalty");
+  }
+
+  const safeQueryTokens = queryTokens.length > 0 ? queryTokens : tokenize(taskText);
+  const bm25Score =
+    bm25Model === undefined || safeQueryTokens.length === 0
+      ? 0
+      : scoreWithBm25(
+          skill,
+          taskText,
+          safeQueryTokens,
+          bm25Model,
+          BM25_ROUTE_FIELD_WEIGHTS,
+        );
+  if (bm25Score > 0) {
+    score += bm25Score;
+    reasons.push("bm25");
   }
 
   if (skill.id === "engineering-workflow") {
@@ -409,10 +653,17 @@ export function rankSearchMatches(
   repoRoot = process.cwd(),
 ): PolicyRouteMatch[] {
   const usageCache = loadUsageCache(repoRoot);
+  const queryTokens = tokenize(query);
+  const bm25Model = buildBm25Model(skills);
 
   return skills
     .map((skill) => {
-      const metadata = scoreMetadataMatch(skill, query);
+      const metadata = scoreMetadataMatch(
+        skill,
+        query,
+        bm25Model,
+        queryTokens,
+      );
       return buildPolicyEntry(skill, metadata.score, metadata.reasons, usageCache, query);
     })
     .filter((entry) => entry.evidenceScore > 0)
@@ -456,9 +707,11 @@ export function routeTaskFromRegistry(
   repoRoot = process.cwd(),
 ): RouteResult {
   const usageCache = loadUsageCache(repoRoot);
+  const queryTokens = tokenize(text);
+  const bm25Model = buildBm25Model(skills);
   const rankedSkills = skills
     .map((skill) => {
-      const evidence = scoreRouteEvidence(skill, text);
+      const evidence = scoreRouteEvidence(skill, text, bm25Model, queryTokens);
       return buildPolicyEntry(
         skill,
         evidence.evidenceScore,

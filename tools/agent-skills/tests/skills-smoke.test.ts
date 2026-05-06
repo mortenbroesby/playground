@@ -420,6 +420,21 @@ const syntheticSkills = [
     "explicitly named skills should remain discoverable despite quieter activation modes",
   );
 
+  const bm25Search = rankSearchMatches(
+    syntheticSkills,
+    "build an mcp server with a tool surface",
+    repoRoot,
+  );
+  assert.equal(
+    bm25Search[0]?.skill.id,
+    "mcp-builder",
+    "BM25-anchored query matching should favor MCP-specialist over generic workflow for tool-building tasks",
+  );
+  assert.ok(
+    bm25Search[0]?.reasons.includes("bm25"),
+    "metadata ranking should expose BM25 as a contributing reason",
+  );
+
   const policyList = rankSkillsForList(syntheticSkills, {}, repoRoot);
   assert.deepEqual(
     policyList.map((entry) => entry.skill.id),
