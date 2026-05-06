@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { describe, it } from "vitest";
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -8,21 +9,21 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { findProjectRoot } from "workspace-tools";
 
-import { parseSkillMetadata } from "../src/lib/skills-metadata.ts";
+import { parseSkillMetadata } from "./lib/skills-metadata.ts";
 import {
   getRecentUsageScore,
   getUsageCachePath,
   loadUsageCache,
   recordSkillUsage,
   writeUsageCache,
-} from "../src/lib/skills-usage-cache.ts";
+} from "./lib/skills-usage-cache.ts";
 import {
   rankSearchMatches,
   rankSkillsForList,
   type ActivationMode,
   type RegistrySkill,
   routeTaskFromRegistry,
-} from "../src/lib/skills-routing.ts";
+} from "./lib/skills-routing.ts";
 
 const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -33,7 +34,6 @@ const cliScript = path.join(
   "tools",
   "agent-skills",
   "dist",
-  "src",
   "cli.js",
 );
 const hookScript = path.join(
@@ -41,7 +41,6 @@ const hookScript = path.join(
   "tools",
   "agent-skills",
   "dist",
-  "src",
   "hooks",
   "skills-metadata-hook.js",
 );
@@ -110,7 +109,7 @@ function ensureDir(directoryPath: string): void {
   fs.mkdirSync(directoryPath, { recursive: true });
 }
 
-function main() {
+function assertAgentSkillsSmoke(): void {
   // The smoke tests intentionally pin parser edges and routing defaults likely
   // to regress during another migration.
   const frontmatterIdentity = parseSkillMetadata({
@@ -393,6 +392,19 @@ const syntheticSkills = [
       catalog_group: "imported",
       activation_mode: "explicit-only" as ActivationMode,
     },
+    {
+      id: "ci-tooling",
+      display_name: "ci-tooling",
+      description: "Automate build validation and release workflows.",
+      tags: ["build", "release", "pipeline"],
+      triggers: ["continuous integration", "release validation"],
+      anti_triggers: [],
+      routing_weight: 3,
+      daily_driver: false,
+      agent_benefit: 2,
+      catalog_group: "specialist",
+      activation_mode: "default" as ActivationMode,
+    },
   ];
 
   const syntheticRoute = routeTaskFromRegistry(
@@ -441,6 +453,21 @@ const syntheticSkills = [
   assert.ok(
     bm25Search[0]?.reasons.includes("bm25"),
     "metadata ranking should expose BM25 as a contributing reason",
+  );
+
+  const bm25SynonymSearch = rankSearchMatches(
+    syntheticSkills,
+    "ci",
+    repoRoot,
+  );
+  assert.equal(
+    bm25SynonymSearch[0]?.skill.id,
+    "ci-tooling",
+    "BM25 synonym expansion should map short aliases like ci to broader matching terms",
+  );
+  assert.ok(
+    bm25SynonymSearch[0]?.reasons.includes("bm25"),
+    "CI alias matching should still be powered by BM25 evidence",
   );
 
   const policyList = rankSkillsForList(syntheticSkills, {}, repoRoot);
@@ -536,4 +563,8 @@ const syntheticSkills = [
   assertFailed(syncResult);
 }
 
-main();
+describe("agent-skills smoke", () => {
+  it("validates parser, routing, and CLI integration contract", () => {
+    assertAgentSkillsSmoke();
+  });
+});

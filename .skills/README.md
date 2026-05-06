@@ -78,13 +78,21 @@ metadata:
 Rebuild or refresh the generated artifact after any identity/metadata edits:
 
 ```bash
-node scripts/skills.mjs registry
+pnpm skills:registry
 ```
 
 Verify without writing:
 
 ```bash
-node scripts/skills.mjs registry --check
+pnpm skills:registry -- --check
+```
+
+Primary command surface:
+
+```bash
+pnpm skills:route "find duplicate skills"
+pnpm skills:list
+pnpm skills:search workflow
 ```
 
 When adding a new skill, include:

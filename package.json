@@ -38,24 +38,24 @@
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
     "agents:check": "node scripts/agent-setup-check.mjs",
-    "skills:list": "node scripts/skills.mjs list",
-    "skills:search": "node scripts/skills.mjs search",
-    "skills:route": "node scripts/skills.mjs route",
-    "skills:read": "node scripts/skills.mjs read",
-    "skills:registry": "node scripts/skills.mjs registry",
-    "skills:smoke": "node scripts/skills-smoke.mjs",
-    "skills:metadata-hook": "node scripts/skills-metadata-hook.mjs",
+    "skills:list": "pnpm --filter @playground/agent-skills run agent-skills -- list",
+    "skills:search": "pnpm --filter @playground/agent-skills run agent-skills -- search",
+    "skills:route": "pnpm --filter @playground/agent-skills run agent-skills -- route",
+    "skills:read": "pnpm --filter @playground/agent-skills run agent-skills -- read",
+    "skills:registry": "pnpm --filter @playground/agent-skills run agent-skills -- registry",
+    "skills:metadata-hook": "pnpm --filter @playground/agent-skills run skills:metadata-hook",
     "ralph:init": "node scripts/ralph/init.mjs",
     "ralph:loop": "node scripts/ralph/loop.mjs",
     "prepare": "husky install"
   },
   "devDependencies": {
+    "astrograph": "0.3.1-alpha.74",
     "husky": "^9.1.7",
     "markdownlint-cli2": "^0.17.0",
     "prettier": "^3.3.0",
+    "tsup": "^8.5.0",
     "turbo": "^2.3.0",
-    "typescript": "^5.7.0",
-    "astrograph": "0.3.1-alpha.74"
+    "typescript": "^5.7.0"
   },
   "dependencies": {
     "workspace-tools": "^0.41.4"

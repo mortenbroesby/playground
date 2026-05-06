@@ -65,9 +65,9 @@ const shouldRunAgentsCheck = files.some((filePath) =>
     ".husky",
     "tools/agent-skills",
     "scripts/agent-setup-check.mjs",
-    "scripts/skills.mjs",
-    "scripts/skills-smoke.mjs",
-    "scripts/skills-metadata-hook.mjs",
+    "tools/agent-skills/scripts/skills.mjs",
+    "tools/agent-skills/scripts/skills-smoke.mjs",
+    "tools/agent-skills/scripts/skills-metadata-hook.mjs",
     "scripts/prepush-checks.mjs",
     "package.json",
     "pnpm-lock.yaml",
@@ -83,9 +83,9 @@ const shouldRunSkillsSmoke = files.some((filePath) =>
   matches(filePath, [
     ".skills",
     "tools/agent-skills",
-    "scripts/skills.mjs",
-    "scripts/skills-smoke.mjs",
-    "scripts/skills-metadata-hook.mjs",
+    "tools/agent-skills/scripts/skills.mjs",
+    "tools/agent-skills/scripts/skills-smoke.mjs",
+    "tools/agent-skills/scripts/skills-metadata-hook.mjs",
     "tools/agent-skills/src",
   ]),
 );
@@ -99,5 +99,5 @@ if (shouldRunAgentsCheck) {
 }
 
 if (shouldRunSkillsSmoke) {
-  run("node", ["scripts/skills-smoke.mjs"]);
+  run("pnpm", ["--filter", "@playground/agent-skills", "run", "skills:smoke"]);
 }

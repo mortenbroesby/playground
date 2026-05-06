@@ -5,22 +5,48 @@
   "description": "Typed agent skill tooling for discovery, ranking, routing, and metadata checks",
   "type": "module",
   "license": "UNLICENSED",
-  "main": "dist/src/cli.js",
+  "main": "dist/cli.js",
+  "bin": {
+    "agent-skills": "scripts/skills.mjs",
+    "agent-skills-smoke": "scripts/skills-smoke.mjs",
+    "agent-skills-metadata-hook": "scripts/skills-metadata-hook.mjs"
+  },
+  "exports": {
+    ".": {
+      "default": "./dist/cli.js"
+    },
+    "./cli": {
+      "default": "./dist/cli.js"
+    },
+    "./smoke": {
+      "default": "./scripts/skills-smoke.mjs"
+    },
+    "./metadata-hook": {
+      "default": "./scripts/skills-metadata-hook.mjs"
+    },
+    "./package": "./package.json"
+  },
   "engines": {
     "node": "24.x"
   },
   "scripts": {
-    "build": "tsup src/cli.ts src/hooks/skills-metadata-hook.ts tests/skills-smoke.test.ts --format esm --bundle --sourcemap --dts false --clean --out-dir dist",
+    "build": "tsup",
     "typecheck": "tsc --noEmit true --allowImportingTsExtensions true",
-    "cli": "node dist/src/cli.js",
-    "smoke": "pnpm run build && node --test dist/tests/skills-smoke.test.js",
-    "metadata-hook": "node dist/src/hooks/skills-metadata-hook.js"
+    "cli": "node scripts/skills.mjs",
+    "skills:cli": "node scripts/skills.mjs",
+    "agent-skills": "node scripts/skills.mjs",
+    "smoke": "pnpm run build && node --test dist/skills-smoke.test.js",
+    "skills:smoke": "node scripts/skills-smoke.mjs",
+    "agent-skills-smoke": "node scripts/skills-smoke.mjs",
+    "metadata-hook": "node dist/hooks/skills-metadata-hook.js",
+    "skills:metadata-hook": "node scripts/skills-metadata-hook.mjs",
+    "agent-skills-metadata-hook": "node scripts/skills-metadata-hook.mjs"
   },
   "dependencies": {
     "workspace-tools": "^0.41.4"
   },
   "devDependencies": {
     "@types/node": "^22.15.17",
-    "tsup": "^8.5.0"
+    "tsup": "^8.5.1"
   }
 }

@@ -12,6 +12,7 @@ export interface UsageCache {
 }
 
 const USAGE_CACHE_FILENAME = "usage-cache.local.json";
+const USAGE_CACHE_DIRNAME = ".metadata";
 const USAGE_CACHE_VERSION = 1;
 const MAX_USAGE_COUNT = 4;
 const RECENCY_HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1_000;
@@ -82,7 +83,7 @@ function normalizeCache(cache: unknown): UsageCache {
 }
 
 export function getUsageCachePath(repoRoot: string): string {
-  return path.join(repoRoot, ".skills", USAGE_CACHE_FILENAME);
+  return path.join(repoRoot, ".skills", USAGE_CACHE_DIRNAME, USAGE_CACHE_FILENAME);
 }
 
 export function loadUsageCache(repoRoot: string): UsageCache {
@@ -155,4 +156,3 @@ export function getRecentUsageScore(
 
   return Number(score.toFixed(3));
 }
-

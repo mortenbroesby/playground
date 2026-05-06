@@ -37,6 +37,16 @@ const STOP_WORDS = new Set([
   "work",
 ]);
 
+const BM25_MIN_TOKEN_LENGTH = 2;
+
+const BM25_QUERY_SYNONYMS: Record<string, readonly string[]> = {
+  ai: ["artificial", "intelligence"],
+  pr: ["pull", "request", "merge"],
+  ci: ["continuous", "integration"],
+  ux: ["ui", "user", "experience"],
+  uxui: ["ui", "user", "experience"],
+};
+
 export type ActivationMode =
   | "default"
   | "high-priority-when-relevant"
@@ -161,16 +171,69 @@ export function normalizeText(value: string): string {
 }
 
 function tokenize(value: string): string[] {
-  return [...new Set(normalizeText(value).match(/[a-z0-9]+/g) || [])]
-    .filter((token) => token.length > 2 && !STOP_WORDS.has(token));
+  const tokens = normalizeText(value).match(/[a-z0-9]+/g) || [];
+  return [...new Set(
+    tokens
+      .map((token) => token.toLowerCase())
+      .filter(
+        (token) => token.length >= BM25_MIN_TOKEN_LENGTH && !STOP_WORDS.has(token),
+      ),
+  )];
 }
 
 function tokenizeForFrequency(value: string): string[] {
   return (
     normalizeText(value)
       .match(/[a-z0-9]+/g)
-      ?.filter((token) => token.length > 2 && !STOP_WORDS.has(token)) || []
+      ?.map((token) => token.toLowerCase())
+      .filter((token) => token.length >= BM25_MIN_TOKEN_LENGTH && !STOP_WORDS.has(token)) || []
   );
+}
+
+function expandQueryToken(token: string): string[] {
+  const normalizedToken = normalizeText(token);
+  const expansion = new Set<string>([normalizedToken]);
+
+  const synonymTokens = BM25_QUERY_SYNONYMS[normalizedToken];
+  if (synonymTokens) {
+    for (const synonym of synonymTokens) {
+      for (const expandedToken of tokenize(synonym)) {
+        expansion.add(expandedToken);
+      }
+    }
+  }
+
+  if (normalizedToken.endsWith("ing") && normalizedToken.length > 5) {
+    expansion.add(normalizedToken.slice(0, -3));
+  }
+  if (normalizedToken.endsWith("ers") && normalizedToken.length > 5) {
+    expansion.add(normalizedToken.slice(0, -3));
+  }
+  if (normalizedToken.endsWith("ed") && normalizedToken.length > 4) {
+    expansion.add(normalizedToken.slice(0, -2));
+  }
+  if (normalizedToken.endsWith("s") && normalizedToken.length > 3) {
+    expansion.add(normalizedToken.slice(0, -1));
+  }
+
+  return [...new Set(Array.from(expansion).filter((candidate) => candidate.length >= BM25_MIN_TOKEN_LENGTH))];
+}
+
+function expandQueryTokens(tokens: string[]): string[] {
+  if (tokens.length === 0) {
+    return [];
+  }
+
+  const expanded = new Set<string>();
+  for (const token of tokens) {
+    for (const candidate of expandQueryToken(token)) {
+      if (!STOP_WORDS.has(candidate)) {
+        expanded.add(candidate);
+      }
+    }
+  }
+
+  return [...expanded];
 }
 
 function includesPhrase(haystack: string, needle: string): boolean {
@@ -341,12 +404,16 @@ function scoreWithBm25(
     return 0;
   }
 
+  const expandedQueryTokens = expandQueryTokens(queryTokens);
+  const scoredQueryTokens =
+    expandedQueryTokens.length > 0 ? expandedQueryTokens : queryTokens;
+
   const fields = Object.keys(fieldWeights) as ScorableField[];
   let score = 0;
   for (const field of fields) {
     score += scoreBm25ForField(
       skill,
-      queryTokens,
+      scoredQueryTokens,
       model,
       field,
       fieldWeights[field],

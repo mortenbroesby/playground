@@ -11,15 +11,18 @@ const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
   "pnpm",
 );
-const distPath = path.join(
-  repoRoot,
-  "tools",
-  "agent-skills",
-  "dist",
-  "src",
-  "hooks",
-  "skills-metadata-hook.js",
-);
+function getHookDistPath() {
+  return path.join(
+    repoRoot,
+    "tools",
+    "agent-skills",
+    "dist",
+    "hooks",
+    "skills-metadata-hook.js",
+  );
+}
+
+const distPath = getHookDistPath();
 
 if (!fs.existsSync(distPath)) {
   const buildResult = spawnSync(
@@ -42,9 +45,12 @@ if (!fs.existsSync(distPath)) {
   }
 }
 
+const args = process.argv.slice(2);
+const forwardedArgs = args[0] === "--" ? args.slice(1) : args;
+
 const result = spawnSync(
   process.execPath,
-  [distPath, ...process.argv.slice(2)],
+  [distPath, ...forwardedArgs],
   {
     cwd: repoRoot,
     encoding: "utf8",

@@ -52,6 +52,6 @@ __screenshots__/
 .codeintel/
 .astrograph/
 .profiles/
-.skills/usage-cache.local.json
+.skills/.metadata/usage-cache.local.json
 .stryker-tmp/
 coverage/stryker*.html

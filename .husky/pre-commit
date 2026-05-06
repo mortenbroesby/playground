@@ -1,1 +1,1 @@
-node scripts/skills-metadata-hook.mjs
+pnpm --filter @playground/agent-skills run skills:metadata-hook

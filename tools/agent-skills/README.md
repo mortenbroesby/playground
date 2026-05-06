@@ -7,19 +7,24 @@ skill discovery, ranking, routing, and metadata checks.
 
 - `src/cli.ts` (`skills` command surface)
 - `src/hooks/skills-metadata-hook.ts` (pre-commit / pre-push registry guard)
-- `tests/skills-smoke.test.ts` (command and policy smoke checks)
+- `src/skills-smoke.test.ts` (command and policy smoke checks)
+- `scripts/skills.mjs` (CLI command shim)
+- `scripts/skills-smoke.mjs` (smoke entrypoint)
+- `scripts/skills-metadata-hook.mjs` (metadata hook wrapper)
 
 ## Runtime notes
 
-- Root scripts in `scripts/` are intentionally tiny shims to keep existing
-  command names stable.
+- Command surface is now exposed as package run targets so callers can stay in
+  one place (`pnpm --filter @playground/agent-skills run ...`).
 - The package is strict TypeScript and is compiled to `dist/` for runtime via
   `pnpm --filter @playground/agent-skills run build`.
 - Runtime shims and smoke checks execute compiled `dist/` artifacts (no `--experimental-*` node flags).
 
 ## Local commands
 
-- `pnpm --filter @playground/agent-skills run cli -- list`
-- `pnpm --filter @playground/agent-skills run cli -- search workflow`
-- `pnpm --filter @playground/agent-skills run smoke`
-- `pnpm --filter @playground/agent-skills run metadata-hook -- --auto-range`
+- From package:
+  - `pnpm --filter @playground/agent-skills run agent-skills -- list`
+  - `pnpm --filter @playground/agent-skills run agent-skills -- search workflow`
+  - `pnpm --filter @playground/agent-skills run agent-skills -- route "fix bug"`
+  - `pnpm --filter @playground/agent-skills run skills:smoke`
+  - `pnpm --filter @playground/agent-skills run skills:metadata-hook -- --auto-range`
