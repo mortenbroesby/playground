@@ -11,14 +11,18 @@ import {
   writeSkillRegistry,
   getRegistryPath,
   isRegistryCurrent,
-} from "./lib/skills-registry.ts";
+} from "./lib/skills-registry";
+import {
+  rankMiniSearchMatches,
+  renderMiniSearchMatch,
+} from "./lib/skills-minisearch";
 import {
   rankSearchMatches,
   rankSkillsForList,
   renderSkillSummary,
   routeTaskFromRegistry,
   type RegistrySkill,
-} from "./lib/skills-routing.ts";
+} from "./lib/skills-routing";
 
 const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -34,7 +38,7 @@ function fail(message: string): never {
 function usage(): void {
   console.log(`Usage:
   pnpm skills:list [--all] [--group <workflow|support|specialist|imported>] [--daily]
-  pnpm skills:search <query>
+  pnpm skills:search [--engine <bm25|minisearch>] [--content] <query>
   pnpm skills:read <skill-name>[,<skill-name>...]
   pnpm skills:route <task description> [--json]
   pnpm skills:registry [--check]
@@ -45,6 +49,10 @@ Notes:
     metadata comes from \`.skills/.metadata/registry.metadata.json\`.
   - \`.skills/.metadata/registry.generated.json\` is the deterministic generated
     registry artifact.
+  - \`skills:search\` is metadata-first by default; add \`--content\` to allow
+    source-body fallback when curated metadata is too weak.
+  - \`skills:search\` uses MiniSearch by default; pass \`--engine bm25\` to
+    compare against the older custom scorer.
   - \`skills:install\` and \`skills:sync\` are intentionally unsupported in this repo architecture.`);
 }
 
@@ -99,28 +107,64 @@ function listSkills(args: string[] = []): void {
   }
 }
 
-function searchSkills(query: string): void {
-  const needle = query.trim().toLowerCase();
+function searchSkills(args: string[]): void {
+  const allowContentFallback = args.includes("--content");
+  const engineFlagIndex = args.indexOf("--engine");
+  const engine =
+    engineFlagIndex >= 0 ? (args[engineFlagIndex + 1] ?? null) : "minisearch";
+
+  if (engineFlagIndex >= 0 && !engine) {
+    fail("`pnpm skills:search --engine` requires bm25 or minisearch.");
+  }
+
+  if (engine !== "bm25" && engine !== "minisearch") {
+    fail("`pnpm skills:search --engine` must be bm25 or minisearch.");
+  }
+
+  const normalizedQuery = args
+    .filter((part, index) => {
+      if (part === "--content" || part === "--") {
+        return false;
+      }
+      if (part === "--engine") {
+        return false;
+      }
+      if (engineFlagIndex >= 0 && index === engineFlagIndex + 1) {
+        return false;
+      }
+      return true;
+    })
+    .join(" ")
+    .trim();
+  const needle = normalizedQuery.toLowerCase();
   if (!needle) {
     fail("`pnpm skills:search` requires a non-empty query.");
   }
 
-  const metadataMatches = rankSearchMatches(
-    getSkillRegistry().skills,
-    query,
-  );
-  const fallbackMatches = getAllSkillSources()
-    .filter((skill) => skill.contents.toLowerCase().includes(needle))
-    .sort((left, right) => left.id.localeCompare(right.id));
+  const skills = getSkillRegistry().skills;
+  const metadataMatches =
+    engine === "minisearch"
+      ? rankMiniSearchMatches(skills, normalizedQuery)
+      : rankSearchMatches(skills, normalizedQuery);
 
   if (metadataMatches.length > 0) {
     for (const match of metadataMatches) {
       console.log(
-        `${renderSkillSummary(match.skill)} [metadata: ${match.reasons.join(", ")}]`,
+        engine === "minisearch"
+          ? renderMiniSearchMatch(match)
+          : `${renderSkillSummary(match.skill)} [metadata: ${match.reasons.join(", ")}]`,
       );
     }
     return;
   }
+
+  if (!allowContentFallback) {
+    process.exit(1);
+  }
+
+  const fallbackMatches = getAllSkillSources()
+    .filter((skill) => skill.contents.toLowerCase().includes(needle))
+    .sort((left, right) => left.id.localeCompare(right.id));
 
   if (fallbackMatches.length === 0) {
     process.exit(1);
@@ -280,7 +324,7 @@ export function main(args: string[] = process.argv.slice(2)): void {
       listSkills(rest);
       return;
     case "search":
-      searchSkills(rest.join(" "));
+      searchSkills(rest);
       return;
     case "read":
       readSkills(rest);

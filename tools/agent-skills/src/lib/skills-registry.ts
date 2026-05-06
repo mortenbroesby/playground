@@ -6,8 +6,8 @@ import {
   ALLOWED_TIERS,
   parseCatalogMetadata,
   parseSkillMetadata,
-} from "./skills-metadata.ts";
-import type { RegistrySkill } from "./skills-routing.ts";
+} from "./skills-metadata";
+import type { RegistrySkill } from "./skills-routing";
 
 export const GENERATED_REGISTRY_FILENAME = "registry.generated.json";
 const SKILL_METADATA_FILENAME = "registry.metadata.json";

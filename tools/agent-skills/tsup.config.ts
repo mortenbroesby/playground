@@ -5,6 +5,7 @@ export default defineConfig({
     "src/cli.ts",
     "src/hooks/skills-metadata-hook.ts",
     "src/skills-smoke.test.ts",
+    "src/skills-search.bench.ts",
   ],
   outDir: "dist",
   format: ["esm"],
