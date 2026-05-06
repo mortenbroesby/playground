@@ -6,7 +6,13 @@ import path from "node:path";
 import { findProjectRoot } from "workspace-tools";
 
 const repoRoot = findProjectRoot(process.cwd(), "pnpm");
-const metadataPath = path.join(repoRoot, ".skills", "registry.metadata.json");
+const metadataPath = path.join(
+  repoRoot,
+  ".skills",
+  ".metadata",
+  "registry.metadata.json",
+);
+const metadataRelativePath = path.relative(repoRoot, metadataPath);
 
 function parseJsonArray(input: string): string[] {
   // Shared parsing/validation helper for env and explicit file-list inputs.
@@ -277,7 +283,7 @@ if (skillFileChanges.length === 0) {
 
 if (!fs.existsSync(metadataPath)) {
   fail(
-    `.skills/registry.metadata.json is missing. Add it and include metadata for: ${skillFileChanges
+    `${metadataRelativePath} is missing. Add it and include metadata for: ${skillFileChanges
       .map((filePath) => path.basename(path.dirname(filePath)))
       .join(", ")}`,
   );
@@ -288,7 +294,7 @@ try {
   metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as MetadataShape;
 } catch (error) {
   fail(
-    `.skills/registry.metadata.json is not valid JSON: ${
+    `${metadataRelativePath} is not valid JSON: ${
       error instanceof Error ? error.message : String(error)
     }`,
   );
@@ -313,7 +319,7 @@ const missingSkillIds = skillFileChanges
 
 if (missingSkillIds.length > 0) {
   fail(
-    `Missing registry metadata entries in .skills/registry.metadata.json for: ${missingSkillIds.join(", ")}. Add entries before committing or update the file in the same commit and rerun git commit.`,
+    `Missing registry metadata entries in ${metadataRelativePath} for: ${missingSkillIds.join(", ")}. Add entries before committing or update the file in the same commit and rerun git commit.`,
   );
 }
 

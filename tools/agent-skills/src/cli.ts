@@ -45,8 +45,9 @@ function usage(): void {
 Notes:
   - Repo-owned skills live directly in \`.skills/\`.
   - SKILL.md frontmatter is the canonical identity contract; routing and catalog
-    metadata comes from \`.skills/registry.metadata.json\`.
-  - \`.skills/registry.generated.json\` is the deterministic generated registry artifact.
+    metadata comes from \`.skills/.metadata/registry.metadata.json\`.
+  - \`.skills/.metadata/registry.generated.json\` is the deterministic generated
+    registry artifact.
   - \`skills:install\` and \`skills:sync\` are intentionally unsupported in this repo architecture.`);
 }
 

@@ -13,6 +13,7 @@ import type { RegistrySkill } from "./skills-routing.ts";
 
 export const GENERATED_REGISTRY_FILENAME = "registry.generated.json";
 const SKILL_METADATA_FILENAME = "registry.metadata.json";
+const METADATA_DIRNAME = ".metadata";
 const REGISTRY_VERSION = 1;
 const SKILL_METADATA_VERSION = 1;
 
@@ -65,12 +66,16 @@ export function getSkillsRoot(repoRoot: string): string {
   return path.join(repoRoot, ".skills");
 }
 
+function getMetadataRoot(repoRoot: string): string {
+  return path.join(getSkillsRoot(repoRoot), METADATA_DIRNAME);
+}
+
 export function getRegistryPath(repoRoot: string): string {
-  return path.join(getSkillsRoot(repoRoot), GENERATED_REGISTRY_FILENAME);
+  return path.join(getMetadataRoot(repoRoot), GENERATED_REGISTRY_FILENAME);
 }
 
 export function getSkillMetadataPath(repoRoot: string): string {
-  return path.join(getSkillsRoot(repoRoot), SKILL_METADATA_FILENAME);
+  return path.join(getMetadataRoot(repoRoot), SKILL_METADATA_FILENAME);
 }
 
 function validateMetadataShape(metadata: unknown, metadataPath: string): void {

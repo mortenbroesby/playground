@@ -5,21 +5,22 @@
   "description": "Typed agent skill tooling for discovery, ranking, routing, and metadata checks",
   "type": "module",
   "license": "UNLICENSED",
-  "main": "dist/cli.js",
+  "main": "dist/src/cli.js",
   "engines": {
     "node": "24.x"
   },
   "scripts": {
-    "build": "tsc --noEmit true --allowImportingTsExtensions true",
+    "build": "tsup src/cli.ts src/hooks/skills-metadata-hook.ts tests/skills-smoke.test.ts --format esm --bundle --sourcemap --dts false --clean --out-dir dist",
     "typecheck": "tsc --noEmit true --allowImportingTsExtensions true",
-    "cli": "node --experimental-strip-types --experimental-specifier-resolution=node ./src/cli.ts",
-    "smoke": "node --experimental-strip-types --experimental-specifier-resolution=node --test ./tests/skills-smoke.test.ts",
-    "metadata-hook": "node --experimental-strip-types --experimental-specifier-resolution=node ./src/hooks/skills-metadata-hook.ts"
+    "cli": "node dist/src/cli.js",
+    "smoke": "pnpm run build && node --test dist/tests/skills-smoke.test.js",
+    "metadata-hook": "node dist/src/hooks/skills-metadata-hook.js"
   },
   "dependencies": {
     "workspace-tools": "^0.41.4"
   },
   "devDependencies": {
-    "@types/node": "^22.15.17"
+    "@types/node": "^22.15.17",
+    "tsup": "^8.5.0"
   }
 }

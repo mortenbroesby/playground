@@ -41,7 +41,7 @@ model rather than command behavior inferred from raw markdown.
 **Files:**
 - Create: `scripts/lib/skills-registry.mjs`
 - Create: `scripts/lib/skills-metadata.mjs`
-- Create: `.skills/registry.generated.json`
+- Create: `.skills/.metadata/registry.generated.json`
 - Modify: `scripts/skills.mjs`
 
 - [ ] **Step 1: Extract skill collection and metadata parsing out of `scripts/skills.mjs`**

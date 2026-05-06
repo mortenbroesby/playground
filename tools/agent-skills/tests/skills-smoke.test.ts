@@ -28,17 +28,25 @@ const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
   "pnpm",
 );
-const cliScript = path.join(repoRoot, "tools", "agent-skills", "src", "cli.ts");
+const cliScript = path.join(
+  repoRoot,
+  "tools",
+  "agent-skills",
+  "dist",
+  "src",
+  "cli.js",
+);
 const hookScript = path.join(
   repoRoot,
   "tools",
   "agent-skills",
+  "dist",
   "src",
   "hooks",
-  "skills-metadata-hook.ts",
+  "skills-metadata-hook.js",
 );
-const skillsScriptNodeArgs = ["--experimental-strip-types", cliScript];
-const skillsHookNodeArgs = ["--experimental-strip-types", hookScript];
+const skillsScriptNodeArgs = [cliScript];
+const skillsHookNodeArgs = [hookScript];
 
 function runNode(
   args: string[],
@@ -446,19 +454,19 @@ const syntheticSkills = [
   assertOk(registryWriteResult);
   assert.match(
     registryWriteResult.stdout,
-    /Wrote \.skills\/registry\.generated\.json/,
+    /Wrote \.skills\/\.metadata\/registry\.generated\.json/,
   );
 
   const registryCheckResult = runSkillCommand(["registry", "--check"]);
   assertOk(registryCheckResult);
   assert.match(
     registryCheckResult.stdout,
-    /Skill registry is current: \.skills\/registry\.generated\.json/,
+    /Skill registry is current: \.skills\/\.metadata\/registry\.generated\.json/,
   );
 
   const generatedRegistry = JSON.parse(
     fs.readFileSync(
-      path.join(repoRoot, ".skills", "registry.generated.json"),
+      path.join(repoRoot, ".skills", ".metadata", "registry.generated.json"),
       "utf8",
     ),
   );

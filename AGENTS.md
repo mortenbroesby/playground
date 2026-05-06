@@ -30,9 +30,9 @@ Thin bootstrap for coding agents in this repo.
 - Shared agent docs live under [`.agents/`](.agents/).
 - Repo-owned skills live under [`.skills/`](.skills/).
 - The generated registry at
-  [`.skills/registry.generated.json`](.skills/registry.generated.json) is the
+  [`.skills/.metadata/registry.generated.json`](.skills/.metadata/registry.generated.json) is the
   canonical machine-readable discovery surface for repo-owned skills, built from
-  `SKILL.md` identity plus `.skills/registry.metadata.json`.
+  `SKILL.md` identity plus `.skills/.metadata/registry.metadata.json`.
 - Codex execution-policy rules live under [`.codex/rules/`](.codex/rules/),
   with [codex/rules](codex/rules) kept as a docs-path compatibility symlink.
 - Claude loads the same shared commands, hooks, and rules through `.claude/*`

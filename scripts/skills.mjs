@@ -16,26 +16,34 @@ const distPath = path.join(
   "tools",
   "agent-skills",
   "dist",
+  "src",
   "cli.js",
 );
-const sourcePath = path.join(
-  repoRoot,
-  "tools",
-  "agent-skills",
-  "src",
-  "cli.ts",
-);
-const runtimeFlags = ["--experimental-specifier-resolution=node"];
-const sourceFlags = ["--experimental-strip-types", ...runtimeFlags];
+
+if (!fs.existsSync(distPath)) {
+  const buildResult = spawnSync(
+    "pnpm",
+    ["--filter", "@playground/agent-skills", "run", "build"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: "inherit",
+      env: process.env,
+    },
+  );
+
+  if (buildResult.error) {
+    throw buildResult.error;
+  }
+
+  if (typeof buildResult.status === "number" && buildResult.status !== 0) {
+    process.exit(buildResult.status);
+  }
+}
 
 const result = spawnSync(
   process.execPath,
-  [
-    ...(fs.existsSync(distPath)
-      ? [...runtimeFlags, distPath]
-      : [...sourceFlags, sourcePath]),
-    ...process.argv.slice(2),
-  ],
+  [distPath, ...process.argv.slice(2)],
   {
     cwd: repoRoot,
     encoding: "utf8",

@@ -198,8 +198,8 @@ Update `package.json` scripts:
 - No skill-routing, registry, or metadata implementation remains in `scripts/`
   beyond delegation wrappers.
 - `pnpm skills:*` commands and hook checks pass exactly as before.
-- Existing generated artifacts (`.skills/registry.generated.json`,
-  `.skills/registry.metadata.json`) remain source-compatible.
+- Existing generated artifacts (`.skills/.metadata/registry.generated.json`,
+  `.skills/.metadata/registry.metadata.json`) remain source-compatible.
 - New package code is TypeScript first-class with strict typing.
 - The plan can be reverted via wrappers by pointing wrappers back to `scripts/` if
   needed during rollout.

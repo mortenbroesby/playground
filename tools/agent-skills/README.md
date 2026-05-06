@@ -13,8 +13,9 @@ skill discovery, ranking, routing, and metadata checks.
 
 - Root scripts in `scripts/` are intentionally tiny shims to keep existing
   command names stable.
-- The package is strict TypeScript and can be executed through `node --experimental-strip-types`
-  or built into `dist/` with `pnpm --filter @playground/agent-skills run build`.
+- The package is strict TypeScript and is compiled to `dist/` for runtime via
+  `pnpm --filter @playground/agent-skills run build`.
+- Runtime shims and smoke checks execute compiled `dist/` artifacts (no `--experimental-*` node flags).
 
 ## Local commands
 
@@ -22,4 +23,3 @@ skill discovery, ranking, routing, and metadata checks.
 - `pnpm --filter @playground/agent-skills run cli -- search workflow`
 - `pnpm --filter @playground/agent-skills run smoke`
 - `pnpm --filter @playground/agent-skills run metadata-hook -- --auto-range`
-

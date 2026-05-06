@@ -197,7 +197,7 @@ Keep JSON output stable or version the shape explicitly if it changes.
 - Modify: `.skills/verification-before-completion/SKILL.md`
 - Modify: `.skills/requesting-code-review/SKILL.md`
 - Modify: `.skills/writing-plans/SKILL.md`
-- Modify: `.skills/registry.generated.json`
+- Modify: `.skills/.metadata/registry.generated.json`
 
 - [ ] **Step 1: Mark the curated daily drivers**
 
@@ -233,7 +233,7 @@ Expected:
 
 **Files:**
 - Modify: representative `.skills/*/SKILL.md` files for support and specialist skills
-- Modify: `.skills/registry.generated.json`
+- Modify: `.skills/.metadata/registry.generated.json`
 
 - [ ] **Step 1: Migrate high-value support skills**
 

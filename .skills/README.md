@@ -8,9 +8,10 @@ discovery metadata.
 - Each repo-owned skill lives in `.skills/<skill-id>/SKILL.md`.
 - `SKILL.md` frontmatter is the identity layer (`name`, `description`) and also
   the fallback source of truth for rendering.
-- `.skills/registry.generated.json` is the deterministic generated artifact built
-  from identity frontmatter plus `.skills/registry.metadata.json`.
-- `.skills/registry.metadata.json` stores routing/listing metadata for each skill
+- `.skills/.metadata/registry.generated.json` is the deterministic generated
+  artifact built from identity frontmatter plus
+  `.skills/.metadata/registry.metadata.json`.
+- `.skills/.metadata/registry.metadata.json` stores routing/listing metadata for each
   and is the canonical source for ranking signals.
 - Runtime adapters and command surfaces should read the generated registry or the
   shared loader helpers, not re-derive routing metadata from markdown prose.
@@ -26,7 +27,7 @@ No other top-level keys are currently supported in frontmatter.
 
 ## Metadata Contract
 
-`.skills/registry.metadata.json` stores per-skill metadata records under
+`.skills/.metadata/registry.metadata.json` stores per-skill metadata records under
 `skills.<skill-id>`:
 
 ```json
@@ -65,7 +66,8 @@ typos cannot silently degrade routing.
 
 ## Registry Artifact
 
-`.skills/registry.generated.json` stores merged identity and catalog metadata:
+`.skills/.metadata/registry.generated.json` stores merged identity and catalog
+metadata:
 
 - skill id and source location
 - display name and description
@@ -88,7 +90,7 @@ node scripts/skills.mjs registry --check
 When adding a new skill, include:
 
 - `name` and `description` in `SKILL.md`
-- a matching `.skills/registry.metadata.json` `skills.<id>` entry
+- a matching `.skills/.metadata/registry.metadata.json` `skills.<id>` entry
 
 ## Scope Notes
 

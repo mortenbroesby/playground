@@ -16,30 +16,35 @@ const distPath = path.join(
   "tools",
   "agent-skills",
   "dist",
+  "src",
   "hooks",
   "skills-metadata-hook.js",
 );
-const sourcePath = path.join(
-  repoRoot,
-  "tools",
-  "agent-skills",
-  "src",
-  "hooks",
-  "skills-metadata-hook.ts",
-);
-const nodeFlags = [
-  "--experimental-strip-types",
-  "--experimental-specifier-resolution=node",
-];
+
+if (!fs.existsSync(distPath)) {
+  const buildResult = spawnSync(
+    "pnpm",
+    ["--filter", "@playground/agent-skills", "run", "build"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: "inherit",
+      env: process.env,
+    },
+  );
+
+  if (buildResult.error) {
+    throw buildResult.error;
+  }
+
+  if (typeof buildResult.status === "number" && buildResult.status !== 0) {
+    process.exit(buildResult.status);
+  }
+}
 
 const result = spawnSync(
   process.execPath,
-  [
-    ...(fs.existsSync(distPath)
-      ? ["--experimental-specifier-resolution=node", distPath]
-      : [...nodeFlags, sourcePath]),
-    ...process.argv.slice(2),
-  ],
+  [distPath, ...process.argv.slice(2)],
   {
     cwd: repoRoot,
     encoding: "utf8",

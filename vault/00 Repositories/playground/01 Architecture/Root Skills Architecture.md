@@ -75,7 +75,7 @@ source-backed reads.
   routing fields such as `name`, `description`, `tags`, `triggers`,
   `anti_triggers`, `routing_weight`, `daily_driver`, `agent_benefit`,
   `catalog_group`, and `activation_mode`.
-- `.skills/registry.generated.json` becomes the deterministic machine-readable
+- `.skills/.metadata/registry.generated.json` is the deterministic machine-readable
   registry artifact derived from that frontmatter.
 - `AGENTS.md` and `CLAUDE.md` stay thin and should not embed the full catalog.
 - Runtime adapter directories are compatibility surfaces, not authoring homes.
