@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
 import {
   firstNonEmpty,
   getProjectRoot,
@@ -10,6 +9,7 @@ import {
   preToolDeny,
   runHook,
 } from './lib/core.mjs';
+import { runGit } from './lib/git.mjs';
 
 const DANGEROUS_COMMAND_PATTERNS = [
   {
@@ -58,6 +58,9 @@ const DANGEROUS_COMMAND_PATTERNS = [
   },
 ];
 
+// Direct pushes to main are a repo policy choice rather than a universal
+// command hazard, so they stay configurable through agent settings and an
+// explicit one-off env override.
 function allowsDirectMainPush(command, projectRoot) {
   if (/\bCODEX_ALLOW_DIRECT_MAIN_PUSH=1\b/.test(command)) {
     return true;
@@ -67,12 +70,7 @@ function allowsDirectMainPush(command, projectRoot) {
 }
 
 function getCurrentBranch() {
-  const result = spawnSync('git', ['branch', '--show-current'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
-
-  return result.status === 0 ? result.stdout.trim() : '';
+  return runGit(['branch', '--show-current']);
 }
 
 export function getDangerousCommandReason(command, projectRoot = process.cwd()) {
@@ -80,6 +78,8 @@ export function getDangerousCommandReason(command, projectRoot = process.cwd()) 
     return '';
   }
 
+  // Git push handling is split out before the generic dangerous-command table
+  // because it depends on both command shape and current-branch context.
   if (/(^|[;&|()]\s*)git\s+push\b/i.test(command)) {
     if (
       /\bgit\s+push\b.*(?:origin\s+|:)(?:main|master)\b/i.test(command) &&
@@ -111,6 +111,8 @@ export function getDangerousCommandReason(command, projectRoot = process.cwd()) 
     return 'Recursive delete targeting root or home is blocked.';
   }
 
+  // Fall back to the generic regex table for the remaining obviously risky
+  // shell patterns.
   for (const rule of DANGEROUS_COMMAND_PATTERNS) {
     if (rule.pattern.test(command)) {
       return rule.reason;

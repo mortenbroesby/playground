@@ -4,10 +4,10 @@ import path from 'node:path';
 import {
   getTouchedPaths,
   isDirectEntrypoint,
-  normalizeToolPath,
   preToolDeny,
   runHook,
 } from './lib/core.mjs';
+import { getMatchingPathRule } from './lib/path-rules.mjs';
 
 const BLOCKED_DIRECTORY_PATTERNS = [
   { pattern: /(^|\/)node_modules(\/|$)/i, reason: 'Writing into node_modules/ is blocked. Use the package manager instead.' },
@@ -40,16 +40,16 @@ const BLOCKED_BINARY_EXTENSIONS = new Set([
   '.zip',
 ]);
 
+// Despite the filename, this hook is an artifact-write guard rather than a
+// size-only warning. It blocks edits into generated dependency trees and common
+// binary/archive targets where agent writes are rarely intentional.
 function getArtifactReason(filePath) {
-  const normalizedPath = normalizeToolPath(filePath);
-
-  for (const rule of BLOCKED_DIRECTORY_PATTERNS) {
-    if (rule.pattern.test(normalizedPath)) {
-      return rule.reason;
-    }
+  const matchingRule = getMatchingPathRule(filePath, BLOCKED_DIRECTORY_PATTERNS);
+  if (matchingRule) {
+    return matchingRule.reason;
   }
 
-  const lowerPath = normalizedPath.toLowerCase();
+  const lowerPath = String(filePath).toLowerCase();
   if (/\.(?:tar\.gz|tar\.bz2|7z)$/i.test(lowerPath)) {
     return 'Writing archive files is blocked.';
   }

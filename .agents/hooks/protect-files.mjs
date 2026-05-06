@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import path from 'node:path';
 import {
   getProjectRoot,
   getTouchedPaths,
@@ -11,6 +10,12 @@ import {
   preToolDeny,
   runHook,
 } from './lib/core.mjs';
+import {
+  getMatchingPathRule,
+  getPathBasename,
+  isPathAllowlisted,
+  matchesAnyPattern,
+} from './lib/path-rules.mjs';
 
 const PROTECTED_BASENAME_PATTERNS = [
   /^\.env(?:\.[^/]+)?$/i,
@@ -44,6 +49,9 @@ const PROTECTED_PATH_PATTERNS = [
   },
 ];
 
+// The infrastructure allowlist is the escape hatch for intentional hook or
+// Claude-settings refactors. Keep the allowlist matching logic separate from
+// the policy tables so the actual protected-path rules stay easy to scan.
 function isInfrastructureEditAllowed(projectRoot, filePath) {
   const normalizedPath = normalizeToolPath(filePath);
   const settings = loadAgentSettings(projectRoot);
@@ -51,30 +59,28 @@ function isInfrastructureEditAllowed(projectRoot, filePath) {
     ? settings.infrastructureEditAllowlist.map((entry) => normalizeToolPath(entry))
     : [];
 
-  return allowlist.some((entry) => {
-    if (entry.endsWith('/**')) {
-      const prefix = entry.slice(0, -3);
-      return normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`);
-    }
-
-    return normalizedPath === entry;
-  });
+  return isPathAllowlisted(normalizedPath, allowlist);
 }
 
 export function getProtectedPathReason(projectRoot, filePath) {
   const normalizedPath = normalizeToolPath(filePath);
-  const basename = path.basename(normalizedPath);
+  const basename = getPathBasename(normalizedPath);
 
-  for (const rule of PROTECTED_PATH_PATTERNS) {
-    if (rule.pattern.test(normalizedPath)) {
-      if (rule.allowlistEligible && isInfrastructureEditAllowed(projectRoot, normalizedPath)) {
-        return '';
-      }
-      return rule.reason;
+  // Path rules are checked before basename rules so explicit directory and file
+  // location protections win over broad filename-based blocking.
+  const matchingRule = getMatchingPathRule(normalizedPath, PROTECTED_PATH_PATTERNS);
+  if (matchingRule) {
+    if (
+      matchingRule.allowlistEligible &&
+      isInfrastructureEditAllowed(projectRoot, normalizedPath)
+    ) {
+      return '';
     }
+
+    return matchingRule.reason;
   }
 
-  if (PROTECTED_BASENAME_PATTERNS.some((pattern) => pattern.test(basename))) {
+  if (matchesAnyPattern(basename, PROTECTED_BASENAME_PATTERNS)) {
     return `Editing protected file ${basename} is blocked.`;
   }
 
@@ -85,6 +91,8 @@ export async function handleProtectFiles(payload) {
   const projectRoot = getProjectRoot(payload);
   const touchedPaths = getTouchedPaths(payload);
 
+  // Deny immediately on the first protected path. Hooks should return one clear
+  // reason quickly instead of collecting every possible violation.
   for (const filePath of touchedPaths) {
     if (!isPathInsideProject(projectRoot, filePath)) {
       return preToolDeny('Editing files outside the project root is blocked.');

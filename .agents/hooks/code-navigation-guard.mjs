@@ -8,11 +8,11 @@ import {
   getToolInput,
   getToolName,
   isDirectEntrypoint,
-  normalizeToolPath,
   preToolDeny,
   runHook,
 } from './lib/core.mjs';
 import { getAstrographBlockedExplorationReason } from './lib/astrograph-code-navigation.mjs';
+import { matchesAnyPattern } from './lib/path-rules.mjs';
 
 const CODE_PATH_PATTERNS = [
   /(^|\/)(apps|packages|tools|scripts|\.agents|\.codex|\.claude|\.github)(\/|$)/i,
@@ -31,21 +31,26 @@ const EXPLORATION_BASH_PATTERNS = [
 
 const LARGE_READ_BYTES = 6_000;
 
+// Code-like detection deliberately mixes top-level repo areas and file
+// extensions. The guard only needs a cheap heuristic for "this probably belongs
+// to indexed code navigation", not a perfect classifier.
 function isCodeLikePath(filePath) {
-  const normalizedPath = normalizeToolPath(filePath);
-  return CODE_PATH_PATTERNS.some((pattern) => pattern.test(normalizedPath));
+  return matchesAnyPattern(String(filePath ?? '').replaceAll(path.sep, '/'), CODE_PATH_PATTERNS);
 }
 
+// The bash guard is intentionally asymmetric: allow obvious safe operational
+// commands, then block shell-based exploration only when it looks like code
+// discovery that Astrograph should handle instead.
 function shouldBlockBash(command) {
   if (!command) {
     return false;
   }
 
-  if (SAFE_BASH_PATTERNS.some((pattern) => pattern.test(command))) {
+  if (matchesAnyPattern(command, SAFE_BASH_PATTERNS)) {
     return false;
   }
 
-  if (!EXPLORATION_BASH_PATTERNS.some((pattern) => pattern.test(command))) {
+  if (!matchesAnyPattern(command, EXPLORATION_BASH_PATTERNS)) {
     return false;
   }
 
@@ -55,7 +60,7 @@ function shouldBlockBash(command) {
 
 function shouldBlockGlob(toolInput) {
   const pattern = firstNonEmpty(toolInput?.pattern, toolInput?.glob, toolInput?.path, '');
-  return isCodeLikePath(pattern);
+  return pattern ? isCodeLikePath(pattern) : false;
 }
 
 function shouldBlockGrep(toolInput) {
@@ -86,6 +91,9 @@ export async function handleCodeNavigationGuard(payload) {
   const toolName = getToolName(payload);
   const toolInput = getToolInput(payload);
 
+  // Keep the top-level handler as a narrow dispatcher: identify the tool,
+  // evaluate one focused rule set, and return the corresponding denial or
+  // warning without mixing the policies together.
   if (toolName === 'Bash') {
     const command = firstNonEmpty(toolInput?.command, '');
     return shouldBlockBash(command)

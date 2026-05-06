@@ -5,9 +5,9 @@ repo_slug: "playground"
 title: "Agent Hooks"
 status: "accepted"
 created: "2026-04-29"
-updated: "2026-05-01"
+updated: "2026-05-05"
 owner: "morten"
-summary: "Shared hook policy for Codex and Claude Code, with a slim session-start context, indexed-retrieval guidance, and no repo-local Astrograph bootstrap logic."
+summary: "Shared hook policy for Codex and Claude Code, with a slim session-start context, indexed-retrieval guidance, and small reusable helper modules for path-rule and git-state evaluation."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -39,6 +39,11 @@ runtime supports it.
 
 - `.agents/hooks/lib/core.mjs` owns shared parsing, path resolution, redaction,
   and logging helpers.
+- `.agents/hooks/lib/path-rules.mjs` owns generic path-rule matching,
+  allowlist-prefix handling, and basename/path normalization helpers so hook
+  policy tables can stay local to the enforcing hook.
+- `.agents/hooks/lib/git.mjs` owns the tiny read-only git wrapper used by hook
+  code that needs branch or status context.
 - `.agents/hooks/agent-hooks.mjs` is a compatibility dispatcher; Claude uses
   focused hook scripts directly.
 - The hooks cover session context, prompt and write secret scanning, dangerous
@@ -57,6 +62,8 @@ runtime supports it.
 - Block secret-like prompt content, secret file writes, generated-output edits,
   and writes outside the project root.
 - Keep hooks fast and keep personal overrides in ignored local settings.
+- Keep policy data close to the hook that owns it; extract only generic
+  evaluation mechanics into shared helper modules.
 
 ## Astrograph Integration
 

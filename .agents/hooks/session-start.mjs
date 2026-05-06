@@ -1,23 +1,15 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
 import {
   getProjectRoot,
   isDirectEntrypoint,
   runHook,
   sessionContext,
 } from './lib/core.mjs';
+import { runGit } from './lib/git.mjs';
 
-function runGit(args, cwd) {
-  const result = spawnSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
-
-  return result.status === 0 ? result.stdout.trim() : '';
-}
-
+// Session-start context should stay thin: enough git state to orient the agent,
+// but not enough detail to become another verbose startup banner.
 function buildDynamicGitContext(cwd) {
   const parts = [];
   const branch = runGit(['branch', '--show-current'], cwd);
@@ -44,6 +36,9 @@ export async function handleSessionStart(payload) {
   const cwd = getProjectRoot(payload);
   const dynamicContext = buildDynamicGitContext(cwd);
 
+  // This is the always-on baseline reminder. Detailed workflow and runtime
+  // policy lives in the checked-in docs; the hook only injects the minimum
+  // context that is useful at the start of every session.
   const baseContext = [
     'Shared hook policy is active.',
     'Use indexed repo navigation first and use `obsidian-memory` for repo history, architecture, and decisions.',
