@@ -77,6 +77,14 @@ You can also target a specific story:
 pnpm ralph:loop -- --dir .ralph/my-feature --story STORY-2 --dry-run
 ```
 
+Run one or more rounds in one call:
+
+```bash
+pnpm ralph:loop -- --dir .ralph/my-feature --rounds 3 --dry-run
+```
+
+`--rounds` defaults to `1`.
+
 ## Execute with Codex
 
 ```bash
@@ -90,6 +98,7 @@ Optional flags:
 - `--auto-commit`
 - `--enforce-branch`
 - `--story <id>`
+- `--rounds <n>`
 - `--list`
 
 ## Execute with Claude
@@ -136,6 +145,7 @@ priorities also work, with lower numbers selected first.
 - prompts now include the current story queue and the tail of `progress.txt`
 - `last-run.json` records which story the last iteration selected
 - stories can be targeted explicitly with `--story`
+- `--rounds` runs multiple iterations in one invocation and records round metadata
 - `--list` provides a quick status view without generating a prompt
 
 ## Differences from upstream

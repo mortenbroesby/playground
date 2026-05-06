@@ -8,6 +8,7 @@ You are running one opt-in Ralph iteration for `playground`.
 - PRD title: `{{PRD_TITLE}}`
 - PRD branch: `{{BRANCH_NAME}}`
 - Current git branch: `{{CURRENT_BRANCH}}`
+- Round index: `{{ROUND_INDEX}}` of `{{ROUND_TOTAL}}`
 - Active story: `{{STORY_ID}} - {{STORY_TITLE}}`
 - Active story status: `{{STORY_STATUS}}`
 

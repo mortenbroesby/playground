@@ -7,6 +7,7 @@ import process from "node:process";
 
 const repoRoot = process.cwd();
 const promptTemplatePath = path.join(repoRoot, "scripts", "ralph", "prompt.md");
+const DEFAULT_ROUNDS = 1;
 
 function parseArgs(argv) {
   const args = {
@@ -20,6 +21,7 @@ function parseArgs(argv) {
     autoCommit: false,
     enforceBranch: false,
     list: false,
+    rounds: DEFAULT_ROUNDS,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -61,6 +63,12 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (token === "--rounds") {
+      args.rounds = parseRoundCount(argv[index + 1], index, argv.length);
+      index += 1;
+      continue;
+    }
+
     if (token === "--dry-run") {
       args.dryRun = true;
       continue;
@@ -83,6 +91,25 @@ function parseArgs(argv) {
   }
 
   return args;
+}
+
+function parseRoundCount(rawValue, position, argvLength) {
+  const parsed = Number.parseInt(rawValue ?? "", 10);
+
+  if (!Number.isFinite(parsed)) {
+    fail(
+      `Invalid --rounds value "${rawValue}" at position ${
+        position + 1
+      } of ${argvLength}.`
+      + " Use --rounds <positive integer>.",
+    );
+  }
+
+  if (parsed <= 0) {
+    fail(`--rounds must be a positive integer, got ${parsed}.`);
+  }
+
+  return parsed;
 }
 
 function readJson(filePath) {
@@ -179,7 +206,13 @@ function validatePrd(prd) {
   return issues;
 }
 
-function pickNextStory(stories, storyId = "") {
+/**
+ * Select the next story for this round.
+ *
+ * Explicit --story always wins.
+ * Otherwise prefer in-progress stories, then pending by priority, then blocked.
+ */
+function pickNextStory(stories, storyId, skipStoryIds = new Set()) {
   if (storyId) {
     return stories.find((story) => story?.id === storyId);
   }
@@ -187,6 +220,7 @@ function pickNextStory(stories, storyId = "") {
   return stories
     .map((story, index) => ({ ...story, _index: index }))
     .filter((story) => normalizeStatus(story) !== "done")
+    .filter((story) => !skipStoryIds.has(story.id))
     .sort((left, right) => {
       const statusOrder = new Map([
         ["in_progress", 0],
@@ -252,6 +286,8 @@ function buildPrompt({
   autoCommit,
   recentProgress,
   storySummary,
+  roundIndex,
+  roundTotal,
 }) {
   return template
     .replaceAll("{{RUN_DIR}}", runDir)
@@ -268,6 +304,8 @@ function buildPrompt({
     .replaceAll("{{STORY_SUMMARY}}", storySummary)
     .replaceAll("{{RECENT_PROGRESS}}", recentProgress)
     .replaceAll("{{CHECKS}}", joinChecks(prd.checks))
+    .replaceAll("{{ROUND_INDEX}}", String(roundIndex))
+    .replaceAll("{{ROUND_TOTAL}}", String(roundTotal))
     .replaceAll(
       "{{COMMIT_POLICY}}",
       autoCommit
@@ -307,6 +345,94 @@ function fail(message) {
   process.exit(1);
 }
 
+function exitWithAgentResult(result, agentLabel, diagnostics) {
+  const status = result.status ?? 1;
+
+  if (status !== 0) {
+    console.error(
+      [
+        `${agentLabel} exited with status ${status}.`,
+        diagnostics
+          .map((line) => `- ${line}`)
+          .join("\n"),
+      ].join("\n"),
+    );
+  }
+
+  process.exit(status);
+}
+
+function runAgentRound({
+  agent,
+  agentCommand,
+  model,
+  sandbox,
+  prompt,
+  repoRootPath,
+  lastMessagePath,
+  diagnostics,
+}) {
+  if (agentCommand) {
+    const result = spawnSync(agentCommand, {
+      cwd: repoRootPath,
+      shell: true,
+      stdio: ["pipe", "inherit", "inherit"],
+      input: prompt,
+      encoding: "utf8",
+    });
+
+    return exitWithAgentResult(
+      result,
+      "Custom agent command",
+      diagnostics,
+    );
+  }
+
+  if (agent === "codex") {
+    const codexArgs = [
+      "exec",
+      "--cd",
+      repoRootPath,
+      "--sandbox",
+      sandbox || "workspace-write",
+      "--output-last-message",
+      lastMessagePath,
+      "-",
+    ];
+
+    if (model) {
+      codexArgs.splice(1, 0, "--model", model);
+    }
+
+    const result = spawnSync("codex", codexArgs, {
+      cwd: repoRootPath,
+      stdio: ["pipe", "inherit", "inherit"],
+      input: prompt,
+      encoding: "utf8",
+    });
+
+    return exitWithAgentResult(result, "Codex", diagnostics);
+  }
+
+  if (agent === "claude") {
+    const claudeArgs = ["-p", "--permission-mode", "acceptEdits", prompt];
+
+    if (model) {
+      claudeArgs.splice(1, 0, "--model", model);
+    }
+
+    const result = spawnSync("claude", claudeArgs, {
+      cwd: repoRootPath,
+      stdio: "inherit",
+      encoding: "utf8",
+    });
+
+    return exitWithAgentResult(result, "Claude", diagnostics);
+  }
+
+  return fail(`Unsupported agent: ${agent}`);
+}
+
 const args = parseArgs(process.argv.slice(2));
 const relativeRunDir = args.dir || path.join(".ralph", "feature");
 const absoluteRunDir = path.resolve(repoRoot, relativeRunDir);
@@ -326,6 +452,8 @@ if (!fs.existsSync(progressPath)) {
   fail(`Missing progress log: ${path.relative(repoRoot, progressPath)}`);
 }
 
+const branch = currentBranch();
+
 const prd = readJson(prdPath);
 const issues = validatePrd(prd);
 
@@ -344,148 +472,153 @@ if (args.list) {
   process.exit(0);
 }
 
-const story = pickNextStory(prd.stories, args.storyId);
-
-if (!story) {
-  if (args.storyId) {
-    fail(`Story not found: ${args.storyId}`);
-  }
-
-  console.log(`No pending stories remain in ${relativeRunDir}`);
-  process.exit(0);
-}
-
-if (normalizeStatus(story) === "done") {
-  fail(`Story ${story.id} is already marked done.`);
-}
-
-const branch = currentBranch();
-
-if (
-  args.enforceBranch &&
-  typeof prd.branchName === "string" &&
-  prd.branchName.trim() !== "" &&
-  prd.branchName !== branch
-) {
-  fail(
-    [
-      `Current branch ${branch} does not match PRD branch ${prd.branchName}.`,
-      "Re-run on the intended branch or omit --enforce-branch.",
-    ].join("\n"),
-  );
-}
-
-const template = fs.readFileSync(promptTemplatePath, "utf8");
+let selectedStoryIds = new Set();
+const shouldAutoTargetStory = args.storyId === "";
 const recentProgress = readRecentProgress(progressPath);
-const storySummary = formatStories(prd.stories);
-const prompt = buildPrompt({
-  template,
-  runDir: relativeRunDir,
-  prd,
-  story,
-  branch,
-  autoCommit: args.autoCommit,
-  recentProgress,
-  storySummary,
-});
-const promptPath = writePrompt(absoluteRunDir, prompt);
 const lastMessagePath = path.join(absoluteRunDir, "last-message.txt");
-const lastRunPath = writeLastRun(absoluteRunDir, {
-  generatedAt: new Date().toISOString(),
-  branch,
-  storyId: story.id,
-  storyTitle: story.title,
-  storyStatus: normalizeStatus(story),
-  promptPath: path.relative(repoRoot, promptPath),
-});
+const template = fs.readFileSync(promptTemplatePath, "utf8");
+const requestedRounds = Number.parseInt(String(args.rounds), 10);
+const effectiveRounds = Number.isFinite(requestedRounds)
+  ? requestedRounds
+  : DEFAULT_ROUNDS;
+let executedRounds = 0;
+let promptPath;
+let lastRunPath;
 
-console.log(
-  `Selected story: ${story.id} - ${story.title} [status=${normalizeStatus(story)}]`,
-);
-console.log(`Run directory: ${relativeRunDir}`);
-console.log(`Prompt file: ${path.relative(repoRoot, promptPath)}`);
-console.log(`Last run file: ${path.relative(repoRoot, lastRunPath)}`);
-console.log(`Last message file: ${path.relative(repoRoot, lastMessagePath)}`);
+for (let roundIndex = 1; roundIndex <= effectiveRounds; roundIndex += 1) {
+  const roundPrd = readJson(prdPath);
+  const roundIssues = validatePrd(roundPrd);
 
-function exitWithAgentResult(result, agentLabel) {
-  const status = result.status ?? 1;
-
-  if (status !== 0) {
-    console.error(
+  if (roundIssues.length > 0) {
+    fail(
       [
-        `${agentLabel} exited with status ${status}.`,
-        `Inspect ${path.relative(repoRoot, promptPath)} for the generated prompt.`,
-        `Inspect ${path.relative(repoRoot, lastRunPath)} for run metadata.`,
-        `Inspect ${path.relative(repoRoot, lastMessagePath)} if the agent wrote a final message.`,
+        "Invalid `prd.json` (while selecting stories):",
+        ...roundIssues.map((issue) => `- ${issue}`),
       ].join("\n"),
     );
   }
 
-  process.exit(status);
+  if (
+    args.enforceBranch &&
+    typeof roundPrd.branchName === "string" &&
+    roundPrd.branchName.trim() !== "" &&
+    roundPrd.branchName !== branch
+  ) {
+    fail(
+      [
+        `Current branch ${branch} does not match PRD branch ${roundPrd.branchName}.`,
+        "Re-run on the intended branch or omit --enforce-branch.",
+      ].join("\n"),
+    );
+  }
+
+  const story = pickNextStory(
+    roundPrd.stories,
+    args.storyId,
+    shouldAutoTargetStory ? selectedStoryIds : new Set(),
+  );
+
+  if (!story) {
+    if (executedRounds === 0 && args.storyId) {
+      fail(`Story not found: ${args.storyId}`);
+    }
+
+    if (executedRounds === 0) {
+      console.log(`No pending stories remain in ${relativeRunDir}`);
+    } else {
+      console.log(`No additional pending stories for round ${roundIndex}.`);
+    }
+
+    break;
+  }
+
+  if (normalizeStatus(story) === "done") {
+    fail(
+      `Story ${story.id} is already marked done.`
+      + (args.storyId ? "" : " It was selected for one of the rounds."),
+    );
+  }
+
+  const prompt = buildPrompt({
+    template,
+    runDir: relativeRunDir,
+    prd: roundPrd,
+    story,
+    branch,
+    autoCommit: args.autoCommit,
+    recentProgress,
+    storySummary: formatStories(roundPrd.stories),
+    roundIndex,
+    roundTotal: effectiveRounds,
+  });
+
+  promptPath = writePrompt(absoluteRunDir, prompt);
+  lastRunPath = writeLastRun(absoluteRunDir, {
+    generatedAt: new Date().toISOString(),
+    branch,
+    rounds: {
+      index: roundIndex,
+      total: effectiveRounds,
+    },
+    storyId: story.id,
+    storyTitle: story.title,
+    storyStatus: normalizeStatus(story),
+    promptPath: path.relative(repoRoot, promptPath),
+  });
+
+  executedRounds += 1;
+  if (!args.storyId) {
+    selectedStoryIds.add(story.id);
+  }
+
+  console.log(
+    `Round ${roundIndex}/${effectiveRounds} selected: ${story.id} - ${story.title}`
+    + ` [status=${normalizeStatus(story)}]`,
+  );
+  console.log(`Run directory: ${relativeRunDir}`);
+  console.log(`Prompt file: ${path.relative(repoRoot, promptPath)}`);
+  console.log(`Last run file: ${path.relative(repoRoot, lastRunPath)}`);
+  console.log(`Last message file: ${path.relative(repoRoot, lastMessagePath)}`);
+
+  if (args.dryRun || (!args.agent && !args.agentCommand)) {
+    continue;
+  }
+
+  runAgentRound({
+    agent: args.agent,
+    agentCommand: args.agentCommand,
+    model: args.model,
+    sandbox: args.sandbox,
+    prompt,
+    repoRootPath: repoRoot,
+    lastMessagePath,
+    diagnostics: [
+      `Inspect ${path.relative(repoRoot, promptPath)} for the generated prompt.`,
+      `Inspect ${path.relative(repoRoot, lastRunPath)} for run metadata.`,
+      `Inspect ${path.relative(repoRoot, lastMessagePath)} if the agent wrote a final message.`,
+    ],
+  });
 }
 
 if (args.dryRun || (!args.agent && !args.agentCommand)) {
-  console.log("Dry run only. Inspect the generated prompt file and re-run with an agent.");
+  if (effectiveRounds > 1 && executedRounds > 0) {
+    console.log(`Dry run complete for ${executedRounds} round(s).`);
+  } else {
+    console.log("Dry run only. Inspect the generated prompt file and re-run with an agent.");
+  }
   process.exit(0);
 }
 
-if (args.agentCommand) {
-  const result = spawnSync(args.agentCommand, {
-    cwd: repoRoot,
-    shell: true,
-    stdio: ["pipe", "inherit", "inherit"],
-    input: prompt,
-    encoding: "utf8",
-  });
-
-  exitWithAgentResult(result, "Custom agent command");
+if (executedRounds === 0) {
+  fail("No stories were selected for execution.");
 }
 
-if (args.agent === "codex") {
-  const codexArgs = [
-    "exec",
-    "--cd",
-    repoRoot,
-    "--sandbox",
-    args.sandbox || "workspace-write",
-    "--output-last-message",
-    lastMessagePath,
-    "-",
-  ];
-
-  if (args.model) {
-    codexArgs.splice(1, 0, "--model", args.model);
-  }
-
-  const result = spawnSync("codex", codexArgs, {
-    cwd: repoRoot,
-    stdio: ["pipe", "inherit", "inherit"],
-    input: prompt,
-    encoding: "utf8",
-  });
-
-  exitWithAgentResult(result, "Codex");
+if (executedRounds < effectiveRounds) {
+  const roundsStatus =
+    args.storyId
+      ? `Requested ${effectiveRounds} rounds for ${args.storyId}.`
+      : `Requested ${effectiveRounds} rounds, but only ${executedRounds} stories remained.`;
+  console.log(roundsStatus);
 }
 
-if (args.agent === "claude") {
-  const claudeArgs = [
-    "-p",
-    "--permission-mode",
-    "acceptEdits",
-    prompt,
-  ];
-
-  if (args.model) {
-    claudeArgs.splice(1, 0, "--model", args.model);
-  }
-
-  const result = spawnSync("claude", claudeArgs, {
-    cwd: repoRoot,
-    stdio: "inherit",
-    encoding: "utf8",
-  });
-
-  exitWithAgentResult(result, "Claude");
-}
-
-fail(`Unsupported agent: ${args.agent}`);
+console.log(`Completed ${executedRounds} round(s).`);
