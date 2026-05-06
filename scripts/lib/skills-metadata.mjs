@@ -1,36 +1,61 @@
 const SUPPORTED_SKILL_METADATA_FIELDS = Object.freeze([
-  "name",
-  "description",
   "tags",
   "triggers",
   "anti_triggers",
   "routing_weight",
+  "daily_driver",
+  "agent_benefit",
+  "catalog_group",
+  "activation_mode",
 ]);
 const ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS = Object.freeze([
-  ...SUPPORTED_SKILL_METADATA_FIELDS,
-  "license",
-  "metadata",
-  "model",
+  "name",
+  "description",
 ]);
 
 const DEFAULT_ROUTING_WEIGHT = 1;
+const DEFAULT_DAILY_DRIVER = false;
+const MIN_AGENT_BENEFIT = 1;
+const DEFAULT_AGENT_BENEFIT = 3;
+const MAX_AGENT_BENEFIT = 5;
+const DEFAULT_CATALOG_GROUP = "support";
+const DEFAULT_ACTIVATION_MODE = "default";
+const ALLOWED_CATALOG_GROUPS = Object.freeze([
+  "workflow",
+  "support",
+  "specialist",
+  "imported",
+]);
+const ALLOWED_ACTIVATION_MODES = Object.freeze([
+  "default",
+  "high-priority-when-relevant",
+  "quiet-until-strong-match",
+  "explicit-only",
+]);
 
 export {
   ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS,
+  ALLOWED_ACTIVATION_MODES,
+  ALLOWED_CATALOG_GROUPS,
+  DEFAULT_ACTIVATION_MODE,
+  DEFAULT_AGENT_BENEFIT,
+  DEFAULT_CATALOG_GROUP,
+  DEFAULT_DAILY_DRIVER,
   DEFAULT_ROUTING_WEIGHT,
+  MAX_AGENT_BENEFIT,
+  MIN_AGENT_BENEFIT,
   SUPPORTED_SKILL_METADATA_FIELDS,
 };
 
-// This parser is intentionally narrow. It is not trying to be a general YAML
-// implementation; it only supports the subset of frontmatter shapes we want to
-// accept as the canonical machine-readable skill contract.
+// Frontmatter parsing is intentionally narrow. It is not trying to be a general
+// YAML parser; it accepts only the minimal shape we need for skill identity.
 function countIndent(line) {
   const match = line.match(/^ */);
   return match ? match[0].length : 0;
 }
 
 function stripQuotes(value) {
-  return value.replace(/^['"]|['"]$/g, "");
+  return value.replace(/^["']|["']$/g, "");
 }
 
 function dedentBlock(lines) {
@@ -66,133 +91,52 @@ function foldBlockScalar(lines) {
   return paragraphs.join("\n\n").trim();
 }
 
-// Inline arrays are part of the supported contract, but they must remain safe
-// for natural trigger strings like "compare A, B options". Tokenize with quote
-// awareness so commas inside quoted entries stay intact.
-function parseInlineArray(value) {
-  const inner = value.slice(1, -1).trim();
-  if (!inner) {
-    return [];
-  }
-
-  const entries = [];
-  let current = "";
-  let quote = null;
-  let escaped = false;
-
-  for (const character of inner) {
-    if (escaped) {
-      current += character;
-      escaped = false;
-      continue;
-    }
-
-    if (character === "\\") {
-      escaped = true;
-      current += character;
-      continue;
-    }
-
-    if (quote) {
-      current += character;
-      if (character === quote) {
-        quote = null;
-      }
-      continue;
-    }
-
-    if (character === '"' || character === "'") {
-      quote = character;
-      current += character;
-      continue;
-    }
-
-    if (character === ",") {
-      const entry = stripQuotes(current.trim());
-      if (entry) {
-        entries.push(entry);
-      }
-      current = "";
-      continue;
-    }
-
-    current += character;
-  }
-
-  if (quote) {
-    throw new Error("Inline array contains an unterminated quoted string.");
-  }
-
-  if (escaped) {
-    throw new Error("Inline array ends with an incomplete escape sequence.");
-  }
-
-  const finalEntry = stripQuotes(current.trim());
-  if (finalEntry) {
-    entries.push(finalEntry);
-  }
-
-  return entries;
+function getFirstMeaningfulBlockLine(blockLines) {
+  return blockLines.find((line) => line.trim() !== "") ?? null;
 }
 
-function parseArrayValue({ inlineValue, blockLines, filePath, field }) {
+function assertNoUnexpectedBlockLines({
+  inlineValue,
+  blockLines,
+  filePath,
+  field,
+  source = "frontmatter",
+}) {
   if (!inlineValue) {
-    const lines = dedentBlock(blockLines).filter((line) => line.trim() !== "");
-
-    if (lines.length === 0) {
-      return [];
-    }
-
-    const values = lines.map((line) => {
-      const match = line.match(/^-\s+(.+)$/);
-      if (!match) {
-        throw new Error(
-          `${filePath}: frontmatter field "${field}" must be a YAML list of strings.`,
-        );
-      }
-
-      return stripQuotes(match[1].trim());
-    });
-
-    return [...new Set(values.filter(Boolean))];
+    return;
   }
 
-  if (inlineValue.startsWith("[")) {
-    if (!inlineValue.endsWith("]")) {
-      throw new Error(
-        `${filePath}: frontmatter field "${field}" must use a closed inline array.`,
-      );
-    }
-
-    try {
-      return [...new Set(parseInlineArray(inlineValue))];
-    } catch (error) {
-      throw new Error(
-        `${filePath}: frontmatter field "${field}" has invalid inline array syntax: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
+  const unexpectedLine = getFirstMeaningfulBlockLine(blockLines);
+  if (!unexpectedLine) {
+    return;
   }
 
-  return [...new Set([stripQuotes(inlineValue.trim())].filter(Boolean))];
+  throw new Error(
+    `${filePath}: ${source} field "${field}" has an unexpected indented continuation line "${unexpectedLine}". Inline values cannot include additional indented lines.`,
+  );
 }
 
-// Descriptions in checked-in skills already use both plain scalars and folded
-// blocks. Keep those forms working without opening the door to a much larger
-// YAML surface area.
-function parseScalarValue({ inlineValue, blockLines, filePath, field }) {
+// Descriptions in checked-in skills use plain scalars and block scalars.
+function parseScalarValue({ inlineValue, blockLines, filePath, field, source = "frontmatter" }) {
   if (inlineValue === ">" || inlineValue === "|") {
     const lines = dedentBlock(blockLines);
     return inlineValue === ">" ? foldBlockScalar(lines) : lines.join("\n").trim();
   }
+
+  assertNoUnexpectedBlockLines({
+    inlineValue,
+    blockLines,
+    filePath,
+    field,
+    source,
+  });
 
   if (!inlineValue) {
     const lines = dedentBlock(blockLines);
     const value = foldBlockScalar(lines);
     if (!value) {
       throw new Error(
-        `${filePath}: frontmatter field "${field}" must be a non-empty string.`,
+        `${filePath}: ${source} field "${field}" must be a non-empty string.`,
       );
     }
     return value;
@@ -201,25 +145,109 @@ function parseScalarValue({ inlineValue, blockLines, filePath, field }) {
   return stripQuotes(inlineValue.trim());
 }
 
-function parseRoutingWeight({ inlineValue, blockLines, filePath }) {
-  const rawValue = inlineValue || foldBlockScalar(dedentBlock(blockLines));
+function parseBooleanValue({ inlineValue, blockLines, filePath, field, source = "frontmatter" }) {
+  assertNoUnexpectedBlockLines({
+    inlineValue,
+    blockLines,
+    filePath,
+    field,
+    source,
+  });
+
+  const rawValue = String(inlineValue || "").trim();
   if (!rawValue) {
-    return DEFAULT_ROUTING_WEIGHT;
+    throw new Error(
+      `${filePath}: ${source} field "${field}" must be true or false.`,
+    );
+  }
+
+  if (rawValue === "true") {
+    return true;
+  }
+
+  if (rawValue === "false") {
+    return false;
+  }
+
+  throw new Error(
+    `${filePath}: ${source} field "${field}" must be true or false.`,
+  );
+}
+
+// Catalog benefit is intentionally narrow and bounded.
+function parseIntegerInRange({
+  inlineValue,
+  blockLines,
+  filePath,
+  field,
+  min,
+  max,
+  source = "frontmatter",
+}) {
+  assertNoUnexpectedBlockLines({
+    inlineValue,
+    blockLines,
+    filePath,
+    field,
+    source,
+  });
+
+  const rawValue = String(inlineValue || "").trim();
+  if (!rawValue) {
+    throw new Error(
+      `${filePath}: ${source} field "${field}" must be an integer from ${min} to ${max}.`,
+    );
   }
 
   const parsed = Number(rawValue);
-  if (!Number.isFinite(parsed)) {
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
     throw new Error(
-      `${filePath}: frontmatter field "routing_weight" must be a finite number.`,
+      `${filePath}: ${source} field "${field}" must be an integer from ${min} to ${max}.`,
     );
   }
 
   return parsed;
 }
 
+function parseEnumValue({
+  inlineValue,
+  blockLines,
+  filePath,
+  field,
+  allowedValues,
+  source = "frontmatter",
+}) {
+  assertNoUnexpectedBlockLines({
+    inlineValue,
+    blockLines,
+    filePath,
+    field,
+    source,
+  });
+
+  const rawValue = String(inlineValue || "").trim();
+  if (!rawValue) {
+    throw new Error(
+      `${filePath}: ${source} field "${field}" must be one of ${allowedValues.join(
+        ", ",
+      )}.`,
+    );
+  }
+
+  const value = stripQuotes(rawValue);
+  if (!allowedValues.includes(value)) {
+    throw new Error(
+      `${filePath}: ${source} field "${field}" must be one of ${allowedValues.join(
+        ", ",
+      )}.`,
+    );
+  }
+
+  return value;
+}
+
 // The frontmatter collector is deliberately simple: read top-level fields and
-// preserve their attached block lines. Validation happens later once we know
-// which fields belong to the supported contract.
+// preserve their attached block lines. Validation happens later.
 function collectFrontmatterEntries(rawFrontmatter) {
   const lines = rawFrontmatter.split(/\r?\n/);
   const entries = new Map();
@@ -229,6 +257,12 @@ function collectFrontmatterEntries(rawFrontmatter) {
     const match = line.match(/^([A-Za-z0-9_-]+):(.*)$/);
 
     if (!match) {
+      // A non-empty line at column zero is malformed top-level frontmatter.
+      if (line.trim() !== "" && countIndent(line) === 0) {
+        throw new Error(
+          `Malformed frontmatter line ${index + 1}: expected "<key>: <value>" but found "${line}".`,
+        );
+      }
       index += 1;
       continue;
     }
@@ -293,24 +327,18 @@ export function parseSkillMetadata({ content, filePath }) {
   }
 
   const entries = collectFrontmatterEntries(frontmatter.rawFrontmatter);
-  // Reject unknown top-level keys instead of silently ignoring them. A typo in
-  // the canonical metadata surface should fail loudly, not quietly degrade
-  // routing or discovery.
   const unknownFields = [...entries.keys()].filter(
     (key) => !ALLOWED_TOP_LEVEL_FRONTMATTER_FIELDS.includes(key),
   );
 
   if (unknownFields.length > 0) {
     throw new Error(
-      `${filePath}: unknown frontmatter field "${unknownFields[0]}". Supported skill metadata fields: ${SUPPORTED_SKILL_METADATA_FIELDS.join(
-        ", ",
-      )}. Allowed non-registry fields: license, metadata, model.`,
+      `${filePath}: unknown frontmatter field "${unknownFields[0]}". Supported frontmatter fields: name, description.`,
     );
   }
 
   const nameEntry = entries.get("name");
   const descriptionEntry = entries.get("description");
-
   if (!nameEntry) {
     throw new Error(`${filePath}: missing required frontmatter field "name".`);
   }
@@ -342,40 +370,118 @@ export function parseSkillMetadata({ content, filePath }) {
     );
   }
 
-  const tags = entries.has("tags")
-    ? parseArrayValue({
-        ...entries.get("tags"),
-        filePath,
-        field: "tags",
-      })
-    : [];
-  const triggers = entries.has("triggers")
-    ? parseArrayValue({
-        ...entries.get("triggers"),
-        filePath,
-        field: "triggers",
-      })
-    : [];
-  const antiTriggers = entries.has("anti_triggers")
-    ? parseArrayValue({
-        ...entries.get("anti_triggers"),
-        filePath,
-        field: "anti_triggers",
-      })
-    : [];
-  const routingWeight = entries.has("routing_weight")
-    ? parseRoutingWeight({
-        ...entries.get("routing_weight"),
-        filePath,
-      })
-    : DEFAULT_ROUTING_WEIGHT;
+  return { name, description };
+}
+
+function parseStringArrayValue(value, filePath, field) {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
+    throw new Error(
+      `${filePath}: metadata field "${field}" must be an array of strings.`,
+    );
+  }
+
+  return [...new Set(value.filter((entry) => entry.trim() !== ""))];
+}
+
+function parseRoutingWeightValue(filePath, rawValue) {
+  if (rawValue === undefined) {
+    return DEFAULT_ROUTING_WEIGHT;
+  }
+
+  if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+    throw new Error(
+      `${filePath}: metadata field "routing_weight" must be a finite number.`,
+    );
+  }
+
+  return rawValue;
+}
+
+export function parseCatalogMetadata({ filePath, skillId, entry }) {
+  const source = `metadata for "${skillId}"`;
+  const raw = entry ?? {};
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`${filePath}: ${source} must be an object.`);
+  }
+
+  const unknownFields = Object.keys(raw).filter(
+    (field) => !SUPPORTED_SKILL_METADATA_FIELDS.includes(field),
+  );
+
+  if (unknownFields.length > 0) {
+    throw new Error(
+      `${filePath}: ${source} has unknown field "${unknownFields[0]}". Supported fields: ${SUPPORTED_SKILL_METADATA_FIELDS.join(
+        ", ",
+      )}.`,
+    );
+  }
+
+  const tags = parseStringArrayValue(raw.tags, filePath, "tags");
+  const triggers = parseStringArrayValue(raw.triggers, filePath, "triggers");
+  const antiTriggers = parseStringArrayValue(
+    raw.anti_triggers,
+    filePath,
+    "anti_triggers",
+  );
+  const routingWeight = parseRoutingWeightValue(filePath, raw.routing_weight);
+  const dailyDriver =
+    raw.daily_driver === undefined
+      ? DEFAULT_DAILY_DRIVER
+      : parseBooleanValue({
+          inlineValue: String(raw.daily_driver),
+          blockLines: [],
+          filePath,
+          field: "daily_driver",
+          source,
+        });
+  const agentBenefit =
+    raw.agent_benefit === undefined
+      ? DEFAULT_AGENT_BENEFIT
+      : parseIntegerInRange({
+          inlineValue: String(raw.agent_benefit),
+          blockLines: [],
+          filePath,
+          field: "agent_benefit",
+          source,
+          min: MIN_AGENT_BENEFIT,
+          max: MAX_AGENT_BENEFIT,
+        });
+  const catalogGroup =
+    raw.catalog_group === undefined
+      ? DEFAULT_CATALOG_GROUP
+      : parseEnumValue({
+          inlineValue: String(raw.catalog_group),
+          blockLines: [],
+          filePath,
+          field: "catalog_group",
+          source,
+          allowedValues: ALLOWED_CATALOG_GROUPS,
+        });
+  const activationMode =
+    raw.activation_mode === undefined
+      ? DEFAULT_ACTIVATION_MODE
+      : parseEnumValue({
+          inlineValue: String(raw.activation_mode),
+          blockLines: [],
+          filePath,
+          field: "activation_mode",
+          source,
+          allowedValues: ALLOWED_ACTIVATION_MODES,
+        });
 
   return {
-    name,
-    description,
     tags,
     triggers,
     anti_triggers: antiTriggers,
     routing_weight: routingWeight,
+    daily_driver: dailyDriver,
+    agent_benefit: agentBenefit,
+    catalog_group: catalogGroup,
+    activation_mode: activationMode,
   };
 }

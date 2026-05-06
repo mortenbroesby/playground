@@ -48,6 +48,19 @@ prose on every command invocation. Instead, skill frontmatter should act as the
 canonical metadata contract and feed `.skills/registry.generated.json`, the
 deterministic generated registry artifact that command surfaces can consume.
 
+That frontmatter contract now includes a catalog-policy layer:
+`daily_driver`, `agent_benefit`, `catalog_group`, and `activation_mode`.
+Those fields let `skills:list`, `skills:search`, and `skills:route` stay
+agent-first by default while still letting task evidence dominate strong
+specialist matches.
+
+Concretely, the catalog model is:
+
+- a curated daily-driver surface for skills agents should see constantly
+- a broader checked-in catalog for semi-regular and one-off skills
+- a lightweight local recent-usage signal used only as a small ranking
+  tie-breaker
+
 ## Why Change
 
 The current model mixes bootstrap guidance with catalog content. The target
@@ -60,7 +73,8 @@ source-backed reads.
 - Each skill keeps the current contract: `SKILL.md` plus optional support files.
 - `SKILL.md` frontmatter becomes the canonical metadata source for discovery and
   routing fields such as `name`, `description`, `tags`, `triggers`,
-  `anti_triggers`, and `routing_weight`.
+  `anti_triggers`, `routing_weight`, `daily_driver`, `agent_benefit`,
+  `catalog_group`, and `activation_mode`.
 - `.skills/registry.generated.json` becomes the deterministic machine-readable
   registry artifact derived from that frontmatter.
 - `AGENTS.md` and `CLAUDE.md` stay thin and should not embed the full catalog.
@@ -68,8 +82,13 @@ source-backed reads.
 - `list`, `search`, and `route` should consume the generated registry rather
   than re-deriving metadata ad hoc from raw markdown prose; `read` still loads
   one chosen skill on demand from source.
+- `skills:list` should default to the curated daily-driver surface, while
+  `skills:list --all` should expose the broader checked-in catalog.
 - Routing heuristics should live in skill frontmatter, the generated registry,
   and `.agents/rules/skill-routing.md`, not in repeated startup-facing docs.
+- Startup-facing docs should summarize the catalog-policy model, then point back
+  to registry-backed `pnpm skills:*` commands instead of duplicating the live
+  catalog.
 - External downloaded skills stay separate from repo-owned first-party skills.
 
 ## Migration Invariants

@@ -13,14 +13,46 @@ multiple skills just because they exist.
 - Treat `.skills/registry.generated.json` as the canonical machine-readable
   routing surface. Startup docs should point back here instead of re-encoding
   routing heuristics.
+- The registry is derived from `SKILL.md` identity plus
+  `.skills/registry.metadata.json`. Routing metadata answers relevance; catalog
+  policy metadata controls prominence in list/search output.
 - Use `pnpm skills:route "<task>"` when you want a cheap bootstrap classifier
   before reading any full `SKILL.md` bodies.
 - Use `pnpm skills:search <query>` for metadata-first discovery, with source
   body fallback only when registry metadata is too weak to disambiguate.
+- Treat `pnpm skills:list` as the default curated daily-driver view. Use
+  `pnpm skills:list --all` or `--group <group>` when you intentionally want the
+  broader checked-in catalog.
 - Load one primary skill first when the task has a clear dominant mode.
 - Load a second skill only when it covers a distinct gap the first one does not.
 - Prefer workflow skills before specialist skills when the task is broad or
   underspecified.
+
+## Catalog Policy
+
+- `daily_driver: true` marks skills that should stay highly visible in normal
+  agent work.
+- `agent_benefit` is the durable editorial signal for how useful a skill tends
+  to be when relevant.
+- `catalog_group` classifies skills into `workflow`, `support`, `specialist`,
+  or `imported` so list and search views can stay understandable.
+- `activation_mode` controls how aggressively a relevant skill should surface:
+  `default`, `high-priority-when-relevant`, `quiet-until-strong-match`, or
+  `explicit-only`.
+- Recent-usage warmth is only an advisory tie-breaker. It should never outrank
+  stronger task evidence.
+
+## Ranking Rules
+
+- Task evidence remains the dominant routing signal.
+- Strong specialist evidence should beat a generic workflow daily driver.
+- `quiet-until-strong-match` skills stay quieter in default views but can still
+  win when the task points directly at them.
+- `explicit-only` skills should not auto-promote unless the user or task names
+  them directly or near-directly.
+- Default list and search ordering should prefer daily drivers first, then
+  higher-benefit relevant skills, then warmer recent usage, before falling back
+  to stable ids.
 
 ## Workflow Triggers
 

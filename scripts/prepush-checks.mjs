@@ -68,6 +68,7 @@ const shouldRunAgentsCheck = files.some((filePath) =>
     "scripts/skills-smoke.mjs",
     "scripts/lib/skills-metadata.mjs",
     "scripts/lib/skills-registry.mjs",
+    "scripts/lib/skills-usage-cache.mjs",
     "scripts/prepush-checks.mjs",
     "package.json",
     "pnpm-lock.yaml",
@@ -86,6 +87,7 @@ const shouldRunSkillsSmoke = files.some((filePath) =>
     "scripts/skills-smoke.mjs",
     "scripts/lib/skills-metadata.mjs",
     "scripts/lib/skills-registry.mjs",
+    "scripts/lib/skills-usage-cache.mjs",
   ]),
 );
 

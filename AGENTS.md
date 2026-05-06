@@ -31,7 +31,8 @@ Thin bootstrap for coding agents in this repo.
 - Repo-owned skills live under [`.skills/`](.skills/).
 - The generated registry at
   [`.skills/registry.generated.json`](.skills/registry.generated.json) is the
-  canonical machine-readable discovery surface for repo-owned skills.
+  canonical machine-readable discovery surface for repo-owned skills, built from
+  `SKILL.md` identity plus `.skills/registry.metadata.json`.
 - Codex execution-policy rules live under [`.codex/rules/`](.codex/rules/),
   with [codex/rules](codex/rules) kept as a docs-path compatibility symlink.
 - Claude loads the same shared commands, hooks, and rules through `.claude/*`
@@ -39,7 +40,11 @@ Thin bootstrap for coding agents in this repo.
 - Use [`.agents/rules/skill-routing.md`](.agents/rules/skill-routing.md) for
   the routing contract. Use `pnpm skills:list`, `pnpm skills:search <query>`,
   `pnpm skills:route "<task>"`, and `pnpm skills:read <skill-name>` as thin
-  registry-backed entry points instead of re-encoding skill heuristics here.
+  registry-backed entry points instead of re-encoding skill heuristics or
+  catalog summaries here.
+- Treat `pnpm skills:list` as the curated daily-driver view. Use
+  `pnpm skills:list --all` when you intentionally want the broader checked-in
+  catalog.
 - Large-change memory checks (`pnpm knowledge:check`) are enforced by Codex
   hooks during tool-based `git commit` flows. Set
   `SKIP_AGENT_MEMORY_CHECK=1` only for an intentional one-off bypass.

@@ -97,9 +97,12 @@ Source of truth:
 Contract:
 
 - skills are cross-agent content
-- `SKILL.md` frontmatter is the canonical metadata source
+- `SKILL.md` frontmatter is the canonical skill-identity source (`name`,
+  `description`).
+- `.skills/registry.metadata.json` is the canonical routing and catalog-policy
+  metadata store.
 - `.skills/registry.generated.json` is the canonical machine-readable discovery
-  and routing surface
+  and routing surface, built from identity + metadata.
 - skills load on demand
 - skills are not startup bootstrap
 - do not mirror or symlink repo-owned skills into runtime-specific directories
@@ -110,6 +113,14 @@ Current access path:
 - `pnpm skills:search <query>`
 - `pnpm skills:route "<task>"`
 - `pnpm skills:read <skill-name>`
+
+Default behavior:
+
+- `pnpm skills:list` should show the curated daily-driver surface by default
+- `pnpm skills:list --all` should expose the broader checked-in catalog
+- `pnpm skills:search` and `pnpm skills:route` should stay evidence-first while
+  using catalog-policy metadata and lightweight recency only as secondary
+  ranking inputs
 
 Implication:
 

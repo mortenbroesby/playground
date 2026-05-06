@@ -1,20 +1,6 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
-tags:
-  - ideation
-  - design
-  - requirements
-triggers:
-  - brainstorm
-  - explore approaches
-  - clarify requirements
-  - design before implementation
-anti_triggers:
-  - fix failing test
-  - review this diff
-  - run the test suite
-routing_weight: 2
+description: You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.
 ---
 
 # Brainstorming Ideas Into Designs

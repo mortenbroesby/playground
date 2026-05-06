@@ -1,86 +1,97 @@
 # Repo-Owned Skills
 
 This directory is the canonical home for repo-owned first-party skills and their
-generated registry.
+discovery metadata.
 
 ## Registry-First Model
 
 - Each repo-owned skill lives in `.skills/<skill-id>/SKILL.md`.
-- `SKILL.md` frontmatter is the canonical machine-readable source for skill
-  metadata.
-- `.skills/registry.generated.json` is a deterministic artifact generated from
-  that frontmatter.
-- Runtime adapters and command surfaces should consume the registry or the same
-  shared loader/helpers rather than re-deriving metadata from raw markdown prose.
+- `SKILL.md` frontmatter is the identity layer (`name`, `description`) and also
+  the fallback source of truth for rendering.
+- `.skills/registry.generated.json` is the deterministic generated artifact built
+  from identity frontmatter plus `.skills/registry.metadata.json`.
+- `.skills/registry.metadata.json` stores routing/listing metadata for each skill
+  and is the canonical source for ranking signals.
+- Runtime adapters and command surfaces should read the generated registry or the
+  shared loader helpers, not re-derive routing metadata from markdown prose.
 
 ## Required Frontmatter Contract
 
-Start with this narrow metadata surface for repo-owned skills:
+Each `.skills/<id>/SKILL.md` requires:
 
-- `name`
-- `description`
-- `tags`
-- `triggers`
-- `anti_triggers`
-- `routing_weight`
+- `name` (required)
+- `description` (required)
 
-Contract notes:
+No other top-level keys are currently supported in frontmatter.
 
-- `name` and `description` are required.
-- `tags`, `triggers`, and `anti_triggers` are optional string lists.
-- `routing_weight` is optional and defaults to `1`.
-- Unknown top-level frontmatter keys are rejected so metadata typos do not get
-  silently dropped.
-- Existing non-registry top-level keys are limited to `license`, `metadata`, and
-  `model`.
+## Metadata Contract
 
-Example:
+`.skills/registry.metadata.json` stores per-skill metadata records under
+`skills.<skill-id>`:
 
-```md
----
-name: readme-authoring
-description: Use when writing, restructuring, or reviewing a project README.
-tags:
-  - docs
-  - onboarding
-triggers:
-  - improve the readme
-  - rewrite setup docs
-anti_triggers:
-  - fix a runtime bug
-routing_weight: 2
----
+```json
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "tags": ["ui", "layout"],
+      "triggers": ["design review", "visual polish"],
+      "anti_triggers": ["api bug"],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "specialist",
+      "activation_mode": "high-priority-when-relevant"
+    }
+  }
+}
 ```
+
+Supported metadata fields:
+
+- `tags` (string array)
+- `triggers` (string array)
+- `anti_triggers` (string array)
+- `routing_weight` (number, default `1`)
+- `daily_driver` (boolean, default `false`)
+- `agent_benefit` (integer 1..5, default `3`)
+- `catalog_group` (one of `workflow`, `support`, `specialist`, `imported`;
+  default `support`)
+- `activation_mode` (one of `default`, `high-priority-when-relevant`,
+  `quiet-until-strong-match`, `explicit-only`; default `default`)
+
+Unknown keys in either `SKILL.md` frontmatter or registry metadata fail fast so
+typos cannot silently degrade routing.
 
 ## Registry Artifact
 
-The generated registry stores, per skill:
+`.skills/registry.generated.json` stores merged identity and catalog metadata:
 
-- skill id
-- display name
-- description
-- source directory
-- source `SKILL.md` path
-- tags
-- triggers
-- anti-triggers
-- routing weight
+- skill id and source location
+- display name and description
+- `tags`, `triggers`, `anti_triggers`
+- `routing_weight`, `daily_driver`, `agent_benefit`, `catalog_group`,
+  `activation_mode`
 
-Rebuild it locally with:
+Rebuild or refresh the generated artifact after any identity/metadata edits:
 
 ```bash
 node scripts/skills.mjs registry
 ```
 
-Validate the checked-in artifact with:
+Verify without writing:
 
 ```bash
 node scripts/skills.mjs registry --check
 ```
 
-## Current Scope
+When adding a new skill, include:
 
-- The checked-in skill tree remains the source of truth.
-- Full skill content stays out of startup-loaded adapter surfaces.
-- `AGENTS.md` stays thin and points agents here for on-demand skill loading.
-- External downloaded skills stay out of this checked-in directory.
+- `name` and `description` in `SKILL.md`
+- a matching `.skills/registry.metadata.json` `skills.<id>` entry
+
+## Scope Notes
+
+- Checked-in skill files remain the first-party source.
+- Content remains out of startup-loaded adapter surfaces.
+- `AGENTS.md` is intentionally thin and points agents to these surfaces.

@@ -1,7 +1,6 @@
 ---
 name: ralph-plan
 description: Interactive planning assistant that helps create focused, well-structured ralph-loop commands through collaborative conversation
-model: claude-opus-4-5
 ---
 
 # Ralph Plan - Interactive Ralph Command Builder

@@ -1,0 +1,455 @@
+{
+  "version": 1,
+  "skills": {
+    "api-and-interface-design": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "brainstorming": {
+      "tags": [
+        "ideation",
+        "design",
+        "requirements"
+      ],
+      "triggers": [
+        "brainstorm",
+        "explore approaches",
+        "clarify requirements",
+        "design before implementation"
+      ],
+      "anti_triggers": [
+        "fix failing test",
+        "review this diff",
+        "run the test suite"
+      ],
+      "routing_weight": 2,
+      "daily_driver": true,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "browser-testing-with-devtools": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "claude-api": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "imported",
+      "activation_mode": "quiet-until-strong-match"
+    },
+    "code-review-and-quality": {
+      "tags": [
+        "review",
+        "quality",
+        "audit"
+      ],
+      "triggers": [
+        "review this",
+        "audit this diff",
+        "merge readiness",
+        "look for bugs"
+      ],
+      "anti_triggers": [
+        "implement feature",
+        "brainstorm approaches",
+        "make a plan"
+      ],
+      "routing_weight": 3,
+      "daily_driver": true,
+      "agent_benefit": 5,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "code-simplification": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "context-engineering": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "debugging-and-error-recovery": {
+      "tags": [
+        "debugging",
+        "triage",
+        "recovery"
+      ],
+      "triggers": [
+        "fix failing test",
+        "debug build error",
+        "reproduce the bug",
+        "why is this broken"
+      ],
+      "anti_triggers": [
+        "review this diff",
+        "write a spec",
+        "brainstorm approaches"
+      ],
+      "routing_weight": 3,
+      "daily_driver": true,
+      "agent_benefit": 5,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "dispatching-parallel-agents": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "doc-coauthoring": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "documentation-and-adrs": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": true,
+      "agent_benefit": 4,
+      "catalog_group": "support",
+      "activation_mode": "default"
+    },
+    "engineering-workflow": {
+      "tags": [
+        "workflow",
+        "implementation",
+        "shipping"
+      ],
+      "triggers": [
+        "implement",
+        "refactor",
+        "build and test",
+        "ship this change"
+      ],
+      "anti_triggers": [
+        "review only",
+        "debug failing test",
+        "make a plan",
+        "brainstorm approaches"
+      ],
+      "routing_weight": 2,
+      "daily_driver": true,
+      "agent_benefit": 5,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "executing-plans": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "finishing-a-development-branch": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "frontend-design": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "specialist",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "gh-stack": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "specialist",
+      "activation_mode": "explicit-only"
+    },
+    "grill-me": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "incremental-implementation": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": true,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "mcp-builder": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "imported",
+      "activation_mode": "quiet-until-strong-match"
+    },
+    "planning-and-task-breakdown": {
+      "tags": [
+        "planning",
+        "sequencing",
+        "task-breakdown"
+      ],
+      "triggers": [
+        "make a plan",
+        "break this down",
+        "ordered steps",
+        "task breakdown"
+      ],
+      "anti_triggers": [
+        "implement directly",
+        "brainstorm approaches",
+        "review this diff",
+        "debug failing test"
+      ],
+      "routing_weight": 2,
+      "daily_driver": true,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "ralph-plan": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "specialist",
+      "activation_mode": "explicit-only"
+    },
+    "readme-authoring": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "receiving-code-review": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "requesting-code-review": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": true,
+      "agent_benefit": 4,
+      "catalog_group": "support",
+      "activation_mode": "default"
+    },
+    "shipping-and-launch": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "skill-creator": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "imported",
+      "activation_mode": "quiet-until-strong-match"
+    },
+    "source-driven-development": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "spec-driven-development": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "subagent-driven-development": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "systematic-debugging": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "test-driven-development": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": true,
+      "agent_benefit": 5,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "using-git-worktrees": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "support",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "using-superpowers": {
+      "tags": [
+        "bootstrap",
+        "skill-routing",
+        "process"
+      ],
+      "triggers": [
+        "use superpowers",
+        "choose a skill",
+        "strict workflow",
+        "start a session"
+      ],
+      "anti_triggers": [
+        "implement feature",
+        "fix failing test",
+        "review this diff"
+      ],
+      "routing_weight": 0.5,
+      "daily_driver": true,
+      "agent_benefit": 4,
+      "catalog_group": "support",
+      "activation_mode": "default"
+    },
+    "verification-before-completion": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": true,
+      "agent_benefit": 5,
+      "catalog_group": "support",
+      "activation_mode": "default"
+    },
+    "webapp-testing": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 4,
+      "catalog_group": "specialist",
+      "activation_mode": "high-priority-when-relevant"
+    },
+    "writing-plans": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": true,
+      "agent_benefit": 4,
+      "catalog_group": "workflow",
+      "activation_mode": "default"
+    },
+    "writing-skills": {
+      "tags": [],
+      "triggers": [],
+      "anti_triggers": [],
+      "routing_weight": 1,
+      "daily_driver": false,
+      "agent_benefit": 3,
+      "catalog_group": "specialist",
+      "activation_mode": "quiet-until-strong-match"
+    }
+  }
+}

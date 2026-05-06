@@ -49,5 +49,19 @@ and routing artifact for repo-owned skills. `pnpm skills:list`,
 `pnpm skills:read` remains the source-backed step that loads one chosen skill
 body on demand.
 
+The registry now also carries the catalog-policy layer:
+`daily_driver`, `agent_benefit`, `catalog_group`, and `activation_mode`.
+Those fields are the durable explanation for agent-first ordering and routing
+biases; startup docs should describe the model, but the generated registry
+remains the live catalog.
+
+In practice this means:
+
+- `pnpm skills:list` should default to the curated daily-driver surface
+- `pnpm skills:list --all` should expose the broader checked-in catalog
+- `pnpm skills:search` and `pnpm skills:route` should remain evidence-first,
+  using catalog-policy metadata and lightweight recency only as secondary
+  ranking inputs
+
 The repo should not reintroduce duplicated skill bodies or runtime-specific
 `*/skills` trees as authoring homes for checked-in skills.
