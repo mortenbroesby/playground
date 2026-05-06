@@ -1,1 +1,4 @@
+# Enforce skill metadata checks across pushed SKILL.md changes before running the
+# broader pre-push verification script.
+node scripts/skills-metadata-hook.mjs --auto-range
 node scripts/prepush-checks.mjs || exit 1

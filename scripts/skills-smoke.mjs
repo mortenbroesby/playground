@@ -28,11 +28,26 @@ const repoRoot = findProjectRoot(
 );
 
 const skillsScriptPath = path.join(repoRoot, "scripts", "skills.mjs");
+const skillMetadataHookPath = path.join(repoRoot, "scripts", "skills-metadata-hook.mjs");
 
 function runNode(args) {
   return spawnSync("node", args, {
     cwd: repoRoot,
     encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+function runSkillMetadataHook(guardFiles) {
+  // Reuse the existing hook execution path and pass the changed file list through
+  // the env override path used in pre-commit/pre-push integrations.
+  return spawnSync("node", [skillMetadataHookPath], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      SKILL_METADATA_GUARD_FILES: JSON.stringify(guardFiles),
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
 }
@@ -466,6 +481,30 @@ description: Valid description
       daily_driver: false,
     },
     "claude-api should stay quiet until strong evidence promotes the imported skill",
+  );
+
+  // Lock in the commit/pre-push metadata guard behavior:
+  // fail when a changed SKILL.md lacks a metadata entry, and pass when all entries
+  // are present.
+  const metadataHookMissingEntryResult = runSkillMetadataHook([
+    ".skills/brainstorming/SKILL.md",
+    ".skills/non-existent-id/SKILL.md",
+  ]);
+  assertFailed(
+    metadataHookMissingEntryResult,
+    "skills metadata hook should reject missing registry entries for changed SKILL.md files",
+  );
+  assert.match(
+    metadataHookMissingEntryResult.stderr,
+    /non-existent-id/,
+  );
+
+  const metadataHookSuccessResult = runSkillMetadataHook([
+    ".skills/brainstorming/SKILL.md",
+  ]);
+  assertOk(
+    metadataHookSuccessResult,
+    "skills metadata hook should pass when all changed SKILL.md files are registered",
   );
 
   const installResult = runNode([
