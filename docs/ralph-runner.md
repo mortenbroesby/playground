@@ -68,6 +68,12 @@ Use one call to inspect all active loops at once:
 pnpm ralph:loop -- --all --list
 ```
 
+Use autopilot mode only for execution, never for broad exploratory planning:
+
+```bash
+pnpm ralph:loop -- --all --autopilot --agent codex --autopilot-max-rounds 12 --autopilot-wait-ms 1000
+```
+
 ## Dry-run the next prompt
 
 ```bash
@@ -97,6 +103,19 @@ Run one or more rounds across all active runs in `.ralph`:
 pnpm ralph:loop -- --all --rounds 3 --dry-run
 ```
 
+Autopilot examples:
+
+```bash
+pnpm ralph:loop -- --dir .ralph/my-feature --autopilot --agent codex
+pnpm ralph:loop -- --dir .ralph/my-feature --autopilot --agent codex --autopilot-max-rounds 5
+pnpm ralph:loop -- --all --autopilot --agent codex --autopilot-wait-ms 1500
+```
+
+Defaults:
+
+- autopilot caps at 25 rounds unless `--autopilot-max-rounds` is set
+- `--autopilot-wait-ms` defaults to `0`
+
 ## Execute with Codex
 
 ```bash
@@ -110,6 +129,9 @@ Optional flags:
 - `--auto-commit`
 - `--enforce-branch`
 - `--all`
+- `--autopilot`
+- `--autopilot-max-rounds <n>`
+- `--autopilot-wait-ms <n>`
 - `--story <id>`
 - `--rounds <n>`
 - `--list`
@@ -160,6 +182,7 @@ priorities also work, with lower numbers selected first.
 - stories can be targeted explicitly with `--story`
 - `--rounds` runs multiple iterations in one invocation and records round metadata
 - `--all` can execute a single merged loop across `.ralph/*` runs
+- `--autopilot` runs repeated rounds automatically until no pending stories or cap is reached
 - `--list` provides a quick status view without generating a prompt
 
 ## Differences from upstream

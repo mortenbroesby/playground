@@ -4,10 +4,13 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { setTimeout } from "node:timers/promises";
 
 const repoRoot = process.cwd();
 const promptTemplatePath = path.join(repoRoot, "scripts", "ralph", "prompt.md");
 const DEFAULT_ROUNDS = 1;
+const DEFAULT_AUTOPILOT_ROUNDS = 25;
+const DEFAULT_AUTOPILOT_WAIT_MS = 0;
 
 function parseArgs(argv) {
   const args = {
@@ -22,6 +25,11 @@ function parseArgs(argv) {
     enforceBranch: false,
     list: false,
     rounds: DEFAULT_ROUNDS,
+    roundsSpecified: false,
+    autopilot: false,
+    autopilotMaxRounds: DEFAULT_AUTOPILOT_ROUNDS,
+    autopilotMaxRoundsSpecified: false,
+    autopilotWaitMs: DEFAULT_AUTOPILOT_WAIT_MS,
     all: false,
   };
 
@@ -65,7 +73,41 @@ function parseArgs(argv) {
     }
 
     if (token === "--rounds") {
-      args.rounds = parseRoundCount(argv[index + 1], index, argv.length);
+      args.rounds = parsePositiveInteger(
+        argv[index + 1],
+        index,
+        argv.length,
+        "--rounds",
+      );
+      args.roundsSpecified = true;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--autopilot") {
+      args.autopilot = true;
+      continue;
+    }
+
+    if (token === "--autopilot-max-rounds") {
+      args.autopilotMaxRounds = parsePositiveInteger(
+        argv[index + 1],
+        index,
+        argv.length,
+        "--autopilot-max-rounds",
+      );
+      args.autopilotMaxRoundsSpecified = true;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--autopilot-wait-ms") {
+      args.autopilotWaitMs = parseNonNegativeInteger(
+        argv[index + 1],
+        index,
+        argv.length,
+        "--autopilot-wait-ms",
+      );
       index += 1;
       continue;
     }
@@ -99,17 +141,33 @@ function parseArgs(argv) {
   return args;
 }
 
-function parseRoundCount(rawValue, position, argvLength) {
+function parsePositiveInteger(rawValue, position, argvLength, flagName) {
   const parsed = Number.parseInt(rawValue ?? "", 10);
 
   if (!Number.isFinite(parsed)) {
     fail(
-      `Invalid --rounds value "${rawValue}" at position ${position + 1} of ${argvLength}. Use --rounds <positive integer>.`,
+      `Invalid ${flagName} value "${rawValue}" at position ${position + 1} of ${argvLength}. Use ${flagName} <positive integer>.`,
     );
   }
 
   if (parsed <= 0) {
-    fail(`--rounds must be a positive integer, got ${parsed}.`);
+    fail(`${flagName} must be a positive integer, got ${parsed}.`);
+  }
+
+  return parsed;
+}
+
+function parseNonNegativeInteger(rawValue, position, argvLength, flagName) {
+  const parsed = Number.parseInt(rawValue ?? "", 10);
+
+  if (!Number.isFinite(parsed)) {
+    fail(
+      `Invalid ${flagName} value "${rawValue}" at position ${position + 1} of ${argvLength}. Use ${flagName} <integer >= 0>.`,
+    );
+  }
+
+  if (parsed < 0) {
+    fail(`${flagName} must be >= 0, got ${parsed}.`);
   }
 
   return parsed;
@@ -122,6 +180,14 @@ function fail(message) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+async function runWithPause(waitMs) {
+  if (waitMs <= 0) {
+    return;
+  }
+
+  await setTimeout(waitMs);
 }
 
 function currentBranch() {
@@ -614,159 +680,203 @@ function pickGlobalCandidate(runStates, args, branch, enforceBranch) {
   return selected;
 }
 
-const args = parseArgs(process.argv.slice(2));
-const requestedBranch = currentBranch();
-const baseRunDir = path.resolve(
-  repoRoot,
-  args.dir || (args.all ? ".ralph" : path.join(".ralph", "feature")),
-);
-const runDirectoryPaths = resolveRunStates(
-  baseRunDir,
-  args.all,
-);
-const runStates = runDirectoryPaths.map(loadRunState);
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
 
-runStates.forEach((state) => {
-  if (!fs.existsSync(state.prdPath)) {
-    fail(`Missing PRD file: ${path.relative(repoRoot, state.prdPath)}`);
-  }
-
-  if (!fs.existsSync(state.progressPath)) {
+  if (args.autopilot && !args.dryRun && !args.agent && !args.agentCommand) {
     fail(
-      `Missing progress log: ${path.relative(repoRoot, state.progressPath)}`,
+      "--autopilot requires --agent or --agent-command. Use --dry-run if no agent should run now.",
     );
   }
-});
 
-if (args.list) {
-  console.log(
-    `Ralph loops in ${path.relative(repoRoot, baseRunDir)}`
-    + `${args.all ? " (merged)" : ""}:`,
+  if (
+    args.autopilot
+    && args.roundsSpecified
+    && args.autopilotMaxRoundsSpecified
+  ) {
+    fail("--rounds and --autopilot-max-rounds are mutually exclusive in autopilot mode.");
+  }
+
+  const requestedBranch = currentBranch();
+  const baseRunDir = path.resolve(
+    repoRoot,
+    args.dir || (args.all ? ".ralph" : path.join(".ralph", "feature")),
   );
+  const runDirectoryPaths = resolveRunStates(
+    baseRunDir,
+    args.all,
+  );
+  const runStates = runDirectoryPaths.map(loadRunState);
+
   runStates.forEach((state) => {
-    listRunState(state);
-  });
-  process.exit(0);
-}
-
-if (args.rounds <= 0) {
-  fail("--rounds must be a positive integer.");
-}
-
-const requestedRounds = Number.parseInt(String(args.rounds), 10);
-const effectiveRounds = Number.isFinite(requestedRounds)
-  ? requestedRounds
-  : DEFAULT_ROUNDS;
-const template = fs.readFileSync(promptTemplatePath, "utf8");
-let executedRounds = 0;
-
-for (let roundIndex = 1; roundIndex <= effectiveRounds; roundIndex += 1) {
-  const candidate = pickGlobalCandidate(
-    runStates,
-    args,
-    requestedBranch,
-    args.enforceBranch,
-  );
-
-  if (!candidate) {
-    if (executedRounds === 0) {
-      if (args.storyId) {
-        fail(`Story not found: ${args.storyId}`);
-      }
-
-      console.log(
-        `No pending stories remain in ${path.relative(repoRoot, baseRunDir)}`
-        + `${args.all ? " (merged)" : ""}`,
-      );
-      process.exit(0);
+    if (!fs.existsSync(state.prdPath)) {
+      fail(`Missing PRD file: ${path.relative(repoRoot, state.prdPath)}`);
     }
 
-    console.log(`No additional pending stories for round ${roundIndex}.`);
-    break;
-  }
-
-  const prompt = buildPrompt({
-    template,
-    runDir: candidate.state.relativeRunDir,
-    prd: candidate.prd,
-    story: candidate.story,
-    branch: requestedBranch,
-    autoCommit: args.autoCommit,
-    recentProgress: candidate.recentProgress,
-    storySummary: candidate.storySummary,
-    roundIndex,
-    roundTotal: effectiveRounds,
+    if (!fs.existsSync(state.progressPath)) {
+      fail(
+        `Missing progress log: ${path.relative(repoRoot, state.progressPath)}`,
+      );
+    }
   });
 
-  const promptPath = writePrompt(candidate.state.runDirPath, prompt);
-  const lastRunPath = writeLastRun(candidate.state.runDirPath, {
-    generatedAt: new Date().toISOString(),
-    branch: requestedBranch,
-    rounds: {
-      index: roundIndex,
-      total: effectiveRounds,
-    },
-    storyId: candidate.story.id,
-    storyTitle: candidate.story.title,
-    storyStatus: normalizeStatus(candidate.story),
-    runDir: candidate.state.relativeRunDir,
-    promptPath: path.relative(repoRoot, promptPath),
-  });
-
-  executedRounds += 1;
-  if (!args.storyId) {
-    candidate.state.selectedStoryIds.add(candidate.story.id);
+  if (args.list) {
+    console.log(
+      `Ralph loops in ${path.relative(repoRoot, baseRunDir)}`
+      + `${args.all ? " (merged)" : ""}:`,
+    );
+    runStates.forEach((state) => {
+      listRunState(state);
+    });
+    return;
   }
 
-  console.log(
-    `Round ${roundIndex}/${effectiveRounds}: selected ${candidate.state.relativeRunDir}`
-    + ` / ${candidate.story.id} - ${candidate.story.title} [status=${candidate.status}]`,
-  );
-  console.log(`Prompt file: ${path.relative(repoRoot, promptPath)}`);
-  console.log(`Last run file: ${path.relative(repoRoot, lastRunPath)}`);
-  console.log(
-    `Last message file: ${path.relative(repoRoot, candidate.state.lastMessagePath)}`,
-  );
+  if (args.rounds <= 0) {
+    fail("--rounds must be a positive integer.");
+  }
+
+  const requestedRounds = Number.parseInt(String(args.rounds), 10);
+  const effectiveRounds = args.autopilot
+    ? args.roundsSpecified
+      ? requestedRounds
+      : args.autopilotMaxRounds
+    : requestedRounds;
+  const template = fs.readFileSync(promptTemplatePath, "utf8");
+  let executedRounds = 0;
+  let endedDueToNoWork = false;
+
+  for (let roundIndex = 1; roundIndex <= effectiveRounds; roundIndex += 1) {
+    const candidate = pickGlobalCandidate(
+      runStates,
+      args,
+      requestedBranch,
+      args.enforceBranch,
+    );
+
+    if (!candidate) {
+      if (executedRounds === 0) {
+        if (args.storyId) {
+          fail(`Story not found: ${args.storyId}`);
+        }
+
+        console.log(
+          `No pending stories remain in ${path.relative(repoRoot, baseRunDir)}`
+          + `${args.all ? " (merged)" : ""}`,
+        );
+        return;
+      }
+
+      endedDueToNoWork = true;
+      console.log(
+        args.autopilot
+          ? `Autopilot reached completion after ${executedRounds} round(s).`
+          : `No additional pending stories for round ${roundIndex}.`,
+      );
+      break;
+    }
+
+    const prompt = buildPrompt({
+      template,
+      runDir: candidate.state.relativeRunDir,
+      prd: candidate.prd,
+      story: candidate.story,
+      branch: requestedBranch,
+      autoCommit: args.autoCommit,
+      recentProgress: candidate.recentProgress,
+      storySummary: candidate.storySummary,
+      roundIndex,
+      roundTotal: effectiveRounds,
+    });
+
+    const promptPath = writePrompt(candidate.state.runDirPath, prompt);
+    const lastRunPath = writeLastRun(candidate.state.runDirPath, {
+      generatedAt: new Date().toISOString(),
+      branch: requestedBranch,
+      rounds: {
+        index: roundIndex,
+        total: effectiveRounds,
+      },
+      storyId: candidate.story.id,
+      storyTitle: candidate.story.title,
+      storyStatus: normalizeStatus(candidate.story),
+      runDir: candidate.state.relativeRunDir,
+      promptPath: path.relative(repoRoot, promptPath),
+    });
+
+    executedRounds += 1;
+    if (!args.storyId) {
+      candidate.state.selectedStoryIds.add(candidate.story.id);
+    }
+
+    console.log(
+      `Round ${roundIndex}/${effectiveRounds}: selected ${candidate.state.relativeRunDir}`
+      + ` / ${candidate.story.id} - ${candidate.story.title} [status=${candidate.status}]`,
+    );
+    console.log(`Prompt file: ${path.relative(repoRoot, promptPath)}`);
+    console.log(`Last run file: ${path.relative(repoRoot, lastRunPath)}`);
+    console.log(
+      `Last message file: ${path.relative(repoRoot, candidate.state.lastMessagePath)}`,
+    );
+
+    if (args.dryRun || (!args.agent && !args.agentCommand)) {
+      continue;
+    }
+
+    runAgentRound({
+      agent: args.agent,
+      agentCommand: args.agentCommand,
+      model: args.model,
+      sandbox: args.sandbox,
+      prompt,
+      repoRootPath: repoRoot,
+      lastMessagePath: candidate.state.lastMessagePath,
+      diagnostics: [
+        `Inspect ${path.relative(repoRoot, promptPath)} for the generated prompt.`,
+        `Inspect ${path.relative(repoRoot, lastRunPath)} for run metadata.`,
+        `Inspect ${path.relative(repoRoot, candidate.state.lastMessagePath)} if the agent wrote a final message.`,
+      ],
+    });
+
+    if (args.autopilot && args.autopilotWaitMs > 0) {
+      await runWithPause(args.autopilotWaitMs);
+    }
+  }
 
   if (args.dryRun || (!args.agent && !args.agentCommand)) {
-    continue;
+    if (executedRounds > 1) {
+      console.log(`Dry run complete for ${executedRounds} round(s).`);
+    } else {
+      console.log("Dry run only. Inspect the generated prompt file and re-run with an agent.");
+    }
+    return;
   }
 
-  runAgentRound({
-    agent: args.agent,
-    agentCommand: args.agentCommand,
-    model: args.model,
-    sandbox: args.sandbox,
-    prompt,
-    repoRootPath: repoRoot,
-    lastMessagePath: candidate.state.lastMessagePath,
-    diagnostics: [
-      `Inspect ${path.relative(repoRoot, promptPath)} for the generated prompt.`,
-      `Inspect ${path.relative(repoRoot, lastRunPath)} for run metadata.`,
-      `Inspect ${path.relative(repoRoot, candidate.state.lastMessagePath)} if the agent wrote a final message.`,
-    ],
-  });
-}
-
-if (args.dryRun || (!args.agent && !args.agentCommand)) {
-  if (executedRounds > 1) {
-    console.log(`Dry run complete for ${executedRounds} round(s).`);
-  } else {
-    console.log("Dry run only. Inspect the generated prompt file and re-run with an agent.");
+  if (executedRounds === 0) {
+    fail("No stories were selected for execution.");
   }
-  process.exit(0);
+
+  if (args.autopilot) {
+    if (endedDueToNoWork) {
+      return;
+    }
+
+    if (executedRounds >= effectiveRounds) {
+      console.log(
+        `Autopilot reached the configured cap of ${effectiveRounds} round(s).`,
+      );
+    }
+    return;
+  }
+
+  if (executedRounds < effectiveRounds) {
+    const roundsStatus =
+      args.storyId
+        ? `Requested ${effectiveRounds} rounds for ${args.storyId}.`
+        : `Requested ${effectiveRounds} rounds, but only ${executedRounds} stories remained.`;
+    console.log(roundsStatus);
+  }
+
+  console.log(`Completed ${executedRounds} round(s).`);
 }
 
-if (executedRounds === 0) {
-  fail("No stories were selected for execution.");
-}
-
-if (executedRounds < effectiveRounds) {
-  const roundsStatus =
-    args.storyId
-      ? `Requested ${effectiveRounds} rounds for ${args.storyId}.`
-      : `Requested ${effectiveRounds} rounds, but only ${executedRounds} stories remained.`;
-  console.log(roundsStatus);
-}
-
-console.log(`Completed ${executedRounds} round(s).`);
+await main();
