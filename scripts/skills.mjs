@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findProjectRoot } from "workspace-tools";
+
+import {
+  getRegistryPath,
+  isRegistryCurrent,
+  loadSkillSources,
+  writeSkillRegistry,
+} from "./lib/skills-registry.mjs";
 
 const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
   "pnpm",
 );
-const skillsRoot = path.join(repoRoot, ".skills");
 
 function fail(message) {
   console.error(message);
@@ -22,84 +27,23 @@ function usage() {
   pnpm skills:search <query>
   pnpm skills:read <skill-name>[,<skill-name>...]
   pnpm skills:route <task description> [--json]
+  node scripts/skills.mjs registry [--check]
 
 Notes:
   - Repo-owned skills live directly in \`.skills/\`.
-  - Skill discovery is command-first and on-demand.
+  - Frontmatter is the canonical machine-readable metadata contract.
+  - \`.skills/registry.generated.json\` is the deterministic generated registry artifact.
   - \`skills:install\` and \`skills:sync\` are intentionally unsupported in this repo architecture.`);
 }
 
-function ensureSkillsRoot() {
-  if (!fs.existsSync(skillsRoot)) {
-    fail("Missing .skills directory.");
-  }
-}
-
-function extractDescription(contents) {
-  const frontmatterMatch = contents.match(
-    /^---\r?\n[\s\S]*?\r?\ndescription:\s*(.+)\r?\n[\s\S]*?\r?\n---/,
-  );
-  if (frontmatterMatch) {
-    return frontmatterMatch[1].trim().replace(/^["']|["']$/g, "");
-  }
-
-  return contents
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find(
-      (line) =>
-        line &&
-        !line.startsWith("#") &&
-        line !== "---" &&
-        !/^[a-z_][a-z0-9_-]*:/i.test(line),
-    )
-    ?? "";
-}
-
-function collectSkills(rootDir) {
-  const skills = [];
-  const stack = [rootDir];
-
-  while (stack.length > 0) {
-    const currentDir = stack.pop();
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-
-    if (entries.some((entry) => entry.isFile() && entry.name === "SKILL.md")) {
-      const skillPath = path.join(currentDir, "SKILL.md");
-      const skillName = path.basename(currentDir);
-      const contents = fs.readFileSync(skillPath, "utf8");
-      const description = extractDescription(contents);
-
-      skills.push({
-        name: skillName,
-        dir: currentDir,
-        skillPath,
-        relativeDir: path.relative(repoRoot, currentDir),
-        description,
-        contents,
-      });
-      continue;
-    }
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) {
-        continue;
-      }
-
-      if (entry.name === "node_modules" || entry.name === ".git") {
-        continue;
-      }
-
-      stack.push(path.join(currentDir, entry.name));
-    }
-  }
-
-  return skills.sort((a, b) => a.name.localeCompare(b.name));
-}
-
+// Keep the CLI thin. Discovery, parsing, and registry generation should live in
+// dedicated helpers so this file mostly dispatches commands and formats output.
 function getAllSkills() {
-  ensureSkillsRoot();
-  return collectSkills(skillsRoot);
+  try {
+    return loadSkillSources(repoRoot);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
 }
 
 function splitRequestedSkillNames(args) {
@@ -111,7 +55,7 @@ function splitRequestedSkillNames(args) {
 
 function listSkills() {
   for (const skill of getAllSkills()) {
-    console.log(skill.name);
+    console.log(skill.id);
   }
 }
 
@@ -122,8 +66,12 @@ function searchSkills(query) {
   }
 
   const matches = getAllSkills().filter((skill) => {
+    // Search is still intentionally simple in this foundation slice. It uses
+    // the centralized skill source data now, but richer metadata-first ranking
+    // belongs to the later routing/search refactor tasks.
     const haystack = [
-      skill.name,
+      skill.id,
+      skill.displayName,
       skill.relativeDir,
       skill.description,
       skill.contents.slice(0, 4000),
@@ -139,7 +87,7 @@ function searchSkills(query) {
   }
 
   for (const skill of matches) {
-    console.log(`${skill.name}: ${skill.description || skill.relativeDir}`);
+    console.log(`${skill.id}: ${skill.description || skill.relativeDir}`);
   }
 }
 
@@ -150,7 +98,7 @@ function readSkills(names) {
   }
 
   const allSkills = getAllSkills();
-  const byName = new Map(allSkills.map((skill) => [skill.name, skill]));
+  const byName = new Map(allSkills.map((skill) => [skill.id, skill]));
 
   for (const skillName of requestedNames) {
     const skill = byName.get(skillName);
@@ -159,7 +107,7 @@ function readSkills(names) {
     }
 
     if (requestedNames.length > 1) {
-      console.log(`=== ${skill.name} ===`);
+      console.log(`=== ${skill.id} ===`);
     }
     console.log(`Base directory: ${skill.relativeDir}`);
     console.log("");
@@ -170,6 +118,31 @@ function readSkills(names) {
     if (requestedNames.length > 1 && skillName !== requestedNames.at(-1)) {
       console.log("");
     }
+  }
+}
+
+function rebuildRegistry(args) {
+  const checkMode = args.includes("--check");
+  const registryPath = path.relative(repoRoot, getRegistryPath(repoRoot));
+
+  try {
+    if (checkMode) {
+      // `--check` is the cheap guard path for hooks/CI. It should fail loudly
+      // when the committed registry drifts from the current skill tree.
+      if (!isRegistryCurrent(repoRoot)) {
+        fail(
+          `Skill registry is stale: ${registryPath}. Rebuild with \`node scripts/skills.mjs registry\`.`,
+        );
+      }
+
+      console.log(`Skill registry is current: ${registryPath}`);
+      return;
+    }
+
+    writeSkillRegistry(repoRoot);
+    console.log(`Wrote ${registryPath}`);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -425,6 +398,9 @@ function main() {
       return;
     case "route":
       routeTask(args);
+      return;
+    case "registry":
+      rebuildRegistry(args);
       return;
     case "install":
       fail("`pnpm skills:install` is not supported in the root .skills architecture.");

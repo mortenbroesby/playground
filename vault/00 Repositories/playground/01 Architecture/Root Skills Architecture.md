@@ -5,9 +5,9 @@ repo_slug: "playground"
 title: "Root Skills Architecture"
 status: "accepted"
 created: "2026-04-29"
-updated: "2026-05-05"
+updated: "2026-05-06"
 owner: "morten"
-summary: "Root `.skills` is the canonical repo-owned skill store, with command-first discovery, lightweight task routing, and thin startup bootstrap."
+summary: "Root `.skills` is the canonical repo-owned skill store, with a generated registry for machine-readable discovery and routing, command-first access, and thin startup bootstrap."
 tags:
   - "type/architecture"
   - "repo/playground"
@@ -48,6 +48,11 @@ route users to a command-first discovery surface:
 
 Load full `SKILL.md` bodies only on explicit read.
 
+The machine-readable discovery layer should not be reconstructed from raw skill
+prose on every command invocation. Instead, skill frontmatter should act as the
+canonical metadata contract and feed a deterministic generated registry artifact
+that command surfaces can consume.
+
 ## Why Change
 
 The current model mixes bootstrap guidance with catalog content. The target
@@ -57,10 +62,16 @@ model is thin startup bootstrap, command-first discovery, and explicit reads.
 
 - Root `.skills/` becomes the home for repo-owned skills.
 - Each skill keeps the current contract: `SKILL.md` plus optional support files.
+- `SKILL.md` frontmatter becomes the canonical metadata source for discovery and
+  routing fields such as `name`, `description`, `tags`, `triggers`,
+  `anti_triggers`, and `routing_weight`.
+- `.skills/registry.generated.json` becomes the deterministic machine-readable
+  registry artifact derived from that frontmatter.
 - `AGENTS.md` and `CLAUDE.md` stay thin and should not embed the full catalog.
 - Runtime adapter directories are compatibility surfaces, not authoring homes.
-- `list` and `search` handle discovery; `route` cheaply recommends a narrow
-  skill set; `read` loads one chosen skill on demand.
+- `list`, `search`, and `route` should consume the generated registry rather
+  than re-deriving metadata ad hoc from raw markdown prose; `read` still loads
+  one chosen skill on demand from source.
 - External downloaded skills stay separate from repo-owned first-party skills.
 
 ## Migration Invariants
@@ -71,6 +82,7 @@ model is thin startup bootstrap, command-first discovery, and explicit reads.
 - Preserve one obvious place to read a chosen skill.
 - Keep repo-owned and external skills distinguishable.
 - Avoid duplicated canonical content across adapters.
+- Keep the generated registry deterministic and cheap to rebuild.
 
 ## Story Boundaries
 

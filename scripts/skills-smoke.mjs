@@ -6,6 +6,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findProjectRoot } from "workspace-tools";
 
+import { parseSkillMetadata } from "./lib/skills-metadata.mjs";
+
 const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
   "pnpm",
@@ -37,7 +39,45 @@ function assertFailed(result, context) {
   );
 }
 
+function assertThrowsWithMessage(fn, pattern, context) {
+  assert.throws(fn, pattern, context);
+}
+
 function main() {
+  // The smoke tests intentionally pin the parser edge cases that are most
+  // likely to regress in this refactor: quoted commas inside inline arrays and
+  // typoed contract keys that must fail loudly.
+  const inlineArrayMetadata = parseSkillMetadata({
+    filePath: "inline-array-fixture/SKILL.md",
+    content: `---
+name: inline-array-fixture
+description: Inline array fixture
+triggers: ["compare A, B options", "ship"]
+---
+`,
+  });
+  assert.deepEqual(
+    inlineArrayMetadata.triggers,
+    ["compare A, B options", "ship"],
+    "quoted inline array entries should preserve commas inside values",
+  );
+
+  assertThrowsWithMessage(
+    () =>
+      parseSkillMetadata({
+        filePath: "typo-fixture/SKILL.md",
+        content: `---
+name: typo-fixture
+description: Typo fixture
+trigger:
+  - compare options
+---
+`,
+      }),
+    /unknown frontmatter field "trigger"/,
+    "unsupported metadata keys should fail clearly",
+  );
+
   const listResult = runNode([skillsScriptPath, "list"]);
   assertOk(listResult, "skills list should succeed");
   assert.match(listResult.stdout, /^engineering-workflow$/m);
@@ -50,6 +90,17 @@ function main() {
   assertOk(readResult, "skills read should succeed");
   assert.match(readResult.stdout, /^Base directory: \.skills\/engineering-workflow$/m);
   assert.match(readResult.stdout, /# Engineering Workflow/i);
+
+  const registryWriteResult = runNode([skillsScriptPath, "registry"]);
+  assertOk(registryWriteResult, "skills registry rebuild should succeed");
+  assert.match(registryWriteResult.stdout, /Wrote \.skills\/registry\.generated\.json/);
+
+  const registryCheckResult = runNode([skillsScriptPath, "registry", "--check"]);
+  assertOk(registryCheckResult, "skills registry check should succeed");
+  assert.match(
+    registryCheckResult.stdout,
+    /Skill registry is current: \.skills\/registry\.generated\.json/,
+  );
 
   const installResult = runNode([skillsScriptPath, "install", "anthropics/skills"]);
   assertFailed(installResult, "skills install should be unsupported");

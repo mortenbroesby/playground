@@ -66,6 +66,8 @@ const shouldRunAgentsCheck = files.some((filePath) =>
     "scripts/agent-setup-check.mjs",
     "scripts/skills.mjs",
     "scripts/skills-smoke.mjs",
+    "scripts/lib/skills-metadata.mjs",
+    "scripts/lib/skills-registry.mjs",
     "scripts/prepush-checks.mjs",
     "package.json",
     "pnpm-lock.yaml",
@@ -74,8 +76,17 @@ const shouldRunAgentsCheck = files.some((filePath) =>
   ]),
 );
 
+// Keep the trigger surface aligned with the actual implementation boundaries.
+// Once skill logic moved into `scripts/lib/*`, changes there needed to start
+// exercising the same smoke checks as edits to `scripts/skills.mjs`.
 const shouldRunSkillsSmoke = files.some((filePath) =>
-  matches(filePath, [".skills", "scripts/skills.mjs", "scripts/skills-smoke.mjs"]),
+  matches(filePath, [
+    ".skills",
+    "scripts/skills.mjs",
+    "scripts/skills-smoke.mjs",
+    "scripts/lib/skills-metadata.mjs",
+    "scripts/lib/skills-registry.mjs",
+  ]),
 );
 
 if (shouldRunMarkdown) {
