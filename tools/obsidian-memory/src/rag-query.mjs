@@ -28,6 +28,7 @@ function parseArgs(argv) {
     noteType: undefined,
     integrityMode: "prefer-healthy",
     vectorMode: "auto",
+    retrievalMode: "default",
     indexPath: defaultIndexRoot,
   };
 
@@ -76,6 +77,12 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--retrieval-mode") {
+      options.retrievalMode = argv[index + 1] ?? options.retrievalMode;
+      index += 1;
+      continue;
+    }
+
     if (arg === "--corpus") {
       options.indexPath = path.resolve(process.cwd(), argv[index + 1] ?? "");
       index += 1;
@@ -98,7 +105,7 @@ function printUsage() {
   console.log(
     [
       "Usage:",
-      "  pnpm rag:query --query <text> [--limit 5] [--budget 600] [--repo-slug playground] [--note-type session] [--integrity-mode prefer-healthy|neutral|prefer-warning|exclude-warning] [--vector-mode auto|off]",
+      "  pnpm rag:query --query <text> [--limit 5] [--budget 600] [--repo-slug playground] [--note-type session] [--integrity-mode prefer-healthy|neutral|prefer-warning|exclude-warning] [--vector-mode auto|off] [--retrieval-mode default|quality]",
       "",
       "Search the typed Obsidian memory indexes and assemble a bounded context bundle.",
     ].join("\n"),
@@ -141,6 +148,7 @@ async function run() {
     noteType: options.noteType,
     integrityMode: options.integrityMode,
     vectorMode: options.vectorMode,
+    retrievalMode: options.retrievalMode,
     queryPlan,
   });
   const context = assembleMemoryContext({
@@ -158,6 +166,7 @@ async function run() {
       noteType: options.noteType ?? null,
       integrityMode: options.integrityMode,
       vectorMode: options.vectorMode,
+      retrievalMode: options.retrievalMode,
     },
     retrieval: candidates.retrieval,
     candidates,

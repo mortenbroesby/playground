@@ -22,6 +22,7 @@ import {
   renderTypedNoteTemplate,
   validateWriteInput,
 } from "./rag-governance.mjs";
+import { createRetrievalObservability } from "./retrieval-observability.mjs";
 
 const defaultRepoRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)), "pnpm");
 
@@ -37,6 +38,8 @@ export function createMemoryService(options = {}) {
       ? path.resolve(process.env.PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT)
       : path.join(repoRoot, ".rag")
   );
+  const retrievalObservability =
+    options.retrievalObservability ?? createRetrievalObservability({ indexRoot });
 
   let loadedCorpus = null;
 
@@ -99,16 +102,37 @@ export function createMemoryService(options = {}) {
       noteType: args.note_type,
       integrityMode: args.integrity_mode,
       vectorMode: args.vector_mode,
+      retrievalMode: args.retrieval_mode,
       queryPlan,
     });
     const hits = candidates.filter((hit) => hasSubstantiveContent(hit));
     const retrievalSummary = formatRetrievalSummary(candidates.retrieval);
 
     if (hits.length === 0) {
+      await retrievalObservability.logSearch({
+        query,
+        results: [],
+      });
       return [`No memory results found for: ${query}`, retrievalSummary]
         .filter(Boolean)
         .join("\n");
     }
+
+    await retrievalObservability.logSearch({
+      query,
+      results: hits.map((chunk, index) => ({
+        rank: index + 1,
+        chunkId: chunk.chunkId,
+        noteId: chunk.noteId,
+        sourcePath: chunk.sourcePath,
+        sourceFile: chunk.sourceFile,
+        heading: chunk.heading,
+        score: chunk.score,
+        weakUse: true,
+        strongUse: false,
+        retrievalSources: [...(chunk.retrievalSources ?? [])],
+      })),
+    });
 
     const formattedHits = hits.map((chunk, index) => {
       if (fullDetail) {
@@ -159,6 +183,17 @@ export function createMemoryService(options = {}) {
       );
     }
 
+    await retrievalObservability.logUnfold({
+      target: {
+        chunkId: chunk.chunkId,
+        noteId: chunk.noteId,
+        sourcePath: chunk.sourcePath,
+        sourceFile: chunk.sourceFile,
+        heading: chunk.heading,
+        strongUse: true,
+      },
+    });
+
     return formatFullChunk(chunk);
   }
 
@@ -178,6 +213,22 @@ export function createMemoryService(options = {}) {
         repo_slug: repoSlug,
       });
     }
+
+    await retrievalObservability.logContext({
+      repoSlug,
+      results: chunks.map((chunk, index) => ({
+        rank: index + 1,
+        chunkId: chunk.chunkId,
+        noteId: chunk.noteId,
+        sourcePath: chunk.sourcePath,
+        sourceFile: chunk.sourceFile,
+        heading: chunk.heading,
+        score: chunk.score ?? null,
+        weakUse: true,
+        strongUse: false,
+        retrievalSources: [...(chunk.retrievalSources ?? [])],
+      })),
+    });
 
     const formattedChunks = chunks.map((chunk) =>
       formatContextChunk(chunk, fullDetail),

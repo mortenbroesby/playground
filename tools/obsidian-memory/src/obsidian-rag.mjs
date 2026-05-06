@@ -66,8 +66,19 @@ const LEGACY_STATUS_ALIASES = {
 const DEFAULT_INTEGRITY_MODE = "prefer-healthy";
 const GRAPH_SEED_LIMIT = 1;
 const DEFAULT_VECTOR_MODE = "auto";
+const DEFAULT_RETRIEVAL_MODE = "default";
 const VECTOR_RRF_K = 60;
 const MIN_VECTOR_SIMILARITY = 0.18;
+const BM25_K1 = 1.2;
+const BM25_B = 0.75;
+const BM25_FIELD_WEIGHTS = {
+  text: 1,
+  title: 2.5,
+  path: 2.5,
+  summary: 1.25,
+  tags: 1,
+  keywords: 2,
+};
 
 function tokenize(value) {
   return value
@@ -83,6 +94,14 @@ function normalize(value) {
 
 function dedupeOrdered(values) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function resolveCandidatePool(limit, retrievalMode = DEFAULT_RETRIEVAL_MODE) {
+  if (retrievalMode === "quality") {
+    return Math.max(limit * 5, limit + 4);
+  }
+
+  return Math.max(limit * 3, limit);
 }
 
 function createVectorState(overrides = {}) {
@@ -111,11 +130,15 @@ function annotateCollection(items, metadataKey, metadataValue) {
 }
 
 function annotateCorpus(corpus, metadata = {}) {
-  return annotateCollection(corpus, "vectorIndex", {
+  annotateCollection(corpus, "vectorIndex", {
     ...createVectorState(),
     ...(corpus.vectorIndex ?? {}),
     ...(metadata.vectorIndex ?? {}),
   });
+
+  annotateCollection(corpus, "lexicalIndex", metadata.lexicalIndex ?? corpus.lexicalIndex ?? null);
+
+  return corpus;
 }
 
 function estimateTokens(value) {
@@ -256,7 +279,7 @@ function buildGraphLookup(edges) {
   return graphLookup;
 }
 
-function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex, vectorIndex }) {
+function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex, vectorIndex, lexicalIndex }) {
   const notesById = new Map(
     noteRegistry.map((note) => [note.id, note]),
   );
@@ -306,6 +329,7 @@ function buildTypedCorpus({ noteRegistry, chunkIndex, graphIndex, vectorIndex })
   });
 
   return annotateCorpus(corpus, {
+    lexicalIndex,
     vectorIndex:
       vectorIndex?.status === "ready"
         ? createVectorState({
@@ -359,11 +383,14 @@ function resolveIndexRoot(indexPath) {
  */
 export async function loadMemoryCorpus(indexPath) {
   const indexRoot = resolveIndexRoot(indexPath);
-  const [noteRegistry, chunkIndex, graphIndex, vectorIndex] = await Promise.all([
+  const [noteRegistry, chunkIndex, graphIndex, vectorIndex, lexicalIndex] = await Promise.all([
     readFile(path.join(indexRoot, "note-registry.json"), "utf8").then(JSON.parse),
     readFile(path.join(indexRoot, "chunk-index.json"), "utf8").then(JSON.parse),
     readFile(path.join(indexRoot, "graph-index.json"), "utf8").then(JSON.parse),
     readFile(path.join(indexRoot, "vector-index.json"), "utf8")
+      .then(JSON.parse)
+      .catch(() => null),
+    readFile(path.join(indexRoot, "lexical-index.json"), "utf8")
       .then(JSON.parse)
       .catch(() => null),
   ]);
@@ -373,6 +400,7 @@ export async function loadMemoryCorpus(indexPath) {
     chunkIndex,
     graphIndex,
     vectorIndex,
+    lexicalIndex,
   });
 }
 
@@ -585,7 +613,7 @@ function filterMemoryCorpus(corpus, filters) {
     );
 }
 
-function lexicalSearch(input) {
+function heuristicLexicalSearch(input) {
   const query = input.query.trim();
   const queryPlan = input.queryPlan ?? createQueryPlan(query);
   const plannedQueries = getPlannedQueryTexts(query, queryPlan);
@@ -720,6 +748,122 @@ function lexicalSearch(input) {
     );
 }
 
+function scoreBm25Field(termFrequency, fieldLength, averageFieldLength, fieldWeight, documentFrequency, documentCount) {
+  if (!termFrequency || !documentFrequency || !documentCount) {
+    return 0;
+  }
+
+  const normalizedFieldLength =
+    averageFieldLength > 0 ? fieldLength / averageFieldLength : 1;
+  const denominator =
+    termFrequency + BM25_K1 * (1 - BM25_B + BM25_B * normalizedFieldLength);
+  const idf = Math.log(1 + (documentCount - documentFrequency + 0.5) / (documentFrequency + 0.5));
+
+  return fieldWeight * idf * ((termFrequency * (BM25_K1 + 1)) / denominator);
+}
+
+function lexicalSearch(input) {
+  const lexicalIndex = input.corpus.lexicalIndex;
+
+  if (!lexicalIndex?.terms || lexicalIndex.schema_version !== 3) {
+    return heuristicLexicalSearch(input);
+  }
+
+  const query = input.query.trim();
+  const queryPlan = input.queryPlan ?? createQueryPlan(query);
+  const plannedQueries = getPlannedQueryTexts(query, queryPlan);
+  const normalizedQuery = plannedQueries[0] ? normalize(plannedQueries[0]) : "";
+  const queryTokens = dedupeOrdered(
+    plannedQueries.flatMap((plannedQuery) => tokenize(plannedQuery)),
+  );
+  const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
+  const filteredDocs = filterMemoryCorpus(input.corpus, {
+    ...input,
+    integrityMode,
+    queryPlan,
+  });
+  const filteredDocIds = new Set(filteredDocs.map((doc) => doc.chunkId));
+
+  return filteredDocs
+    .map((doc) => {
+      const reasons = [];
+      let score = 0;
+
+      for (const token of queryTokens) {
+        const termEntry = lexicalIndex.terms[token];
+        const posting = termEntry?.docs?.find((entry) => entry.chunk_id === doc.chunkId);
+
+        if (!posting) {
+          continue;
+        }
+
+        reasons.push(`bm25:${token}`);
+        const documentFrequency = termEntry.docs.length;
+
+        for (const [fieldName, termFrequency] of Object.entries(posting.fields ?? {})) {
+          const fieldWeight = BM25_FIELD_WEIGHTS[fieldName] ?? 0;
+
+          if (!fieldWeight) {
+            continue;
+          }
+
+          const averageFieldLength = lexicalIndex.avgFieldLengths?.[fieldName] ?? 0;
+          const fieldLength =
+            lexicalIndex.documents?.[doc.chunkId]?.fieldLengths?.[fieldName] ?? 0;
+          score += scoreBm25Field(
+            termFrequency,
+            fieldLength,
+            averageFieldLength,
+            fieldWeight,
+            documentFrequency,
+            lexicalIndex.documentCount ?? filteredDocIds.size,
+          );
+        }
+      }
+
+      score += maybePushReason(
+        reasons,
+        doc.normalizedText.includes(normalizedQuery),
+        "exact-query-text",
+        10,
+      );
+      score += maybePushReason(
+        reasons,
+        doc.normalizedHeading.includes(normalizedQuery),
+        "exact-query-heading",
+        8,
+      );
+      score += maybePushReason(
+        reasons,
+        doc.normalizedSummary.includes(normalizedQuery),
+        "exact-query-summary",
+        6,
+      );
+
+      const exact = exactMatchBoost(doc, normalizedQuery);
+      score += exact.score;
+      reasons.push(...exact.reasons);
+
+      if (score === 0) {
+        return null;
+      }
+
+      return {
+        ...doc,
+        score: Number(score.toFixed(3)),
+        matchReasons: [...dedupeOrdered(reasons), "source:lexical"],
+        retrievalSources: ["lexical"],
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.sourceFile.localeCompare(right.sourceFile) ||
+        left.heading.localeCompare(right.heading),
+    );
+}
+
 function graphSearch(input) {
   const queryPlan = input.queryPlan ?? createQueryPlan(input.query);
   const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
@@ -802,6 +946,8 @@ function graphSearch(input) {
  */
 export function rerankMemoryCandidates(input) {
   const limit = input.limit ?? 5;
+  const retrievalMode = input.retrievalMode ?? DEFAULT_RETRIEVAL_MODE;
+  const candidatePool = resolveCandidatePool(limit, retrievalMode);
   const lexicalCandidates = lexicalSearch(input);
   const graphCandidates = graphSearch({
     ...input,
@@ -821,8 +967,9 @@ export function rerankMemoryCandidates(input) {
   }
 
   return {
-    lexicalCandidates: lexicalCandidates.slice(0, Math.max(limit * 3, limit)),
-    graphCandidates: graphCandidates.slice(0, Math.max(limit * 3, limit)),
+    lexicalCandidates: lexicalCandidates.slice(0, candidatePool),
+    graphCandidates: graphCandidates.slice(0, candidatePool),
+    candidatePool,
   };
 }
 
@@ -952,6 +1099,8 @@ function mergeRetrievalCandidates(input) {
 
   return annotateCollection(ranked, "retrieval", {
     query: input.query,
+    retrievalMode: input.retrievalMode ?? DEFAULT_RETRIEVAL_MODE,
+    candidatePool: input.candidatePool ?? ranked.length,
     sources: input.vectorState.available
       ? ["lexical", "vector", "graph"]
       : ["lexical", "graph"],
@@ -1038,6 +1187,8 @@ function rerankFusedCandidates(input) {
 export function vectorSearch(input) {
   const query = input.query.trim();
   const limit = input.limit ?? 5;
+  const retrievalMode = input.retrievalMode ?? DEFAULT_RETRIEVAL_MODE;
+  const candidatePool = resolveCandidatePool(limit, retrievalMode);
   const queryPlan = input.queryPlan ?? createQueryPlan(query);
   const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
   const vectorMode = input.vectorMode ?? DEFAULT_VECTOR_MODE;
@@ -1113,7 +1264,7 @@ export function vectorSearch(input) {
         left.sourceFile.localeCompare(right.sourceFile) ||
         left.heading.localeCompare(right.heading),
     )
-    .slice(0, Math.max(limit * 3, limit));
+    .slice(0, candidatePool);
 
   return annotateCollection(candidates, "state", createVectorState({
     enabled: true,
@@ -1131,7 +1282,11 @@ export function vectorSearch(input) {
  * Compatibility wrapper for callers that only need ranked candidates.
  */
 export function retrieveMemoryCandidates(input) {
-  const { lexicalCandidates, graphCandidates } = rerankMemoryCandidates(input);
+  const retrievalMode = input.retrievalMode ?? DEFAULT_RETRIEVAL_MODE;
+  const { lexicalCandidates, graphCandidates, candidatePool } = rerankMemoryCandidates({
+    ...input,
+    retrievalMode,
+  });
   const vectorCandidates = vectorSearch(input);
   const fusedCandidates = mergeRetrievalCandidates({
     query: input.query,
@@ -1140,6 +1295,8 @@ export function retrieveMemoryCandidates(input) {
     graphCandidates,
     vectorState: vectorCandidates.state,
     limit: input.limit ?? 5,
+    retrievalMode,
+    candidatePool,
   });
 
   const reranked = rerankFusedCandidates({
