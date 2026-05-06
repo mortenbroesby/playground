@@ -8,7 +8,11 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { findProjectRoot } from "workspace-tools";
 
-import { parseSkillMetadata } from "./lib/skills-metadata.ts";
+import { parseSkillMetadata } from "./lib/skills-metadata";
+import { prepareSearchQuery } from "./lib/skills-text-search";
+import {
+  rankMiniSearchMatches,
+} from "./lib/skills-minisearch";
 import {
   rankSearchMatches,
   rankSkillsForList,
@@ -16,7 +20,7 @@ import {
   type SkillTier,
   type RegistrySkill,
   routeTaskFromRegistry,
-} from "./lib/skills-routing.ts";
+} from "./lib/skills-routing";
 
 const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -39,6 +43,14 @@ const hookScript = path.join(
 );
 const skillsScriptNodeArgs = [cliScript];
 const skillsHookNodeArgs = [hookScript];
+const searchEvalFixturePath = path.join(
+  repoRoot,
+  "tools",
+  "agent-skills",
+  "src",
+  "fixtures",
+  "search-evals.json",
+);
 
 function runNode(
   args: string[],
@@ -98,6 +110,49 @@ function assertThrowsWithMessage(
   assert.throws(callback, pattern, message);
 }
 
+type SearchEvalFixture = {
+  query: string;
+  expected_top_1: string;
+  expected_top_3: string[];
+  forbidden: string[];
+};
+
+function loadSearchEvalFixtures(): SearchEvalFixture[] {
+  return JSON.parse(fs.readFileSync(searchEvalFixturePath, "utf8")) as SearchEvalFixture[];
+}
+
+function assertSearchEngineMatchesEvalFixtures(
+  engineName: string,
+  runSearch: (query: string) => { skill: RegistrySkill }[],
+  fixtures: SearchEvalFixture[],
+) {
+  for (const fixture of fixtures) {
+    const matches = runSearch(fixture.query);
+    assert.ok(matches.length > 0, `${engineName}: expected at least one match for "${fixture.query}"`);
+    assert.equal(
+      matches[0]?.skill.id,
+      fixture.expected_top_1,
+      `${engineName}: wrong top-1 result for "${fixture.query}"`,
+    );
+
+    const topThree = matches.slice(0, 3).map((entry) => entry.skill.id);
+    for (const expectedSkillId of fixture.expected_top_3) {
+      assert.ok(
+        topThree.includes(expectedSkillId),
+        `${engineName}: expected top-3 to include "${expectedSkillId}" for "${fixture.query}", got ${topThree.join(", ")}`,
+      );
+    }
+
+    const matchedSkillIds = matches.map((entry) => entry.skill.id);
+    for (const forbiddenSkillId of fixture.forbidden) {
+      assert.ok(
+        !matchedSkillIds.includes(forbiddenSkillId),
+        `${engineName}: forbidden skill "${forbiddenSkillId}" matched "${fixture.query}"`,
+      );
+    }
+  }
+}
+
 function assertAgentSkillsSmoke(): void {
   // The smoke tests intentionally pin parser edges and routing defaults likely
   // to regress during another migration.
@@ -150,6 +205,26 @@ description: Valid description
     "frontmatter parser should reject indented continuation lines",
   );
 
+  const preparedCiQuery = prepareSearchQuery("ci");
+  assert.ok(
+    preparedCiQuery.expandedTokens.includes("continuous"),
+    "CI shorthand should expand to continuous",
+  );
+  assert.ok(
+    preparedCiQuery.expandedTokens.includes("integration"),
+    "CI shorthand should expand to integration",
+  );
+  assert.ok(
+    preparedCiQuery.expandedTokens.includes("pipeline"),
+    "CI shorthand should expand to pipeline-oriented metadata",
+  );
+
+  const preparedPipelineQuery = prepareSearchQuery("pipeline");
+  assert.ok(
+    preparedPipelineQuery.expandedTokens.includes("ci"),
+    "Pipeline queries should map back to CI shorthand",
+  );
+
   const listResult = runSkillCommand(["list"]);
   assertOk(listResult);
   assert.match(
@@ -181,6 +256,11 @@ description: Valid description
     searchResult.stdout,
     /^engineering-workflow: .* \[group: workflow\] \[tier: daily\] \[metadata: /m,
   );
+  assert.match(
+    searchResult.stdout,
+    /\[metadata: minisearch\]/,
+    "default skills search should use MiniSearch unless an explicit engine override is passed",
+  );
 
   const claudeApiSearchResult = runSkillCommand(["search", "claude api"]);
   assertOk(claudeApiSearchResult);
@@ -196,6 +276,7 @@ description: Valid description
 
   const contentFallbackSearchResult = runSkillCommand([
     "search",
+    "--content",
     ".finalMessage()",
   ]);
   assertOk(contentFallbackSearchResult);
@@ -203,6 +284,12 @@ description: Valid description
     contentFallbackSearchResult.stdout,
     /^claude-api: .* \[group: imported\] \[tier: quiet\] \[content fallback\]$/m,
   );
+
+  const metadataOnlyMissResult = runSkillCommand([
+    "search",
+    ".finalMessage()",
+  ]);
+  assertFailed(metadataOnlyMissResult);
 
   const readResult = runSkillCommand(["read", "engineering-workflow"]);
   assertOk(readResult);
@@ -235,7 +322,7 @@ description: Valid description
     "route should surface the infrastructure rule for hook work",
   );
 
-const syntheticSkills: RegistrySkill[] = [
+  const syntheticSkills: RegistrySkill[] = [
     {
       id: "engineering-workflow",
       display_name: "engineering-workflow",
@@ -336,6 +423,20 @@ const syntheticSkills: RegistrySkill[] = [
     "CI alias matching should still be powered by BM25 evidence",
   );
 
+  const miniSearchSynonymSearch = rankMiniSearchMatches(
+    syntheticSkills,
+    "ci",
+  );
+  assert.equal(
+    miniSearchSynonymSearch[0]?.skill.id,
+    "ci-tooling",
+    "MiniSearch should use the shared query synonym expansion for short aliases like ci",
+  );
+  assert.ok(
+    miniSearchSynonymSearch[0]?.reasons.includes("synonym"),
+    "MiniSearch results should expose synonym expansion when shared query mapping was applied",
+  );
+
   const policyList = rankSkillsForList(syntheticSkills, {});
   assert.deepEqual(
     policyList.map((entry) => entry.skill.id),
@@ -362,6 +463,18 @@ const syntheticSkills: RegistrySkill[] = [
       path.join(repoRoot, ".skills", ".metadata", "registry.generated.json"),
       "utf8",
     ),
+  );
+  const searchEvalFixtures = loadSearchEvalFixtures();
+  const generatedRegistrySkills = generatedRegistry.skills as RegistrySkill[];
+  assertSearchEngineMatchesEvalFixtures(
+    "bm25",
+    (query) => rankSearchMatches(generatedRegistrySkills, query),
+    searchEvalFixtures,
+  );
+  assertSearchEngineMatchesEvalFixtures(
+    "minisearch",
+    (query) => rankMiniSearchMatches(generatedRegistrySkills, query),
+    searchEvalFixtures,
   );
   const byId = new Map<string, Record<string, unknown>>(
     generatedRegistry.skills.map((skill: { id: string; [key: string]: unknown }) => [

@@ -1,0 +1,119 @@
+[
+  {
+    "query": "fix failing test",
+    "expected_top_1": "debugging-and-error-recovery",
+    "expected_top_3": [
+      "debugging-and-error-recovery",
+      "test-driven-development",
+      "engineering-workflow"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "build an mcp server",
+    "expected_top_1": "mcp-builder",
+    "expected_top_3": [
+      "mcp-builder",
+      "engineering-workflow"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "claude api prompt caching",
+    "expected_top_1": "claude-api",
+    "expected_top_3": [
+      "claude-api"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "stacked pull requests",
+    "expected_top_1": "gh-stack",
+    "expected_top_3": [
+      "gh-stack"
+    ],
+    "forbidden": [
+      "debugging-and-error-recovery"
+    ]
+  },
+  {
+    "query": "browser console errors",
+    "expected_top_1": "browser-testing-with-devtools",
+    "expected_top_3": [
+      "browser-testing-with-devtools"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "write a decision document",
+    "expected_top_1": "doc-coauthoring",
+    "expected_top_3": [
+      "doc-coauthoring"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "shared types and interfaces",
+    "expected_top_1": "api-and-interface-design",
+    "expected_top_3": [
+      "api-and-interface-design",
+      "engineering-workflow"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "simplify tangled code",
+    "expected_top_1": "code-simplification",
+    "expected_top_3": [
+      "code-simplification",
+      "receiving-code-review",
+      "engineering-workflow"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "write a README for this repo",
+    "expected_top_1": "readme-authoring",
+    "expected_top_3": [
+      "readme-authoring",
+      "engineering-workflow"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "release readiness before deploy",
+    "expected_top_1": "shipping-and-launch",
+    "expected_top_3": [
+      "shipping-and-launch"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  },
+  {
+    "query": "break work into small ordered slices",
+    "expected_top_1": "planning-and-task-breakdown",
+    "expected_top_3": [
+      "planning-and-task-breakdown"
+    ],
+    "forbidden": [
+      "gh-stack"
+    ]
+  }
+]

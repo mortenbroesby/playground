@@ -20,16 +20,19 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit true --allowImportingTsExtensions true",
+    "typecheck": "tsc --noEmit true",
     "agent-skills": "node scripts/skills.mjs",
+    "skills:bench": "pnpm run build && node dist/skills-search.bench.js",
     "skills:smoke": "node scripts/skills-smoke.mjs",
     "skills:metadata-hook": "node scripts/skills-metadata-hook.mjs"
   },
   "dependencies": {
+    "minisearch": "^7.1.2",
     "workspace-tools": "^0.41.4"
   },
   "devDependencies": {
     "@types/node": "^22.15.17",
+    "tinybench": "^5.0.1",
     "tsup": "^8.5.1"
   }
 }
