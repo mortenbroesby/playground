@@ -46,6 +46,7 @@ __screenshots__/
 
 # Visual companion
 .superpowers/
+.worktrees/
 
 # Ralph loop working files
 .ralph/
