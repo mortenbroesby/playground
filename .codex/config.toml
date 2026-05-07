@@ -1,3 +1,6 @@
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
+
 [mcp_servers.obsidian-memory]
 command = "pnpm"
 args = ["--silent", "--filter", "@playground/obsidian-memory", "mcp"]
@@ -18,7 +21,7 @@ approval_mode = "approve"
 approval_mode = "approve"
 
 [features]
-codex_hooks = true
+hooks = true
 multi_agent = true
 
 # BEGIN ASTROGRAPH

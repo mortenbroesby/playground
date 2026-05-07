@@ -19,8 +19,10 @@
 
 ## Current Repo Setup
 
+- `approval_policy = "on-request"`
+- `approvals_reviewer = "auto_review"`
 - `multi_agent = true`
-- `codex_hooks = true`
+- `hooks = true`
 - MCP servers configured here:
   - `astrograph`
   - `obsidian-memory`
