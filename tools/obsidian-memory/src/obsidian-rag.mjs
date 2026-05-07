@@ -27,6 +27,12 @@ const DEFAULT_STATUS_BOOSTS = {
   superseded: -10,
 };
 
+const SESSION_HEADING_ROLE_BOOSTS = {
+  goal: -10,
+  findings: 4,
+  "next handoff": 6,
+};
+
 const LEGACY_TYPE_ALIASES = {
   repo: "repo-home",
   "repo-home": "repo-home",
@@ -1004,6 +1010,28 @@ function dedupeReasons(...reasonLists) {
   );
 }
 
+function applySessionHeadingRoleBoost(candidate, noteCounts) {
+  if (candidate.noteType !== "session") {
+    return { boost: 0, reason: null };
+  }
+
+  if ((noteCounts.get(candidate.noteId) ?? 0) < 2) {
+    return { boost: 0, reason: null };
+  }
+
+  const normalizedHeading = normalize(candidate.heading ?? "");
+  const boost = SESSION_HEADING_ROLE_BOOSTS[normalizedHeading] ?? 0;
+
+  if (boost === 0) {
+    return { boost: 0, reason: null };
+  }
+
+  return {
+    boost,
+    reason: `session-heading:${normalizedHeading.replace(/\s+/g, "-")}`,
+  };
+}
+
 function mergeRetrievalCandidates(input) {
   const merged = new Map();
   const lexicalRank = new Map();
@@ -1113,6 +1141,11 @@ function rerankFusedCandidates(input) {
   const integrityMode = input.integrityMode ?? DEFAULT_INTEGRITY_MODE;
   const expectedNoteTypes =
     queryPlan.classification?.preferredNoteTypes ?? queryPlan.expectedNoteTypes ?? [];
+  const noteCounts = new Map();
+
+  for (const candidate of input.candidates) {
+    noteCounts.set(candidate.noteId, (noteCounts.get(candidate.noteId) ?? 0) + 1);
+  }
 
   return input.candidates
     .map((candidate) => {
@@ -1148,6 +1181,12 @@ function rerankFusedCandidates(input) {
       if (recencyBoost > 0) {
         score += recencyBoost;
         reasons.push(`recency:${candidate.noteType}`);
+      }
+
+      const sessionHeadingRole = applySessionHeadingRoleBoost(candidate, noteCounts);
+      if (sessionHeadingRole.boost !== 0) {
+        score += sessionHeadingRole.boost;
+        reasons.push(sessionHeadingRole.reason);
       }
 
       if (candidate.validationStatus === "warning" && integrityMode === "prefer-healthy") {

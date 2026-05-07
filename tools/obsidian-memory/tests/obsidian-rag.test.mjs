@@ -591,6 +591,77 @@ const semanticFalsePositiveCorpus = indexMemoryCorpus({
   },
 });
 
+const sessionSectionBiasCorpus = indexMemoryCorpus({
+  noteRegistry: [
+    {
+      id: "note-session-fusion",
+      type: "session",
+      path: "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md",
+      title: "Retrieval Rank Fusion",
+      status: "active",
+      created: "2026-04-30",
+      updated: "2026-04-30",
+      summary: "Session log for retrieval rank fusion and false-positive triage.",
+      tags: ["repo/playground"],
+      keywords: ["retrieval", "fusion", "handoff"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "note-session-fusion-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+  ],
+  chunkIndex: [
+    {
+      chunk_id: "session-goal",
+      note_id: "note-session-fusion",
+      source_path:
+        "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md § Goal",
+      heading: "Goal",
+      heading_level: 2,
+      text: "Goal: retrieval quality hybrid fusion weighted fusion support-aware semantic promotion false positive pattern story 3 handoff.",
+      summary: "Goal for retrieval quality work.",
+      tokens_estimated: 16,
+      content_hash: "session-goal-chunk",
+      type: "session",
+      status: "active",
+    },
+    {
+      chunk_id: "session-findings",
+      note_id: "note-session-fusion",
+      source_path:
+        "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md § Findings",
+      heading: "Findings",
+      heading_level: 2,
+      text: "Findings: weighted fusion support-aware semantic promotion created a false positive pattern during retrieval quality checks.",
+      summary: "Findings from retrieval quality triage.",
+      tokens_estimated: 14,
+      content_hash: "session-findings-chunk",
+      type: "session",
+      status: "active",
+    },
+    {
+      chunk_id: "session-handoff",
+      note_id: "note-session-fusion",
+      source_path:
+        "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md § Next handoff",
+      heading: "Next handoff",
+      heading_level: 2,
+      text: "Next handoff: tighten support-aware semantic promotion after confirming the false positive retrieval pattern in quality mode.",
+      summary: "Next handoff for retrieval quality follow-up.",
+      tokens_estimated: 15,
+      content_hash: "session-handoff-chunk",
+      type: "session",
+      status: "active",
+    },
+  ],
+  graphIndex: {
+    nodes: [],
+    edges: [],
+  },
+});
+
 test("retrieveMemoryCandidates favors decision note affinity and exact summary match", () => {
   const candidates = retrieveMemoryCandidates({
     corpus: indexedCorpus,
@@ -767,6 +838,31 @@ test("retrieveMemoryCandidates keeps vector-only false positives below lexical m
   assert.ok(semanticOnly);
   assert.ok((semanticOnly.scoreBreakdown?.lexicalScore ?? 0) === 0);
   assert.ok(candidates.indexOf(semanticOnly) > 0);
+});
+
+test("retrieveMemoryCandidates prefers operational same-note session sections over generic goals", () => {
+  const candidates = retrieveMemoryCandidates({
+    corpus: sessionSectionBiasCorpus,
+    query:
+      "obsidian retrieval quality hybrid fusion weighted fusion support-aware semantic promotion false positive pattern story 3 session",
+    limit: 3,
+    queryPlan: planMemoryQuery(
+      "obsidian retrieval quality hybrid fusion weighted fusion support-aware semantic promotion false positive pattern story 3 session",
+    ),
+  });
+
+  assert.notEqual(candidates[0]?.chunkId, "session-goal");
+  assert.ok(
+    ["session-findings", "session-handoff"].includes(candidates[0]?.chunkId ?? ""),
+  );
+  assert.ok(
+    candidates.findIndex((candidate) => candidate.chunkId === "session-goal") >
+      candidates.findIndex((candidate) => candidate.chunkId === "session-findings"),
+  );
+  assert.ok(
+    candidates.findIndex((candidate) => candidate.chunkId === "session-goal") >
+      candidates.findIndex((candidate) => candidate.chunkId === "session-handoff"),
+  );
 });
 
 test("typed retrieval normalizes migrated legacy note metadata before ranking", () => {

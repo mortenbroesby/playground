@@ -27,9 +27,9 @@
       "id": "STORY-3",
       "title": "Tighten hybrid fusion once reporting shows a real false-positive pattern",
       "priority": "medium",
-      "status": "pending",
-      "passes": false,
-      "notes": "Use the new reporting/eval data to decide whether weighted fusion or support-aware semantic promotion needs another vault-only pass. Do not expand into unrelated skills or hook work."
+      "status": "completed",
+      "passes": true,
+      "notes": "Implemented a narrow fused-rerank adjustment in `tools/obsidian-memory/src/obsidian-rag.mjs` so duplicate same-note session `Goal` sections no longer outrank more operational `Findings` and `Next handoff` sections for the observed STORY-3 false-positive diagnostic query shape. Locked the behavior with a focused regression in `tools/obsidian-memory/tests/obsidian-rag.test.mjs` and re-ran the vault verification set plus `pnpm --filter @playground/obsidian-memory rag:evals`."
     },
     {
       "id": "STORY-4",
