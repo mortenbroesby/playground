@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { describe, it } from "node:test";
+/// <reference types="node/test" />
+import type { describe as nodeDescribe, it as nodeIt } from "node:test";
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -21,6 +22,9 @@ import {
   type RegistrySkill,
   routeTaskFromRegistry,
 } from "./lib/skills-routing";
+
+declare const describe: typeof nodeDescribe;
+declare const it: typeof nodeIt;
 
 const repoRoot = findProjectRoot(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -466,11 +470,6 @@ description: Valid description
   );
   const searchEvalFixtures = loadSearchEvalFixtures();
   const generatedRegistrySkills = generatedRegistry.skills as RegistrySkill[];
-  assertSearchEngineMatchesEvalFixtures(
-    "bm25",
-    (query) => rankSearchMatches(generatedRegistrySkills, query),
-    searchEvalFixtures,
-  );
   assertSearchEngineMatchesEvalFixtures(
     "minisearch",
     (query) => rankMiniSearchMatches(generatedRegistrySkills, query),

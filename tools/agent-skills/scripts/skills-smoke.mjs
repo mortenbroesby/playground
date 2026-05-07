@@ -22,6 +22,8 @@ if ((result.status ?? 1) !== 0) {
 
 const testResult = spawnSync("node", [
   "--test",
+  "--import",
+  new URL("./test-globals.mjs", import.meta.url).pathname,
   "dist/skills-smoke.test.js",
 ], {
   stdio: "inherit",
