@@ -137,6 +137,9 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
   const graphIndex = JSON.parse(
     await readFile(path.join(fixture.outputRoot, "graph-index.json"), "utf8"),
   );
+  const lexicalIndex = JSON.parse(
+    await readFile(path.join(fixture.outputRoot, "lexical-index.json"), "utf8"),
+  );
   const vectorIndex = JSON.parse(
     await readFile(path.join(fixture.outputRoot, "vector-index.json"), "utf8"),
   );
@@ -205,6 +208,12 @@ test("rag:index emits spec-aligned generated indexes and legacy corpus compatibi
   );
 
   assert.equal(graphIndex.schema_version, 2);
+  assert.equal(lexicalIndex.schema_version, 3);
+  assert.ok(lexicalIndex.fields.text);
+  assert.ok(lexicalIndex.fields.title);
+  assert.ok(lexicalIndex.fields.path);
+  assert.ok(Number.isFinite(lexicalIndex.avgFieldLengths.text));
+  assert.ok(lexicalIndex.terms["memory"]?.docs?.length > 0);
   assert.equal(vectorIndex.schema_version, 2);
   assert.equal(vectorIndex.status, "ready");
   assert.equal(vectorIndex.engine.name, "deterministic-hash-v1");

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -353,6 +353,60 @@ test("rag:query explains when vector retrieval is disabled explicitly", async (t
   assert.equal(output.filters.vectorMode, "off");
   assert.equal(output.retrieval.vector.available, false);
   assert.equal(output.retrieval.vector.reason, "disabled_by_request");
+});
+
+test("rag:query reports retrieval mode and widens the quality candidate pool", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+
+  const defaultResult = spawnSync(
+    "node",
+    [
+      path.join(packageRoot, "src", "rag-query.mjs"),
+      "--query",
+      "typed rag ranking plan",
+      "--corpus",
+      fixture.indexRoot,
+      "--retrieval-mode",
+      "default",
+      "--limit",
+      "1",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+  const qualityResult = spawnSync(
+    "node",
+    [
+      path.join(packageRoot, "src", "rag-query.mjs"),
+      "--query",
+      "typed rag ranking plan",
+      "--corpus",
+      fixture.indexRoot,
+      "--retrieval-mode",
+      "quality",
+      "--limit",
+      "1",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(defaultResult.status, 0, defaultResult.stderr || defaultResult.stdout);
+  assert.equal(qualityResult.status, 0, qualityResult.stderr || qualityResult.stdout);
+
+  const defaultOutput = JSON.parse(defaultResult.stdout);
+  const qualityOutput = JSON.parse(qualityResult.stdout);
+
+  assert.equal(defaultOutput.filters.retrievalMode, "default");
+  assert.equal(qualityOutput.filters.retrievalMode, "quality");
+  assert.ok(qualityOutput.retrieval.candidatePool > defaultOutput.retrieval.candidatePool);
 });
 
 test("memory_search surfaces integrity warnings in full-detail MCP output", async (t) => {
@@ -763,6 +817,69 @@ test("memory_unfold resolves by source_path and by source_file plus heading", as
     });
     assert.match(byFileAndHeading.content[0].text, /heading: Active Focus/);
     assert.match(byFileAndHeading.content[0].text, /Typed RAG rebuild remains the active focus\./);
+  } finally {
+    child.kill();
+  }
+});
+
+test("logs weak and strong retrieval use signals", async (t) => {
+  const fixture = await buildTypedIndexFixture();
+  t.after(async () => {
+    await rm(fixture.tempRoot, { recursive: true, force: true });
+  });
+  const child = spawnMcpServer({
+    env: {
+      PLAYGROUND_OBSIDIAN_MEMORY_INDEX_ROOT: fixture.indexRoot,
+    },
+  });
+
+  try {
+    await initializeServer(child, 80);
+
+    const searchResult = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 81,
+      method: "tools/call",
+      params: {
+        name: "memory_search",
+        arguments: {
+          query: "typed rag ranking plan",
+          limit: 2,
+        },
+      },
+    });
+
+    const unfoldResult = await sendRpc(child, {
+      jsonrpc: "2.0",
+      id: 82,
+      method: "tools/call",
+      params: {
+        name: "memory_unfold",
+        arguments: {
+          source_path: "vault/specs/healthy.md § Plan",
+        },
+      },
+    });
+
+    assert.match(searchResult.content[0].text, /vault\/specs\/healthy\.md § Plan/);
+    assert.match(unfoldResult.content[0].text, /source_path: vault\/specs\/healthy\.md § Plan/);
+
+    const eventLog = await readFile(
+      path.join(fixture.indexRoot, "retrieval-events.jsonl"),
+      "utf8",
+    );
+    const events = eventLog
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+
+    assert.equal(events.length, 2);
+    assert.equal(events[0].tool, "memory_search");
+    assert.equal(events[0].results[0].weakUse, true);
+    assert.equal(events[0].results[0].strongUse, false);
+    assert.equal(events[1].tool, "memory_unfold");
+    assert.equal(events[1].target.sourcePath, "vault/specs/healthy.md § Plan");
   } finally {
     child.kill();
   }

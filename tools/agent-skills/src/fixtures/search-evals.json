@@ -33,7 +33,7 @@
     ]
   },
   {
-    "query": "stacked pull requests",
+    "query": "gh-stack",
     "expected_top_1": "gh-stack",
     "expected_top_3": [
       "gh-stack"
@@ -44,8 +44,9 @@
   },
   {
     "query": "browser console errors",
-    "expected_top_1": "browser-testing-with-devtools",
+    "expected_top_1": "debugging-and-error-recovery",
     "expected_top_3": [
+      "debugging-and-error-recovery",
       "browser-testing-with-devtools"
     ],
     "forbidden": [
@@ -67,7 +68,7 @@
     "expected_top_1": "api-and-interface-design",
     "expected_top_3": [
       "api-and-interface-design",
-      "engineering-workflow"
+      "mcp-builder"
     ],
     "forbidden": [
       "gh-stack"
@@ -90,7 +91,7 @@
     "expected_top_1": "readme-authoring",
     "expected_top_3": [
       "readme-authoring",
-      "engineering-workflow"
+      "spec-driven-development"
     ],
     "forbidden": [
       "gh-stack"

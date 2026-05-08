@@ -114,6 +114,40 @@ type ChunkIndexEntry = {
   status: NoteStatus;
 };
 
+type LexicalFieldName =
+  | "text"
+  | "title"
+  | "path"
+  | "summary"
+  | "tags"
+  | "keywords";
+
+type LexicalTermPosting = {
+  chunk_id: string;
+  fields: Partial<Record<LexicalFieldName, number>>;
+};
+
+type LexicalIndexArtifact = {
+  schema_version: 3;
+  generated_at: string;
+  documentCount: number;
+  fields: Record<LexicalFieldName, true>;
+  avgFieldLengths: Record<LexicalFieldName, number>;
+  documents: Record<
+    string,
+    {
+      note_id: string;
+      fieldLengths: Record<LexicalFieldName, number>;
+    }
+  >;
+  terms: Record<
+    string,
+    {
+      docs: LexicalTermPosting[];
+    }
+  >;
+};
+
 type GraphNode = {
   id: string;
   type: NoteType;
@@ -1087,6 +1121,14 @@ function createChunkIndexEntry(chunk: CorpusChunk): ChunkIndexEntry {
   };
 }
 
+function tokenizeLexicalField(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9/._-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
 function isReusableManifestFile(file: LegacyManifestFile | undefined) {
   if (!file) {
     return false;
@@ -1101,27 +1143,100 @@ function isReusableManifestFile(file: LegacyManifestFile | undefined) {
   );
 }
 
-function buildLexicalIndex(chunks: ChunkIndexEntry[]) {
-  const terms: Record<string, string[]> = {};
+function buildLexicalIndex(
+  chunks: ChunkIndexEntry[],
+  noteRegistry: RegistryNote[],
+  generatedAt: string,
+): LexicalIndexArtifact {
+  const fields: Record<LexicalFieldName, true> = {
+    text: true,
+    title: true,
+    path: true,
+    summary: true,
+    tags: true,
+    keywords: true,
+  };
+  const notesById = new Map(noteRegistry.map((note) => [note.id, note]));
+  const fieldTotals: Record<LexicalFieldName, number> = {
+    text: 0,
+    title: 0,
+    path: 0,
+    summary: 0,
+    tags: 0,
+    keywords: 0,
+  };
+  const documents: LexicalIndexArtifact["documents"] = {};
+  const termMap = new Map<string, Map<string, Partial<Record<LexicalFieldName, number>>>>();
 
   for (const chunk of chunks) {
-    const tokens = chunk.text
-      .toLowerCase()
-      .replace(/[^a-z0-9/._-]+/g, " ")
-      .split(/\s+/)
-      .filter(Boolean);
+    const note = notesById.get(chunk.note_id);
+    const fieldTokens: Record<LexicalFieldName, string[]> = {
+      text: tokenizeLexicalField(chunk.text),
+      title: tokenizeLexicalField(note?.title ?? chunk.heading),
+      path: tokenizeLexicalField(chunk.source_path),
+      summary: tokenizeLexicalField(chunk.summary ?? ""),
+      tags: tokenizeLexicalField((note?.tags ?? []).join(" ")),
+      keywords: tokenizeLexicalField((note?.keywords ?? []).join(" ")),
+    };
+    const fieldLengths = Object.fromEntries(
+      Object.entries(fieldTokens).map(([fieldName, tokens]) => [fieldName, tokens.length]),
+    ) as Record<LexicalFieldName, number>;
 
-    for (const token of new Set(tokens)) {
-      terms[token] ??= [];
-      terms[token].push(chunk.chunk_id);
+    documents[chunk.chunk_id] = {
+      note_id: chunk.note_id,
+      fieldLengths,
+    };
+
+    for (const fieldName of Object.keys(fieldTokens) as LexicalFieldName[]) {
+      fieldTotals[fieldName] += fieldLengths[fieldName];
+      const frequencies = new Map<string, number>();
+
+      for (const token of fieldTokens[fieldName]) {
+        frequencies.set(token, (frequencies.get(token) ?? 0) + 1);
+      }
+
+      for (const [token, frequency] of frequencies) {
+        const docs = termMap.get(token) ?? new Map();
+        const fieldsForDoc = docs.get(chunk.chunk_id) ?? {};
+        fieldsForDoc[fieldName] = frequency;
+        docs.set(chunk.chunk_id, fieldsForDoc);
+        termMap.set(token, docs);
+      }
     }
   }
 
-  for (const token of Object.keys(terms)) {
-    terms[token].sort((left, right) => left.localeCompare(right));
-  }
+  const terms = Object.fromEntries(
+    [...termMap.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([token, docs]) => [
+        token,
+        {
+          docs: [...docs.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([chunkId, fieldCounts]) => ({
+              chunk_id: chunkId,
+              fields: fieldCounts,
+            })),
+        },
+      ]),
+  );
 
-  return terms;
+  const avgFieldLengths = Object.fromEntries(
+    (Object.keys(fields) as LexicalFieldName[]).map((fieldName) => [
+      fieldName,
+      chunks.length === 0 ? 0 : fieldTotals[fieldName] / chunks.length,
+    ]),
+  ) as Record<LexicalFieldName, number>;
+
+  return {
+    schema_version: 3,
+    generated_at: generatedAt,
+    documentCount: chunks.length,
+    fields,
+    avgFieldLengths,
+    documents,
+    terms,
+  };
 }
 
 async function buildVectorIndex(input: {
@@ -1242,7 +1357,7 @@ async function main() {
     );
   }
 
-  const lexicalIndex = buildLexicalIndex(chunkIndex);
+  const lexicalIndex = buildLexicalIndex(chunkIndex, noteRegistry, generatedAt);
   const repoSlug = notes.find((note) => note.repoSlug)?.repoSlug ?? null;
   const diagnostics: DiagnosticsReport = buildDiagnosticsReport({
     generatedAt,
@@ -1327,15 +1442,7 @@ async function main() {
   );
   await writeFile(
     lexicalIndexPath,
-    `${JSON.stringify(
-      {
-        schema_version: 2,
-        generated_at: generatedAt,
-        terms: lexicalIndex,
-      },
-      null,
-      2,
-    )}\n`,
+    `${JSON.stringify(lexicalIndex, null, 2)}\n`,
     "utf8",
   );
   await writeFile(

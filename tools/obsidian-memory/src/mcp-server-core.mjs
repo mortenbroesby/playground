@@ -44,6 +44,9 @@ export function createObsidianMemoryMcpServer(options = {}) {
         vector_mode: z.enum(["auto", "off"]).optional().describe(
           "Optional vector retrieval mode. Defaults to auto; use off to disable vector search explicitly.",
         ),
+        retrieval_mode: z.enum(["default", "quality"]).optional().describe(
+          "Optional retrieval mode. Defaults to default; use quality to widen the candidate pool for higher-cost retrieval.",
+        ),
       }),
     },
     async (args) => {

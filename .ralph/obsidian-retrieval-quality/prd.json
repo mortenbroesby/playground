@@ -1,0 +1,43 @@
+{
+  "title": "Obsidian Retrieval Quality",
+  "branchName": "feat/obsidian-rag-retrieval-spec",
+  "checks": [
+    "node --test tools/obsidian-memory/tests/obsidian-rag.test.mjs",
+    "node --test tools/obsidian-memory/tests/rag-index.test.mjs",
+    "node --test --test-name-pattern \"memory_search surfaces integrity warnings in full-detail MCP output|memory_unfold resolves by source_path and by source_file plus heading|logs weak and strong retrieval use signals|rag:query reports retrieval mode and widens the quality candidate pool\" tools/obsidian-memory/tests/query-surface.test.mjs"
+  ],
+  "stories": [
+    {
+      "id": "STORY-1",
+      "title": "Add retrieval reporting over weak and strong usage events",
+      "priority": "high",
+      "status": "completed",
+      "passes": true,
+      "notes": "Implemented tools/obsidian-memory/src/rag-report.mjs, the rag:report package script, and tools/obsidian-memory/tests/rag-report.test.mjs. Verified the vault-focused check set passes in the external worktree after bootstrapping it with pnpm install."
+    },
+    {
+      "id": "STORY-2",
+      "title": "Seed the first judged retrieval eval harness from observed queries",
+      "priority": "high",
+      "status": "completed",
+      "passes": true,
+      "notes": "Added tools/obsidian-memory/src/rag-retrieval-evals.mjs, tools/obsidian-memory/tests/rag-retrieval-evals.test.mjs, and the rag:evals package script. The judged suite locks down representative implementation, lexical, and routing-guidance queries across default and quality retrieval modes using typed fixture corpora, and the required STORY-2 verification set passed in the external worktree."
+    },
+    {
+      "id": "STORY-3",
+      "title": "Tighten hybrid fusion once reporting shows a real false-positive pattern",
+      "priority": "medium",
+      "status": "completed",
+      "passes": true,
+      "notes": "Implemented a narrow fused-rerank adjustment in `tools/obsidian-memory/src/obsidian-rag.mjs` so duplicate same-note session `Goal` sections no longer outrank more operational `Findings` and `Next handoff` sections for the observed STORY-3 false-positive diagnostic query shape. Locked the behavior with a focused regression in `tools/obsidian-memory/tests/obsidian-rag.test.mjs` and re-ran the vault verification set plus `pnpm --filter @playground/obsidian-memory rag:evals`."
+    },
+    {
+      "id": "STORY-4",
+      "title": "Finalize vault verification and publish once repo push gates are clear",
+      "priority": "medium",
+      "status": "completed",
+      "passes": true,
+      "notes": "The vault-focused verification set passed in the external worktree, the pre-push gate was repaired in `tools/agent-skills`, and `git push -u origin feat/obsidian-rag-retrieval-spec` succeeded."
+    }
+  ]
+}

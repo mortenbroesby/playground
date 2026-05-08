@@ -356,6 +356,312 @@ const semanticVectorCorpus = indexMemoryCorpus({
   },
 });
 
+const lexicalArtifactCorpus = indexMemoryCorpus({
+  noteRegistry: [
+    {
+      id: "note-routing",
+      type: "architecture-record",
+      path: "vault/arch/doc-a.md",
+      title: "Document A",
+      status: "accepted",
+      created: "2026-05-01",
+      updated: "2026-05-01",
+      summary: "Alpha beta gamma.",
+      tags: ["repo/playground"],
+      keywords: ["alpha"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "routing-decision-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+    {
+      id: "note-generic",
+      type: "reference",
+      path: "vault/reference/generic.md",
+      title: "Generic Reference",
+      status: "accepted",
+      created: "2026-05-01",
+      updated: "2026-05-01",
+      summary: "Generic reference entry.",
+      tags: ["repo/playground"],
+      keywords: ["generic"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "generic-reference-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+  ],
+  chunkIndex: [
+    {
+      chunk_id: "decision-routing",
+      note_id: "note-routing",
+      source_path: "vault/arch/doc-a.md § Overview",
+      heading: "Overview",
+      heading_level: 2,
+      text: "Alpha beta gamma.",
+      summary: "Alpha beta gamma.",
+      tokens_estimated: 3,
+      content_hash: "decision-routing-chunk",
+      type: "architecture-record",
+      status: "accepted",
+    },
+    {
+      chunk_id: "generic-noise",
+      note_id: "note-generic",
+      source_path: "vault/reference/generic.md § Noise",
+      heading: "Noise",
+      heading_level: 2,
+      text: "Alpha beta gamma.",
+      summary: "Alpha beta gamma.",
+      tokens_estimated: 3,
+      content_hash: "generic-noise-chunk",
+      type: "reference",
+      status: "accepted",
+    },
+  ],
+  graphIndex: {
+    nodes: [],
+    edges: [],
+  },
+  lexicalIndex: {
+    schema_version: 3,
+    generated_at: "2026-05-01T00:00:00.000Z",
+    documentCount: 2,
+    fields: {
+      text: true,
+      title: true,
+      path: true,
+      summary: true,
+      tags: true,
+      keywords: true,
+    },
+    avgFieldLengths: {
+      text: 3,
+      title: 2,
+      path: 2,
+      summary: 3,
+      tags: 1,
+      keywords: 1,
+    },
+    documents: {
+      "decision-routing": {
+        note_id: "note-routing",
+        fieldLengths: {
+          text: 3,
+          title: 2,
+          path: 2,
+          summary: 3,
+          tags: 1,
+          keywords: 2,
+        },
+      },
+      "generic-noise": {
+        note_id: "note-generic",
+        fieldLengths: {
+          text: 3,
+          title: 2,
+          path: 2,
+          summary: 3,
+          tags: 1,
+          keywords: 1,
+        },
+      },
+    },
+    terms: {
+      shell: {
+        docs: [
+          {
+            chunk_id: "decision-routing",
+            fields: {
+              title: 1,
+              path: 1,
+              keywords: 1,
+            },
+          },
+        ],
+      },
+      navigation: {
+        docs: [
+          {
+            chunk_id: "decision-routing",
+            fields: {
+              title: 1,
+              path: 1,
+              keywords: 1,
+            },
+          },
+        ],
+      },
+    },
+  },
+});
+
+const semanticFalsePositiveCorpus = indexMemoryCorpus({
+  noteRegistry: [
+    {
+      id: "note-lexical",
+      type: "reference",
+      path: "vault/reference/doc-one.md",
+      title: "Doc One",
+      status: "accepted",
+      created: "2026-05-01",
+      updated: "2026-05-01",
+      summary: "Reference note with sparse wording.",
+      tags: ["repo/playground"],
+      keywords: ["alpha"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "note-lexical-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+    {
+      id: "note-semantic",
+      type: "architecture-record",
+      path: "vault/arch/semantic.md",
+      title: "Semantic Shell Architecture",
+      status: "accepted",
+      created: "2026-05-01",
+      updated: "2026-05-01",
+      summary: "Architecture note with semantic but not lexical support.",
+      tags: ["repo/playground"],
+      keywords: ["shell", "navigation"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "note-semantic-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+  ],
+  chunkIndex: [
+    {
+      chunk_id: "routing-reference",
+      note_id: "note-lexical",
+      source_path: "vault/reference/doc-one.md § Overview",
+      heading: "Overview",
+      heading_level: 2,
+      text: "Routing note.",
+      summary: "Sparse note.",
+      tokens_estimated: 1,
+      content_hash: "routing-reference-chunk",
+      type: "reference",
+      status: "accepted",
+    },
+    {
+      chunk_id: "semantic-shell",
+      note_id: "note-semantic",
+      source_path: "vault/arch/semantic.md § Overview",
+      heading: "Overview",
+      heading_level: 2,
+      text: "Alpha beta gamma.",
+      summary: "Alpha beta gamma.",
+      tokens_estimated: 3,
+      content_hash: "semantic-shell-chunk",
+      type: "architecture-record",
+      status: "accepted",
+    },
+  ],
+  graphIndex: {
+    nodes: [],
+    edges: [],
+  },
+  vectorIndex: {
+    schema_version: 2,
+    generated_at: "2026-05-01T00:00:00.000Z",
+    status: "ready",
+    engine: DETERMINISTIC_VECTOR_ENGINE,
+    embeddings: [
+      {
+        chunk_id: "routing-reference",
+        note_id: "note-lexical",
+        values: embedTextDeterministically("deploy release topology"),
+      },
+      {
+        chunk_id: "semantic-shell",
+        note_id: "note-semantic",
+        values: embedTextDeterministically("routing direct lexical support"),
+      },
+    ],
+  },
+});
+
+const sessionSectionBiasCorpus = indexMemoryCorpus({
+  noteRegistry: [
+    {
+      id: "note-session-fusion",
+      type: "session",
+      path: "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md",
+      title: "Retrieval Rank Fusion",
+      status: "active",
+      created: "2026-04-30",
+      updated: "2026-04-30",
+      summary: "Session log for retrieval rank fusion and false-positive triage.",
+      tags: ["repo/playground"],
+      keywords: ["retrieval", "fusion", "handoff"],
+      outbound_links: [],
+      inbound_links: [],
+      content_hash: "note-session-fusion-hash",
+      mtime_ms: 1,
+      owner: "agent",
+      repo_slug: "playground",
+    },
+  ],
+  chunkIndex: [
+    {
+      chunk_id: "session-goal",
+      note_id: "note-session-fusion",
+      source_path:
+        "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md § Goal",
+      heading: "Goal",
+      heading_level: 2,
+      text: "Goal: retrieval quality hybrid fusion weighted fusion support-aware semantic promotion false positive pattern story 3 handoff.",
+      summary: "Goal for retrieval quality work.",
+      tokens_estimated: 16,
+      content_hash: "session-goal-chunk",
+      type: "session",
+      status: "active",
+    },
+    {
+      chunk_id: "session-findings",
+      note_id: "note-session-fusion",
+      source_path:
+        "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md § Findings",
+      heading: "Findings",
+      heading_level: 2,
+      text: "Findings: weighted fusion support-aware semantic promotion created a false positive pattern during retrieval quality checks.",
+      summary: "Findings from retrieval quality triage.",
+      tokens_estimated: 14,
+      content_hash: "session-findings-chunk",
+      type: "session",
+      status: "active",
+    },
+    {
+      chunk_id: "session-handoff",
+      note_id: "note-session-fusion",
+      source_path:
+        "vault/00 Repositories/playground/03 Sessions/2026-04-30 Retrieval Rank Fusion.md § Next handoff",
+      heading: "Next handoff",
+      heading_level: 2,
+      text: "Next handoff: tighten support-aware semantic promotion after confirming the false positive retrieval pattern in quality mode.",
+      summary: "Next handoff for retrieval quality follow-up.",
+      tokens_estimated: 15,
+      content_hash: "session-handoff-chunk",
+      type: "session",
+      status: "active",
+    },
+  ],
+  graphIndex: {
+    nodes: [],
+    edges: [],
+  },
+});
+
 test("retrieveMemoryCandidates favors decision note affinity and exact summary match", () => {
   const candidates = retrieveMemoryCandidates({
     corpus: indexedCorpus,
@@ -504,6 +810,59 @@ test("retrieveMemoryCandidates merges vector hits as a distinct retrieval source
   assert.ok(candidates[0]?.retrievalSources.includes("vector"));
   assert.ok(candidates[0]?.matchReasons.includes("source:hybrid"));
   assert.equal(candidates.retrieval.vector.available, true);
+});
+
+test("retrieveMemoryCandidates uses lexical index artifacts when present", () => {
+  const candidates = retrieveMemoryCandidates({
+    corpus: lexicalArtifactCorpus,
+    query: "shell navigation",
+    limit: 2,
+    queryPlan: planMemoryQuery("shell navigation"),
+  });
+
+  assert.equal(candidates[0]?.chunkId, "decision-routing");
+  assert.ok((candidates[0]?.scoreBreakdown?.lexicalScore ?? 0) > 0);
+  assert.ok(candidates[0]?.matchReasons.includes("source:lexical"));
+});
+
+test("retrieveMemoryCandidates keeps vector-only false positives below lexical matches", () => {
+  const candidates = retrieveMemoryCandidates({
+    corpus: semanticFalsePositiveCorpus,
+    query: "routing guidance",
+    limit: 2,
+    queryPlan: planMemoryQuery("routing guidance"),
+  });
+
+  assert.equal(candidates[0]?.chunkId, "routing-reference");
+  const semanticOnly = candidates.find((candidate) => candidate.chunkId === "semantic-shell");
+  assert.ok(semanticOnly);
+  assert.ok((semanticOnly.scoreBreakdown?.lexicalScore ?? 0) === 0);
+  assert.ok(candidates.indexOf(semanticOnly) > 0);
+});
+
+test("retrieveMemoryCandidates prefers operational same-note session sections over generic goals", () => {
+  const candidates = retrieveMemoryCandidates({
+    corpus: sessionSectionBiasCorpus,
+    query:
+      "obsidian retrieval quality hybrid fusion weighted fusion support-aware semantic promotion false positive pattern story 3 session",
+    limit: 3,
+    queryPlan: planMemoryQuery(
+      "obsidian retrieval quality hybrid fusion weighted fusion support-aware semantic promotion false positive pattern story 3 session",
+    ),
+  });
+
+  assert.notEqual(candidates[0]?.chunkId, "session-goal");
+  assert.ok(
+    ["session-findings", "session-handoff"].includes(candidates[0]?.chunkId ?? ""),
+  );
+  assert.ok(
+    candidates.findIndex((candidate) => candidate.chunkId === "session-goal") >
+      candidates.findIndex((candidate) => candidate.chunkId === "session-findings"),
+  );
+  assert.ok(
+    candidates.findIndex((candidate) => candidate.chunkId === "session-goal") >
+      candidates.findIndex((candidate) => candidate.chunkId === "session-handoff"),
+  );
 });
 
 test("typed retrieval normalizes migrated legacy note metadata before ranking", () => {
