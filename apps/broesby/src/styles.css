@@ -1,0 +1,70 @@
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  background:
+    radial-gradient(circle at top, rgba(208, 174, 110, 0.28), transparent 32%),
+    linear-gradient(180deg, #f7f0e4 0%, #efe2cc 100%);
+  color: #2f2417;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.gate-card {
+  width: min(100%, 28rem);
+  padding: 2rem;
+  border: 1px solid rgba(86, 61, 35, 0.16);
+  border-radius: 1.25rem;
+  background: rgba(255, 250, 241, 0.9);
+  box-shadow: 0 1.2rem 3rem rgba(91, 67, 38, 0.14);
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8b6841;
+}
+
+.gate-card h1 {
+  margin: 0 0 1.5rem;
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  line-height: 1.05;
+}
+
+.field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.field span {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(86, 61, 35, 0.24);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.9);
+}
