@@ -29,4 +29,6 @@ This file provides guidance to coding agents working in `apps/broesby/`.
 ## Architecture Notes
 
 - This workspace is a standalone private family site, separate from `apps/host`.
-- Keep early slices lightweight and easy to extend as later tasks add the gate flow and persistence.
+- Keep the app lightweight and browser-local.
+- The shared password gate is intentionally weak and only keeps casual visitors out.
+- Anecdotes and chat persist in local browser storage and are not shared across devices.
