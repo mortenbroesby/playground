@@ -92,4 +92,35 @@ describe('broesby app shell', () => {
     expect(document.body.textContent).toContain('Choose a display name');
     expect(document.body.textContent).toContain('The family noticeboard');
   });
+
+  it('allows entering with an empty password when configured empty', async () => {
+    document.body.innerHTML = '<div id="root"></div>';
+    const container = document.getElementById('root');
+
+    if (!container) {
+      throw new Error('Missing root container');
+    }
+
+    root = createRoot(container);
+
+    await act(async () => {
+      root!.render(<App sharedPassword="" />);
+      await Promise.resolve();
+    });
+
+    const enterButton = Array.from(document.querySelectorAll('button')).find(
+      (element) => element.textContent === 'Enter site',
+    );
+
+    if (!enterButton) {
+      throw new Error('Missing password gate controls');
+    }
+
+    await act(async () => {
+      enterButton.click();
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain('Choose a display name');
+  });
 });

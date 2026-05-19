@@ -7,7 +7,7 @@ status: "active"
 created: "2026-05-19"
 updated: "2026-05-19"
 owner: "agent"
-summary: "Built the Broesby family app into a real local-first frontend: shared-password gate, display-name capture, browser-local anecdotes, browser-local chat, and standalone deployment notes."
+summary: "Built the Broesby family app into a real local-first frontend: shared-password gate, display-name capture, browser-local anecdotes, browser-local chat, standalone deployment notes, and optional empty-password access."
 tags:
   - "type/session"
   - "repo/playground"
@@ -17,6 +17,7 @@ keywords:
   - "localStorage"
   - "anecdotes"
   - "chat"
+  - "empty password"
 links:
   parents: []
   children: []
@@ -66,6 +67,8 @@ adding any backend or shared auth infrastructure.
 - added focused unit and integration coverage for gate, session, storage,
   anecdotes, and chat flows
 - added app-local setup notes and SPA deployment rewrites
+- made the shared password optional so an empty configured value allows direct
+  entry
 
 ## Tests run
 
@@ -79,6 +82,8 @@ adding any backend or shared auth infrastructure.
   content is not shared across devices or browsers
 - plain React plus local CSS was enough for this slice; no extra UI or backend
   dependencies were needed
+- leaving the password empty now behaves as "no password required" while still
+  using the same client-side gate flow
 
 ## Decisions that need ADRs
 

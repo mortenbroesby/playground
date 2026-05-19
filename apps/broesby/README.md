@@ -6,9 +6,11 @@ Local checks:
 - `pnpm --filter @playground/broesby test`
 - `pnpm --filter @playground/broesby build`
 
-Required env vars:
+Optional env vars:
 
 - `VITE_BROESBY_SHARED_PASSWORD`
+
+Leave `VITE_BROESBY_SHARED_PASSWORD` empty for no password gate.
 
 Persistence notes:
 

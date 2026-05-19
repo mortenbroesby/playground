@@ -9,5 +9,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  window.localStorage.clear();
   document.body.innerHTML = '';
 });
