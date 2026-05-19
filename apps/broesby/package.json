@@ -2,6 +2,7 @@
   "name": "@playground/broesby",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "description": "Private family site for broesby.dk",
   "scripts": {
     "dev": "vite",
