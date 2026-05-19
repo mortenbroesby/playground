@@ -7,7 +7,7 @@ status: "active"
 created: "2026-05-19"
 updated: "2026-05-19"
 owner: "agent"
-summary: "Built the Broesby family app into a real local-first frontend: shared-password gate, display-name capture, browser-local anecdotes, browser-local chat, standalone deployment notes, and optional empty-password access."
+summary: "Built the Broesby family app into a real local-first frontend: shared-password gate, display-name capture, browser-local anecdotes, browser-local chat, standalone deployment notes, optional empty-password access, and a darker Atlantic visual redesign."
 tags:
   - "type/session"
   - "repo/playground"
@@ -18,6 +18,7 @@ keywords:
   - "anecdotes"
   - "chat"
   - "empty password"
+  - "atlantic redesign"
 links:
   parents: []
   children: []
@@ -69,6 +70,8 @@ adding any backend or shared auth infrastructure.
 - added app-local setup notes and SPA deployment rewrites
 - made the shared password optional so an empty configured value allows direct
   entry
+- shifted the visual system toward a darker Atlantic palette with sharper,
+  less-rounded geometry
 
 ## Tests run
 
@@ -84,6 +87,8 @@ adding any backend or shared auth infrastructure.
   dependencies were needed
 - leaving the password empty now behaves as "no password required" while still
   using the same client-side gate flow
+- the redesigned shell now feels more atmospheric and blue-led without changing
+  the underlying app structure or behavior
 
 ## Decisions that need ADRs
 
